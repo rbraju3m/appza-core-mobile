@@ -1,0 +1,21 @@
+{
+  "name": "appza-mobile",
+  "version": "0.0.0",
+  "private": true,
+  "description": "APPZA 2.0 TypeScript monorepo — shared renderer, schemas, plug-in admin simulator, and Capacitor mobile app.",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=20.19.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.9"
+}
