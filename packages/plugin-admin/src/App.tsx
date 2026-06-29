@@ -17,9 +17,41 @@ type FetchState =
 
 const DEFAULT_TEMPLATE = 'fluent-community-default';
 
+declare global {
+  interface Window {
+    appzaCoreConfig?: {
+      endpoints?: { bootstrap?: string };
+      defaultTemplate?: string;
+    };
+  }
+}
+
+/**
+ * Build the bootstrap URL with a template= parameter.
+ *
+ * In WP admin: `endpoints.bootstrap` is a fully-qualified URL localized by
+ * the plug-in (pretty `/wp-json/...` or query-form `/?rest_route=/...`
+ * depending on permalinks). We use the URL API to append `template=` so
+ * either form works correctly.
+ *
+ * Standalone dev: fall back to /wp-json/.../bootstrap, which the Vite
+ * proxy rewrites to the query form against the local WP install.
+ */
+function buildBootstrapUrl(slug: string): string {
+  const base = window.appzaCoreConfig?.endpoints?.bootstrap;
+  if (base) {
+    const url = new URL(base, window.location.origin);
+    url.searchParams.set('template', slug);
+    return url.toString();
+  }
+  return `/wp-json/appza/v1/bootstrap?template=${encodeURIComponent(slug)}`;
+}
+
 export function App() {
   const [state, setState] = useState<FetchState>({ kind: 'idle' });
-  const [templateSlug, setTemplateSlug] = useState(DEFAULT_TEMPLATE);
+  const [templateSlug, setTemplateSlug] = useState(
+    window.appzaCoreConfig?.defaultTemplate ?? DEFAULT_TEMPLATE,
+  );
   const [selectedScreenId, setSelectedScreenId] = useState<number | null>(null);
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('global');
   const [bottomTab, setBottomTab] = useState<BottomTab>(null);
@@ -32,7 +64,7 @@ export function App() {
   async function pull(slug: string) {
     setState({ kind: 'loading' });
     try {
-      const url = `/wp-json/appza/v1/bootstrap?template=${encodeURIComponent(slug)}`;
+      const url = buildBootstrapUrl(slug);
       const response = await fetch(url, { headers: { Accept: 'application/json' } });
       if (!response.ok) {
         setState({ kind: 'error', message: `HTTP ${response.status} from ${url}` });

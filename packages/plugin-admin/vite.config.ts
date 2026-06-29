@@ -2,19 +2,30 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 /**
- * Vite proxy targets the local WP install that hosts the appza-core-2.0
- * plug-in. The proxy lets the React dev server at localhost:5174 call
- * /wp-json/appza/v1/bootstrap without CORS friction.
+ * Two run modes:
  *
- * Apache on this dev box doesn't rewrite /wp-json/* through WP's
- * front-controller (no .htaccess / AllowOverride). To keep app code
- * using the canonical /wp-json/* shape, the proxy rewrites to the
- * query-form REST URL (?rest_route=/...) that works on a plain install.
- * Production targets (real WP with pretty permalinks) won't need this
- * rewrite — it's dev-environment-specific.
+ * 1. Dev (`vite` / `pnpm dev`)
+ *    - Served standalone at http://127.0.0.1:5174
+ *    - /wp-json/* proxied to the local WP install. Apache on this box
+ *      doesn't pass /wp-json/* through to WP's front-controller, so the
+ *      proxy rewrites to the query-form REST URL (?rest_route=/...) that
+ *      works on plain-permalink installs.
+ *
+ * 2. Plug-in build (`vite build` — driven by `pnpm build:plugin`)
+ *    - Output goes to packages/plugin-admin/dist, then the copy script
+ *      drops it into the appza-core-2.0 plug-in's assets/admin/.
+ *    - `base` set to the plug-in URL so hashed asset references inside
+ *      the bundle resolve under WordPress.
+ *    - `manifest: true` emits dist/manifest.json — the plug-in PHP reads
+ *      this to discover the hashed entry filenames at enqueue time.
  */
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? '/wp-content/plugins/appza-core-2.0/assets/admin/' : '/',
   plugins: [react()],
+  build: {
+    manifest: true,
+    assetsDir: '',
+  },
   server: {
     port: 5174,
     host: '127.0.0.1',
@@ -34,4 +45,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));
