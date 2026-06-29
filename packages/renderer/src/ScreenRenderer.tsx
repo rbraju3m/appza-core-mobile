@@ -2,10 +2,13 @@ import { useMemo } from 'react';
 import type { Catalog, TemplateScreen } from '@appza/schemas';
 import { indexCatalog } from './catalogIndex';
 import { PlacementRenderer } from './PlacementRenderer';
+import { resolveOverridableColumn } from './resolveOverride';
+import { tokensToCssVars } from './tokens';
 
 type ScreenRendererProps = {
   screen: TemplateScreen;
   catalog: Catalog;
+  customizations?: unknown;
 };
 
 type SlotKey = 'header' | 'main' | 'footer' | 'actions' | 'other';
@@ -22,12 +25,46 @@ const SLOT_LABEL: Record<SlotKey, string> = {
 
 /**
  * Renders a single TemplateScreen into Ionic-styled JSX. Top-level layout
- * follows the four slot conventions seen in v1 catalog data (header, main,
- * actions, footer); unrecognized slots fall into an "other" bucket so
- * future Source Integrations adding new slots degrade gracefully.
+ * follows the four slot conventions (header / main / actions / footer);
+ * unrecognized slots fall into an "other" bucket so future Source
+ * Integrations adding new slots degrade gracefully.
+ *
+ * Tokens cascade (DC#09 Q2 visual cascade + DC#13 Q2 customer overrides):
+ *   Layer 1: catalog Template.tokens
+ *   Layer 2: customizations.template.<slug>.tokens (leaf-level REPLACE)
+ *   Layer 3: catalog TemplateScreen.screen_tokens (per-screen narrowing)
+ *   Layer 4: customizations.template_screen.<slug>.screen_tokens (override)
+ *
+ * Resolved tokens become CSS custom properties on the renderer root, so
+ * Ionic components inside the subtree pick them up automatically.
  */
-export function ScreenRenderer({ screen, catalog }: ScreenRendererProps) {
+export function ScreenRenderer({ screen, catalog, customizations }: ScreenRendererProps) {
   const catalogIndex = useMemo(() => indexCatalog(catalog), [catalog]);
+
+  const cssVars = useMemo(() => {
+    const templateSlug = catalog.template?.slug ?? '';
+    const baseTokens = (catalog.template?.tokens as unknown) ?? {};
+    const templateTokens = resolveOverridableColumn(
+      customizations,
+      'template',
+      templateSlug,
+      'tokens',
+      baseTokens,
+    );
+    const baseScreenTokens = (screen.screen_tokens as unknown) ?? {};
+    const screenTokens = resolveOverridableColumn(
+      customizations,
+      'template_screen',
+      screen.app_map_screen_slug,
+      'screen_tokens',
+      baseScreenTokens,
+    );
+    // Merge template-level under screen-level (screen wins where set).
+    return {
+      ...tokensToCssVars(templateTokens),
+      ...tokensToCssVars(screenTokens),
+    };
+  }, [catalog.template, screen, customizations]);
 
   const placements = screen.placements ?? [];
   const bySlot = new Map<SlotKey, Array<{ appzet_slug: string }>>();
@@ -43,7 +80,7 @@ export function ScreenRenderer({ screen, catalog }: ScreenRendererProps) {
 
   if (placements.length === 0) {
     return (
-      <div className="appza-renderer-empty">
+      <div className="appza-renderer-empty" style={cssVars}>
         <p>No placements on this screen.</p>
         <small>Wire AppZets to slots in the Core admin to see them here.</small>
       </div>
@@ -51,7 +88,7 @@ export function ScreenRenderer({ screen, catalog }: ScreenRendererProps) {
   }
 
   return (
-    <div className="appza-renderer-screen">
+    <div className="appza-renderer-screen" style={cssVars}>
       {SLOT_ORDER.map((slot) => {
         const list = bySlot.get(slot);
         if (!list || list.length === 0) return null;

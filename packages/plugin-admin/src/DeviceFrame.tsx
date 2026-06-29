@@ -4,10 +4,11 @@ import type { Catalog, TemplateScreen } from '@appza/schemas';
 type DeviceFrameProps = {
   screen: TemplateScreen | null;
   catalog: Catalog | null;
+  customizations?: unknown;
   templateName?: string;
 };
 
-export function DeviceFrame({ screen, catalog, templateName }: DeviceFrameProps) {
+export function DeviceFrame({ screen, catalog, customizations, templateName }: DeviceFrameProps) {
   return (
     <div className="appza-device-frame">
       <div className="appza-device-statusbar">
@@ -23,7 +24,11 @@ export function DeviceFrame({ screen, catalog, templateName }: DeviceFrameProps)
             <p>Pick a screen.</p>
           </div>
         ) : (
-          <ScreenRenderer screen={screen} catalog={catalog} />
+          <ScreenRenderer
+            screen={screen}
+            catalog={catalog}
+            customizations={customizations}
+          />
         )}
       </div>
 
