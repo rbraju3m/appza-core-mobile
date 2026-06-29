@@ -1,8 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   BootstrapEnvelopeSchema,
   type BootstrapEnvelope,
+  type TemplateScreen,
 } from '@appza/schemas';
+
+import { TopBar } from './TopBar';
+import { Sidebar, type BottomTab, type SidebarTab } from './Sidebar';
+import { DeviceFrame } from './DeviceFrame';
 
 type FetchState =
   | { kind: 'idle' }
@@ -15,9 +20,13 @@ const DEFAULT_TEMPLATE = 'fluent-community-default';
 export function App() {
   const [state, setState] = useState<FetchState>({ kind: 'idle' });
   const [templateSlug, setTemplateSlug] = useState(DEFAULT_TEMPLATE);
+  const [selectedScreenId, setSelectedScreenId] = useState<number | null>(null);
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('global');
+  const [bottomTab, setBottomTab] = useState<BottomTab>(null);
 
   useEffect(() => {
     pull(templateSlug);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function pull(slug: string) {
@@ -41,6 +50,9 @@ export function App() {
         return;
       }
       setState({ kind: 'ok', envelope: parsed.data });
+      // Auto-select first screen on successful load.
+      const firstScreen = parsed.data.catalog.template_screens?.[0];
+      setSelectedScreenId(firstScreen ? firstScreen.id : null);
     } catch (err) {
       setState({
         kind: 'error',
@@ -49,70 +61,115 @@ export function App() {
     }
   }
 
-  return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', padding: '24px', maxWidth: 920 }}>
-      <h1 style={{ margin: 0 }}>APPZA — Plug-in Admin (simulator)</h1>
-      <p style={{ color: '#666', marginTop: 4 }}>
-        Phase 1C.1 — end-to-end wiring. Fetches the bootstrap envelope from the
-        WP plug-in, validates with <code>@appza/schemas</code>, displays
-        parsed result.
-      </p>
+  const envelope = state.kind === 'ok' ? state.envelope : null;
+  const catalog = envelope?.catalog;
+  const screens = catalog?.template_screens ?? [];
+  const appzets = catalog?.appzets ?? [];
+  const superstructures = catalog?.superstructures ?? [];
 
-      <section style={{ marginTop: 24, display: 'flex', gap: 8, alignItems: 'center' }}>
-        <label htmlFor="slug">Template slug:</label>
-        <input
-          id="slug"
-          value={templateSlug}
-          onChange={(e) => setTemplateSlug(e.target.value)}
-          style={{ padding: '6px 10px', fontFamily: 'monospace' }}
+  const currentScreen = useMemo<TemplateScreen | null>(() => {
+    if (!selectedScreenId) return null;
+    return screens.find((s) => s.id === selectedScreenId) ?? null;
+  }, [selectedScreenId, screens]);
+
+  const bottomPanel = useMemo(() => {
+    if (!bottomTab || !envelope) return null;
+    if (bottomTab === 'settings') {
+      return renderSettings(envelope);
+    }
+    return renderThemes(catalog?.template?.tokens, currentScreen?.screen_tokens);
+  }, [bottomTab, envelope, catalog, currentScreen]);
+
+  return (
+    <div className="appza-shell">
+      <TopBar
+        screens={screens}
+        selectedScreenId={selectedScreenId}
+        onSelectScreen={setSelectedScreenId}
+        templateSlug={templateSlug}
+        onTemplateSlugChange={setTemplateSlug}
+        onReload={() => pull(templateSlug)}
+        loading={state.kind === 'loading'}
+      />
+
+      {state.kind === 'error' && <div className="appza-status">{state.message}</div>}
+
+      <div className="appza-body">
+        <Sidebar
+          sidebarTab={sidebarTab}
+          onSelectTab={setSidebarTab}
+          appzets={appzets}
+          superstructures={superstructures}
+          currentScreen={currentScreen}
+          bottomTab={bottomTab}
+          onSelectBottomTab={setBottomTab}
+          bottomPanel={bottomPanel}
         />
-        <button onClick={() => pull(templateSlug)} style={{ padding: '6px 14px' }}>
-          Pull
-        </button>
-      </section>
 
-      <section style={{ marginTop: 24 }}>{renderState(state)}</section>
-    </main>
-  );
-}
-
-function renderState(state: FetchState) {
-  if (state.kind === 'idle') return <p>Idle.</p>;
-  if (state.kind === 'loading') return <p>Loading…</p>;
-  if (state.kind === 'error') {
-    return (
-      <div style={{ background: '#fee', padding: 16, borderRadius: 4 }}>
-        <strong>Error:</strong> {state.message}
+        <main className="appza-center">
+          {state.kind === 'loading' ? (
+            <div className="appza-loading">Loading…</div>
+          ) : (
+            <DeviceFrame screen={currentScreen} templateName={catalog?.template?.name} />
+          )}
+        </main>
       </div>
-    );
-  }
-  const { envelope } = state;
-  return (
-    <div>
-      <table style={{ borderCollapse: 'collapse' }}>
-        <tbody>
-          <Row label="schema_version" value={envelope.schema_version} />
-          <Row label="catalog_snapshot_version" value={String(envelope.catalog_snapshot_version)} />
-          <Row label="customizations_version" value={String(envelope.customizations_version)} />
-          <Row label="catalog keys" value={Object.keys(envelope.catalog).join(', ') || '(empty)'} />
-          <Row label="runtime_config keys" value={Object.keys(envelope.runtime_config).join(', ') || '(empty)'} />
-        </tbody>
-      </table>
-      <details style={{ marginTop: 16 }}>
-        <summary style={{ cursor: 'pointer' }}>Raw envelope</summary>
-        <pre style={{ background: '#f4f4f4', padding: 12, overflow: 'auto', maxHeight: 480 }}>
-          {JSON.stringify(envelope, null, 2)}
-        </pre>
-      </details>
     </div>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function renderSettings(envelope: BootstrapEnvelope) {
+  const cfg = envelope.runtime_config as Record<string, unknown>;
+  const rows: Array<[string, string]> = [
+    ['schema_version', envelope.schema_version],
+    ['catalog_snapshot_version', String(envelope.catalog_snapshot_version)],
+    ['customizations_version', String(envelope.customizations_version)],
+    ...Object.entries(cfg).map(([k, v]) => [k, formatValue(v)] as [string, string]),
+  ];
   return (
-    <tr>
-      <td style={{ padding: '4px 12px 4px 0', color: '#666', verticalAlign: 'top' }}>{label}</td>
-      <td style={{ padding: '4px 0', fontFamily: 'monospace' }}>{value}</td>
-    </tr>
+    <>
+      <p className="appza-bottom-panel-title">Settings</p>
+      {rows.map(([k, v]) => (
+        <div className="appza-bottom-panel-row" key={k}>
+          <span className="appza-bottom-panel-key">{k}</span>
+          <span className="appza-bottom-panel-value">{v}</span>
+        </div>
+      ))}
+    </>
   );
+}
+
+function renderThemes(templateTokens: unknown, screenTokens: unknown) {
+  const tpl = isRecord(templateTokens) ? templateTokens : {};
+  const scr = isRecord(screenTokens) ? screenTokens : {};
+  return (
+    <>
+      <p className="appza-bottom-panel-title">Themes</p>
+      <div className="appza-bottom-panel-row">
+        <span className="appza-bottom-panel-key">template.tokens</span>
+        <span className="appza-bottom-panel-value">{summarize(tpl)}</span>
+      </div>
+      <div className="appza-bottom-panel-row">
+        <span className="appza-bottom-panel-key">screen_tokens</span>
+        <span className="appza-bottom-panel-value">{summarize(scr)}</span>
+      </div>
+    </>
+  );
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function summarize(obj: Record<string, unknown>): string {
+  const keys = Object.keys(obj);
+  if (keys.length === 0) return '(empty)';
+  return keys.join(', ');
+}
+
+function formatValue(v: unknown): string {
+  if (v === null) return 'null';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  return JSON.stringify(v);
 }

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { CatalogSchema } from './catalog';
+
 /**
  * Bootstrap envelope — what GET /wp-json/appza/v1/bootstrap returns.
  *
@@ -8,15 +10,17 @@ import { z } from 'zod';
  * pulled from the Core via /api/v1/catalog/snapshot. Versioning per
  * DC#13 Q5 + DC#15 Q1.
  *
- * v1 keeps `catalog` permissive (z.record). Stricter per-table schemas
- * land alongside the renderer (Phase 1C.3) when the renderer actually
- * needs to depend on specific column shapes.
+ * `catalog` is typed against CatalogSchema (typed row shapes for the
+ * tables the simulator + renderer read). `customizations` and
+ * `runtime_config` stay permissive — they'll get their own typed
+ * schemas alongside the JWT slice (1B.6) and customizations admin
+ * slice (1B.5).
  */
 export const BootstrapEnvelopeSchema = z.object({
   schema_version: z.string(),
   catalog_snapshot_version: z.number().int().nonnegative(),
   customizations_version: z.number().int().nonnegative(),
-  catalog: z.record(z.unknown()),
+  catalog: CatalogSchema,
   customizations: z.record(z.unknown()),
   runtime_config: z.record(z.unknown()),
 });
