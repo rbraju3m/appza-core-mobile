@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { AppZet, Superstructure, TemplateScreen } from '@appza/schemas';
 
 export type SidebarTab = 'global' | 'screen';
-export type BottomTab = null | 'settings' | 'themes';
+export type BottomTab = null | 'settings' | 'themes' | 'overrides';
 
 type SidebarProps = {
   sidebarTab: SidebarTab;
@@ -108,6 +108,14 @@ export function Sidebar({
           <PaintIcon />
           Themes
         </button>
+        <button
+          className="appza-bottom-tab"
+          data-active={bottomTab === 'overrides'}
+          onClick={() => onSelectBottomTab(bottomTab === 'overrides' ? null : 'overrides')}
+        >
+          <OverridesIcon />
+          Overrides
+        </button>
       </div>
     </aside>
   );
@@ -189,6 +197,14 @@ function PaintIcon() {
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
       <path d="M3 6l5-3 5 3v3H3V6z" />
       <path d="M6 9v3a2 2 0 002 2v0a2 2 0 002-2V9" />
+    </svg>
+  );
+}
+
+function OverridesIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M2 4h12M4 8h8M6 12h4" />
     </svg>
   );
 }

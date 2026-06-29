@@ -388,6 +388,153 @@ body {
   word-break: break-all;
 }
 
+/* ------- overrides panel ------- */
+
+.appza-overrides {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.appza-overrides-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.appza-overrides-empty {
+  color: var(--appza-text-muted);
+  font-style: italic;
+  font-size: 0.85rem;
+  padding: 6px 0;
+}
+
+.appza-overrides-error {
+  background: #fef2f2;
+  color: #b91c1c;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.appza-overrides-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.appza-overrides-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 2px 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--appza-border);
+  border-radius: 4px;
+}
+
+.appza-overrides-row-meta {
+  font-size: 0.78rem;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.appza-overrides-row-scope {
+  background: var(--appza-bg-alt);
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: var(--appza-text);
+  font-weight: 500;
+}
+
+.appza-overrides-row-target {
+  color: var(--appza-text-muted);
+  font-family: monospace;
+}
+
+.appza-overrides-row-column {
+  color: var(--appza-primary);
+  font-family: monospace;
+}
+
+.appza-overrides-row-value {
+  grid-column: 1;
+  font-family: monospace;
+  font-size: 0.72rem;
+  color: var(--appza-text-muted);
+  background: var(--appza-bg-canvas);
+  padding: 2px 6px;
+  border-radius: 3px;
+  word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 40px;
+}
+
+.appza-overrides-row-delete {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: 1px solid var(--appza-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--appza-text-muted);
+}
+
+.appza-overrides-row-delete:hover {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.appza-overrides-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--appza-bg-canvas);
+  border-radius: 4px;
+  margin-bottom: 6px;
+}
+
+.appza-overrides-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.78rem;
+}
+
+.appza-overrides-field span {
+  color: var(--appza-text-muted);
+}
+
+.appza-overrides-field input,
+.appza-overrides-field select,
+.appza-overrides-field textarea {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  border: 1px solid var(--appza-border-strong);
+  border-radius: 4px;
+  font-family: monospace;
+  background: white;
+}
+
+.appza-overrides-field-value textarea {
+  resize: vertical;
+}
+
 /* ------- status / error ------- */
 
 .appza-status {

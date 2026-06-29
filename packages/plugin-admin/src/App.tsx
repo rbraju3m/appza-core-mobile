@@ -8,6 +8,7 @@ import {
 import { TopBar } from './TopBar';
 import { Sidebar, type BottomTab, type SidebarTab } from './Sidebar';
 import { DeviceFrame } from './DeviceFrame';
+import { OverridesPanel } from './OverridesPanel';
 
 type FetchState =
   | { kind: 'idle' }
@@ -20,7 +21,11 @@ const DEFAULT_TEMPLATE = 'fluent-community-default';
 declare global {
   interface Window {
     appzaCoreConfig?: {
-      endpoints?: { bootstrap?: string };
+      endpoints?: {
+        bootstrap?: string;
+        customizations?: string;
+      };
+      restNonce?: string;
       defaultTemplate?: string;
     };
   }
@@ -109,8 +114,29 @@ export function App() {
     if (bottomTab === 'settings') {
       return renderSettings(envelope);
     }
-    return renderThemes(catalog?.template?.tokens, currentScreen?.screen_tokens);
-  }, [bottomTab, envelope, catalog, currentScreen]);
+    if (bottomTab === 'themes') {
+      return renderThemes(catalog?.template?.tokens, currentScreen?.screen_tokens);
+    }
+    // overrides
+    const customizationsEndpoint = window.appzaCoreConfig?.endpoints?.customizations;
+    const nonce = window.appzaCoreConfig?.restNonce;
+    if (!customizationsEndpoint || !nonce) {
+      return (
+        <p className="appza-bottom-panel-title">
+          Overrides UI requires the WP-admin host. Open this page inside /wp-admin/.
+        </p>
+      );
+    }
+    return (
+      <OverridesPanel
+        listEndpoint={customizationsEndpoint}
+        mutateEndpoint={customizationsEndpoint}
+        restNonce={nonce}
+        onChanged={() => pull(templateSlug)}
+      />
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bottomTab, envelope, catalog, currentScreen, templateSlug]);
 
   return (
     <div className="appza-shell">
