@@ -13,6 +13,17 @@ import { z } from 'zod';
  * so every list field is optional and defaults to [].
  */
 
+/**
+ * Defensive shape for "object-shaped JSON leaf bags" (DC#09 / DC#10 tokens
+ * + screen_tokens + similar). The wire contract says these are objects,
+ * but PHP empty-array-vs-JSON-object semantics mean older snapshots in
+ * the wild may carry `[]` for "empty". Accepting either form keeps the
+ * renderer working across mixed snapshot generations; source-side
+ * normalization (in Core's BootstrapSnapshotService + the plug-in's
+ * BootstrapController) heals the data going forward.
+ */
+const TokenBagSchema = z.union([z.record(z.unknown()), z.array(z.unknown())]);
+
 const TemplateRowSchema = z
   .object({
     id: z.number().int().optional(),
@@ -21,7 +32,7 @@ const TemplateRowSchema = z
     description: z.string().nullable().optional(),
     source_integration_id: z.number().int().optional(),
     app_map_id: z.number().int().optional(),
-    tokens: z.record(z.unknown()).optional(),
+    tokens: TokenBagSchema.optional(),
     preview_image_url: z.string().nullable().optional(),
     is_active: z.boolean().optional(),
     catalog_version: z.number().int().optional(),
@@ -34,7 +45,7 @@ const TemplateScreenRowSchema = z
     template_id: z.number().int().optional(),
     app_map_screen_slug: z.string(),
     placements: z.array(z.record(z.unknown())).default([]),
-    screen_tokens: z.record(z.unknown()).nullable().optional(),
+    screen_tokens: TokenBagSchema.nullable().optional(),
   })
   .passthrough();
 
