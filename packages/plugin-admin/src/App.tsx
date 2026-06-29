@@ -110,7 +110,7 @@ export function App() {
           {state.kind === 'loading' ? (
             <div className="appza-loading">Loading…</div>
           ) : (
-            <DeviceFrame screen={currentScreen} templateName={catalog?.template?.name} />
+            <DeviceFrame screen={currentScreen} catalog={catalog ?? null} templateName={catalog?.template?.name} />
           )}
         </main>
       </div>

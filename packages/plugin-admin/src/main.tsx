@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { setupIonicReact } from '@ionic/react';
 
 import '@ionic/react/css/core.css';
+import '@appza/renderer/styles.css';
 import './styles.css';
 
 import { App } from './App';

@@ -17,6 +17,9 @@ importers:
 
   packages/plugin-admin:
     dependencies:
+      '@appza/renderer':
+        specifier: workspace:*
+        version: link:../renderer
       '@appza/schemas':
         specifier: workspace:*
         version: link:../schemas
@@ -51,6 +54,25 @@ importers:
       vite:
         specifier: ^5.4.11
         version: 5.4.21
+
+  packages/renderer:
+    dependencies:
+      '@appza/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+      '@ionic/react':
+        specifier: ^8.4.0
+        version: 8.8.12(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.12
+        version: 18.3.31
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
 
   packages/schemas:
     dependencies:

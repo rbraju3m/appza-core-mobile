@@ -290,13 +290,12 @@ body {
 }
 
 .appza-device-frame {
-  width: 360px;
-  min-height: 640px;
-  background: white;
-  border: 1px solid var(--appza-border-strong);
-  border-radius: 36px;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.08);
-  padding: 24px;
+  width: 380px;
+  height: 700px;
+  background: #1f2937;
+  border-radius: 38px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
+  padding: 12px;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -305,98 +304,49 @@ body {
 .appza-device-frame::before {
   content: "";
   position: absolute;
-  top: 14px;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
-  width: 80px;
-  height: 4px;
-  background: var(--appza-bg-alt);
+  width: 70px;
+  height: 5px;
+  background: #0f172a;
   border-radius: 999px;
+  z-index: 1;
 }
 
-.appza-device-content {
-  margin-top: 28px;
+.appza-device-statusbar {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  color: #cbd5e1;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+.appza-device-statusbar-screen {
+  font-family: monospace;
+  opacity: 0.85;
+}
+
+.appza-device-render-area {
   flex: 1;
+  background: var(--appza-bg);
+  border-radius: 24px;
+  padding: 14px;
+  overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-.appza-device-heading {
-  font-size: 0.78rem;
-  color: var(--appza-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin: 0;
-}
-
-.appza-device-screen-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin: 0;
-  font-family: monospace;
-}
-
-.appza-device-meta {
-  display: grid;
-  grid-template-columns: 130px 1fr;
-  gap: 6px 12px;
-  font-size: 0.85rem;
-  padding: 12px 14px;
-  background: var(--appza-bg-canvas);
-  border-radius: 8px;
-}
-
-.appza-device-meta-key {
-  color: var(--appza-text-muted);
-}
-
-.appza-device-meta-value {
-  font-family: monospace;
-  word-break: break-all;
-}
-
-.appza-device-placements {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.appza-device-placement {
-  border: 1px dashed var(--appza-border-strong);
-  border-radius: 6px;
-  padding: 10px 12px;
-  font-size: 0.85rem;
-  background: var(--appza-bg-canvas);
-}
-
-.appza-device-placement-slot {
-  color: var(--appza-text-muted);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.appza-device-placement-slug {
-  font-family: monospace;
-  font-weight: 500;
-}
-
-.appza-device-empty {
-  color: var(--appza-text-muted);
-  font-size: 0.9rem;
-  font-style: italic;
-  margin: 0;
 }
 
 .appza-device-footer {
-  margin-top: auto;
-  padding-top: 16px;
-  border-top: 1px solid var(--appza-bg-alt);
-  font-size: 0.75rem;
-  color: var(--appza-text-muted);
-  text-align: center;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 0.7rem;
 }
 
 /* ------- settings / themes (bottom panel) ------- */
