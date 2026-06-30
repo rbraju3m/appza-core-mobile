@@ -63,10 +63,15 @@ const AppZetRowSchema = z
   .passthrough();
 
 /**
- * One `properties_schema` entry on a Superstructure. `binds_to` is the
- * DC#16 (provisional) prop-binding spec: when present, the renderer routes
- * the matching AppZet `default_props_override` value to a specific child
- * primitive's prop. Grammar v1: `children[<index>].<propName>`.
+ * One `properties_schema` entry on a Superstructure.
+ *
+ * - `binds_to` (DC#16, provisional): routes the matching AppZet
+ *   `default_props_override` value to a specific child primitive's prop.
+ *   Grammar v1: `children[<index>].<propName>`.
+ * - `controls_visibility_of` (DC#17, provisional): when the bool value
+ *   resolves true → the named child renders; false → the child is skipped
+ *   without renumbering surviving siblings. Grammar v1:
+ *   `children[<index>]`.
  */
 const PropertiesSchemaEntrySchema = z
   .object({
@@ -75,6 +80,7 @@ const PropertiesSchemaEntrySchema = z
     default: z.unknown().optional(),
     exposed_to_builder: z.boolean().optional(),
     binds_to: z.string().optional(),
+    controls_visibility_of: z.string().optional(),
   })
   .passthrough();
 

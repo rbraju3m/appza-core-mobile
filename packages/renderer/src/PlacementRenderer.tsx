@@ -9,6 +9,7 @@ type PlacementRendererProps = {
 };
 
 type ChildOverrides = Record<number, Record<string, unknown>>;
+type HiddenIndices = ReadonlySet<number>;
 
 /**
  * Walks one placement: AppZet -> Superstructure -> children. Children
@@ -36,6 +37,7 @@ export function PlacementRenderer({ appzetSlug, catalogIndex }: PlacementRendere
   }
 
   const childOverrides = computeChildOverrides(ss, appzet);
+  const hiddenIndices = computeHiddenIndices(ss, appzet);
 
   return (
     <div className="appza-renderer-appzet" data-slug={appzet.slug}>
@@ -44,6 +46,7 @@ export function PlacementRenderer({ appzetSlug, catalogIndex }: PlacementRendere
         catalogIndex={catalogIndex}
         depth={0}
         childOverrides={childOverrides}
+        hiddenIndices={hiddenIndices}
       />
     </div>
   );
@@ -54,6 +57,7 @@ type SuperstructureRendererProps = {
   catalogIndex: CatalogIndex;
   depth: number;
   childOverrides?: ChildOverrides;
+  hiddenIndices?: HiddenIndices;
 };
 
 const MAX_DEPTH = 4;
@@ -63,6 +67,7 @@ function SuperstructureRenderer({
   catalogIndex,
   depth,
   childOverrides,
+  hiddenIndices,
 }: SuperstructureRendererProps) {
   if (depth > MAX_DEPTH) {
     return <MissingNode label={`depth>${MAX_DEPTH} at ${ss.slug}`} />;
@@ -75,11 +80,14 @@ function SuperstructureRenderer({
 
   return (
     <div className="appza-renderer-ss" data-slug={ss.slug}>
-      {children.map((child, idx) => (
-        <Fragment key={`${child.slug}:${idx}`}>
-          {renderChild(child.slug, catalogIndex, depth + 1, childOverrides?.[idx])}
-        </Fragment>
-      ))}
+      {children.map((child, idx) => {
+        if (hiddenIndices?.has(idx)) return null;
+        return (
+          <Fragment key={`${child.slug}:${idx}`}>
+            {renderChild(child.slug, catalogIndex, depth + 1, childOverrides?.[idx])}
+          </Fragment>
+        );
+      })}
     </div>
   );
 }
@@ -157,6 +165,46 @@ function parseBindsTo(spec: string): { index: number; propName: string } | null 
   const index = Number.parseInt(match[1], 10);
   if (!Number.isInteger(index) || index < 0) return null;
   return { index, propName: match[2] };
+}
+
+/** Parses `children[<index>]` → `{index}`. */
+function parseChildIndex(spec: string): { index: number } | null {
+  const match = /^children\[(\d+)\]$/.exec(spec);
+  if (!match || !match[1]) return null;
+  const index = Number.parseInt(match[1], 10);
+  if (!Number.isInteger(index) || index < 0) return null;
+  return { index };
+}
+
+/**
+ * Builds the set of child indices to hide for an AppZet's top-level SS,
+ * per DC#17 v1 (`controls_visibility_of: 'children[<index>]'`). Effective
+ * bool per entry: AppZet `default_props_override[<name>]` → schema
+ * `default` → fallback false (hide). Hidden indices are SKIPPED during
+ * the children walk without renumbering — DC#16 `binds_to` paths still
+ * resolve to the original positions on the surviving children.
+ */
+function computeHiddenIndices(ss: Superstructure, appzet: AppZet): HiddenIndices {
+  const schema = (ss.properties_schema ?? null) as PropertiesSchemaEntry[] | null;
+  if (!Array.isArray(schema) || schema.length === 0) return new Set();
+
+  const overrides = (appzet.default_props_override ?? null) as Record<string, unknown> | null;
+  const hidden = new Set<number>();
+
+  for (const entry of schema) {
+    const spec = typeof entry.controls_visibility_of === 'string' ? entry.controls_visibility_of : null;
+    if (!spec) continue;
+    const parsed = parseChildIndex(spec);
+    if (!parsed) continue;
+
+    const rawValue =
+      overrides && entry.name in overrides
+        ? overrides[entry.name]
+        : entry.default;
+    const shouldShow = rawValue === true;
+    if (!shouldShow) hidden.add(parsed.index);
+  }
+  return hidden;
 }
 
 function MissingNode({ label }: { label: string }) {
