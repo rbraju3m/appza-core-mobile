@@ -178,11 +178,17 @@ function parseChildIndex(spec: string): { index: number } | null {
 
 /**
  * Builds the set of child indices to hide for an AppZet's top-level SS,
- * per DC#17 v1 (`controls_visibility_of: 'children[<index>]'`). Effective
- * bool per entry: AppZet `default_props_override[<name>]` → schema
- * `default` → fallback false (hide). Hidden indices are SKIPPED during
- * the children walk without renumbering — DC#16 `binds_to` paths still
- * resolve to the original positions on the surviving children.
+ * combining DC#17 (`controls_visibility_of`) + DC#18 (`controls_branch`).
+ * Effective bool per entry: AppZet `default_props_override[<name>]` →
+ * schema `default` → fallback false (hide / use false-branch).
+ *
+ * `controls_branch` and `controls_visibility_of` are mutually exclusive
+ * on a single entry; if both are set, `controls_branch` wins (no warning
+ * — same silent-no-op posture as the rest of the renderer).
+ *
+ * Hidden indices are SKIPPED during the children walk without
+ * renumbering — DC#16 `binds_to` paths still resolve to the original
+ * positions on the surviving children.
  */
 function computeHiddenIndices(ss: Superstructure, appzet: AppZet): HiddenIndices {
   const schema = (ss.properties_schema ?? null) as PropertiesSchemaEntry[] | null;
@@ -192,19 +198,45 @@ function computeHiddenIndices(ss: Superstructure, appzet: AppZet): HiddenIndices
   const hidden = new Set<number>();
 
   for (const entry of schema) {
+    const rawValue =
+      overrides && entry.name in overrides
+        ? overrides[entry.name]
+        : entry.default;
+    const boolValue = rawValue === true;
+
+    if (entry.controls_branch) {
+      const showIndices = parseChildIndexList(
+        boolValue ? entry.controls_branch.true : entry.controls_branch.false,
+      );
+      const hideIndices = parseChildIndexList(
+        boolValue ? entry.controls_branch.false : entry.controls_branch.true,
+      );
+      for (const idx of hideIndices) {
+        if (!showIndices.has(idx)) hidden.add(idx);
+      }
+      continue;
+    }
+
     const spec = typeof entry.controls_visibility_of === 'string' ? entry.controls_visibility_of : null;
     if (!spec) continue;
     const parsed = parseChildIndex(spec);
     if (!parsed) continue;
 
-    const rawValue =
-      overrides && entry.name in overrides
-        ? overrides[entry.name]
-        : entry.default;
-    const shouldShow = rawValue === true;
-    if (!shouldShow) hidden.add(parsed.index);
+    if (!boolValue) hidden.add(parsed.index);
   }
   return hidden;
+}
+
+/** Parses an array of `children[<index>]` specs into a Set of indices. */
+function parseChildIndexList(specs: string[] | undefined): Set<number> {
+  const out = new Set<number>();
+  if (!Array.isArray(specs)) return out;
+  for (const spec of specs) {
+    if (typeof spec !== 'string') continue;
+    const parsed = parseChildIndex(spec);
+    if (parsed) out.add(parsed.index);
+  }
+  return out;
 }
 
 function MissingNode({ label }: { label: string }) {

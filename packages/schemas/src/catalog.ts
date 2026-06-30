@@ -72,6 +72,11 @@ const AppZetRowSchema = z
  *   resolves true → the named child renders; false → the child is skipped
  *   without renumbering surviving siblings. Grammar v1:
  *   `children[<index>]`.
+ * - `controls_branch` (DC#18, provisional): bool selects which subset of
+ *   children render. Children listed only in the OPPOSITE branch from
+ *   the current value are hidden; children listed in both branches or
+ *   neither are always shown. Mutually exclusive with
+ *   `controls_visibility_of` on a single entry.
  */
 const PropertiesSchemaEntrySchema = z
   .object({
@@ -81,6 +86,12 @@ const PropertiesSchemaEntrySchema = z
     exposed_to_builder: z.boolean().optional(),
     binds_to: z.string().optional(),
     controls_visibility_of: z.string().optional(),
+    controls_branch: z
+      .object({
+        true: z.array(z.string()).optional(),
+        false: z.array(z.string()).optional(),
+      })
+      .optional(),
   })
   .passthrough();
 
