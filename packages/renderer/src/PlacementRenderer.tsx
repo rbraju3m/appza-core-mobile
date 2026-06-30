@@ -1,12 +1,40 @@
-import { Fragment } from 'react';
 import type { AppZet, PropertiesSchemaEntry, Superstructure } from '@appza/schemas';
 import type { CatalogIndex } from './catalogIndex';
 import { PrimitiveRenderer } from './PrimitiveRenderer';
+import { readDataPath, useDataSource } from './dataFetch';
+import { resolveOverridableColumn } from './resolveOverride';
 
 type PlacementRendererProps = {
   appzetSlug: string;
   catalogIndex: CatalogIndex;
+  customizations?: unknown;
+  selectedAppzetSlug?: string | null;
+  onSelectAppzet?: (slug: string | null) => void;
 };
+
+type SpacingOverride = {
+  margin_h?: number;
+  margin_v?: number;
+  padding_h?: number;
+  padding_v?: number;
+  border_radius?: number;
+  border_width?: number;
+  border_color?: string;
+};
+
+function spacingStyle(spacing: SpacingOverride | undefined): React.CSSProperties {
+  if (!spacing) return {};
+  const style: React.CSSProperties = {};
+  if (typeof spacing.margin_h === 'number') style.marginInline = `${spacing.margin_h}px`;
+  if (typeof spacing.margin_v === 'number') style.marginBlock = `${spacing.margin_v}px`;
+  if (typeof spacing.padding_h === 'number') style.paddingInline = `${spacing.padding_h}px`;
+  if (typeof spacing.padding_v === 'number') style.paddingBlock = `${spacing.padding_v}px`;
+  if (typeof spacing.border_radius === 'number') style.borderRadius = `${spacing.border_radius}px`;
+  if (typeof spacing.border_width === 'number') style.borderWidth = `${spacing.border_width}px`;
+  if (typeof spacing.border_width === 'number' && spacing.border_width > 0) style.borderStyle = 'solid';
+  if (typeof spacing.border_color === 'string') style.borderColor = spacing.border_color;
+  return style;
+}
 
 type ChildOverrides = Record<number, Record<string, unknown>>;
 type HiddenIndices = ReadonlySet<number>;
@@ -23,33 +51,155 @@ type HiddenIndices = ReadonlySet<number>;
  * grammar — `children[<index>].<propName>`). Nested Superstructures
  * receive no overrides at v1 (scope deferred).
  */
-export function PlacementRenderer({ appzetSlug, catalogIndex }: PlacementRendererProps) {
-  const appzet = catalogIndex.appzetBySlug.get(appzetSlug);
-  if (!appzet) {
-    return <MissingNode label={`unknown appzet: ${appzetSlug}`} />;
-  }
+export function PlacementRenderer({
+  appzetSlug,
+  catalogIndex,
+  customizations,
+  selectedAppzetSlug,
+  onSelectAppzet,
+}: PlacementRendererProps) {
+  const baseAppzet = catalogIndex.appzetBySlug.get(appzetSlug);
 
-  const ss = appzet.superstructure_id
+  // Apply customizations.appzet.<slug>.default_props_override on top of the
+  // catalog's default_props_override (leaf-level merge). The customization
+  // is where the right-side properties panel persists user edits — same
+  // cascade as DC#13 Q2 customer overrides.
+  const appzet = baseAppzet
+    ? {
+        ...baseAppzet,
+        default_props_override: resolveOverridableColumn(
+          customizations,
+          'appzet',
+          baseAppzet.slug,
+          'default_props_override',
+          baseAppzet.default_props_override ?? {},
+        ) as Record<string, unknown> | null,
+      }
+    : baseAppzet;
+
+  const ss = appzet?.superstructure_id
     ? catalogIndex.superstructureById.get(appzet.superstructure_id)
     : undefined;
-  if (!ss) {
-    return <MissingNode label={`appzet ${appzet.slug} has no superstructure`} />;
-  }
+  const dataSource = appzet?.default_data_source_id
+    ? catalogIndex.dataSourceById.get(appzet.default_data_source_id)
+    : undefined;
 
-  const childOverrides = computeChildOverrides(ss, appzet);
+  // Always call the hook to keep hook order stable, even when there's
+  // no data source (returns an empty state immediately).
+  const dataState = useDataSource(dataSource?.slug);
+
+  if (!appzet) return <MissingNode label={`unknown appzet: ${appzetSlug}`} />;
+  if (!ss) return <MissingNode label={`appzet ${appzet.slug} has no superstructure`} />;
+
+  const baseChildOverrides = computeChildOverrides(ss, appzet);
   const hiddenIndices = computeHiddenIndices(ss, appzet);
 
+  // Pull spacing override (Properties-panel-edited values) and apply
+  // as inline style on the AppZet wrapper.
+  const overrides = (appzet.default_props_override ?? null) as Record<string, unknown> | null;
+  const spacing = overrides && typeof overrides['spacing'] === 'object'
+    ? (overrides['spacing'] as SpacingOverride)
+    : undefined;
+
+  const isSelected = selectedAppzetSlug === appzet.slug;
+
+  const handleClick = onSelectAppzet
+    ? (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onSelectAppzet(appzet.slug);
+      }
+    : undefined;
+
+  const wrapperClass = [
+    'appza-renderer-appzet',
+    onSelectAppzet ? 'appza-renderer-appzet-clickable' : '',
+    isSelected ? 'is-selected' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  // No data source: render once with static overrides.
+  if (!dataSource) {
+    return (
+      <div
+        className={wrapperClass}
+        data-slug={appzet.slug}
+        style={spacingStyle(spacing)}
+        onClick={handleClick}
+      >
+        <SuperstructureRenderer
+          ss={ss}
+          catalogIndex={catalogIndex}
+          depth={0}
+          childOverrides={baseChildOverrides}
+          hiddenIndices={hiddenIndices}
+        />
+      </div>
+    );
+  }
+
+  if (dataState.loading) {
+    return <div className="appza-renderer-loading" data-slug={appzet.slug}>Loading…</div>;
+  }
+
+  const items = dataState.items.length > 0 ? dataState.items : [{}];
+
   return (
-    <div className="appza-renderer-appzet" data-slug={appzet.slug}>
-      <SuperstructureRenderer
-        ss={ss}
-        catalogIndex={catalogIndex}
-        depth={0}
-        childOverrides={childOverrides}
-        hiddenIndices={hiddenIndices}
-      />
+    <div className="appza-renderer-appzet-list" data-slug={appzet.slug}>
+      {items.map((item, idx) => {
+        const itemOverrides = mergeFieldMappingsOntoOverrides(baseChildOverrides, appzet, item);
+        return (
+          <div
+            className={wrapperClass}
+            data-slug={appzet.slug}
+            style={spacingStyle(spacing)}
+            onClick={handleClick}
+            key={idx}
+          >
+            <SuperstructureRenderer
+              ss={ss}
+              catalogIndex={catalogIndex}
+              depth={0}
+              childOverrides={itemOverrides}
+              hiddenIndices={hiddenIndices}
+            />
+          </div>
+        );
+      })}
     </div>
   );
+}
+
+/**
+ * Merges per-item data values into the child-override map using the
+ * AppZet's `field_mappings`. Mapping shape: `{ "children[<i>].<prop>": "data.<path>" }`.
+ * Values resolved from `item` override anything in `base` (data wins over
+ * static defaults — the live value is the truer one).
+ */
+function mergeFieldMappingsOntoOverrides(
+  base: ChildOverrides,
+  appzet: AppZet,
+  item: unknown,
+): ChildOverrides {
+  const mappings = (appzet.field_mappings ?? null) as Record<string, unknown> | null;
+  if (!mappings || typeof mappings !== 'object') return base;
+
+  const result: ChildOverrides = {};
+  for (const [idx, props] of Object.entries(base)) {
+    result[Number(idx)] = { ...props };
+  }
+
+  for (const [target, source] of Object.entries(mappings)) {
+    if (typeof source !== 'string') continue;
+    const parsed = parseBindsTo(target);
+    if (!parsed) continue;
+    const value = readDataPath(item, source);
+    if (value === undefined || value === null) continue;
+    const bucket = result[parsed.index] ?? {};
+    bucket[parsed.propName] = value;
+    result[parsed.index] = bucket;
+  }
+  return result;
 }
 
 type SuperstructureRendererProps = {
@@ -83,9 +233,14 @@ function SuperstructureRenderer({
       {children.map((child, idx) => {
         if (hiddenIndices?.has(idx)) return null;
         return (
-          <Fragment key={`${child.slug}:${idx}`}>
+          <div
+            key={`${child.slug}:${idx}`}
+            className="appza-renderer-ss-child"
+            data-child-index={idx}
+            data-child-slug={child.slug}
+          >
             {renderChild(child.slug, catalogIndex, depth + 1, childOverrides?.[idx])}
-          </Fragment>
+          </div>
         );
       })}
     </div>

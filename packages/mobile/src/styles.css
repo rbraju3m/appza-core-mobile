@@ -1,0 +1,25 @@
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: #ffffff;
+  color: #111827;
+}
+
+.appza-mobile-loading,
+.appza-mobile-error {
+  padding: 32px 16px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.appza-mobile-error {
+  color: #b91c1c;
+}

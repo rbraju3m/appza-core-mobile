@@ -1,7 +1,7 @@
 export { ScreenRenderer } from './ScreenRenderer';
 export { PlacementRenderer } from './PlacementRenderer';
 export { PrimitiveRenderer } from './PrimitiveRenderer';
-export { indexCatalog, type CatalogIndex, type PrimitiveRow } from './catalogIndex';
+export { indexCatalog, type CatalogIndex, type PrimitiveRow, type DataSourceRow } from './catalogIndex';
 export {
   resolveOverridableColumn,
   readOverride,
@@ -9,3 +9,4 @@ export {
   isRecord,
 } from './resolveOverride';
 export { tokensToCssVars } from './tokens';
+export { useDataSource, readDataPath } from './dataFetch';

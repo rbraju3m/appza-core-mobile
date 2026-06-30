@@ -1,7 +1,8 @@
-import type { TemplateScreen } from '@appza/schemas';
+import type { AppMap, TemplateScreen } from '@appza/schemas';
 
 type TopBarProps = {
   screens: TemplateScreen[];
+  appMap?: AppMap | null;
   selectedScreenId: number | null;
   onSelectScreen: (id: number) => void;
   templateSlug: string;
@@ -12,6 +13,7 @@ type TopBarProps = {
 
 export function TopBar({
   screens,
+  appMap,
   selectedScreenId,
   onSelectScreen,
   templateSlug,
@@ -19,6 +21,19 @@ export function TopBar({
   onReload,
   loading,
 }: TopBarProps) {
+  const nameBySlug = new Map<string, string>();
+  if (appMap && Array.isArray(appMap.screens)) {
+    for (const s of appMap.screens) {
+      if (s && typeof s === 'object') {
+        const slug = (s as Record<string, unknown>)['slug'];
+        const name = (s as Record<string, unknown>)['name'];
+        if (typeof slug === 'string' && typeof name === 'string') {
+          nameBySlug.set(slug, name);
+        }
+      }
+    }
+  }
+
   return (
     <header className="appza-topbar">
       <div className="appza-topbar-logo">appza</div>
@@ -32,11 +47,14 @@ export function TopBar({
           disabled={screens.length === 0}
         >
           {screens.length === 0 && <option value="">— no screens —</option>}
-          {screens.map((screen) => (
-            <option key={screen.id} value={screen.id}>
-              {screen.app_map_screen_slug}
-            </option>
-          ))}
+          {screens.map((screen) => {
+            const friendly = nameBySlug.get(screen.app_map_screen_slug);
+            return (
+              <option key={screen.id} value={screen.id}>
+                {friendly ? `${friendly} — ${screen.app_map_screen_slug}` : screen.app_map_screen_slug}
+              </option>
+            );
+          })}
         </select>
       </div>
 

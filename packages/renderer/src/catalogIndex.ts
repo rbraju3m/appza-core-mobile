@@ -15,11 +15,19 @@ export type PrimitiveRow = {
   ionic_component?: string;
 };
 
+export type DataSourceRow = {
+  id: number;
+  slug: string;
+  endpoint?: string;
+  http_method?: string;
+};
+
 export type CatalogIndex = {
   appzetBySlug: Map<string, AppZet>;
   superstructureById: Map<number, Superstructure>;
   superstructureBySlug: Map<string, Superstructure>;
   primitiveBySlug: Map<string, PrimitiveRow>;
+  dataSourceById: Map<number, DataSourceRow>;
 };
 
 export function indexCatalog(catalog: Catalog): CatalogIndex {
@@ -38,5 +46,10 @@ export function indexCatalog(catalog: Catalog): CatalogIndex {
     if (typeof p.slug === 'string') primitiveBySlug.set(p.slug, p);
   }
 
-  return { appzetBySlug, superstructureById, superstructureBySlug, primitiveBySlug };
+  const dataSourceById = new Map<number, DataSourceRow>();
+  for (const d of (catalog.data_sources ?? []) as DataSourceRow[]) {
+    if (typeof d.id === 'number') dataSourceById.set(d.id, d);
+  }
+
+  return { appzetBySlug, superstructureById, superstructureBySlug, primitiveBySlug, dataSourceById };
 }

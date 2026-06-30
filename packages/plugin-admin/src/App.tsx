@@ -9,6 +9,7 @@ import { TopBar } from './TopBar';
 import { Sidebar, type BottomTab, type SidebarTab } from './Sidebar';
 import { DeviceFrame } from './DeviceFrame';
 import { OverridesPanel } from './OverridesPanel';
+import { PropertiesPanel } from './PropertiesPanel';
 
 type FetchState =
   | { kind: 'idle' }
@@ -24,6 +25,7 @@ declare global {
       endpoints?: {
         bootstrap?: string;
         customizations?: string;
+        previewProxy?: string;
       };
       restNonce?: string;
       defaultTemplate?: string;
@@ -60,6 +62,7 @@ export function App() {
   const [selectedScreenId, setSelectedScreenId] = useState<number | null>(null);
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('global');
   const [bottomTab, setBottomTab] = useState<BottomTab>(null);
+  const [selectedAppzetSlug, setSelectedAppzetSlug] = useState<string | null>(null);
 
   useEffect(() => {
     pull(templateSlug);
@@ -142,6 +145,7 @@ export function App() {
     <div className="appza-shell">
       <TopBar
         screens={screens}
+        appMap={catalog?.app_map ?? null}
         selectedScreenId={selectedScreenId}
         onSelectScreen={setSelectedScreenId}
         templateSlug={templateSlug}
@@ -164,7 +168,7 @@ export function App() {
           bottomPanel={bottomPanel}
         />
 
-        <main className="appza-center">
+        <main className="appza-center" onClick={() => setSelectedAppzetSlug(null)}>
           {state.kind === 'loading' ? (
             <div className="appza-loading">Loading…</div>
           ) : (
@@ -173,9 +177,28 @@ export function App() {
               catalog={catalog ?? null}
               customizations={envelope?.customizations}
               templateName={catalog?.template?.name}
+              selectedAppzetSlug={selectedAppzetSlug}
+              onSelectAppzet={setSelectedAppzetSlug}
             />
           )}
         </main>
+
+        {selectedAppzetSlug &&
+          (() => {
+            const selected = appzets.find((a) => a.slug === selectedAppzetSlug);
+            const customizationsEndpoint = window.appzaCoreConfig?.endpoints?.customizations;
+            const nonce = window.appzaCoreConfig?.restNonce;
+            if (!selected || !customizationsEndpoint || !nonce) return null;
+            return (
+              <PropertiesPanel
+                appzet={selected}
+                customizationsEndpoint={customizationsEndpoint}
+                restNonce={nonce}
+                onClose={() => setSelectedAppzetSlug(null)}
+                onChanged={() => pull(templateSlug)}
+              />
+            );
+          })()}
       </div>
     </div>
   );

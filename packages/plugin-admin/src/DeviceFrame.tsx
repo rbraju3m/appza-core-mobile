@@ -6,35 +6,44 @@ type DeviceFrameProps = {
   catalog: Catalog | null;
   customizations?: unknown;
   templateName?: string;
+  selectedAppzetSlug?: string | null;
+  onSelectAppzet?: (slug: string | null) => void;
 };
 
-export function DeviceFrame({ screen, catalog, customizations, templateName }: DeviceFrameProps) {
+/**
+ * Outer phone bezel for the WP-admin preview. The Ionic app shell
+ * (IonApp > IonPage > IonHeader/IonContent/IonFooter) lives inside
+ * the renderer itself, so this component renders only the bezel +
+ * a viewport. Capacitor uses the renderer without any bezel.
+ */
+export function DeviceFrame({
+  screen,
+  catalog,
+  customizations,
+  templateName,
+  selectedAppzetSlug,
+  onSelectAppzet,
+}: DeviceFrameProps) {
   return (
     <div className="appza-device-frame">
-      <div className="appza-device-statusbar">
-        <span>{templateName ?? '—'}</span>
-        <span className="appza-device-statusbar-screen">
-          {screen ? screen.app_map_screen_slug : 'no screen'}
-        </span>
-      </div>
-
-      <div className="appza-device-render-area">
+      <div className="appza-device-notch" aria-hidden="true" />
+      <div className="appza-device-viewport">
         {!screen || !catalog ? (
           <div className="appza-renderer-empty">
             <p>Pick a screen.</p>
+            {templateName && <small>Template: {templateName}</small>}
           </div>
         ) : (
           <ScreenRenderer
             screen={screen}
             catalog={catalog}
             customizations={customizations}
+            selectedAppzetSlug={selectedAppzetSlug}
+            onSelectAppzet={onSelectAppzet}
           />
         )}
       </div>
-
-      <div className="appza-device-footer">
-        {screen ? `${screen.placements?.length ?? 0} placements` : ''}
-      </div>
+      <div className="appza-device-homebar" aria-hidden="true" />
     </div>
   );
 }

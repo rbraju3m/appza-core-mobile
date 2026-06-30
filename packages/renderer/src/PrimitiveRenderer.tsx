@@ -1,14 +1,98 @@
 import {
   IonAvatar,
   IonButton,
+  IonChip,
   IonCheckbox,
+  IonIcon,
   IonImg,
   IonInput,
   IonLabel,
+  IonList,
   IonText,
   IonTextarea,
 } from '@ionic/react';
+import {
+  apps,
+  book,
+  bookmark,
+  bookmarkOutline,
+  chatbubble,
+  chatbubbleOutline,
+  chatbubbles,
+  chatbubblesOutline,
+  checkmark,
+  close,
+  ellipsisHorizontal,
+  ellipsisVertical,
+  heart,
+  heartOutline,
+  home,
+  homeOutline,
+  menu,
+  menuOutline,
+  notifications,
+  notificationsOutline,
+  people,
+  peopleOutline,
+  person,
+  personOutline,
+  search,
+  searchOutline,
+  send,
+  share,
+  shareOutline,
+  star,
+  starOutline,
+  statsChart,
+  statsChartOutline,
+  thumbsUp,
+  thumbsUpOutline,
+} from 'ionicons/icons';
 import type { PrimitiveRow } from './catalogIndex';
+
+/**
+ * Explicit icon registry. Using `import * as icons from 'ionicons/icons'`
+ * + dynamic `icons[name]` access causes Vite/Rollup to tree-shake the
+ * icon SVG strings to nothing (no static reference). Each icon used by
+ * the catalog must appear here so the bundler keeps it.
+ */
+const ICON_REGISTRY: Record<string, string> = {
+  apps,
+  book,
+  bookmark,
+  'bookmark-outline': bookmarkOutline,
+  chatbubble,
+  'chatbubble-outline': chatbubbleOutline,
+  chatbubbles,
+  'chatbubbles-outline': chatbubblesOutline,
+  checkmark,
+  close,
+  'ellipsis-horizontal': ellipsisHorizontal,
+  'ellipsis-vertical': ellipsisVertical,
+  heart,
+  'heart-outline': heartOutline,
+  home,
+  'home-outline': homeOutline,
+  menu,
+  'menu-outline': menuOutline,
+  notifications,
+  'notifications-outline': notificationsOutline,
+  people,
+  'people-outline': peopleOutline,
+  person,
+  'person-outline': personOutline,
+  search,
+  'search-outline': searchOutline,
+  send,
+  share,
+  'share-outline': shareOutline,
+  star,
+  'star-outline': starOutline,
+  'stats-chart': statsChart,
+  'stats-chart-outline': statsChartOutline,
+  'thumbs-up': thumbsUp,
+  'thumbs-up-outline': thumbsUpOutline,
+};
 
 type PrimitiveOverrides = Record<string, unknown>;
 
@@ -35,16 +119,28 @@ export function PrimitiveRenderer({ primitive, overrides }: Props) {
   const label = readString(overrides, 'text') ?? primitive.name ?? primitive.slug;
 
   switch (primitive.ionic_component) {
-    case 'IonButton':
+    case 'IonButton': {
+      const iconName = readString(overrides, 'icon');
+      const rawText = overrides ? overrides['text'] : undefined;
+      const textExplicitlyEmpty = rawText === '';
+      const iconOnly = !!iconName && (textExplicitlyEmpty || readString(overrides, 'text') === undefined);
+      const buttonLabel = textExplicitlyEmpty ? '' : label;
       return (
         <IonButton
           size="small"
           fill={normalizeIonButtonFill(readString(overrides, 'fill'))}
           color={readString(overrides, 'color')}
         >
-          {label}
+          {iconName && resolveIcon(iconName) && (
+            <IonIcon
+              icon={resolveIcon(iconName)}
+              slot={iconOnly ? 'icon-only' : 'start'}
+            />
+          )}
+          {!iconOnly && buttonLabel}
         </IonButton>
       );
+    }
 
     case 'IonAvatar':
       return (
@@ -93,6 +189,15 @@ export function PrimitiveRenderer({ primitive, overrides }: Props) {
     case 'IonCheckbox':
       return <IonCheckbox aria-label={label} />;
 
+    case 'IonChip':
+      return <IonChip color={readString(overrides, 'color')}>{label}</IonChip>;
+
+    case 'IonList':
+      // Renderer never actually nests Ionic list items at v1; this is a
+      // visual no-op placeholder so list-row layouts don't render an
+      // "unknown" chip when the SS happens to include ion-list.
+      return <IonList lines="none" style={{ background: 'transparent', width: '100%' }} />;
+
     default:
       return (
         <div className="appza-renderer-unknown">
@@ -120,5 +225,16 @@ function normalizeIonButtonFill(raw: string | undefined): IonButtonFill {
   if (raw && (ION_BUTTON_FILLS as readonly string[]).includes(raw)) {
     return raw as IonButtonFill;
   }
-  return 'solid';
+  return 'clear';
+}
+
+/**
+ * Resolves an ionicons icon name (kebab-case) to the imported SVG ref
+ * via the static registry above. Tries the bare name first, then the
+ * `-outline` variant for the same family.
+ */
+function resolveIcon(name: string): string | undefined {
+  if (ICON_REGISTRY[name]) return ICON_REGISTRY[name];
+  if (ICON_REGISTRY[name + '-outline']) return ICON_REGISTRY[name + '-outline'];
+  return undefined;
 }

@@ -1,48 +1,94 @@
+/* ============================================================
+   @appza/renderer — Ionic app shell styles
+   ============================================================
+   The renderer owns the app shell (IonApp > IonPage > IonHeader
+   /IonContent/IonFooter). Hosts (plugin-admin device frame,
+   Capacitor mobile app) provide only the outer bezel / window.
+*/
+
+.appza-renderer-app {
+  --ion-background-color: #ffffff;
+  --ion-text-color: #111827;
+  --ion-toolbar-background: #ffffff;
+  --ion-toolbar-color: #111827;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.appza-renderer-page {
+  contain: layout style;
+}
+
+.appza-renderer-header ion-toolbar {
+  --min-height: 52px;
+  --padding-start: 12px;
+  --padding-end: 12px;
+}
+
+.appza-renderer-content {
+  --background: #ffffff;
+}
+
+.appza-renderer-footer ion-toolbar {
+  --min-height: 56px;
+  --padding-start: 0;
+  --padding-end: 0;
+}
+
+.appza-renderer-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  width: 100%;
+  padding: 4px 0;
+}
+
+/* ============================================================
+   Screen body — quiet, no debug labels.
+*/
+
 .appza-renderer-screen {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  width: 100%;
-  height: 100%;
+  gap: 8px;
+  padding: 12px;
 }
 
 .appza-renderer-slot {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 8px 10px;
-  background: white;
-}
-
-.appza-renderer-slot[data-slot="header"] {
-  border-bottom: 2px solid #f3f4f6;
-}
-
-.appza-renderer-slot[data-slot="footer"] {
-  border-top: 2px solid #f3f4f6;
-  margin-top: auto;
-}
-
-.appza-renderer-slot[data-slot="main"] {
-  flex: 1;
-  min-height: 0;
-}
-
-.appza-renderer-slot-label {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #9ca3af;
-  margin-bottom: 6px;
-}
-
-.appza-renderer-slot-content {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
+.appza-renderer-slot[data-slot="actions"] {
+  border-top: 1px solid #f3f4f6;
+  padding-top: 12px;
+  margin-top: 8px;
+}
+
+/* ============================================================
+   AppZet + Superstructure visual primitives.
+*/
+
 .appza-renderer-appzet {
   /* AppZet wrapper — keeps the visual boundary subtle */
+  position: relative;
+}
+
+.appza-renderer-appzet-clickable {
+  cursor: pointer;
+  transition: outline-color 0.12s ease;
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+}
+
+.appza-renderer-appzet-clickable:hover {
+  outline-color: rgba(249, 115, 22, 0.4);
+}
+
+.appza-renderer-appzet-clickable.is-selected {
+  outline-color: #f97316;
 }
 
 .appza-renderer-ss {
@@ -51,6 +97,163 @@
   gap: 6px;
   align-items: center;
 }
+
+.appza-renderer-ss-child {
+  /* Becomes a real grid/flex item so the per-slug layouts below can
+     position it via [data-child-index]. Used to be display:contents,
+     which collapsed the box and broke grid placement. */
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------
+   Layouts keyed off Superstructure slug. The renderer walks
+   children in order; CSS positions them visually per slug.
+   ------------------------------------------------------------ */
+
+/* appbar-shell:   [0 leading] [1 title]                    [2 search] [3 more]   */
+.appza-renderer-ss[data-slug="appbar-shell"] {
+  display: grid;
+  grid-template-columns: 40px 1fr 40px 40px;
+  align-items: center;
+  width: 100%;
+  gap: 4px;
+  padding: 0 4px;
+}
+.appza-renderer-ss[data-slug="appbar-shell"] [data-child-index="1"] {
+  font-weight: 600;
+  font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* bottom-tab-nav: 5 evenly distributed tabs */
+.appza-renderer-ss[data-slug="bottom-tab-nav"] {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  width: 100%;
+  align-items: center;
+  gap: 0;
+}
+.appza-renderer-ss[data-slug="bottom-tab-nav"] ion-button {
+  --padding-start: 4px;
+  --padding-end: 4px;
+  font-size: 0.7rem;
+  height: 100%;
+}
+
+/* drawer-shell: header row (avatar + name) then a list */
+.appza-renderer-ss[data-slug="drawer-shell"] {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  grid-template-areas:
+    'avatar name'
+    'list   list'
+    'list   list'
+    'list   list'
+    'list   list'
+    'list   list';
+  gap: 12px;
+  padding: 16px;
+  width: 100%;
+}
+.appza-renderer-ss[data-slug="drawer-shell"] [data-child-index="0"] { grid-area: avatar; }
+.appza-renderer-ss[data-slug="drawer-shell"] [data-child-index="1"] { grid-area: name; align-self: center; font-weight: 600; }
+.appza-renderer-ss[data-slug="drawer-shell"] [data-child-index="2"] { grid-area: list; }
+
+/* fc-post-card: feed post layout
+   header row:  [0 avatar] [1 name + 2 time + 3 mood] [4 menu]
+   body:        [5 title] then [6 content]
+   reactions:   [7 like] [8 comment] [9 bookmark] [10 likes] [11 comments]   */
+.appza-renderer-ss[data-slug="fc-post-card"] {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  grid-template-areas:
+    'avatar header menu'
+    'title  title  title'
+    'body   body   body'
+    'actions actions actions';
+  gap: 8px 10px;
+  padding: 14px;
+  margin: 8px 0;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="0"] { grid-area: avatar; }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="1"] { grid-area: header; align-self: start; font-weight: 600; font-size: 0.95rem; }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="2"] {
+  grid-area: header;
+  align-self: end;
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 18px;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="3"] {
+  grid-area: header;
+  align-self: end;
+  font-size: 0.75rem;
+  color: #f97316;
+  margin-top: 18px;
+  margin-left: 60px;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="4"] { grid-area: menu; align-self: start; }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="5"] {
+  grid-area: title;
+  font-weight: 600;
+  font-size: 1.05rem;
+  margin-top: 4px;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="6"] {
+  grid-area: body;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: #374151;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="7"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="8"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="9"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] {
+  grid-area: actions;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="7"] { justify-self: start; }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="8"] { margin-left: 36px; }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="9"] { margin-left: 72px; }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"] { justify-self: end; }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] {
+  justify-self: end;
+  margin-right: 80px;
+}
+
+/* fc-comment-thread: per-comment row */
+.appza-renderer-ss[data-slug="fc-comment-thread"] {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  grid-template-areas:
+    'avatar header header'
+    'avatar body   body'
+    'avatar actions reply-count'
+    'more   more   more';
+  gap: 4px 8px;
+  padding: 10px 14px;
+  background: #f9fafb;
+  border-radius: 8px;
+  margin: 6px 0;
+}
+.appza-renderer-ss[data-slug="fc-comment-thread"] [data-child-index="0"] { grid-area: avatar; }
+.appza-renderer-ss[data-slug="fc-comment-thread"] [data-child-index="1"] { grid-area: header; font-weight: 600; font-size: 0.85rem; }
+.appza-renderer-ss[data-slug="fc-comment-thread"] [data-child-index="2"] { grid-area: header; justify-self: end; font-size: 0.7rem; color: #9ca3af; }
+.appza-renderer-ss[data-slug="fc-comment-thread"] [data-child-index="3"] { grid-area: body; font-size: 0.85rem; color: #374151; line-height: 1.35; }
+.appza-renderer-ss[data-slug="fc-comment-thread"] [data-child-index="4"] { grid-area: actions; justify-self: start; }
+.appza-renderer-ss[data-slug="fc-comment-thread"] [data-child-index="5"] { grid-area: actions; margin-left: 60px; }
+.appza-renderer-ss[data-slug="fc-comment-thread"] [data-child-index="6"] { grid-area: reply-count; font-size: 0.75rem; color: #6b7280; }
+.appza-renderer-ss[data-slug="fc-comment-thread"] [data-child-index="7"] { grid-area: more; color: #f97316; font-size: 0.85rem; }
 
 .appza-renderer-avatar-fallback {
   width: 100%;
@@ -75,6 +278,10 @@
   color: #6b7280;
   font-size: 0.75rem;
 }
+
+/* ============================================================
+   Fallbacks for unknown / missing catalog rows.
+*/
 
 .appza-renderer-unknown {
   display: inline-flex;

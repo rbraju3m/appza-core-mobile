@@ -44,6 +44,10 @@ body {
   overflow: hidden;
 }
 
+.appza-body:has(.appza-props-panel) {
+  grid-template-columns: var(--appza-sidebar-width) 1fr 340px;
+}
+
 /* ------- top bar ------- */
 
 .appza-topbar {
@@ -291,62 +295,56 @@ body {
 
 .appza-device-frame {
   width: 380px;
-  height: 700px;
+  height: 760px;
   background: #1f2937;
-  border-radius: 38px;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
-  padding: 12px;
+  border-radius: 42px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+  padding: 10px;
   display: flex;
   flex-direction: column;
   position: relative;
 }
 
-.appza-device-frame::before {
-  content: "";
+.appza-device-notch {
   position: absolute;
-  top: 16px;
+  top: 14px;
   left: 50%;
   transform: translateX(-50%);
-  width: 70px;
-  height: 5px;
+  width: 88px;
+  height: 6px;
   background: #0f172a;
   border-radius: 999px;
-  z-index: 1;
+  z-index: 2;
+  pointer-events: none;
 }
 
-.appza-device-statusbar {
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 18px;
-  color: #cbd5e1;
-  font-size: 0.7rem;
-  letter-spacing: 0.04em;
+.appza-device-homebar {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 110px;
+  height: 5px;
+  background: #475569;
+  border-radius: 999px;
+  z-index: 2;
+  pointer-events: none;
 }
 
-.appza-device-statusbar-screen {
-  font-family: monospace;
-  opacity: 0.85;
-}
-
-.appza-device-render-area {
+.appza-device-viewport {
   flex: 1;
   background: var(--appza-bg);
-  border-radius: 24px;
-  padding: 14px;
-  overflow: auto;
+  border-radius: 32px;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
-.appza-device-footer {
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #94a3b8;
-  font-size: 0.7rem;
+.appza-device-viewport > .appza-renderer-app,
+.appza-device-viewport > .ion-app {
+  flex: 1;
+  min-height: 0;
 }
 
 /* ------- settings / themes (bottom panel) ------- */
@@ -547,4 +545,193 @@ body {
 .appza-loading {
   padding: 24px;
   color: var(--appza-text-muted);
+}
+
+/* ------- right properties panel ------- */
+
+.appza-props-panel {
+  border-left: 1px solid var(--appza-border);
+  background: var(--appza-bg);
+  display: grid;
+  grid-template-rows: auto auto 1fr auto auto;
+  overflow: hidden;
+}
+
+.appza-props-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--appza-border);
+}
+
+.appza-props-panel-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.appza-props-panel-close {
+  background: none;
+  border: 1px solid var(--appza-border);
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--appza-text-muted);
+  line-height: 1;
+}
+
+.appza-props-panel-close:hover {
+  background: var(--appza-bg-alt);
+  color: var(--appza-text);
+}
+
+.appza-props-panel-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--appza-border);
+}
+
+.appza-props-panel-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 10px 8px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 500;
+  color: var(--appza-text-muted);
+  border-bottom: 2px solid transparent;
+}
+
+.appza-props-panel-tab[data-active="true"] {
+  color: var(--appza-primary);
+  border-bottom-color: var(--appza-primary);
+}
+
+.appza-props-panel-body {
+  overflow-y: auto;
+  padding: 12px 16px;
+}
+
+.appza-props-panel-section {
+  margin-bottom: 16px;
+}
+
+.appza-props-panel-section-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--appza-border);
+}
+
+.appza-props-panel-sub {
+  margin: 10px 0;
+}
+
+.appza-props-panel-sub-title {
+  font-size: 0.8rem;
+  color: var(--appza-text-muted);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.appza-props-panel-row {
+  display: grid;
+  grid-template-columns: 70px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.appza-props-panel-row-label {
+  font-size: 0.78rem;
+  color: var(--appza-text-muted);
+}
+
+.appza-props-panel-cells {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+
+.appza-props-panel-cell {
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 4px 0;
+  border: 1px solid var(--appza-border-strong);
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  min-width: 30px;
+}
+
+.appza-props-panel-cell:hover {
+  background: var(--appza-bg-alt);
+}
+
+.appza-props-panel-cell[data-active="true"] {
+  background: var(--appza-primary);
+  color: white;
+  border-color: var(--appza-primary);
+}
+
+.appza-props-panel-color {
+  width: 100%;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--appza-border-strong);
+  border-radius: 4px;
+  cursor: pointer;
+  background: white;
+}
+
+.appza-props-panel-empty {
+  color: var(--appza-text-muted);
+  font-size: 0.85rem;
+  font-style: italic;
+  margin: 8px 0;
+}
+
+.appza-props-panel-actions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.85rem;
+}
+
+.appza-props-panel-actions li {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--appza-border);
+}
+
+.appza-props-panel-action-slot {
+  font-family: monospace;
+  color: var(--appza-text);
+}
+
+.appza-props-panel-action-slug {
+  font-family: monospace;
+  color: var(--appza-primary);
+  font-size: 0.78rem;
+}
+
+.appza-props-panel-error {
+  background: #fef2f2;
+  color: #b91c1c;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  margin: 0 12px;
+  border-radius: 4px;
+}
+
+.appza-props-panel-footer {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--appza-border);
+  justify-content: flex-end;
 }

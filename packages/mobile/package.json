@@ -1,0 +1,39 @@
+{
+  "name": "@appza/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Capacitor mobile app shell — mounts @appza/renderer against the same bootstrap envelope the WP-plugin simulator consumes, so the same TS code drives APK + plugin preview.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5175 --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "cap:sync": "cap sync",
+    "cap:android": "cap sync android && cap run android",
+    "cap:open:android": "cap open android"
+  },
+  "dependencies": {
+    "@appza/renderer": "workspace:*",
+    "@appza/schemas": "workspace:*",
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "@ionic/react": "^8.4.0",
+    "@ionic/react-router": "^8.4.0",
+    "ionicons": "^7.4.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router": "^5.3.4",
+    "react-router-dom": "^5.3.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/react-router": "^5.1.20",
+    "@types/react-router-dom": "^5.3.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}

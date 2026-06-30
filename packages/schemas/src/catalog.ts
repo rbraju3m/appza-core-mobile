@@ -24,6 +24,19 @@ import { z } from 'zod';
  */
 const TokenBagSchema = z.union([z.record(z.unknown()), z.array(z.unknown())]);
 
+/**
+ * One placement on the chrome lists (Template.appbar_placements etc.).
+ * Same shape as TemplateScreen.placements[] entries; kept loose so future
+ * fields (icon, badge_count, sort_order) don't require a schema bump.
+ */
+const ChromePlacementSchema = z
+  .object({
+    appzet_slug: z.string(),
+    slot: z.string().optional(),
+    position: z.number().int().optional(),
+  })
+  .passthrough();
+
 const TemplateRowSchema = z
   .object({
     id: z.number().int().optional(),
@@ -33,6 +46,11 @@ const TemplateRowSchema = z
     source_integration_id: z.number().int().optional(),
     app_map_id: z.number().int().optional(),
     tokens: TokenBagSchema.optional(),
+    // DC#19 chrome placements — render in IonHeader / IonFooter / IonMenu.
+    // Null/missing = the renderer falls back to its empty-shell defaults.
+    appbar_placements: z.array(ChromePlacementSchema).nullable().optional(),
+    nav_placements: z.array(ChromePlacementSchema).nullable().optional(),
+    drawer_placements: z.array(ChromePlacementSchema).nullable().optional(),
     preview_image_url: z.string().nullable().optional(),
     is_active: z.boolean().optional(),
     catalog_version: z.number().int().optional(),
