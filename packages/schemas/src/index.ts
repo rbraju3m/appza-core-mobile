@@ -8,4 +8,5 @@ export {
   type Superstructure,
   type SourceIntegration,
   type AppMap,
+  type PropertiesSchemaEntry,
 } from './catalog';

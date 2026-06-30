@@ -57,7 +57,24 @@ const AppZetRowSchema = z
     source_integration_id: z.number().int().optional(),
     superstructure_id: z.number().int().nullable().optional(),
     default_data_source_id: z.number().int().nullable().optional(),
+    default_props_override: z.record(z.unknown()).nullable().optional(),
     is_active: z.boolean().optional(),
+  })
+  .passthrough();
+
+/**
+ * One `properties_schema` entry on a Superstructure. `binds_to` is the
+ * DC#16 (provisional) prop-binding spec: when present, the renderer routes
+ * the matching AppZet `default_props_override` value to a specific child
+ * primitive's prop. Grammar v1: `children[<index>].<propName>`.
+ */
+const PropertiesSchemaEntrySchema = z
+  .object({
+    name: z.string(),
+    type: z.string().optional(),
+    default: z.unknown().optional(),
+    exposed_to_builder: z.boolean().optional(),
+    binds_to: z.string().optional(),
   })
   .passthrough();
 
@@ -67,6 +84,7 @@ const SuperstructureRowSchema = z
     slug: z.string(),
     name: z.string(),
     parent_superstructure_id: z.number().int().nullable().optional(),
+    properties_schema: z.array(PropertiesSchemaEntrySchema).nullable().optional(),
     is_active: z.boolean().optional(),
   })
   .passthrough();
@@ -112,3 +130,4 @@ export type AppZet = z.infer<typeof AppZetRowSchema>;
 export type Superstructure = z.infer<typeof SuperstructureRowSchema>;
 export type SourceIntegration = z.infer<typeof SourceIntegrationRowSchema>;
 export type AppMap = z.infer<typeof AppMapRowSchema>;
+export type PropertiesSchemaEntry = z.infer<typeof PropertiesSchemaEntrySchema>;
