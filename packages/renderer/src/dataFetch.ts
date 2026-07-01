@@ -37,6 +37,7 @@ declare global {
       };
       restNonce?: string;
       defaultTemplate?: string;
+      assetsBase?: string;
     };
   }
 }

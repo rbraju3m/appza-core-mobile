@@ -34,9 +34,18 @@ export function TopBar({
     }
   }
 
+  const assetsBase = window.appzaCoreConfig?.assetsBase ?? '';
+  const logoUrl = assetsBase ? `${assetsBase.replace(/\/$/, '')}/images/appza-logo.png` : '';
+
   return (
     <header className="appza-topbar">
-      <div className="appza-topbar-logo">appza</div>
+      <div className="appza-topbar-logo">
+        {logoUrl ? (
+          <img src={logoUrl} alt="APPZA" className="appza-topbar-logo-img" />
+        ) : (
+          <span className="appza-topbar-logo-fallback">appza</span>
+        )}
+      </div>
 
       <div className="appza-topbar-screen">
         <span className="appza-topbar-screen-label">Screen</span>

@@ -94,6 +94,10 @@ const ICON_REGISTRY: Record<string, string> = {
   'thumbs-up-outline': thumbsUpOutline,
 };
 
+/** Public list of known icon names — consumed by the plug-in admin's
+ *  Options tab autocomplete. Keep in lockstep with ICON_REGISTRY. */
+export const iconNames: string[] = Object.keys(ICON_REGISTRY).sort();
+
 type PrimitiveOverrides = Record<string, unknown>;
 
 type Props = {

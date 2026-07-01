@@ -29,6 +29,7 @@ declare global {
       };
       restNonce?: string;
       defaultTemplate?: string;
+      assetsBase?: string;
     };
   }
 }
@@ -63,6 +64,13 @@ export function App() {
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('global');
   const [bottomTab, setBottomTab] = useState<BottomTab>(null);
   const [selectedAppzetSlug, setSelectedAppzetSlug] = useState<string | null>(null);
+  // Pending panel edits — mirrored into the customizations blob before
+  // it's handed to DeviceFrame so the phone-frame preview reflects the
+  // panel state instantly, before Save persists it.
+  const [livePreview, setLivePreview] = useState<{
+    slug: string;
+    override: Record<string, unknown>;
+  } | null>(null);
 
   useEffect(() => {
     pull(templateSlug);
@@ -111,6 +119,30 @@ export function App() {
     if (!selectedScreenId) return null;
     return screens.find((s) => s.id === selectedScreenId) ?? null;
   }, [selectedScreenId, screens]);
+
+  // Overlay the pending panel edit onto the persisted customizations
+  // shape ({ scope: { target_key: { column: value } } }). PlacementRenderer
+  // reads through resolveOverridableColumn on this blob, so the preview
+  // picks up the pending edit without a network round-trip.
+  const effectiveCustomizations = useMemo(() => {
+    const base = envelope?.customizations;
+    if (!livePreview) return base;
+    const baseRecord =
+      base && typeof base === 'object' && !Array.isArray(base)
+        ? (base as Record<string, unknown>)
+        : {};
+    const scopeRecord =
+      baseRecord['appzet'] && typeof baseRecord['appzet'] === 'object'
+        ? { ...(baseRecord['appzet'] as Record<string, unknown>) }
+        : {};
+    const targetRecord =
+      scopeRecord[livePreview.slug] && typeof scopeRecord[livePreview.slug] === 'object'
+        ? { ...(scopeRecord[livePreview.slug] as Record<string, unknown>) }
+        : {};
+    targetRecord['default_props_override'] = livePreview.override;
+    scopeRecord[livePreview.slug] = targetRecord;
+    return { ...baseRecord, appzet: scopeRecord };
+  }, [envelope, livePreview]);
 
   const bottomPanel = useMemo(() => {
     if (!bottomTab || !envelope) return null;
@@ -175,7 +207,7 @@ export function App() {
             <DeviceFrame
               screen={currentScreen}
               catalog={catalog ?? null}
-              customizations={envelope?.customizations}
+              customizations={effectiveCustomizations}
               templateName={catalog?.template?.name}
               selectedAppzetSlug={selectedAppzetSlug}
               onSelectAppzet={setSelectedAppzetSlug}
@@ -189,13 +221,28 @@ export function App() {
             const customizationsEndpoint = window.appzaCoreConfig?.endpoints?.customizations;
             const nonce = window.appzaCoreConfig?.restNonce;
             if (!selected || !customizationsEndpoint || !nonce) return null;
+            const superstructure =
+              selected.superstructure_id != null
+                ? superstructures.find((s) => s.id === selected.superstructure_id) ?? null
+                : null;
             return (
               <PropertiesPanel
                 appzet={selected}
+                superstructure={superstructure}
+                customizations={envelope?.customizations}
                 customizationsEndpoint={customizationsEndpoint}
                 restNonce={nonce}
-                onClose={() => setSelectedAppzetSlug(null)}
-                onChanged={() => pull(templateSlug)}
+                onClose={() => {
+                  setLivePreview(null);
+                  setSelectedAppzetSlug(null);
+                }}
+                onChanged={() => {
+                  setLivePreview(null);
+                  pull(templateSlug);
+                }}
+                onLivePreview={(override) => {
+                  setLivePreview(override ? { slug: selected.slug, override } : null);
+                }}
               />
             );
           })()}
