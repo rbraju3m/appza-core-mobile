@@ -34,6 +34,7 @@ declare global {
         bootstrap?: string;
         customizations?: string;
         previewProxy?: string;
+        syncFromCore?: string;
       };
       restNonce?: string;
       defaultTemplate?: string;

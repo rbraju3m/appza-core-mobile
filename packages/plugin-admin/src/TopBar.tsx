@@ -8,7 +8,10 @@ type TopBarProps = {
   templateSlug: string;
   onTemplateSlugChange: (slug: string) => void;
   onReload: () => void;
+  onSync: () => void;
   loading: boolean;
+  syncing: boolean;
+  syncMessage: string | null;
 };
 
 export function TopBar({
@@ -19,7 +22,10 @@ export function TopBar({
   templateSlug,
   onTemplateSlugChange,
   onReload,
+  onSync,
   loading,
+  syncing,
+  syncMessage,
 }: TopBarProps) {
   const nameBySlug = new Map<string, string>();
   if (appMap && Array.isArray(appMap.screens)) {
@@ -75,10 +81,31 @@ export function TopBar({
             onChange={(e) => onTemplateSlugChange(e.target.value)}
             spellCheck={false}
           />
-          <button className="appza-btn" onClick={onReload} disabled={loading}>
+          <button
+            className="appza-btn"
+            onClick={onSync}
+            disabled={syncing || loading}
+            title="Fetch the latest catalog from Core and rebuild the plug-in snapshot"
+          >
+            {syncing ? 'Syncing…' : 'Sync'}
+          </button>
+          <button
+            className="appza-btn"
+            onClick={onReload}
+            disabled={loading || syncing}
+            title="Re-fetch the plug-in bootstrap (does not pull from Core)"
+          >
             {loading ? '…' : 'Reload'}
           </button>
         </div>
+        {syncMessage && (
+          <div
+            className="appza-topbar-sync-message"
+            data-error={syncMessage.startsWith('HTTP') || syncMessage.startsWith('Sync unavailable') ? 'true' : 'false'}
+          >
+            {syncMessage}
+          </div>
+        )}
 
         <button className="appza-btn">Preview</button>
         <button className="appza-btn appza-btn-primary" disabled>

@@ -26,6 +26,7 @@ declare global {
         bootstrap?: string;
         customizations?: string;
         previewProxy?: string;
+        syncFromCore?: string;
       };
       restNonce?: string;
       defaultTemplate?: string;
@@ -64,6 +65,8 @@ export function App() {
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('global');
   const [bottomTab, setBottomTab] = useState<BottomTab>(null);
   const [selectedAppzetSlug, setSelectedAppzetSlug] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
   // Pending panel edits — mirrored into the customizations blob before
   // it's handed to DeviceFrame so the phone-frame preview reflects the
   // panel state instantly, before Save persists it.
@@ -76,6 +79,41 @@ export function App() {
     pull(templateSlug);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function syncFromCore(slug: string) {
+    const endpoint = window.appzaCoreConfig?.endpoints?.syncFromCore;
+    const nonce = window.appzaCoreConfig?.restNonce;
+    if (!endpoint || !nonce) {
+      setSyncMessage('Sync unavailable — open this page inside /wp-admin/.');
+      return;
+    }
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      const url = new URL(endpoint, window.location.origin);
+      url.searchParams.set('template', slug);
+      const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'X-WP-Nonce': nonce },
+        credentials: 'same-origin',
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`HTTP ${response.status}: ${text.slice(0, 200)}`);
+      }
+      const body = await response.json();
+      setSyncMessage(
+        `Synced ${body.template_slug} → v${body.catalog_snapshot_version}`,
+      );
+      await pull(slug);
+      // Auto-clear the success toast after 4s.
+      window.setTimeout(() => setSyncMessage(null), 4000);
+    } catch (err) {
+      setSyncMessage(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   async function pull(slug: string) {
     setState({ kind: 'loading' });
@@ -183,7 +221,10 @@ export function App() {
         templateSlug={templateSlug}
         onTemplateSlugChange={setTemplateSlug}
         onReload={() => pull(templateSlug)}
+        onSync={() => syncFromCore(templateSlug)}
         loading={state.kind === 'loading'}
+        syncing={syncing}
+        syncMessage={syncMessage}
       />
 
       {state.kind === 'error' && <div className="appza-status">{state.message}</div>}
