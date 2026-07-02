@@ -10,3 +10,4 @@ export {
   type AppMap,
   type PropertiesSchemaEntry,
 } from './catalog';
+export { LayoutStyleSchema, type LayoutStyle } from './layoutStyle';

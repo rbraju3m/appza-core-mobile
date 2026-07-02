@@ -1,8 +1,9 @@
-import type { AppZet, PropertiesSchemaEntry, Superstructure } from '@appza/schemas';
+import type { AppZet, LayoutStyle, PropertiesSchemaEntry, Superstructure } from '@appza/schemas';
 import type { CatalogIndex } from './catalogIndex';
 import { PrimitiveRenderer } from './PrimitiveRenderer';
 import { readDataPath, useDataSource } from './dataFetch';
-import { resolveOverridableColumn } from './resolveOverride';
+import { isRecord, readOverride, resolveOverridableColumn } from './resolveOverride';
+import { layoutStyleToCss } from './layoutStyle';
 
 type PlacementRendererProps = {
   appzetSlug: string;
@@ -93,6 +94,7 @@ export function PlacementRenderer({
 
   const baseChildOverrides = computeChildOverrides(ss, appzet);
   const hiddenIndices = computeHiddenIndices(ss, appzet);
+  const childLayoutStyles = computeChildLayoutStyles(appzet, ss, customizations);
 
   // Pull spacing override (Properties-panel-edited values) and apply
   // as inline style on the AppZet wrapper.
@@ -133,6 +135,8 @@ export function PlacementRenderer({
           depth={0}
           childOverrides={baseChildOverrides}
           hiddenIndices={hiddenIndices}
+          childLayoutStyles={childLayoutStyles}
+          appzetSlugForPath={appzet.slug}
         />
       </div>
     );
@@ -162,6 +166,8 @@ export function PlacementRenderer({
               depth={0}
               childOverrides={itemOverrides}
               hiddenIndices={hiddenIndices}
+              childLayoutStyles={childLayoutStyles}
+              appzetSlugForPath={appzet.slug}
             />
           </div>
         );
@@ -208,6 +214,19 @@ type SuperstructureRendererProps = {
   depth: number;
   childOverrides?: ChildOverrides;
   hiddenIndices?: HiddenIndices;
+  /**
+   * Per-child LayoutStyle overrides. Applied only at depth 0 (v1
+   * flat-only lock — nested SS primitives inherit their parent AppZet's
+   * wrapper and cannot be addressed individually yet).
+   */
+  childLayoutStyles?: Record<number, LayoutStyle>;
+  /**
+   * AppZet slug used to compose the DOM `data-appza-primitive-path`
+   * attribute at depth 0. The plug-in-admin's click-capture composes
+   * `<appzet.slug>#<data-appza-primitive-path>` into the customization
+   * composite key. Undefined at depth > 0.
+   */
+  appzetSlugForPath?: string;
 };
 
 const MAX_DEPTH = 4;
@@ -218,6 +237,8 @@ function SuperstructureRenderer({
   depth,
   childOverrides,
   hiddenIndices,
+  childLayoutStyles,
+  appzetSlugForPath,
 }: SuperstructureRendererProps) {
   if (depth > MAX_DEPTH) {
     return <MissingNode label={`depth>${MAX_DEPTH} at ${ss.slug}`} />;
@@ -232,12 +253,17 @@ function SuperstructureRenderer({
     <div className="appza-renderer-ss" data-slug={ss.slug}>
       {children.map((child, idx) => {
         if (hiddenIndices?.has(idx)) return null;
+        const isTopLevel = depth === 0;
+        const childLayoutStyle = isTopLevel ? childLayoutStyles?.[idx] : undefined;
         return (
           <div
             key={`${child.slug}:${idx}`}
             className="appza-renderer-ss-child"
             data-child-index={idx}
             data-child-slug={child.slug}
+            data-appza-primitive-path={isTopLevel ? `children[${idx}]` : undefined}
+            data-appza-appzet-slug={isTopLevel ? appzetSlugForPath : undefined}
+            style={childLayoutStyle ? layoutStyleToCss(childLayoutStyle) : undefined}
           >
             {renderChild(child.slug, catalogIndex, depth + 1, childOverrides?.[idx])}
           </div>
@@ -309,6 +335,32 @@ function computeChildOverrides(ss: Superstructure, appzet: AppZet): ChildOverrid
     const bucket = result[parsed.index] ?? {};
     bucket[parsed.propName] = value;
     result[parsed.index] = bucket;
+  }
+  return result;
+}
+
+/**
+ * Reads per-primitive LayoutStyle overrides for the AppZet's top-level
+ * SS children. Composite key is `<appzet.slug>#children[<idx>]` under
+ * scope `appzet_primitive`, column `layout` (DC#20 provisional).
+ *
+ * v1 is flat-only: only direct children of the top SS get a keyed slot.
+ * Any override targeting a nested primitive is silently ignored here
+ * and lands as a no-op until nested addressing lands post-v1.
+ */
+function computeChildLayoutStyles(
+  appzet: AppZet,
+  ss: Superstructure,
+  customizations: unknown,
+): Record<number, LayoutStyle> {
+  const children = readChildren(ss);
+  const result: Record<number, LayoutStyle> = {};
+  for (let idx = 0; idx < children.length; idx++) {
+    const key = `${appzet.slug}#children[${idx}]`;
+    const override = readOverride(customizations, 'appzet_primitive', key, 'layout');
+    if (isRecord(override)) {
+      result[idx] = override as LayoutStyle;
+    }
   }
   return result;
 }

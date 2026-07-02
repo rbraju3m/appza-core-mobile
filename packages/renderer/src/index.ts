@@ -10,3 +10,4 @@ export {
 } from './resolveOverride';
 export { tokensToCssVars } from './tokens';
 export { useDataSource, readDataPath } from './dataFetch';
+export { layoutStyleToCss, hasLayoutStyle } from './layoutStyle';
