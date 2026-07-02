@@ -1288,3 +1288,163 @@ body {
   color: #6b7280;
   flex: 1;
 }
+
+/* ------- IconPicker (PropertiesPanel Options tab) ------- */
+
+.appza-icon-picker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.appza-icon-picker-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 4px;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #111827;
+  min-width: 0;
+  flex: 1;
+  text-align: left;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.appza-icon-picker-trigger:hover {
+  border-color: #9ca3af;
+}
+
+.appza-icon-picker-trigger:focus-visible {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.appza-icon-picker-trigger[data-invalid="true"] {
+  border-color: #f59e0b;
+}
+
+.appza-icon-picker-trigger[data-empty="true"] .appza-icon-picker-name {
+  color: #9ca3af;
+}
+
+.appza-icon-picker-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: #f3f4f6;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.appza-icon-picker-preview ion-icon {
+  font-size: 18px;
+  color: #374151;
+}
+
+.appza-icon-picker-preview-empty {
+  color: #9ca3af;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.appza-icon-picker-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.appza-icon-picker-caret {
+  color: #6b7280;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.appza-icon-picker-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+}
+
+.appza-icon-picker-search {
+  padding: 6px 8px;
+  font-size: 0.85rem;
+}
+
+.appza-icon-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.appza-icon-picker-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  background: #fff;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+  min-height: 56px;
+}
+
+.appza-icon-picker-cell:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.appza-icon-picker-cell[data-selected="true"] {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+}
+
+.appza-icon-picker-cell ion-icon {
+  font-size: 20px;
+  color: #374151;
+}
+
+.appza-icon-picker-cell-label {
+  font-size: 0.62rem;
+  color: #6b7280;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.appza-icon-picker-empty {
+  color: #9ca3af;
+  text-align: center;
+  padding: 16px;
+  grid-column: 1 / -1;
+  font-size: 0.8rem;
+}

@@ -236,8 +236,11 @@ function normalizeIonButtonFill(raw: string | undefined): IonButtonFill {
  * Resolves an ionicons icon name (kebab-case) to the imported SVG ref
  * via the static registry above. Tries the bare name first, then the
  * `-outline` variant for the same family.
+ *
+ * Exported so the plug-in-admin's icon picker can render live glyphs
+ * next to each name. Renderer callers should keep using it locally.
  */
-function resolveIcon(name: string): string | undefined {
+export function resolveIcon(name: string): string | undefined {
   if (ICON_REGISTRY[name]) return ICON_REGISTRY[name];
   if (ICON_REGISTRY[name + '-outline']) return ICON_REGISTRY[name + '-outline'];
   return undefined;

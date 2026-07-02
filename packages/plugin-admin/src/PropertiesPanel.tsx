@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AppZet, PropertiesSchemaEntry, Superstructure } from '@appza/schemas';
-import { resolveOverridableColumn, iconNames } from '@appza/renderer';
+import { resolveOverridableColumn } from '@appza/renderer';
+import { IconPicker } from './IconPicker';
 
 /**
  * Right-side properties editor that matches the legacy plug-in's panel.
@@ -585,12 +586,6 @@ function OptionRow({
   const defaultHint = formatDefault(prop.default);
   const label = humanizeName(prop.name);
   const iconFlavored = type === 'string' && isIconProp(prop);
-  const datalistId = iconFlavored ? `appza-icons-${prop.name}` : undefined;
-  const iconTextValue =
-    iconFlavored && typeof effective === 'string' && effective.length > 0
-      ? effective
-      : null;
-  const iconIsValid = iconTextValue ? iconNames.includes(iconTextValue) : null;
 
   return (
     <div className="appza-props-panel-option">
@@ -625,35 +620,21 @@ function OptionRow({
               if (Number.isFinite(n)) onChange(n);
             }}
           />
+        ) : iconFlavored ? (
+          <IconPicker
+            value={typeof effective === 'string' ? effective : undefined}
+            onChange={onChange}
+          />
         ) : (
-          <div className="appza-props-panel-input-wrap">
-            <input
-              type="text"
-              className="appza-props-panel-input"
-              value={effective === undefined || effective === null ? '' : String(effective)}
-              placeholder={typeof prop.default === 'string' ? prop.default : ''}
-              list={datalistId}
-              onChange={(e) => onChange(e.target.value)}
-            />
-            {iconFlavored && iconTextValue && (
-              <span
-                className="appza-props-panel-input-status"
-                data-valid={iconIsValid ? 'true' : 'false'}
-                title={iconIsValid ? 'Valid icon name' : 'Not in icon registry'}
-              >
-                {iconIsValid ? '✓' : '!'}
-              </span>
-            )}
-            {iconFlavored && (
-              <datalist id={datalistId}>
-                {iconNames.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
-            )}
-          </div>
+          <input
+            type="text"
+            className="appza-props-panel-input"
+            value={effective === undefined || effective === null ? '' : String(effective)}
+            placeholder={typeof prop.default === 'string' ? prop.default : ''}
+            onChange={(e) => onChange(e.target.value)}
+          />
         )}
-        {isOverridden && (
+        {isOverridden && !iconFlavored && (
           <button
             type="button"
             className="appza-props-panel-option-clear"

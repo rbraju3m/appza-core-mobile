@@ -1,6 +1,6 @@
 export { ScreenRenderer } from './ScreenRenderer';
 export { PlacementRenderer } from './PlacementRenderer';
-export { PrimitiveRenderer, iconNames } from './PrimitiveRenderer';
+export { PrimitiveRenderer, iconNames, resolveIcon } from './PrimitiveRenderer';
 export { indexCatalog, type CatalogIndex, type PrimitiveRow, type DataSourceRow } from './catalogIndex';
 export {
   resolveOverridableColumn,
