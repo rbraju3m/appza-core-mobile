@@ -302,10 +302,15 @@ export function App() {
         {selectedPrimitive && (() => {
           const compositeKey = `${selectedPrimitive.appzetSlug}#${selectedPrimitive.primitivePath}`;
           const initialLayout = readInitialLayout(envelope?.customizations, compositeKey);
+          const customizationsEndpoint = window.appzaCoreConfig?.endpoints?.customizations;
+          const nonce = window.appzaCoreConfig?.restNonce;
+          if (!customizationsEndpoint || !nonce) return null;
           return (
             <PrimitivePanel
               selection={selectedPrimitive}
               initialLayout={initialLayout}
+              customizationsEndpoint={customizationsEndpoint}
+              restNonce={nonce}
               onClose={() => {
                 setLivePrimitivePreview(null);
                 setSelectedPrimitive(null);
@@ -314,6 +319,10 @@ export function App() {
                 setLivePrimitivePreview(
                   layout ? { compositeKey, layout } : null,
                 );
+              }}
+              onChanged={() => {
+                setLivePrimitivePreview(null);
+                pull(templateSlug);
               }}
             />
           );
