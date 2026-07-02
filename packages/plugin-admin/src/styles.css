@@ -1183,3 +1183,108 @@ body {
   outline-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
 }
+
+/* ------- LayoutEditor (DC#20 slice 4) ------- */
+
+.appza-layout-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.appza-layout-sub {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #6b7280;
+  letter-spacing: 0.03em;
+  margin: 8px 0 4px;
+}
+
+.appza-layout-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+  margin-bottom: 4px;
+}
+
+.appza-layout-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.appza-layout-field-full {
+  grid-column: 1 / -1;
+}
+
+.appza-layout-label {
+  font-size: 0.7rem;
+  color: #6b7280;
+}
+
+.appza-layout-input-compact {
+  padding: 4px 6px;
+  font-size: 0.8rem;
+  width: 100%;
+}
+
+.appza-layout-select {
+  padding: 4px 6px;
+  font-size: 0.8rem;
+}
+
+.appza-layout-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.appza-layout-box-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.appza-layout-box-row-single {
+  grid-template-columns: 1fr;
+  justify-items: center;
+}
+
+.appza-layout-box-row-single .appza-props-panel-input {
+  max-width: 60%;
+}
+
+.appza-layout-border-row {
+  display: grid;
+  grid-template-columns: 40px 60px 1fr 44px;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.appza-layout-side {
+  font-size: 0.7rem;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.appza-layout-color-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.appza-layout-color-wrap .appza-props-panel-color {
+  flex: 1;
+}
+
+.appza-primitive-panel-hint {
+  font-size: 0.7rem;
+  color: #6b7280;
+  flex: 1;
+}

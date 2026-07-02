@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   BootstrapEnvelopeSchema,
   type BootstrapEnvelope,
+  type LayoutStyle,
   type TemplateScreen,
 } from '@appza/schemas';
 
@@ -75,6 +76,12 @@ export function App() {
   const [livePreview, setLivePreview] = useState<{
     slug: string;
     override: Record<string, unknown>;
+  } | null>(null);
+  // Same shape as livePreview but for the DC#20 primitive axis.
+  // Overlays under customizations.appzet_primitive[<compositeKey>].layout.
+  const [livePrimitivePreview, setLivePrimitivePreview] = useState<{
+    compositeKey: string;
+    layout: LayoutStyle;
   } | null>(null);
 
   useEffect(() => {
@@ -160,29 +167,49 @@ export function App() {
     return screens.find((s) => s.id === selectedScreenId) ?? null;
   }, [selectedScreenId, screens]);
 
-  // Overlay the pending panel edit onto the persisted customizations
-  // shape ({ scope: { target_key: { column: value } } }). PlacementRenderer
+  // Overlay pending panel edits onto the persisted customizations shape
+  // ({ scope: { target_key: { column: value } } }). PlacementRenderer
   // reads through resolveOverridableColumn on this blob, so the preview
-  // picks up the pending edit without a network round-trip.
+  // picks up the pending edit without a network round-trip. Two axes
+  // overlay independently: appzet-level (Properties/Options) and DC#20
+  // primitive-level (Layout editor).
   const effectiveCustomizations = useMemo(() => {
     const base = envelope?.customizations;
-    if (!livePreview) return base;
+    if (!livePreview && !livePrimitivePreview) return base;
     const baseRecord =
       base && typeof base === 'object' && !Array.isArray(base)
         ? (base as Record<string, unknown>)
         : {};
-    const scopeRecord =
-      baseRecord['appzet'] && typeof baseRecord['appzet'] === 'object'
-        ? { ...(baseRecord['appzet'] as Record<string, unknown>) }
-        : {};
-    const targetRecord =
-      scopeRecord[livePreview.slug] && typeof scopeRecord[livePreview.slug] === 'object'
-        ? { ...(scopeRecord[livePreview.slug] as Record<string, unknown>) }
-        : {};
-    targetRecord['default_props_override'] = livePreview.override;
-    scopeRecord[livePreview.slug] = targetRecord;
-    return { ...baseRecord, appzet: scopeRecord };
-  }, [envelope, livePreview]);
+    let out: Record<string, unknown> = { ...baseRecord };
+    if (livePreview) {
+      const scopeRecord =
+        out['appzet'] && typeof out['appzet'] === 'object'
+          ? { ...(out['appzet'] as Record<string, unknown>) }
+          : {};
+      const targetRecord =
+        scopeRecord[livePreview.slug] && typeof scopeRecord[livePreview.slug] === 'object'
+          ? { ...(scopeRecord[livePreview.slug] as Record<string, unknown>) }
+          : {};
+      targetRecord['default_props_override'] = livePreview.override;
+      scopeRecord[livePreview.slug] = targetRecord;
+      out = { ...out, appzet: scopeRecord };
+    }
+    if (livePrimitivePreview) {
+      const scopeRecord =
+        out['appzet_primitive'] && typeof out['appzet_primitive'] === 'object'
+          ? { ...(out['appzet_primitive'] as Record<string, unknown>) }
+          : {};
+      const key = livePrimitivePreview.compositeKey;
+      const targetRecord =
+        scopeRecord[key] && typeof scopeRecord[key] === 'object'
+          ? { ...(scopeRecord[key] as Record<string, unknown>) }
+          : {};
+      targetRecord['layout'] = livePrimitivePreview.layout;
+      scopeRecord[key] = targetRecord;
+      out = { ...out, appzet_primitive: scopeRecord };
+    }
+    return out;
+  }, [envelope, livePreview, livePrimitivePreview]);
 
   const bottomPanel = useMemo(() => {
     if (!bottomTab || !envelope) return null;
@@ -272,12 +299,25 @@ export function App() {
           )}
         </main>
 
-        {selectedPrimitive && (
-          <PrimitivePanel
-            selection={selectedPrimitive}
-            onClose={() => setSelectedPrimitive(null)}
-          />
-        )}
+        {selectedPrimitive && (() => {
+          const compositeKey = `${selectedPrimitive.appzetSlug}#${selectedPrimitive.primitivePath}`;
+          const initialLayout = readInitialLayout(envelope?.customizations, compositeKey);
+          return (
+            <PrimitivePanel
+              selection={selectedPrimitive}
+              initialLayout={initialLayout}
+              onClose={() => {
+                setLivePrimitivePreview(null);
+                setSelectedPrimitive(null);
+              }}
+              onLivePreview={(layout) => {
+                setLivePrimitivePreview(
+                  layout ? { compositeKey, layout } : null,
+                );
+              }}
+            />
+          );
+        })()}
 
         {!selectedPrimitive &&
           selectedAppzetSlug &&
@@ -357,6 +397,16 @@ function renderThemes(templateTokens: unknown, screenTokens: unknown) {
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function readInitialLayout(customizations: unknown, compositeKey: string): LayoutStyle {
+  if (!isRecord(customizations)) return {};
+  const scope = customizations['appzet_primitive'];
+  if (!isRecord(scope)) return {};
+  const target = scope[compositeKey];
+  if (!isRecord(target)) return {};
+  const layout = target['layout'];
+  return isRecord(layout) ? (layout as LayoutStyle) : {};
 }
 
 function summarize(obj: Record<string, unknown>): string {
