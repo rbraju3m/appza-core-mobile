@@ -7,9 +7,10 @@ import {
 
 import { TopBar } from './TopBar';
 import { Sidebar, type BottomTab, type SidebarTab } from './Sidebar';
-import { DeviceFrame } from './DeviceFrame';
+import { DeviceFrame, type SelectedPrimitive } from './DeviceFrame';
 import { OverridesPanel } from './OverridesPanel';
 import { PropertiesPanel } from './PropertiesPanel';
+import { PrimitivePanel } from './PrimitivePanel';
 
 type FetchState =
   | { kind: 'idle' }
@@ -65,6 +66,7 @@ export function App() {
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('global');
   const [bottomTab, setBottomTab] = useState<BottomTab>(null);
   const [selectedAppzetSlug, setSelectedAppzetSlug] = useState<string | null>(null);
+  const [selectedPrimitive, setSelectedPrimitive] = useState<SelectedPrimitive | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   // Pending panel edits — mirrored into the customizations blob before
@@ -241,7 +243,13 @@ export function App() {
           bottomPanel={bottomPanel}
         />
 
-        <main className="appza-center" onClick={() => setSelectedAppzetSlug(null)}>
+        <main
+          className="appza-center"
+          onClick={() => {
+            setSelectedAppzetSlug(null);
+            setSelectedPrimitive(null);
+          }}
+        >
           {state.kind === 'loading' ? (
             <div className="appza-loading">Loading…</div>
           ) : (
@@ -251,12 +259,28 @@ export function App() {
               customizations={effectiveCustomizations}
               templateName={catalog?.template?.name}
               selectedAppzetSlug={selectedAppzetSlug}
-              onSelectAppzet={setSelectedAppzetSlug}
+              onSelectAppzet={(slug) => {
+                setSelectedAppzetSlug(slug);
+                if (slug) setSelectedPrimitive(null);
+              }}
+              selectedPrimitive={selectedPrimitive}
+              onSelectPrimitive={(sel) => {
+                setSelectedPrimitive(sel);
+                if (sel) setSelectedAppzetSlug(null);
+              }}
             />
           )}
         </main>
 
-        {selectedAppzetSlug &&
+        {selectedPrimitive && (
+          <PrimitivePanel
+            selection={selectedPrimitive}
+            onClose={() => setSelectedPrimitive(null)}
+          />
+        )}
+
+        {!selectedPrimitive &&
+          selectedAppzetSlug &&
           (() => {
             const selected = appzets.find((a) => a.slug === selectedAppzetSlug);
             const customizationsEndpoint = window.appzaCoreConfig?.endpoints?.customizations;

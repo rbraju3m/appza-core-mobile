@@ -1162,3 +1162,24 @@ body {
 .appza-props-panel-input-status[data-valid="false"] {
   background: #f59e0b;
 }
+
+/* ------- design-time primitive selection (DC#20) -------
+   Painted on the SS-child wrapper the renderer emits at depth 0 with
+   data-appza-primitive-path. Blue to distinguish from the AppZet-level
+   selection outline (orange, defined in @appza/renderer's styles). */
+
+.appza-device-viewport [data-appza-primitive-path] {
+  cursor: pointer;
+  transition: outline-color 0.12s ease, box-shadow 0.12s ease;
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+}
+
+.appza-device-viewport [data-appza-primitive-path]:hover {
+  outline-color: rgba(59, 130, 246, 0.4);
+}
+
+.appza-device-viewport [data-appza-primitive-path].is-selected-primitive {
+  outline-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
