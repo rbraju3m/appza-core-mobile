@@ -147,11 +147,18 @@ export function PlacementRenderer({
   }
 
   const items = dataState.items.length > 0 ? dataState.items : [{}];
+  const ssChildren = readChildren(ss);
 
   return (
     <div className="appza-renderer-appzet-list" data-slug={appzet.slug}>
       {items.map((item, idx) => {
         const itemOverrides = mergeFieldMappingsOntoOverrides(baseChildOverrides, appzet, item);
+        const dataHidden = computeDataHiddenIndices(ssChildren, item);
+        const effectiveHidden =
+          dataHidden.size === 0
+            ? hiddenIndices
+            : new Set<number>([...hiddenIndices, ...dataHidden]);
+        const childOpenUrls = computeChildOpenUrls(ssChildren, item);
         return (
           <div
             className={wrapperClass}
@@ -165,8 +172,9 @@ export function PlacementRenderer({
               catalogIndex={catalogIndex}
               depth={0}
               childOverrides={itemOverrides}
-              hiddenIndices={hiddenIndices}
+              hiddenIndices={effectiveHidden}
               childLayoutStyles={childLayoutStyles}
+              childOpenUrls={childOpenUrls}
               appzetSlugForPath={appzet.slug}
             />
           </div>
@@ -221,6 +229,13 @@ type SuperstructureRendererProps = {
    */
   childLayoutStyles?: Record<number, LayoutStyle>;
   /**
+   * Per-child URLs resolved from `on_click_open_url` bindings against the
+   * current data item. When set, the child wrapper is rendered as an
+   * `<a target="_blank">` so a tap opens the URL externally. Applied at
+   * depth 0 (per-item resolution requires the data context).
+   */
+  childOpenUrls?: Record<number, string>;
+  /**
    * AppZet slug used to compose the DOM `data-appza-primitive-path`
    * attribute at depth 0. The plug-in-admin's click-capture composes
    * `<appzet.slug>#<data-appza-primitive-path>` into the customization
@@ -238,6 +253,7 @@ function SuperstructureRenderer({
   childOverrides,
   hiddenIndices,
   childLayoutStyles,
+  childOpenUrls,
   appzetSlugForPath,
 }: SuperstructureRendererProps) {
   if (depth > MAX_DEPTH) {
@@ -255,17 +271,33 @@ function SuperstructureRenderer({
         if (hiddenIndices?.has(idx)) return null;
         const isTopLevel = depth === 0;
         const childLayoutStyle = isTopLevel ? childLayoutStyles?.[idx] : undefined;
+        const openUrl = isTopLevel ? childOpenUrls?.[idx] : undefined;
+        const rendered = renderChild(child.slug, catalogIndex, depth + 1, childOverrides?.[idx]);
+        const wrapperClass = openUrl
+          ? 'appza-renderer-ss-child appza-renderer-ss-child-linked'
+          : 'appza-renderer-ss-child';
         return (
           <div
             key={`${child.slug}:${idx}`}
-            className="appza-renderer-ss-child"
+            className={wrapperClass}
             data-child-index={idx}
             data-child-slug={child.slug}
             data-appza-primitive-path={isTopLevel ? `children[${idx}]` : undefined}
             data-appza-appzet-slug={isTopLevel ? appzetSlugForPath : undefined}
             style={childLayoutStyle ? layoutStyleToCss(childLayoutStyle) : undefined}
           >
-            {renderChild(child.slug, catalogIndex, depth + 1, childOverrides?.[idx])}
+            {openUrl ? (
+              <a
+                href={openUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="appza-renderer-open-url"
+              >
+                {rendered}
+              </a>
+            ) : (
+              rendered
+            )}
           </div>
         );
       })}
@@ -290,17 +322,105 @@ function renderChild(
   return <MissingNode label={`unresolved slug: ${slug}`} />;
 }
 
-function readChildren(ss: Superstructure): Array<{ slug: string }> {
+type VisibleWhenOp = '==' | '!=' | 'exists' | 'not_exists' | 'in' | 'not_in';
+
+type VisibleWhen = {
+  binding: string;
+  op: VisibleWhenOp;
+  value?: unknown;
+};
+
+type SSChild = {
+  slug: string;
+  visible_when?: VisibleWhen;
+  on_click_open_url?: string;
+};
+
+function readChildren(ss: Superstructure): SSChild[] {
   const raw = (ss as unknown as { children?: unknown }).children;
   if (!Array.isArray(raw)) return [];
   return raw
     .map((c) => {
-      if (c && typeof c === 'object' && 'slug' in c && typeof (c as { slug: unknown }).slug === 'string') {
-        return { slug: (c as { slug: string }).slug };
+      if (!c || typeof c !== 'object' || !('slug' in c)) return null;
+      const rec = c as Record<string, unknown>;
+      if (typeof rec.slug !== 'string') return null;
+      const out: SSChild = { slug: rec.slug };
+      const vw = rec.visible_when;
+      if (vw && typeof vw === 'object' && !Array.isArray(vw)) {
+        const vwRec = vw as Record<string, unknown>;
+        if (typeof vwRec.binding === 'string' && typeof vwRec.op === 'string') {
+          out.visible_when = {
+            binding: vwRec.binding,
+            op: vwRec.op as VisibleWhenOp,
+            value: 'value' in vwRec ? vwRec.value : undefined,
+          };
+        }
       }
-      return null;
+      if (typeof rec.on_click_open_url === 'string') {
+        out.on_click_open_url = rec.on_click_open_url;
+      }
+      return out;
     })
-    .filter((c): c is { slug: string } => c !== null);
+    .filter((c): c is SSChild => c !== null);
+}
+
+/**
+ * Resolves `on_click_open_url` bindings per child against the current data
+ * item. Values are `data.<path>` strings; returned map is keyed by child
+ * index. Empty / non-string / missing values are skipped — SSRenderer only
+ * wraps the child in an anchor when a resolved URL exists.
+ */
+function computeChildOpenUrls(children: SSChild[], item: unknown): Record<number, string> {
+  const out: Record<number, string> = {};
+  for (let i = 0; i < children.length; i++) {
+    const spec = children[i]?.on_click_open_url;
+    if (!spec) continue;
+    const resolved = readDataPath(item, spec);
+    if (typeof resolved === 'string' && resolved !== '') {
+      out[i] = resolved;
+    }
+  }
+  return out;
+}
+
+/**
+ * Evaluates per-child `visible_when` clauses against the current data item
+ * and returns the union of indices to hide. Runs on TOP of the static
+ * `computeHiddenIndices` result (which is bool-prop-based, per DC#17/#18).
+ *
+ * Grammar v1 — single clause per child, no AND/OR nesting. Ops: `==`, `!=`,
+ * `exists`, `not_exists`, `in`, `not_in`. Binding: `data.<path>` (same
+ * grammar as `field_mappings`). Unparseable clauses fail-open (child shown)
+ * — same silent-no-op posture as the rest of the renderer.
+ */
+function computeDataHiddenIndices(children: SSChild[], item: unknown): Set<number> {
+  const hidden = new Set<number>();
+  for (let i = 0; i < children.length; i++) {
+    const vw = children[i]?.visible_when;
+    if (!vw) continue;
+    if (!evaluateVisibleWhen(vw, item)) hidden.add(i);
+  }
+  return hidden;
+}
+
+function evaluateVisibleWhen(vw: VisibleWhen, item: unknown): boolean {
+  const resolved = readDataPath(item, vw.binding);
+  switch (vw.op) {
+    case 'exists':
+      return resolved !== undefined && resolved !== null && resolved !== '';
+    case 'not_exists':
+      return resolved === undefined || resolved === null || resolved === '';
+    case '==':
+      return resolved === vw.value;
+    case '!=':
+      return resolved !== vw.value;
+    case 'in':
+      return Array.isArray(vw.value) && vw.value.includes(resolved as never);
+    case 'not_in':
+      return !(Array.isArray(vw.value) && vw.value.includes(resolved as never));
+    default:
+      return true;
+  }
 }
 
 /**

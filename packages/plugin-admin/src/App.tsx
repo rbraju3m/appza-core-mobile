@@ -33,9 +33,12 @@ declare global {
       restNonce?: string;
       defaultTemplate?: string;
       assetsBase?: string;
+      previewMode?: PreviewMode;
     };
   }
 }
+
+export type PreviewMode = 'auto' | 'demo' | 'real';
 
 /**
  * Build the bootstrap URL with a template= parameter.
@@ -70,6 +73,9 @@ export function App() {
   const [selectedPrimitive, setSelectedPrimitive] = useState<SelectedPrimitive | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [previewMode, setPreviewMode] = useState<PreviewMode>(
+    window.appzaCoreConfig?.previewMode ?? 'auto',
+  );
   // Pending panel edits — mirrored into the customizations blob before
   // it's handed to DeviceFrame so the phone-frame preview reflects the
   // panel state instantly, before Save persists it.
@@ -88,6 +94,11 @@ export function App() {
     pull(templateSlug);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!window.appzaCoreConfig) window.appzaCoreConfig = {};
+    window.appzaCoreConfig.previewMode = previewMode;
+  }, [previewMode]);
 
   async function syncFromCore(slug: string) {
     const endpoint = window.appzaCoreConfig?.endpoints?.syncFromCore;
@@ -251,9 +262,14 @@ export function App() {
         onTemplateSlugChange={setTemplateSlug}
         onReload={() => pull(templateSlug)}
         onSync={() => syncFromCore(templateSlug)}
+        onRefreshData={() => {
+          window.dispatchEvent(new Event('appza:refresh-data'));
+        }}
         loading={state.kind === 'loading'}
         syncing={syncing}
         syncMessage={syncMessage}
+        previewMode={previewMode}
+        onPreviewModeChange={setPreviewMode}
       />
 
       {state.kind === 'error' && <div className="appza-status">{state.message}</div>}
@@ -281,6 +297,7 @@ export function App() {
             <div className="appza-loading">Loading…</div>
           ) : (
             <DeviceFrame
+              key={`preview-${previewMode}`}
               screen={currentScreen}
               catalog={catalog ?? null}
               customizations={effectiveCustomizations}

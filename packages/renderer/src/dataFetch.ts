@@ -39,11 +39,28 @@ declare global {
       restNonce?: string;
       defaultTemplate?: string;
       assetsBase?: string;
+      previewMode?: 'demo' | 'real' | 'auto';
     };
   }
 }
 
-function buildProxyUrl(slug: string, params?: Record<string, unknown>): string {
+/**
+ * Client-side revalidation event. Dispatched by:
+ *   - the plug-in-admin's Refresh button (explicit user action)
+ *   - the window `focus` handler installed inside useDataSource
+ *
+ * Every mounted useDataSource instance listens; on hit, it bumps its
+ * private tick, which is an effect dep, which re-runs the fetch. The
+ * fetch appends `nocache=1` when triggered by a tick > 0, so the proxy
+ * bypasses its 5-min transient read and returns fresh upstream data.
+ */
+export const APPZA_REFRESH_EVENT = 'appza:refresh-data';
+
+function buildProxyUrl(
+  slug: string,
+  params: Record<string, unknown> | undefined,
+  bypassCache: boolean,
+): string {
   const base =
     (typeof window !== 'undefined' && window.appzaCoreConfig?.endpoints?.previewProxy) ||
     '/wp-json/appza/v1/preview/data';
@@ -52,12 +69,36 @@ function buildProxyUrl(slug: string, params?: Record<string, unknown>): string {
   if (params && Object.keys(params).length > 0) {
     url.searchParams.set('params', JSON.stringify(params));
   }
+  const mode =
+    typeof window !== 'undefined' ? window.appzaCoreConfig?.previewMode : undefined;
+  if (mode && mode !== 'auto') {
+    url.searchParams.set('mode', mode);
+  }
+  if (bypassCache) {
+    url.searchParams.set('nocache', '1');
+  }
   return url.toString();
 }
 
 export function useDataSource(slug: string | undefined, params?: Record<string, unknown>): FetchState {
   const [state, setState] = useState<FetchState>({ items: [], loading: !!slug, error: null });
+  const [refreshTick, setRefreshTick] = useState(0);
   const paramsKey = params ? JSON.stringify(params) : '';
+  const previewMode =
+    typeof window !== 'undefined' ? window.appzaCoreConfig?.previewMode : undefined;
+
+  // Subscribe to explicit refresh events + window focus. Both bump the
+  // tick; the tick > 0 branch below sends nocache=1 on the next fetch.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onRefresh = () => setRefreshTick((t) => t + 1);
+    window.addEventListener(APPZA_REFRESH_EVENT, onRefresh);
+    window.addEventListener('focus', onRefresh);
+    return () => {
+      window.removeEventListener(APPZA_REFRESH_EVENT, onRefresh);
+      window.removeEventListener('focus', onRefresh);
+    };
+  }, []);
 
   useEffect(() => {
     if (!slug) {
@@ -66,7 +107,7 @@ export function useDataSource(slug: string | undefined, params?: Record<string, 
     }
     let cancelled = false;
     setState((s) => ({ ...s, loading: true, error: null }));
-    fetch(buildProxyUrl(slug, params), { headers: { Accept: 'application/json' } })
+    fetch(buildProxyUrl(slug, params, refreshTick > 0), { headers: { Accept: 'application/json' } })
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -88,7 +129,7 @@ export function useDataSource(slug: string | undefined, params?: Record<string, 
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, paramsKey]);
+  }, [slug, paramsKey, previewMode, refreshTick]);
 
   return state;
 }

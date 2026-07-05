@@ -66,6 +66,10 @@ export function DeviceFrame({
     if (!onSelectPrimitive) return;
     const target = e.target as HTMLElement | null;
     if (!target) return;
+    // Interactive inner elements (video-embed play badge, future in-card
+    // controls) opt out of DC#20 primitive-select by carrying this attr.
+    // We yield the click back to the target's own onClick handler.
+    if (target.closest('[data-appza-inline-click]')) return;
     const primitiveEl = target.closest('[data-appza-primitive-path]') as HTMLElement | null;
     if (!primitiveEl) return;
     const primitivePath = primitiveEl.getAttribute('data-appza-primitive-path');

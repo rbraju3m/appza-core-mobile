@@ -165,7 +165,9 @@
 /* fc-post-card: feed post layout
    header row:  [0 avatar] [1 name + 2 time + 3 mood] [4 menu]
    body:        [5 title] then [6 content]
-   reactions:   [7 like] [8 comment] [9 bookmark] [10 likes] [11 comments]   */
+   media:       [7 image] or [8 video-thumb] (mutually exclusive via visible_when)
+   poll:        [9 poll_display] (visible_when content_type=survey)
+   reactions:   [10 like] [11 comment] [12 bookmark] [13 likes] [14 comments]   */
 .appza-renderer-ss[data-slug="fc-post-card"] {
   display: grid;
   grid-template-columns: 40px 1fr auto;
@@ -173,6 +175,8 @@
     'avatar header menu'
     'title  title  title'
     'body   body   body'
+    'media  media  media'
+    'poll   poll   poll'
     'actions actions actions';
   gap: 8px 10px;
   padding: 14px;
@@ -212,23 +216,329 @@
   color: #374151;
 }
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="7"],
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="8"],
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="9"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="8"] {
+  grid-area: media;
+  margin-top: 4px;
+}
+
+/* appza-video-embed primitive — poster with play badge, swaps to iframe
+   on badge click. Scoped to the primitive class, not the SS slug, so it's
+   reusable across any Superstructure that includes video-embed. */
+.appza-video-embed-poster,
+.appza-video-embed-iframe {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0f172a;
+  display: block;
+}
+.appza-video-embed-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.appza-video-embed-poster-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #cbd5e1;
+  font-size: 0.85rem;
+}
+.appza-video-embed-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(15, 23, 42, 0.65);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms ease-out, transform 120ms ease-out;
+}
+.appza-video-embed-play:hover:not(:disabled) {
+  background: rgba(15, 23, 42, 0.85);
+  transform: translate(-50%, -50%) scale(1.05);
+}
+.appza-video-embed-play:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.appza-video-embed-play-glyph {
+  width: 0;
+  height: 0;
+  border-left: 16px solid #ffffff;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  margin-left: 4px;
+}
+.appza-video-embed-iframe {
+  border: 0;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="9"] {
+  grid-area: poll;
+}
+
+/* appza-poll-block primitive — vertical stack of radio/checkbox rows.
+   Scoped to the primitive class so it's reusable across any SS. */
+.appza-poll-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 12px;
+}
+.appza-poll-block-empty {
+  color: #6b7280;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+.appza-poll-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 2px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #1e293b;
+}
+.appza-poll-label {
+  flex: 1;
+  line-height: 1.35;
+}
+.appza-poll-block ion-radio,
+.appza-poll-block ion-checkbox {
+  --size: 20px;
+  min-width: 20px;
+}
+
+/* appza-rich-text primitive — sanitized inline HTML rendered via
+   dangerouslySetInnerHTML. Tight paragraph margins so consecutive <p>s
+   don't blow up card height; strong/em pass through natively; links get
+   the theme's primary color and no underline until hover. */
+.appza-rich-text > p {
+  margin: 0 0 8px 0;
+}
+.appza-rich-text > p:last-child {
+  margin-bottom: 0;
+}
+.appza-rich-text strong,
+.appza-rich-text b {
+  font-weight: 600;
+}
+.appza-rich-text em,
+.appza-rich-text i {
+  font-style: italic;
+}
+.appza-rich-text a {
+  color: #1e40af;
+  text-decoration: none;
+}
+.appza-rich-text a:hover {
+  text-decoration: underline;
+}
+.appza-rich-text code,
+.appza-rich-text pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  background: #f1f5f9;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.appza-rich-text pre {
+  padding: 8px 10px;
+  overflow-x: auto;
+}
+.appza-rich-text blockquote {
+  margin: 4px 0;
+  padding-left: 10px;
+  border-left: 3px solid #cbd5e1;
+  color: #475569;
+}
+
+/* appza-image-gallery primitive — Instagram-style collage. Layout is grid;
+   template branches per data-count attribute (1/2/3/4/many).
+   count=3 matches the user reference: 1 large left + 2 stacked right. */
+.appza-image-gallery {
+  display: grid;
+  gap: 4px;
+  border-radius: 10px;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  background: #0f172a;
+}
+.appza-image-gallery-slide {
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+}
+.appza-image-gallery-slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 1 image: full tile */
+.appza-image-gallery[data-count="1"] {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+/* 2 images: side by side */
+.appza-image-gallery[data-count="2"] {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr;
+}
+
+/* 3 images: 1 large left, 2 stacked right (reference layout) */
+.appza-image-gallery[data-count="3"] {
+  grid-template-columns: 3fr 2fr;
+  grid-template-rows: 1fr 1fr;
+}
+.appza-image-gallery[data-count="3"] > .appza-image-gallery-slide:nth-child(1) {
+  grid-row: 1 / span 2;
+}
+
+/* 4 images: 2x2 grid */
+.appza-image-gallery[data-count="4"],
+.appza-image-gallery[data-count="many"] {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+/* many: only first 4 slides render (component slices) + "+N" overlay on 4th */
+.appza-image-gallery-slide[data-extra]::after {
+  content: attr(data-extra) ' more';
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+.appza-image-gallery-slide {
+  cursor: pointer;
+}
+
+/* Lightbox — fullscreen modal opened by tap on any gallery tile. Fixed
+   position + high z-index takes it out of the card flow. Buttons and
+   image stop propagation to keep backdrop-click-to-close working. */
+.appza-image-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 60px;
+  animation: appza-lightbox-fade 120ms ease-out;
+}
+@keyframes appza-lightbox-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.appza-image-lightbox-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+  cursor: default;
+}
+.appza-image-lightbox-close,
+.appza-image-lightbox-nav {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms ease-out;
+}
+.appza-image-lightbox-close:hover,
+.appza-image-lightbox-nav:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+.appza-image-lightbox-close {
+  top: 20px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+.appza-image-lightbox-nav {
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 2rem;
+  line-height: 1;
+}
+.appza-image-lightbox-nav-prev { left: 20px; }
+.appza-image-lightbox-nav-next { right: 20px; }
+.appza-image-lightbox-counter {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #ffffff;
+  font-size: 0.9rem;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 6px 14px;
+  border-radius: 999px;
+  pointer-events: none;
+}
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"],
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="13"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="14"] {
   grid-area: actions;
   display: inline-flex;
   align-items: center;
   font-size: 0.8rem;
   color: #6b7280;
 }
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="7"] { justify-self: start; }
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="8"] { margin-left: 36px; }
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="9"] { margin-left: 72px; }
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"] { justify-self: end; }
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"] { justify-self: start; }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] { margin-left: 36px; }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] { margin-left: 72px; }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="13"] { justify-self: end; }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="14"] {
   justify-self: end;
   margin-right: 80px;
+}
+/* Linked child wrapper: keep the anchor invisible; only cursor changes so
+   users know the tile is tappable. `on_click_open_url` grammar (V1). */
+.appza-renderer-open-url {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  height: 100%;
 }
 
 /* fc-comment-thread: per-comment row */
@@ -265,6 +575,14 @@
   color: white;
   font-weight: 600;
   border-radius: 50%;
+}
+
+.appza-renderer-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
 }
 
 .appza-renderer-img-placeholder {

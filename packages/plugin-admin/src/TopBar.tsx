@@ -1,4 +1,5 @@
 import type { AppMap, TemplateScreen } from '@appza/schemas';
+import type { PreviewMode } from './App';
 
 type TopBarProps = {
   screens: TemplateScreen[];
@@ -9,10 +10,19 @@ type TopBarProps = {
   onTemplateSlugChange: (slug: string) => void;
   onReload: () => void;
   onSync: () => void;
+  onRefreshData: () => void;
   loading: boolean;
   syncing: boolean;
   syncMessage: string | null;
+  previewMode: PreviewMode;
+  onPreviewModeChange: (mode: PreviewMode) => void;
 };
+
+const PREVIEW_MODES: Array<{ value: PreviewMode; label: string; title: string }> = [
+  { value: 'auto', label: 'Auto', title: 'Real data if the upstream responds, demo fixture otherwise.' },
+  { value: 'demo', label: 'Demo', title: 'Always render with the bundled fixture data — skip the upstream call.' },
+  { value: 'real', label: 'Real', title: 'Always call the upstream — no fixture fallback (empty list if it fails).' },
+];
 
 export function TopBar({
   screens,
@@ -23,9 +33,12 @@ export function TopBar({
   onTemplateSlugChange,
   onReload,
   onSync,
+  onRefreshData,
   loading,
   syncing,
   syncMessage,
+  previewMode,
+  onPreviewModeChange,
 }: TopBarProps) {
   const nameBySlug = new Map<string, string>();
   if (appMap && Array.isArray(appMap.screens)) {
@@ -74,6 +87,33 @@ export function TopBar({
       </div>
 
       <div className="appza-topbar-actions">
+        <div className="appza-topbar-mode" role="group" aria-label="Preview data mode">
+          <span className="appza-topbar-mode-label">Data</span>
+          <div className="appza-segmented">
+            {PREVIEW_MODES.map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                className="appza-segmented-btn"
+                data-active={previewMode === m.value ? 'true' : 'false'}
+                title={m.title}
+                onClick={() => onPreviewModeChange(m.value)}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="appza-btn appza-topbar-refresh-btn"
+            onClick={onRefreshData}
+            title="Refresh the data feed — bypasses the 5-min proxy cache and pulls fresh upstream data (new fcom posts appear immediately)."
+            aria-label="Refresh data"
+          >
+            ↻
+          </button>
+        </div>
+
         <div className="appza-topbar-template">
           <span>Template</span>
           <input

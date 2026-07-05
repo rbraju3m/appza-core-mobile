@@ -116,6 +116,62 @@ body {
   font-size: 0.85rem;
 }
 
+.appza-topbar-mode {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 12px;
+  color: var(--appza-text-muted);
+  font-size: 0.85rem;
+}
+
+.appza-topbar-mode-label {
+  font-size: 0.85rem;
+}
+
+.appza-segmented {
+  display: inline-flex;
+  border: 1px solid var(--appza-border-strong);
+  border-radius: 6px;
+  overflow: hidden;
+  background: white;
+}
+
+.appza-segmented-btn {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 4px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--appza-text-muted);
+  cursor: pointer;
+  border-right: 1px solid var(--appza-border);
+}
+
+.appza-segmented-btn:last-child {
+  border-right: 0;
+}
+
+.appza-segmented-btn:hover {
+  background: var(--appza-bg-alt);
+}
+
+.appza-segmented-btn[data-active="true"] {
+  background: var(--appza-primary);
+  color: white;
+}
+
+.appza-segmented-btn[data-active="true"]:hover {
+  background: var(--appza-primary-hover);
+}
+
+.appza-topbar-refresh-btn {
+  padding: 4px 10px;
+  font-size: 1rem;
+  line-height: 1;
+  min-width: 32px;
+}
+
 .appza-topbar-template input {
   font: inherit;
   font-size: 0.85rem;
