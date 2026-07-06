@@ -435,30 +435,48 @@ export function PropertiesPanel({
   );
 }
 
+const CANONICAL_ORDER = ['Visibility', 'Icons', 'Labels'];
+const OTHER_GROUP = 'Other';
+
+/**
+ * Author-declared `p.group` wins when set (case-sensitive; any string).
+ * Unauthored props fall through the name-pattern heuristic which returns
+ * one of the 4 canonical section names. Emit order: canonical
+ * (Visibility → Icons → Labels) → custom author sections in
+ * first-appearance order → Other. Empty sections dropped.
+ */
 function groupOptions(
   props: PropertiesSchemaEntry[],
 ): Array<[string, PropertiesSchemaEntry[]]> {
-  const visibility: PropertiesSchemaEntry[] = [];
-  const icons: PropertiesSchemaEntry[] = [];
-  const labels: PropertiesSchemaEntry[] = [];
-  const other: PropertiesSchemaEntry[] = [];
+  const buckets = new Map<string, PropertiesSchemaEntry[]>();
+  const authorOrder: string[] = [];
   for (const p of props) {
-    if (p.controls_visibility_of || p.controls_branch) {
-      visibility.push(p);
-    } else if (isIconProp(p)) {
-      icons.push(p);
-    } else if (isLabelProp(p)) {
-      labels.push(p);
-    } else {
-      other.push(p);
+    const declared = typeof p.group === 'string' && p.group.length > 0 ? p.group : null;
+    const groupName = declared ?? heuristicGroup(p);
+    if (!buckets.has(groupName)) {
+      buckets.set(groupName, []);
+      if (declared && !CANONICAL_ORDER.includes(groupName) && groupName !== OTHER_GROUP) {
+        authorOrder.push(groupName);
+      }
     }
+    buckets.get(groupName)!.push(p);
   }
-  return [
-    ['Visibility', visibility],
-    ['Icons', icons],
-    ['Labels', labels],
-    ['Other', other],
-  ];
+  const ordered: Array<[string, PropertiesSchemaEntry[]]> = [];
+  for (const name of CANONICAL_ORDER) {
+    if (buckets.has(name)) ordered.push([name, buckets.get(name)!]);
+  }
+  for (const name of authorOrder) {
+    ordered.push([name, buckets.get(name)!]);
+  }
+  if (buckets.has(OTHER_GROUP)) ordered.push([OTHER_GROUP, buckets.get(OTHER_GROUP)!]);
+  return ordered;
+}
+
+function heuristicGroup(p: PropertiesSchemaEntry): string {
+  if (p.controls_visibility_of || p.controls_branch) return 'Visibility';
+  if (isIconProp(p)) return 'Icons';
+  if (isLabelProp(p)) return 'Labels';
+  return OTHER_GROUP;
 }
 
 function isIconProp(p: PropertiesSchemaEntry): boolean {

@@ -110,6 +110,9 @@ const PropertiesSchemaEntrySchema = z
         false: z.array(z.string()).optional(),
       })
       .optional(),
+    // Author-declared section label for the plug-in Options tab. When unset,
+    // plug-in falls back to a name-pattern heuristic.
+    group: z.string().optional(),
   })
   .passthrough();
 
