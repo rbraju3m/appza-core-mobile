@@ -225,7 +225,7 @@
    on badge click. Scoped to the primitive class, not the SS slug, so it's
    reusable across any Superstructure that includes video-embed. */
 .appza-video-embed-poster,
-.appza-video-embed-iframe {
+.appza-video-embed-frame {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
@@ -233,6 +233,39 @@
   overflow: hidden;
   background: #0f172a;
   display: block;
+}
+.appza-video-embed-frame .appza-video-embed-iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.appza-video-embed-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(15, 23, 42, 0.7);
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  transition: background 120ms ease-out, transform 120ms ease-out;
+}
+.appza-video-embed-close:hover {
+  background: rgba(15, 23, 42, 0.9);
+  transform: scale(1.08);
+}
+.appza-video-embed-close-glyph {
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 400;
 }
 .appza-video-embed-poster img {
   width: 100%;

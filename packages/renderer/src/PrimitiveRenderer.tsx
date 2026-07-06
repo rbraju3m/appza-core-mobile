@@ -427,11 +427,28 @@ export function PrimitiveRenderer({ primitive, overrides }: Props) {
   }
 }
 
+const VIDEO_EMBED_ALLOWED_HOSTS = [
+  'youtube.com',
+  'youtu.be',
+  'youtube-nocookie.com',
+  'vimeo.com',
+];
+
+function isAllowedVideoHost(src: string): boolean {
+  try {
+    const host = new URL(src).hostname.toLowerCase();
+    return VIDEO_EMBED_ALLOWED_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Poster thumbnail with a play badge; on badge click, swaps to an inline
- * iframe rendering `src` (the embed URL, e.g. YouTube's `/embed/...` form
- * or FluentCommunity's `video_url` output). Iframe lives inside the same
- * card slot the poster occupied — no modal, no new tab.
+ * Poster thumbnail with a play badge. If `src` host is on the allowlist
+ * (YouTube / Vimeo), clicking swaps to an inline iframe in the same card
+ * slot — no modal. If host is NOT allowed, the play badge acts as an
+ * anchor opening `src` in a new tab (renderer refuses to embed arbitrary
+ * third-party iframes).
  *
  * The play badge carries `data-appza-inline-click` so DeviceFrame's DC#20
  * click-capture skips it (otherwise the plug-in-admin's primitive-select
@@ -449,16 +466,31 @@ function AppzaVideoEmbed({
   label: string;
 }) {
   const [playing, setPlaying] = useState(false);
-  if (playing && src) {
+  const canEmbed = src ? isAllowedVideoHost(src) : false;
+  if (playing && src && canEmbed) {
     return (
-      <iframe
-        className="appza-video-embed-iframe"
-        src={src}
-        title={label}
-        frameBorder={0}
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowFullScreen
-      />
+      <div className="appza-video-embed-frame">
+        <iframe
+          className="appza-video-embed-iframe"
+          src={src}
+          title={label}
+          frameBorder={0}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        />
+        <button
+          type="button"
+          className="appza-video-embed-close"
+          data-appza-inline-click="true"
+          aria-label="Close video"
+          onClick={(e) => {
+            e.stopPropagation();
+            setPlaying(false);
+          }}
+        >
+          <span className="appza-video-embed-close-glyph" aria-hidden="true">×</span>
+        </button>
+      </div>
     );
   }
   return (
@@ -472,11 +504,17 @@ function AppzaVideoEmbed({
         type="button"
         className="appza-video-embed-play"
         data-appza-inline-click="true"
-        aria-label="Play video"
+        aria-label={canEmbed ? 'Play video' : 'Open video in new tab'}
+        title={canEmbed ? undefined : 'Opens in a new tab'}
         disabled={!src}
         onClick={(e) => {
           e.stopPropagation();
-          setPlaying(true);
+          if (!src) return;
+          if (canEmbed) {
+            setPlaying(true);
+          } else {
+            window.open(src, '_blank', 'noopener,noreferrer');
+          }
         }}
       >
         <span className="appza-video-embed-play-glyph" aria-hidden="true" />
