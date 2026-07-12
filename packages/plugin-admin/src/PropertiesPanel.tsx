@@ -27,7 +27,7 @@ type Props = {
 type OptionValue = boolean | number | string;
 type OptionValues = Record<string, OptionValue>;
 
-type TabKey = 'properties' | 'options' | 'action';
+type TabKey = 'wrapper' | 'options' | 'action';
 
 const CELL_VALUES = [0, 4, 8, 16, 24] as const;
 const BORDER_WIDTHS = [0, 1, 2, 4, 8] as const;
@@ -52,7 +52,7 @@ export function PropertiesPanel({
   onChanged,
   onLivePreview,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<TabKey>('properties');
+  const [activeTab, setActiveTab] = useState<TabKey>('wrapper');
   const [spacing, setSpacing] = useState<Spacing>({});
   const [options, setOptions] = useState<OptionValues>({});
   const [existingRowId, setExistingRowId] = useState<number | null>(null);
@@ -266,9 +266,9 @@ export function PropertiesPanel({
       </header>
 
       <div className="appza-props-panel-tabs" role="tablist">
-        {(['properties', 'options', 'action'] as TabKey[]).map((tab) => {
+        {(['wrapper', 'options', 'action'] as TabKey[]).map((tab) => {
           const tabDirty =
-            (tab === 'properties' && spacingDirty) ||
+            (tab === 'wrapper' && spacingDirty) ||
             (tab === 'options' && optionsDirty);
           return (
             <button
@@ -287,7 +287,7 @@ export function PropertiesPanel({
       </div>
 
       <div className="appza-props-panel-body">
-        {activeTab === 'properties' && (
+        {activeTab === 'wrapper' && (
           <>
             <Section
               id="spacing"
