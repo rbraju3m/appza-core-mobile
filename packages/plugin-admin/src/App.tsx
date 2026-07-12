@@ -3,8 +3,13 @@ import {
   BootstrapEnvelopeSchema,
   type BootstrapEnvelope,
   type LayoutStyle,
+  type PreviewMode,
   type TemplateScreen,
 } from '@appza/schemas';
+
+// Re-exported so existing local consumers (e.g. TopBar) keep working
+// without churning their import path.
+export type { PreviewMode };
 
 import { TopBar } from './TopBar';
 import { Sidebar, type BottomTab, type SidebarTab } from './Sidebar';
@@ -20,25 +25,6 @@ type FetchState =
   | { kind: 'error'; message: string };
 
 const DEFAULT_TEMPLATE = 'fluent-community-default';
-
-declare global {
-  interface Window {
-    appzaCoreConfig?: {
-      endpoints?: {
-        bootstrap?: string;
-        customizations?: string;
-        previewProxy?: string;
-        syncFromCore?: string;
-      };
-      restNonce?: string;
-      defaultTemplate?: string;
-      assetsBase?: string;
-      previewMode?: PreviewMode;
-    };
-  }
-}
-
-export type PreviewMode = 'auto' | 'demo' | 'real';
 
 /**
  * Build the bootstrap URL with a template= parameter.

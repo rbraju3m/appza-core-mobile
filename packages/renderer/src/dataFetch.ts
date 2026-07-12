@@ -27,22 +27,10 @@ type FetchState = {
   error: string | null;
 };
 
-declare global {
-  interface Window {
-    appzaCoreConfig?: {
-      endpoints?: {
-        bootstrap?: string;
-        customizations?: string;
-        previewProxy?: string;
-        syncFromCore?: string;
-      };
-      restNonce?: string;
-      defaultTemplate?: string;
-      assetsBase?: string;
-      previewMode?: 'demo' | 'real' | 'auto';
-    };
-  }
-}
+// `Window['appzaCoreConfig']` is augmented globally by @appza/schemas —
+// import at least one binding from there elsewhere in the graph and
+// this file picks it up. See packages/schemas/src/augmentations.ts.
+import '@appza/schemas';
 
 /**
  * Client-side revalidation event. Dispatched by:

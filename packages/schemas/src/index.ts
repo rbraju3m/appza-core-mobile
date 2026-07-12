@@ -11,3 +11,7 @@ export {
   type PropertiesSchemaEntry,
 } from './catalog';
 export { LayoutStyleSchema, type LayoutStyle } from './layoutStyle';
+export { type AppzaCoreConfig, type PreviewMode } from './coreConfig';
+// Side-effect import — augments the global `Window` type with
+// `appzaCoreConfig?: AppzaCoreConfig`. Consumers get it for free.
+import './augmentations';

@@ -35,19 +35,8 @@ type FetchState =
   | { kind: 'ok'; envelope: BootstrapEnvelope }
   | { kind: 'error'; message: string };
 
-declare global {
-  interface Window {
-    appzaCoreConfig?: {
-      endpoints?: {
-        bootstrap?: string;
-        customizations?: string;
-        previewProxy?: string;
-      };
-      restNonce?: string;
-      defaultTemplate?: string;
-    };
-  }
-}
+// `Window['appzaCoreConfig']` is augmented globally via the
+// `@appza/schemas` import above — no per-file re-declaration needed.
 
 // Tell the renderer's useDataSource hook to hit the production proxy URL
 // instead of a relative `/wp-json/...` (which won't resolve on capacitor://).
