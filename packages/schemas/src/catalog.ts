@@ -62,6 +62,7 @@ const TemplateScreenRowSchema = z
     id: z.number().int(),
     template_id: z.number().int().optional(),
     app_map_screen_slug: z.string(),
+    position: z.number().int().optional(),
     placements: z.array(z.record(z.unknown())).default([]),
     screen_tokens: TokenBagSchema.nullable().optional(),
   })
