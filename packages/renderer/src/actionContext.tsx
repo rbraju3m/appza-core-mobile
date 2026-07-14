@@ -12,6 +12,14 @@ import { createContext, useContext, type ReactNode } from 'react';
 export type ActionInvocation = {
   action_slug: string;
   args?: Record<string, unknown>;
+  /**
+   * When set, the shell's dispatcher should resolve this data path
+   * against `item` and use the result as the effective per-invocation
+   * item root. Powers per-slot bindings like the banner CTAs where
+   * `binding_root: data.ctaButtons[N]` sub-selects one entry from the
+   * banner's ctaButtons array as the arg source for link.open.
+   */
+  binding_root?: string;
   item?: unknown;
 };
 

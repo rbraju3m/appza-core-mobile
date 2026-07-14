@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActionProvider,
   ScreenRenderer,
+  readDataPath,
   type ActionDispatch,
   type ActionInvocation,
 } from '@appza/renderer';
@@ -148,8 +149,16 @@ type ActionDeps = {
  */
 function handleAction(inv: ActionInvocation, deps: ActionDeps) {
   const { catalog, setSelectedScreenId, setScreenStack, currentScreenId } = deps;
-  const { action_slug, args, item } = inv;
+  const { action_slug, args, item, binding_root } = inv;
   const argRec = (args ?? {}) as Record<string, unknown>;
+  // Per-invocation item root — `binding_root` sub-selects a slice of the
+  // item so per-slot params (e.g. banner CTA link.open) resolve against
+  // one ctaButtons entry rather than the whole banner.
+  const effectiveItem = binding_root ? readDataPath(item, binding_root) ?? item : item;
+  const itemRec =
+    effectiveItem && typeof effectiveItem === 'object' && !Array.isArray(effectiveItem)
+      ? (effectiveItem as Record<string, unknown>)
+      : null;
 
   switch (action_slug) {
     case 'nav.push': {
@@ -176,15 +185,27 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       return;
     }
     case 'link.open': {
-      const url = typeof argRec.url === 'string'
-        ? argRec.url
-        : (item && typeof (item as Record<string, unknown>).link === 'string'
-            ? String((item as Record<string, unknown>).link)
-            : null);
-      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      // Accept both the action's canonical url/new_tab AND the fcom API's
+      // link/newTab so banner CTAs work when binding_root points at a raw
+      // ctaButtons entry.
+      const url = pickString(argRec, ['url', 'link']) ?? pickString(itemRec, ['url', 'link']);
+      if (!url) {
+        console.warn('[appza-mobile] link.open: no url resolved from', { args: argRec, item: effectiveItem });
+        return;
+      }
+      window.open(url, '_blank', 'noopener,noreferrer');
       return;
     }
     default:
-      console.info('[appza-mobile] action dispatched (no-op):', action_slug, argRec);
+      console.info('[appza-mobile] action dispatched (no-op):', action_slug, argRec, { effectiveItem });
   }
+}
+
+function pickString(rec: Record<string, unknown> | null | undefined, keys: string[]): string | null {
+  if (!rec) return null;
+  for (const k of keys) {
+    const v = rec[k];
+    if (typeof v === 'string' && v.length > 0) return v;
+  }
+  return null;
 }

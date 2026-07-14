@@ -1,5 +1,5 @@
 import type { AppMap, TemplateScreen } from '@appza/schemas';
-import type { PreviewMode } from './App';
+import type { PreviewMode, UiMode } from './App';
 
 type TemplateOption = {
   slug: string;
@@ -25,7 +25,14 @@ type TopBarProps = {
   syncMessage: string | null;
   previewMode: PreviewMode;
   onPreviewModeChange: (mode: PreviewMode) => void;
+  uiMode: UiMode;
+  onUiModeChange: (mode: UiMode) => void;
 };
+
+const UI_MODES: Array<{ value: UiMode; label: string; title: string }> = [
+  { value: 'edit', label: 'Edit', title: 'Design mode — click any element to select it and edit its properties on the right.' },
+  { value: 'app', label: 'App', title: 'Runtime mode — clicks fire real actions (navigate, open links). Same behavior as the mobile app.' },
+];
 
 const PREVIEW_MODES: Array<{ value: PreviewMode; label: string; title: string }> = [
   { value: 'auto', label: 'Auto', title: 'Real data if the upstream responds, demo fixture otherwise.' },
@@ -50,6 +57,8 @@ export function TopBar({
   syncMessage,
   previewMode,
   onPreviewModeChange,
+  uiMode,
+  onUiModeChange,
 }: TopBarProps) {
   const nameBySlug = new Map<string, string>();
   if (appMap && Array.isArray(appMap.screens)) {
@@ -98,6 +107,24 @@ export function TopBar({
       </div>
 
       <div className="appza-topbar-actions">
+        <div className="appza-topbar-mode" role="group" aria-label="UI mode">
+          <span className="appza-topbar-mode-label">Mode</span>
+          <div className="appza-segmented">
+            {UI_MODES.map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                className="appza-segmented-btn"
+                data-active={uiMode === m.value ? 'true' : 'false'}
+                title={m.title}
+                onClick={() => onUiModeChange(m.value)}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="appza-topbar-mode" role="group" aria-label="Preview data mode">
           <span className="appza-topbar-mode-label">Data</span>
           <div className="appza-segmented">

@@ -218,7 +218,8 @@ function computeChildActions(
     const args = rec.args && typeof rec.args === 'object' && !Array.isArray(rec.args)
       ? (rec.args as Record<string, unknown>)
       : undefined;
-    out[i] = { action_slug, args, item };
+    const binding_root = typeof rec.binding_root === 'string' ? rec.binding_root : undefined;
+    out[i] = { action_slug, args, binding_root, item };
   }
   return out;
 }

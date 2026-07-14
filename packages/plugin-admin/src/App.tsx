@@ -1,15 +1,33 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BootstrapEnvelopeSchema,
   type BootstrapEnvelope,
+  type Catalog,
   type LayoutStyle,
   type PreviewMode,
   type TemplateScreen,
 } from '@appza/schemas';
+import {
+  ActionProvider,
+  readDataPath,
+  type ActionDispatch,
+  type ActionInvocation,
+} from '@appza/renderer';
 
 // Re-exported so existing local consumers (e.g. TopBar) keep working
 // without churning their import path.
 export type { PreviewMode };
+
+/**
+ * Preview UI mode.
+ * - 'edit' (default): design-time. Clicks select the primitive/AppZet so
+ *   the Properties panel can edit it. Actions do nothing.
+ * - 'app': runtime. Same behavior as the real Capacitor mobile app —
+ *   clicks fire nav.push / nav.back / link.open. Mutating actions
+ *   (post.create etc.) log a warning instead of hitting the server so
+ *   admins don't accidentally create real feed posts from the sim.
+ */
+export type UiMode = 'edit' | 'app';
 
 import { TopBar } from './TopBar';
 import { Sidebar, type BottomTab, type SidebarTab } from './Sidebar';
@@ -79,6 +97,11 @@ export function App() {
   const [previewMode, setPreviewMode] = useState<PreviewMode>(
     window.appzaCoreConfig?.previewMode ?? 'auto',
   );
+  const [uiMode, setUiMode] = useState<UiMode>('edit');
+  // Track a screen-nav stack so nav.back can pop in App mode. Populated
+  // when nav.push runs; irrelevant in Edit mode (screens are picked from
+  // the top-bar dropdown, no stack).
+  const [screenStack, setScreenStack] = useState<number[]>([]);
   // Pending panel edits — mirrored into the customizations blob before
   // it's handed to DeviceFrame so the phone-frame preview reflects the
   // panel state instantly, before Save persists it.
@@ -281,6 +304,18 @@ export function App() {
     return out;
   }, [envelope, livePreview, livePrimitivePreview]);
 
+  const dispatchAction = useCallback<ActionDispatch>(
+    (inv: ActionInvocation) => {
+      handleAppModeAction(inv, {
+        catalog: catalog ?? null,
+        currentScreenId: selectedScreenId,
+        setSelectedScreenId,
+        setScreenStack,
+      });
+    },
+    [catalog, selectedScreenId],
+  );
+
   const bottomPanel = useMemo(() => {
     if (!bottomTab || !envelope) return null;
     if (bottomTab === 'settings') {
@@ -336,6 +371,22 @@ export function App() {
         syncMessage={syncMessage}
         previewMode={previewMode}
         onPreviewModeChange={setPreviewMode}
+        uiMode={uiMode}
+        onUiModeChange={(m) => {
+          setUiMode(m);
+          // Clear any active selection when leaving Edit so residual
+          // property/primitive panels don't shadow the App-mode preview.
+          if (m === 'app') {
+            setSelectedAppzetSlug(null);
+            setSelectedPrimitive(null);
+            setLivePreview(null);
+            setLivePrimitivePreview(null);
+          } else {
+            // Leaving App mode — reset nav stack so re-entering doesn't
+            // pop back into a screen the user has since navigated away from.
+            setScreenStack([]);
+          }
+        }}
       />
 
       {state.kind === 'error' && <div className="appza-status">{state.message}</div>}
@@ -353,17 +404,33 @@ export function App() {
         />
 
         <main
-          className="appza-center"
-          onClick={() => {
-            setSelectedAppzetSlug(null);
-            setSelectedPrimitive(null);
-          }}
+          className={`appza-center${uiMode === 'app' ? ' appza-center-app-mode' : ''}`}
+          onClick={
+            uiMode === 'edit'
+              ? () => {
+                  setSelectedAppzetSlug(null);
+                  setSelectedPrimitive(null);
+                }
+              : undefined
+          }
         >
           {state.kind === 'loading' ? (
             <div className="appza-loading">Loading…</div>
+          ) : uiMode === 'app' ? (
+            // App mode — same renderer, but click intercepts are OFF so
+            // the AppZet's on_click_action wiring reaches the ActionProvider.
+            <ActionProvider dispatch={dispatchAction}>
+              <DeviceFrame
+                key={`preview-${previewMode}-app`}
+                screen={currentScreen}
+                catalog={catalog ?? null}
+                customizations={effectiveCustomizations}
+                templateName={catalog?.template?.name}
+              />
+            </ActionProvider>
           ) : (
             <DeviceFrame
-              key={`preview-${previewMode}`}
+              key={`preview-${previewMode}-edit`}
               screen={currentScreen}
               catalog={catalog ?? null}
               customizations={effectiveCustomizations}
@@ -539,4 +606,104 @@ function formatValue(v: unknown): string {
   if (typeof v === 'string') return v;
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   return JSON.stringify(v);
+}
+
+type AppModeActionDeps = {
+  catalog: Catalog | null;
+  currentScreenId: number | null;
+  setSelectedScreenId: (id: number | null) => void;
+  setScreenStack: (fn: (prev: number[]) => number[]) => void;
+};
+
+/**
+ * App-mode action executor for the plug-in admin sim. Same nav semantics
+ * as the Capacitor shell so what admins see matches what customers get:
+ *   - nav.push : switch selected screen by args.target_screen_slug,
+ *     stash current on a back stack.
+ *   - nav.back : pop.
+ *   - link.open : window.open new tab.
+ *   - post.create + other mutating actions : LOG ONLY. Deliberate — an
+ *     admin previewing the composer shouldn't create real feed posts.
+ *     Real submission stays confined to the Capacitor build; when
+ *     form-state capture ships, we'll add a `dry_run=1` proxy flag so
+ *     App mode can safely round-trip through the server too.
+ */
+function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
+  const { catalog, currentScreenId, setSelectedScreenId, setScreenStack } = deps;
+  const { action_slug, args, item, binding_root } = inv;
+  const argRec = (args ?? {}) as Record<string, unknown>;
+  // Per-invocation item root. `binding_root` on the AppZet action wiring
+  // sub-selects a slice of the item — e.g. `data.ctaButtons[0]` picks the
+  // first CTA object so link.open resolves url/newTab against THAT rather
+  // than the whole banner payload.
+  const effectiveItem = binding_root ? readDataPath(item, binding_root) ?? item : item;
+  const itemRec = isRecord(effectiveItem) ? (effectiveItem as Record<string, unknown>) : null;
+
+  switch (action_slug) {
+    case 'nav.push': {
+      const targetSlug =
+        typeof argRec.target_screen_slug === 'string' ? argRec.target_screen_slug : null;
+      if (!targetSlug || !catalog) return;
+      const target = catalog.template_screens?.find(
+        (s) => s.app_map_screen_slug === targetSlug,
+      );
+      if (!target) {
+        console.warn('[appza-admin/app-mode] nav.push target not found:', targetSlug);
+        return;
+      }
+      if (currentScreenId != null) {
+        setScreenStack((prev) => [...prev, currentScreenId]);
+      }
+      setSelectedScreenId(target.id);
+      return;
+    }
+    case 'nav.back': {
+      setScreenStack((prev) => {
+        if (prev.length === 0) return prev;
+        const rest = prev.slice(0, -1);
+        setSelectedScreenId(prev[prev.length - 1] ?? null);
+        return rest;
+      });
+      return;
+    }
+    case 'link.open': {
+      // Accept the action's canonical `url`/`new_tab` names AND the
+      // fcom-mobile API's `link`/`newTab` names so binding_root against a
+      // raw ctaButtons entry Just Works without a rename in the proxy.
+      const url =
+        pickString(argRec, ['url', 'link']) ??
+        pickString(itemRec, ['url', 'link']);
+      if (!url) {
+        console.warn('[appza-admin/app-mode] link.open: no url resolved from', {
+          args: argRec,
+          item: effectiveItem,
+        });
+        return;
+      }
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    default:
+      // Mutating actions (post.create, cart.add, profile.save, etc.) are
+      // intentionally not executed in the admin sim — see the docblock
+      // above for why. Logged so the admin can confirm the wiring fired.
+      console.info(
+        '[appza-admin/app-mode] action fired (not executed in sim):',
+        action_slug,
+        argRec,
+        { effectiveItem },
+      );
+  }
+}
+
+function pickString(
+  rec: Record<string, unknown> | null | undefined,
+  keys: string[],
+): string | null {
+  if (!rec) return null;
+  for (const k of keys) {
+    const v = rec[k];
+    if (typeof v === 'string' && v.length > 0) return v;
+  }
+  return null;
 }

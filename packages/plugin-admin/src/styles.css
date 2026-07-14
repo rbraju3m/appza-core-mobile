@@ -1281,6 +1281,28 @@ body {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
 }
 
+/* App mode: hide all design-time selection affordances (outlines, hover
+   glow, AppZet-level orange border) so the phone frame looks and feels
+   like the real Capacitor app. Cursor also flips to default so hovering
+   over inert regions doesn't misread as clickable. */
+.appza-center-app-mode .appza-device-viewport [data-appza-primitive-path] {
+  cursor: default;
+  outline-color: transparent !important;
+  box-shadow: none !important;
+}
+.appza-center-app-mode .appza-device-viewport [data-appza-primitive-path]:hover {
+  outline-color: transparent !important;
+}
+.appza-center-app-mode .appza-renderer-appzet-clickable {
+  outline: none !important;
+}
+/* Clickable elements (buttons, actionable SS children) get a pointer
+   cursor so App mode reads as interactive where interactions actually fire. */
+.appza-center-app-mode .appza-renderer-ss-child-actionable,
+.appza-center-app-mode .appza-renderer-ss-child-actionable * {
+  cursor: pointer;
+}
+
 /* ------- LayoutEditor (DC#20 slice 4) ------- */
 
 .appza-layout-editor {
