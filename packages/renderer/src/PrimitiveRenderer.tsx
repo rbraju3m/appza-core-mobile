@@ -376,32 +376,48 @@ export function PrimitiveRenderer({ primitive, overrides }: Props) {
     case 'AppzaImageGallery':
       return <AppzaImageGallery images={readImages(overrides, 'images')} />;
 
-    case 'IonInput':
+    case 'IonInput': {
+      const fillProp = readString(overrides, 'fill');
       return (
         <IonInput
           placeholder={readString(overrides, 'placeholder') ?? label}
-          fill="outline"
+          fill={(fillProp as 'solid' | 'outline' | undefined) ?? 'outline'}
         />
       );
+    }
 
-    case 'IonTextarea':
+    case 'IonTextarea': {
+      const rowsStr = readString(overrides, 'rows');
+      const rowsNum = rowsStr ? Number.parseInt(rowsStr, 10) : NaN;
+      const fillProp = readString(overrides, 'fill');
       return (
         <IonTextarea
           placeholder={readString(overrides, 'placeholder') ?? label}
-          fill="outline"
-          rows={2}
+          fill={(fillProp as 'solid' | 'outline' | undefined) ?? 'outline'}
+          rows={Number.isFinite(rowsNum) ? rowsNum : 2}
         />
       );
+    }
 
     case 'IonLabel':
       return <IonLabel>{label}</IonLabel>;
 
-    case 'IonText':
+    case 'IonText': {
+      const color = readString(overrides, 'color');
+      const size = readString(overrides, 'size');
+      const weight = readString(overrides, 'weight');
+      const align = readString(overrides, 'align');
       return (
-        <IonText>
-          <p style={{ margin: 0 }}>{label}</p>
+        <IonText color={color}>
+          <p style={{
+            margin: 0,
+            fontSize: size,
+            fontWeight: weight,
+            textAlign: (align as React.CSSProperties['textAlign']) ?? undefined,
+          }}>{label}</p>
         </IonText>
       );
+    }
 
     case 'IonCheckbox':
       return <IonCheckbox aria-label={label} />;

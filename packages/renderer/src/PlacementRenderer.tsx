@@ -4,6 +4,7 @@ import { PrimitiveRenderer } from './PrimitiveRenderer';
 import { readDataPath, useDataSource } from './dataFetch';
 import { isRecord, readOverride, resolveOverridableColumn } from './resolveOverride';
 import { layoutStyleToCss } from './layoutStyle';
+import { useActionDispatch, type ActionInvocation } from './actionContext';
 
 type PlacementRendererProps = {
   appzetSlug: string;
@@ -164,6 +165,7 @@ export function PlacementRenderer({
             ? hiddenIndices
             : new Set<number>([...hiddenIndices, ...dataHidden]);
         const childOpenUrls = computeChildOpenUrls(ssChildren, item);
+        const childActions = computeChildActions(ssChildren, appzet, item);
         return (
           <div
             className={wrapperClass}
@@ -180,6 +182,7 @@ export function PlacementRenderer({
               hiddenIndices={effectiveHidden}
               childLayoutStyles={childLayoutStyles}
               childOpenUrls={childOpenUrls}
+              childActions={childActions}
               appzetSlugForPath={appzet.slug}
             />
           </div>
@@ -187,6 +190,37 @@ export function PlacementRenderer({
       })}
     </div>
   );
+}
+
+/**
+ * Resolves each child's `on_click_action` (event name in the AppZet's
+ * `actions` map) into a ready-to-dispatch ActionInvocation. The AppZet's
+ * per-event wiring supplies the action_slug + any static args; the current
+ * data item rides along so the shell can resolve `data.<path>` params.
+ */
+function computeChildActions(
+  children: SSChild[],
+  appzet: AppZet,
+  item: unknown,
+): Record<number, ActionInvocation> {
+  const out: Record<number, ActionInvocation> = {};
+  const wirings = (appzet.actions ?? null) as Record<string, unknown> | null;
+  if (!wirings || typeof wirings !== 'object') return out;
+
+  for (let i = 0; i < children.length; i++) {
+    const eventName = children[i]?.on_click_action;
+    if (!eventName) continue;
+    const wiring = wirings[eventName];
+    if (!wiring || typeof wiring !== 'object' || Array.isArray(wiring)) continue;
+    const rec = wiring as Record<string, unknown>;
+    const action_slug = typeof rec.action_slug === 'string' ? rec.action_slug : null;
+    if (!action_slug) continue;
+    const args = rec.args && typeof rec.args === 'object' && !Array.isArray(rec.args)
+      ? (rec.args as Record<string, unknown>)
+      : undefined;
+    out[i] = { action_slug, args, item };
+  }
+  return out;
 }
 
 /**
@@ -241,6 +275,12 @@ type SuperstructureRendererProps = {
    */
   childOpenUrls?: Record<number, string>;
   /**
+   * Per-child resolved ActionInvocations from `on_click_action` bindings.
+   * When set for index N, the child wrapper handles onClick by calling the
+   * ActionContext dispatcher.
+   */
+  childActions?: Record<number, ActionInvocation>;
+  /**
    * AppZet slug used to compose the DOM `data-appza-primitive-path`
    * attribute at depth 0. The plug-in-admin's click-capture composes
    * `<appzet.slug>#<data-appza-primitive-path>` into the customization
@@ -259,8 +299,11 @@ function SuperstructureRenderer({
   hiddenIndices,
   childLayoutStyles,
   childOpenUrls,
+  childActions,
   appzetSlugForPath,
 }: SuperstructureRendererProps) {
+  const dispatch = useActionDispatch();
+
   if (depth > MAX_DEPTH) {
     return <MissingNode label={`depth>${MAX_DEPTH} at ${ss.slug}`} />;
   }
@@ -277,10 +320,15 @@ function SuperstructureRenderer({
         const isTopLevel = depth === 0;
         const childLayoutStyle = isTopLevel ? childLayoutStyles?.[idx] : undefined;
         const openUrl = isTopLevel ? childOpenUrls?.[idx] : undefined;
+        const action = isTopLevel ? childActions?.[idx] : undefined;
         const rendered = renderChild(child.slug, catalogIndex, depth + 1, childOverrides?.[idx]);
-        const wrapperClass = openUrl
-          ? 'appza-renderer-ss-child appza-renderer-ss-child-linked'
-          : 'appza-renderer-ss-child';
+        const wrapperClass = [
+          'appza-renderer-ss-child',
+          openUrl ? 'appza-renderer-ss-child-linked' : '',
+          action ? 'appza-renderer-ss-child-actionable' : '',
+        ]
+          .filter(Boolean)
+          .join(' ');
         return (
           <div
             key={`${child.slug}:${idx}`}
@@ -289,7 +337,15 @@ function SuperstructureRenderer({
             data-child-slug={child.slug}
             data-appza-primitive-path={isTopLevel ? `children[${idx}]` : undefined}
             data-appza-appzet-slug={isTopLevel ? appzetSlugForPath : undefined}
+            data-appza-inline-click={action ? 'true' : undefined}
             style={childLayoutStyle ? layoutStyleToCss(childLayoutStyle) : undefined}
+            onClick={action
+              ? (e) => {
+                  e.stopPropagation();
+                  dispatch(action);
+                }
+              : undefined}
+            role={action ? 'button' : undefined}
           >
             {openUrl ? (
               <a
@@ -339,6 +395,14 @@ type SSChild = {
   slug: string;
   visible_when?: VisibleWhen;
   on_click_open_url?: string;
+  /**
+   * When set, clicking the child fires the named event from the AppZet's
+   * `actions` map (e.g. `on_tap_composer`, `on_tap_back`). The renderer
+   * looks up the action wiring, resolves data-bound args, and calls the
+   * ActionContext's dispatch. The shell handles the actual side effect
+   * (navigation, HTTP, etc.) — the renderer stays presentation-only.
+   */
+  on_click_action?: string;
 };
 
 function readChildren(ss: Superstructure): SSChild[] {
@@ -363,6 +427,9 @@ function readChildren(ss: Superstructure): SSChild[] {
       }
       if (typeof rec.on_click_open_url === 'string') {
         out.on_click_open_url = rec.on_click_open_url;
+      }
+      if (typeof rec.on_click_action === 'string') {
+        out.on_click_action = rec.on_click_action;
       }
       return out;
     })

@@ -95,7 +95,11 @@ export function ScreenRenderer({
   const otherList = bySlot.get('other') ?? [];
 
   const templateChrome = readTemplateChrome(catalog);
-  const appbarPlacements = templateChrome.appbar;
+  // Per-screen appbar override wins over the template's default chrome
+  // (create-post-page needs its own "Post" button + back arrow instead of
+  // the feed's hamburger + search). NULL/empty falls back to template.
+  const screenAppbar = readScreenAppbar(screen);
+  const appbarPlacements = screenAppbar.length > 0 ? screenAppbar : templateChrome.appbar;
   const navPlacements = templateChrome.nav;
 
   const screenTitle = readScreenTitle(screen);
@@ -235,6 +239,21 @@ function readTemplateChrome(catalog: Catalog): {
     nav: readChromeList(template, 'nav_placements'),
     drawer: readChromeList(template, 'drawer_placements'),
   };
+}
+
+function readScreenAppbar(screen: TemplateScreen): ChromePlacement[] {
+  const raw = (screen as unknown as Record<string, unknown>)['appbar_placements'];
+  if (!Array.isArray(raw)) return [];
+  const out: ChromePlacement[] = [];
+  for (const entry of raw) {
+    if (entry && typeof entry === 'object' && 'appzet_slug' in entry) {
+      const slug = (entry as Record<string, unknown>)['appzet_slug'];
+      if (typeof slug === 'string' && slug.length > 0) {
+        out.push({ appzet_slug: slug });
+      }
+    }
+  }
+  return out;
 }
 
 function readChromeList(

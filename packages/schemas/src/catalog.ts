@@ -65,6 +65,9 @@ const TemplateScreenRowSchema = z
     position: z.number().int().optional(),
     placements: z.array(z.record(z.unknown())).default([]),
     screen_tokens: TokenBagSchema.nullable().optional(),
+    // Per-screen appbar override. Renderer prefers this over the template's
+    // default chrome; null/missing → fall back to template.appbar_placements.
+    appbar_placements: z.array(ChromePlacementSchema).nullable().optional(),
   })
   .passthrough();
 
