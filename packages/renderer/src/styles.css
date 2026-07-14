@@ -221,6 +221,142 @@
   margin-top: 4px;
 }
 
+/* fc-feed-banner: hero card at the top of the feed. Two-column flex-wrap.
+   Full-row items (media, title, description) get flex-basis:100%.
+   CTA buttons at children[4..8] each take ~half width so they naturally
+   pair up 2-per-row, matching image 1's layout. Position-based styling
+   (primary / outlined / gray / link) is applied per slot, since the API
+   doesn't currently push button variants via data.                        */
+.appza-renderer-ss[data-slug="fc-feed-banner"] {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px;
+  margin: 8px 0;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="0"],
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="1"],
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="2"],
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="3"] {
+  flex: 1 0 100%;
+}
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="2"] {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-top: 4px;
+}
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="3"] {
+  color: #475569;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+/* CTA slots — 2 per row (48%). Last slot with no partner shrinks to fit. */
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="4"],
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="5"],
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="6"],
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="7"],
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="8"] {
+  flex: 1 1 calc(50% - 4px);
+  min-width: 0;
+}
+/* CTA buttons: fill (solid/outline/clear) + color come from the SS's
+   properties_schema per-slot bindings, so we intentionally do NOT set
+   --background / --border-* here — that would fight Ionic's native
+   fill styling and cause double borders. Layout only. */
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="4"] ion-button,
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="5"] ion-button,
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="6"] ion-button,
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="7"] ion-button,
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="8"] ion-button {
+  width: 100%;
+  margin: 0;
+  height: 40px;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+/* Slot 4 (fifth CTA, if present) — full-row centered link. */
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="8"] {
+  flex: 1 0 100%;
+}
+
+/* fc-post-composer-teaser: avatar + placeholder pill, image-2 style.
+   Sits on transparent background (no white wrapper, no shadow) so it
+   blends with the feed scroll surface. Avatar on the left, gray pill
+   filling the remaining width. Tap anywhere navigates to create-post. */
+.appza-renderer-ss[data-slug="fc-post-composer-teaser"] {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  margin: 4px 0;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+.appza-renderer-ss[data-slug="fc-post-composer-teaser"] [data-child-index="0"] {
+  width: 40px;
+  height: 40px;
+}
+.appza-renderer-ss[data-slug="fc-post-composer-teaser"] [data-child-index="0"] ion-avatar {
+  width: 100%;
+  height: 100%;
+}
+.appza-renderer-ss[data-slug="fc-post-composer-teaser"] [data-child-index="1"] {
+  background: #f1f5f9;
+  border-radius: 999px;
+  padding: 10px 16px;
+  color: #64748b;
+  font-size: 0.9rem;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+}
+.appza-renderer-ss[data-slug="fc-post-composer-teaser"] [data-child-index="1"] ion-input {
+  --background: transparent;
+  --color: #64748b;
+  --placeholder-color: #64748b;
+  --placeholder-opacity: 1;
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  --min-height: 0;
+  --border-radius: 0;
+  --border-width: 0;
+  --border-style: none;
+  --border-color: transparent;
+  --highlight-color-focused: transparent;
+  --highlight-color-valid: transparent;
+  --highlight-color-invalid: transparent;
+  --highlight-height: 0;
+  --box-shadow: none;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  pointer-events: none;
+}
+/* Ionic 7 ion-input renders an inner .input-wrapper with a bottom
+   border in the "solid"/"outline" fills. Zero it out so the pill's
+   own gray background is the only visible surface. */
+.appza-renderer-ss[data-slug="fc-post-composer-teaser"] [data-child-index="1"] ion-input::part(native),
+.appza-renderer-ss[data-slug="fc-post-composer-teaser"] [data-child-index="1"] ion-input::part(container),
+.appza-renderer-ss[data-slug="fc-post-composer-teaser"] [data-child-index="1"] ion-input .input-wrapper,
+.appza-renderer-ss[data-slug="fc-post-composer-teaser"] [data-child-index="1"] ion-input input {
+  border: 0 !important;
+  border-bottom: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
 /* appza-video-embed primitive — poster with play badge, swaps to iframe
    on badge click. Scoped to the primitive class, not the SS slug, so it's
    reusable across any Superstructure that includes video-embed. */

@@ -123,19 +123,49 @@ export function useDataSource(slug: string | undefined, params?: Record<string, 
 }
 
 /**
- * Resolves `data.foo.bar` paths against an item object. Returns undefined
- * for missing branches.
+ * Resolves paths like `data.foo.bar` or `data.foo[3].bar` against an item.
+ * Returns undefined for missing branches. Array indexing is 0-based; a
+ * segment may combine an object key + one or more `[N]` steps (e.g. the
+ * catalog field_mapping `data.ctaButtons[0].label`).
  */
 export function readDataPath(item: unknown, path: string): unknown {
   if (!path.startsWith('data.')) return undefined;
   const segments = path.slice(5).split('.');
   let cursor: unknown = item;
   for (const seg of segments) {
-    if (cursor && typeof cursor === 'object' && seg in (cursor as Record<string, unknown>)) {
-      cursor = (cursor as Record<string, unknown>)[seg];
-    } else {
-      return undefined;
+    const parts = parsePathSegment(seg);
+    if (!parts) return undefined;
+    for (const step of parts) {
+      if (cursor === null || cursor === undefined) return undefined;
+      if (typeof step === 'number') {
+        if (!Array.isArray(cursor) || step < 0 || step >= cursor.length) return undefined;
+        cursor = cursor[step];
+      } else {
+        if (typeof cursor !== 'object' || !(step in (cursor as Record<string, unknown>))) return undefined;
+        cursor = (cursor as Record<string, unknown>)[step];
+      }
     }
   }
   return cursor;
+}
+
+/**
+ * Splits one dot-separated segment into an ordered list of key/index steps.
+ * `ctaButtons[0]` → `['ctaButtons', 0]`, `foo[1][2]` → `['foo', 1, 2]`,
+ * `foo` → `['foo']`. Returns null on malformed input.
+ */
+function parsePathSegment(seg: string): Array<string | number> | null {
+  if (seg === '') return null;
+  const out: Array<string | number> = [];
+  const match = /^([^\[\]]+)((?:\[\d+\])*)$/.exec(seg);
+  if (!match || !match[1]) return null;
+  out.push(match[1]);
+  const brackets = match[2] ?? '';
+  if (brackets) {
+    const idxMatches = brackets.matchAll(/\[(\d+)\]/g);
+    for (const m of idxMatches) {
+      out.push(Number.parseInt(m[1] as string, 10));
+    }
+  }
+  return out;
 }

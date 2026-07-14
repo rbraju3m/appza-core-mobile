@@ -142,7 +142,12 @@ export function PlacementRenderer({
     );
   }
 
-  if (dataState.loading) {
+  // Only show the loading placeholder on the very first fetch. Once we
+  // have items, keep rendering them during background refetches — otherwise
+  // any refresh (window focus, explicit refresh event) unmounts the whole
+  // subtree, resetting local component state like the video-embed's
+  // `playing` flag, which reads as "video hides when clicked".
+  if (dataState.loading && dataState.items.length === 0) {
     return <div className="appza-renderer-loading" data-slug={appzet.slug}>Loading…</div>;
   }
 

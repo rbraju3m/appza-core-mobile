@@ -456,6 +456,12 @@ function isAllowedVideoHost(src: string): boolean {
  * a normal primitive click target, so users CAN select the video-embed
  * for editing by clicking outside the badge.
  */
+// Cached across mounts so a parent re-render that unmounts the video-embed
+// (e.g. list refetch, primitive-select state change) doesn't reset the
+// user's "I hit play" decision. Keyed by src because a different video is
+// a legitimate reason to reset.
+const videoEmbedPlayingCache = new Map<string, boolean>();
+
 function AppzaVideoEmbed({
   src,
   poster,
@@ -465,7 +471,14 @@ function AppzaVideoEmbed({
   poster?: string;
   label: string;
 }) {
-  const [playing, setPlaying] = useState(false);
+  const cacheKey = src ?? '';
+  const [playing, setPlayingState] = useState<boolean>(
+    () => videoEmbedPlayingCache.get(cacheKey) ?? false,
+  );
+  const setPlaying = (v: boolean) => {
+    videoEmbedPlayingCache.set(cacheKey, v);
+    setPlayingState(v);
+  };
   const canEmbed = src ? isAllowedVideoHost(src) : false;
   if (playing && src && canEmbed) {
     return (
