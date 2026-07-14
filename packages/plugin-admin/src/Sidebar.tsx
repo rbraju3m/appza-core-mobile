@@ -80,7 +80,21 @@ export function Sidebar({
             >
               {group.items.map((item) => (
                 <div key={item.slug} className="appza-section-item">
-                  <span>{item.name}</span>
+                  {item.image_url ? (
+                    <img
+                      className="appza-section-item-icon"
+                      src={item.image_url}
+                      alt=""
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <span className="appza-section-item-icon appza-section-item-icon-fallback">
+                      {item.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                  <span className="appza-section-item-name">{item.name}</span>
                   <span className="appza-section-item-slug">{item.slug}</span>
                 </div>
               ))}

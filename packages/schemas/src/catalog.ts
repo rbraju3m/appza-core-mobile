@@ -72,6 +72,7 @@ const AppZetRowSchema = z
     id: z.number().int(),
     slug: z.string(),
     name: z.string(),
+    image_url: z.string().nullable().optional(),
     source_integration_id: z.number().int().optional(),
     superstructure_id: z.number().int().nullable().optional(),
     default_data_source_id: z.number().int().nullable().optional(),

@@ -1,6 +1,13 @@
 import type { AppMap, TemplateScreen } from '@appza/schemas';
 import type { PreviewMode } from './App';
 
+type TemplateOption = {
+  slug: string;
+  name: string;
+  source_integration_slug: string;
+  source_integration_name: string;
+};
+
 type TopBarProps = {
   screens: TemplateScreen[];
   appMap?: AppMap | null;
@@ -8,6 +15,8 @@ type TopBarProps = {
   onSelectScreen: (id: number) => void;
   templateSlug: string;
   onTemplateSlugChange: (slug: string) => void;
+  templateOptions: TemplateOption[];
+  templatesLoading: boolean;
   onReload: () => void;
   onSync: () => void;
   onRefreshData: () => void;
@@ -31,6 +40,8 @@ export function TopBar({
   onSelectScreen,
   templateSlug,
   onTemplateSlugChange,
+  templateOptions,
+  templatesLoading,
   onReload,
   onSync,
   onRefreshData,
@@ -116,11 +127,50 @@ export function TopBar({
 
         <div className="appza-topbar-template">
           <span>Template</span>
-          <input
-            value={templateSlug}
-            onChange={(e) => onTemplateSlugChange(e.target.value)}
-            spellCheck={false}
-          />
+          {(() => {
+            // Group Templates by their Source Integration for nicer <optgroup>
+            // display. Preserves Core-side ordering (source slug, then template slug).
+            const groups: Array<{ label: string; opts: TemplateOption[] }> = [];
+            const idx = new Map<string, number>();
+            for (const t of templateOptions) {
+              const key = t.source_integration_slug;
+              if (!idx.has(key)) {
+                idx.set(key, groups.length);
+                groups.push({ label: t.source_integration_name, opts: [] });
+              }
+              const gi = idx.get(key)!;
+              (groups[gi] as { opts: TemplateOption[] }).opts.push(t);
+            }
+            const known = templateOptions.some((t) => t.slug === templateSlug);
+            const placeholder = templatesLoading
+              ? 'Loading templates…'
+              : templateOptions.length === 0
+              ? 'Activate an app to see templates'
+              : 'Select a template…';
+            return (
+              <select
+                value={known ? templateSlug : ''}
+                onChange={(e) => onTemplateSlugChange(e.target.value)}
+                disabled={templatesLoading || templateOptions.length === 0}
+              >
+                <option value="" disabled>
+                  {placeholder}
+                </option>
+                {!known && templateSlug && (
+                  <option value={templateSlug}>{templateSlug} (unknown)</option>
+                )}
+                {groups.map((g) => (
+                  <optgroup key={g.label} label={g.label}>
+                    {g.opts.map((t) => (
+                      <option key={t.slug} value={t.slug}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            );
+          })()}
           <button
             className="appza-btn"
             onClick={onSync}

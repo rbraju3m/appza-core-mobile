@@ -17,6 +17,7 @@ import { DeviceFrame, type SelectedPrimitive } from './DeviceFrame';
 import { OverridesPanel } from './OverridesPanel';
 import { PropertiesPanel } from './PropertiesPanel';
 import { PrimitivePanel } from './PrimitivePanel';
+import { OnboardingModal } from './OnboardingModal';
 
 type FetchState =
   | { kind: 'idle' }
@@ -25,6 +26,13 @@ type FetchState =
   | { kind: 'error'; message: string };
 
 const DEFAULT_TEMPLATE = 'fluent-community-default';
+
+type TemplateOption = {
+  slug: string;
+  name: string;
+  source_integration_slug: string;
+  source_integration_name: string;
+};
 
 /**
  * Build the bootstrap URL with a template= parameter.
@@ -52,6 +60,15 @@ export function App() {
   const [templateSlug, setTemplateSlug] = useState(
     window.appzaCoreConfig?.defaultTemplate ?? DEFAULT_TEMPLATE,
   );
+  // Onboarding "Select App" modal. Auto-opens once per session if the
+  // site owner hasn't picked any Source Integrations yet.
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  // Template dropdown data — pulled from the plug-in's /templates proxy,
+  // which asks the Core for Templates tied to the currently-activated
+  // Source Integrations. Refetched after the onboarding modal saves.
+  const [templateOptions, setTemplateOptions] = useState<TemplateOption[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
   const [selectedScreenId, setSelectedScreenId] = useState<number | null>(null);
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('global');
   const [bottomTab, setBottomTab] = useState<BottomTab>(null);
@@ -79,6 +96,62 @@ export function App() {
   useEffect(() => {
     pull(templateSlug);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadTemplates = useMemo(
+    () => async () => {
+      const endpoint = window.appzaCoreConfig?.endpoints?.templates;
+      if (!endpoint) return;
+      setTemplatesLoading(true);
+      try {
+        const res = await fetch(endpoint, { headers: { Accept: 'application/json' } });
+        if (!res.ok) return;
+        const body = await res.json();
+        const list: TemplateOption[] = Array.isArray(body?.templates) ? body.templates : [];
+        setTemplateOptions(list);
+      } catch {
+        /* dropdown falls back to whatever slug is already entered */
+      } finally {
+        setTemplatesLoading(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    loadTemplates();
+  }, [loadTemplates]);
+
+  // First-mount check: open the "Select App" wizard if the site owner
+  // hasn't activated any Source Integrations yet. Cheap GET; fails
+  // silently on any error so the app stays usable.
+  useEffect(() => {
+    const endpoint = window.appzaCoreConfig?.endpoints?.activeSourceIntegrations;
+    const nonce = window.appzaCoreConfig?.restNonce;
+    if (!endpoint || !nonce) {
+      setOnboardingChecked(true);
+      return;
+    }
+    let cancelled = false;
+    fetch(endpoint, {
+      headers: { Accept: 'application/json', 'X-WP-Nonce': nonce },
+      credentials: 'same-origin',
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        if (cancelled) return;
+        const slugs = Array.isArray(body?.slugs) ? body.slugs : [];
+        if (slugs.length === 0) setOnboardingOpen(true);
+      })
+      .catch(() => {
+        /* ignore — wizard can still be opened manually */
+      })
+      .finally(() => {
+        if (!cancelled) setOnboardingChecked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -245,7 +318,14 @@ export function App() {
         selectedScreenId={selectedScreenId}
         onSelectScreen={setSelectedScreenId}
         templateSlug={templateSlug}
-        onTemplateSlugChange={setTemplateSlug}
+        onTemplateSlugChange={(slug) => {
+          setTemplateSlug(slug);
+          // Re-pull so the screen dropdown + Sidebar appzets reflect the
+          // new template's snapshot immediately.
+          pull(slug);
+        }}
+        templateOptions={templateOptions}
+        templatesLoading={templatesLoading}
         onReload={() => pull(templateSlug)}
         onSync={() => syncFromCore(templateSlug)}
         onRefreshData={() => {
@@ -364,6 +444,33 @@ export function App() {
             );
           })()}
       </div>
+
+      {/* Small pill in the corner to reopen the "Select App" wizard.
+          Hidden until the first-mount check has run so it doesn't flash
+          before we know whether to auto-open. */}
+      {onboardingChecked && (
+        <button
+          type="button"
+          className="appza-onboard-reopen"
+          onClick={() => setOnboardingOpen(true)}
+          title="Select App"
+        >
+          Apps
+        </button>
+      )}
+
+      {onboardingOpen && (
+        <OnboardingModal
+          onClose={() => setOnboardingOpen(false)}
+          onSaved={() => {
+            // Activation set changed → refresh the Template dropdown and
+            // re-pull the bootstrap so any Source-scoped catalog updates
+            // are reflected.
+            loadTemplates();
+            pull(templateSlug);
+          }}
+        />
+      )}
     </div>
   );
 }

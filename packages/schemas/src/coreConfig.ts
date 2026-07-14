@@ -19,6 +19,9 @@ export type AppzaCoreConfig = {
     customizations?: string;
     previewProxy?: string;
     syncFromCore?: string;
+    sourceIntegrations?: string;
+    activeSourceIntegrations?: string;
+    templates?: string;
   };
   restNonce?: string;
   defaultTemplate?: string;
