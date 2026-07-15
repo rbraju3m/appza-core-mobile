@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AppZet, PropertiesSchemaEntry, Superstructure } from '@appza/schemas';
-import { resolveOverridableColumn } from '@appza/renderer';
+import { readDataPath, resolveOverridableColumn, useDataSource } from '@appza/renderer';
 import { IconPicker } from './IconPicker';
 
 /**
@@ -16,6 +16,15 @@ import { IconPicker } from './IconPicker';
 type Props = {
   appzet: AppZet;
   superstructure: Superstructure | null;
+  /**
+   * Slug of the AppZet's default data source. When provided, the panel
+   * re-uses `useDataSource` to peek at the current preview payload so
+   * it can hide slot-groups whose runtime data isn't populated (e.g.
+   * CTA 4/5 in fc-feed-banner when the API returns only 3 buttons).
+   * Undefined for AppZets with no data source — panel then falls back
+   * to showing every author-declared slot.
+   */
+  dataSourceSlug?: string | null;
   customizations: unknown;
   customizationsEndpoint: string;
   restNonce: string;
@@ -45,6 +54,7 @@ type Spacing = {
 export function PropertiesPanel({
   appzet,
   superstructure,
+  dataSourceSlug,
   customizations,
   customizationsEndpoint,
   restNonce,
@@ -52,6 +62,11 @@ export function PropertiesPanel({
   onChanged,
   onLivePreview,
 }: Props) {
+  // Same fetch the preview uses — dedup'd by slug, so this doesn't
+  // trigger a second round-trip. Empty items when no ds slug is passed
+  // (or the data source isn't wired yet).
+  const dataState = useDataSource(dataSourceSlug ?? undefined);
+  const previewItem = dataState.items[0];
   const [activeTab, setActiveTab] = useState<TabKey>('wrapper');
   const [spacing, setSpacing] = useState<Spacing>({});
   const [options, setOptions] = useState<OptionValues>({});
@@ -90,8 +105,11 @@ export function PropertiesPanel({
   const exposedProps = useMemo<PropertiesSchemaEntry[]>(() => {
     const schema = superstructure?.properties_schema ?? null;
     if (!Array.isArray(schema)) return [];
-    return schema.filter((p) => p.exposed_to_builder !== false);
-  }, [superstructure]);
+    const baseExposed = schema.filter((p) => p.exposed_to_builder !== false);
+    return baseExposed.filter((p) =>
+      isPropertyVisibleForItem(p, previewItem, superstructure),
+    );
+  }, [superstructure, previewItem]);
 
   const initialOptions = useMemo<OptionValues>(() => {
     const out: OptionValues = {};
@@ -604,6 +622,10 @@ function OptionRow({
   const defaultHint = formatDefault(prop.default);
   const label = humanizeName(prop.name);
   const iconFlavored = type === 'string' && isIconProp(prop);
+  const selectOptions = readSelectOptions(prop);
+  const sizePresets = readSizePresets(prop);
+  const sizeUnit = readSizeUnit(prop);
+  const hint = readHint(prop);
 
   return (
     <div className="appza-props-panel-option">
@@ -626,6 +648,48 @@ function OptionRow({
               {Boolean(effective) ? 'On' : 'Off'}
             </span>
           </label>
+        ) : type === 'color' ? (
+          // Native <input type="color"> is the OS-provided palette on
+          // every browser; a bare hex text field sits alongside so
+          // authors can paste values or use rgba/hsla. Both drive the
+          // same override. `onInput` fires continuously while the user
+          // drags in the picker so the phone-frame preview repaints
+          // live — some browsers (notably Firefox) only fire `onChange`
+          // when the picker CLOSES, which reads to the author as "not
+          // working".
+          <div className="appza-props-panel-color-group">
+            <input
+              type="color"
+              className="appza-props-panel-color"
+              value={normalizeHex(effective) ?? '#000000'}
+              onInput={(e) => onChange((e.target as HTMLInputElement).value)}
+              onChange={(e) => onChange(e.target.value)}
+            />
+            <input
+              type="text"
+              className="appza-props-panel-input"
+              value={typeof effective === 'string' ? effective : ''}
+              placeholder={typeof prop.default === 'string' ? prop.default : '#000000'}
+              onChange={(e) => onChange(e.target.value)}
+            />
+          </div>
+        ) : type === 'select' ? (
+          <select
+            className="appza-props-panel-input"
+            value={typeof effective === 'string' ? effective : ''}
+            onChange={(e) => onChange(e.target.value || undefined)}
+          >
+            <option value="">
+              {typeof prop.default === 'string' && prop.default !== ''
+                ? `Default (${prop.default})`
+                : '— Default —'}
+            </option>
+            {selectOptions.map(({ label: l, value: v }) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </select>
         ) : type === 'number' ? (
           <input
             type="number"
@@ -638,6 +702,13 @@ function OptionRow({
               if (Number.isFinite(n)) onChange(n);
             }}
           />
+        ) : type === 'size' ? (
+          <SizeControl
+            value={typeof effective === 'string' ? effective : undefined}
+            presets={sizePresets}
+            unit={sizeUnit}
+            onChange={onChange}
+          />
         ) : iconFlavored ? (
           <IconPicker
             value={typeof effective === 'string' ? effective : undefined}
@@ -648,7 +719,7 @@ function OptionRow({
             type="text"
             className="appza-props-panel-input"
             value={effective === undefined || effective === null ? '' : String(effective)}
-            placeholder={typeof prop.default === 'string' ? prop.default : ''}
+            placeholder={hint ?? (typeof prop.default === 'string' ? prop.default : '')}
             onChange={(e) => onChange(e.target.value)}
           />
         )}
@@ -671,15 +742,157 @@ function OptionRow({
   );
 }
 
-function inferOptionType(prop: PropertiesSchemaEntry): 'boolean' | 'number' | 'string' {
+function inferOptionType(
+  prop: PropertiesSchemaEntry,
+): 'boolean' | 'number' | 'string' | 'color' | 'select' | 'size' {
   const declared = typeof prop.type === 'string' ? prop.type.toLowerCase() : '';
   if (declared === 'boolean' || declared === 'bool') return 'boolean';
   if (declared === 'number' || declared === 'int' || declared === 'integer') return 'number';
-  if (declared === 'string' || declared === 'text') return 'string';
+  if (declared === 'color') return 'color';
+  if (declared === 'select' || declared === 'enum') return 'select';
+  if (declared === 'size' || declared === 'length') return 'size';
+  // Any prop with a preset ramp on the schema is a size regardless of
+  // the declared string type — saves catalog authors having to change
+  // both `type` and add `presets`.
+  const hasPresets = Array.isArray((prop as { presets?: unknown }).presets);
+  if (hasPresets) return 'size';
+  if (declared === 'string' || declared === 'text') {
+    // Name/binding heuristic: `*_color` binds to color pickers even when
+    // the author left type='string' (legacy entries).
+    if (/(^|_)color$|Color$/.test(prop.name)) return 'color';
+    return 'string';
+  }
   // Fall back to inferring from the default value.
   if (typeof prop.default === 'boolean') return 'boolean';
   if (typeof prop.default === 'number') return 'number';
   return 'string';
+}
+
+/**
+ * True when a properties_schema entry should be shown for the current
+ * preview item. Reads the entry's `binds_to` / `controls_visibility_of`
+ * to find the target child, then evaluates that child's `visible_when`
+ * clause against the item. Entries whose target child is filtered out
+ * by data (e.g. CTA 4 when the API returns only 3 buttons) drop out of
+ * the panel — no reason to expose knobs for a slot the runtime hides.
+ *
+ * Fail-open: unresolvable references (missing child, no clause, no
+ * preview item yet) show the entry — the panel would rather over-show
+ * than swallow controls the author might need.
+ */
+function isPropertyVisibleForItem(
+  prop: PropertiesSchemaEntry,
+  previewItem: unknown,
+  ss: Superstructure | null,
+): boolean {
+  if (previewItem === undefined || previewItem === null) return true;
+  const targetIdx = readTargetChildIndex(prop);
+  if (targetIdx === null) return true;
+  const children = readSSChildren(ss);
+  const child = children[targetIdx];
+  if (!child) return true;
+  const vw = (child as { visible_when?: unknown }).visible_when;
+  if (!isRecord(vw)) return true;
+  return evaluateSchemaVisibleWhen(vw, previewItem);
+}
+
+function readTargetChildIndex(prop: PropertiesSchemaEntry): number | null {
+  const bind = typeof prop.binds_to === 'string' ? prop.binds_to : null;
+  const vis = typeof prop.controls_visibility_of === 'string' ? prop.controls_visibility_of : null;
+  const spec = bind ?? vis;
+  if (!spec) return null;
+  const m = spec.match(/^children\[(\d+)\]/);
+  if (!m || !m[1]) return null;
+  const n = Number.parseInt(m[1], 10);
+  return Number.isInteger(n) && n >= 0 ? n : null;
+}
+
+function readSSChildren(ss: Superstructure | null): Array<Record<string, unknown>> {
+  const raw = (ss as { children?: unknown })?.children;
+  return Array.isArray(raw) ? (raw as Array<Record<string, unknown>>) : [];
+}
+
+function evaluateSchemaVisibleWhen(vw: Record<string, unknown>, item: unknown): boolean {
+  const binding = typeof vw['binding'] === 'string' ? (vw['binding'] as string) : '';
+  const op = typeof vw['op'] === 'string' ? (vw['op'] as string) : '';
+  const value = vw['value'];
+  if (!binding || !op) return true;
+  const resolved = readDataPath(item, binding);
+  switch (op) {
+    case 'exists':
+      return resolved !== undefined && resolved !== null && resolved !== '';
+    case 'not_exists':
+      return resolved === undefined || resolved === null || resolved === '';
+    case '==':
+      return resolved === value;
+    case '!=':
+      return resolved !== value;
+    case 'in':
+      return Array.isArray(value) && value.includes(resolved as never);
+    case 'not_in':
+      return !(Array.isArray(value) && value.includes(resolved as never));
+    default:
+      return true;
+  }
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function readSizePresets(prop: PropertiesSchemaEntry): number[] {
+  const raw = (prop as { presets?: unknown }).presets;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((n): n is number => typeof n === 'number' && Number.isFinite(n));
+}
+
+function readSizeUnit(prop: PropertiesSchemaEntry): string {
+  const raw = (prop as { unit?: unknown }).unit;
+  return typeof raw === 'string' && raw ? raw : 'px';
+}
+
+function readHint(prop: PropertiesSchemaEntry): string | undefined {
+  const raw = (prop as { hint?: unknown }).hint;
+  return typeof raw === 'string' && raw ? raw : undefined;
+}
+
+function readSelectOptions(
+  prop: PropertiesSchemaEntry,
+): Array<{ label: string; value: string }> {
+  const raw = (prop as { options?: unknown }).options;
+  if (!Array.isArray(raw)) return [];
+  const out: Array<{ label: string; value: string }> = [];
+  for (const entry of raw) {
+    if (typeof entry === 'string') {
+      out.push({ label: entry, value: entry });
+    } else if (entry && typeof entry === 'object') {
+      const rec = entry as { label?: unknown; value?: unknown };
+      if (typeof rec.value === 'string') {
+        out.push({
+          label: typeof rec.label === 'string' && rec.label ? rec.label : rec.value,
+          value: rec.value,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Normalises common CSS color forms to the `#rrggbb` that
+ * `<input type="color">` accepts. Non-hex strings (rgb/hsl/named) fall
+ * back to `undefined` so the native picker shows its own default until
+ * the author picks a value.
+ */
+function normalizeHex(v: OptionValue | undefined): string | undefined {
+  if (typeof v !== 'string') return undefined;
+  const trimmed = v.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) return trimmed.toLowerCase();
+  if (/^#[0-9a-fA-F]{3}$/.test(trimmed)) {
+    const [, r, g, b] = trimmed.match(/^#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])$/)!;
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return undefined;
 }
 
 function humanizeName(name: string): string {
@@ -699,6 +912,63 @@ function formatDefault(v: unknown): string | null {
 
 function isOptionValue(v: unknown): v is OptionValue {
   return typeof v === 'boolean' || typeof v === 'number' || typeof v === 'string';
+}
+
+/**
+ * Preset chip row for CSS-length props (border width/radius, padding).
+ * A trailing text input covers non-preset values (`50%`, `1.5rem`,
+ * `calc(...)`). Picking a chip toggles: click the active chip again to
+ * clear the override. Empty text also clears.
+ */
+function SizeControl({
+  value,
+  presets,
+  unit,
+  onChange,
+}: {
+  value: string | undefined;
+  presets: number[];
+  unit: string;
+  onChange: (v: string | undefined) => void;
+}) {
+  const activePreset = (() => {
+    if (typeof value !== 'string' || value === '') return undefined;
+    for (const p of presets) {
+      if (value === `${p}${unit}` || value === `${p}`) return p;
+    }
+    return undefined;
+  })();
+  const showCustom = value !== undefined && value !== '' && activePreset === undefined;
+
+  return (
+    <div className="appza-props-panel-size">
+      <div className="appza-props-panel-cells">
+        {presets.map((p) => (
+          <button
+            key={p}
+            type="button"
+            className="appza-props-panel-cell"
+            data-active={activePreset === p}
+            onClick={() =>
+              onChange(activePreset === p ? undefined : `${p}${unit}`)
+            }
+          >
+            {p === 0 ? 'Off' : p}
+          </button>
+        ))}
+      </div>
+      <input
+        type="text"
+        className="appza-props-panel-input appza-props-panel-size-custom"
+        value={showCustom ? value : ''}
+        placeholder={`Custom (e.g. 12${unit})`}
+        onChange={(e) => {
+          const raw = e.target.value.trim();
+          onChange(raw === '' ? undefined : raw);
+        }}
+      />
+    </div>
+  );
 }
 
 function ColorRow({

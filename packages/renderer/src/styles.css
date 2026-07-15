@@ -455,8 +455,12 @@
 }
 /* CTA buttons: fill (solid/outline/clear) + color come from the API
    payload via field_mappings (proxy derives them from ctaButtons[N].type).
-   Layout only here; explicitly zero the ::part(native) border for solid /
-   clear fills so nothing else in the cascade can paint a second edge. */
+   Layout only here. Ionic's outline fill draws its own border via
+   `--border-*` — that's the ONE intended border. Every wrapper edge
+   (`::part(native)` box-shadow, ss-child wrapper, primitive-path outline)
+   is explicitly zeroed so nothing paints a second edge. Per-slot border
+   overrides from properties_schema (border_width_N etc.) land on the
+   IonButton via `--border-*` and take precedence over these defaults. */
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="4"] ion-button,
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="5"] ion-button,
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="6"] ion-button,
@@ -464,13 +468,20 @@
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="8"] ion-button {
   width: 100%;
   margin: 0;
-  height: 40px;
+  /* min-height (not fixed height) so author padding_y can grow the button. */
+  min-height: 40px;
   font-size: 0.85rem;
   letter-spacing: 0.02em;
   text-transform: uppercase;
   --border-radius: 6px;
   --box-shadow: none;
 }
+/* Only zero the ambient box-shadow / focus outline on ::part(native).
+   DO NOT force `border: 0` here — that would win over the author's
+   `--border-*` custom properties fed in from properties_schema and the
+   panel edits would silently no-op. Ionic already ignores `border` for
+   solid/clear fills, so the intended single edge only appears when the
+   author (or the API-driven fill=outline) actually asks for it. */
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="4"] ion-button::part(native),
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="5"] ion-button::part(native),
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="6"] ion-button::part(native),
@@ -479,14 +490,38 @@
   box-shadow: none !important;
   outline: 0 !important;
 }
-/* The plug-in admin adds a 2px transparent outline on every primitive
-   wrapper so hover/select can paint on it. Inside the banner card, that
-   outline can read as a second border on the CTA buttons. Shrink it to
-   1px and offset it further inside so it doesn't hug the button edge. */
+/* Kill every non-Ionic edge on CTA slot wrappers so only the button's
+   own `--border-*` paints. The ss-child wrapper never carried a visible
+   border, but the plug-in-admin adds a transparent selection outline on
+   `[data-appza-primitive-path]` that was reading as a second edge in
+   both admin preview and the phone frame. Remove it inside CTA slots;
+   selection affordance stays on the banner-root wrapper above. */
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="4"],
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="5"],
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="6"],
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="7"],
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="8"] {
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+}
 .appza-device-viewport
-  .appza-renderer-ss[data-slug="fc-feed-banner"] [data-appza-primitive-path] {
-  outline-width: 1px;
-  outline-offset: -3px;
+  .appza-renderer-ss[data-slug="fc-feed-banner"]
+  [data-child-index="4"][data-appza-primitive-path],
+.appza-device-viewport
+  .appza-renderer-ss[data-slug="fc-feed-banner"]
+  [data-child-index="5"][data-appza-primitive-path],
+.appza-device-viewport
+  .appza-renderer-ss[data-slug="fc-feed-banner"]
+  [data-child-index="6"][data-appza-primitive-path],
+.appza-device-viewport
+  .appza-renderer-ss[data-slug="fc-feed-banner"]
+  [data-child-index="7"][data-appza-primitive-path],
+.appza-device-viewport
+  .appza-renderer-ss[data-slug="fc-feed-banner"]
+  [data-child-index="8"][data-appza-primitive-path] {
+  outline: 0 !important;
+  box-shadow: none !important;
 }
 /* Slot 4 (fifth CTA, if present) — full-row centered link. */
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="8"] {

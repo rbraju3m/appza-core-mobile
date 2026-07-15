@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentProps, type CSSProperties } from 'react';
 import {
   IonAvatar,
   IonButton,
@@ -304,11 +304,17 @@ export function PrimitiveRenderer({ primitive, overrides }: Props) {
       const textExplicitlyEmpty = rawText === '';
       const iconOnly = !!iconName && (textExplicitlyEmpty || readString(overrides, 'text') === undefined);
       const buttonLabel = textExplicitlyEmpty ? '' : label;
+      // Ionic's `color=` prop applies a class that sets `--background`,
+      // `--color`, `--border-color`, etc. via `:host`, which can shadow
+      // our inline overrides. `ThemedIonButton` uses a ref + setProperty
+      // with 'important' so schema-driven `background` / `text_color` /
+      // `border_color` always win regardless of the API's theme color.
       return (
-        <IonButton
+        <ThemedIonButton
           size="small"
           fill={normalizeIonButtonFill(readString(overrides, 'fill'))}
           color={readString(overrides, 'color')}
+          styleOverrides={buildIonButtonStyleOverrides(overrides)}
         >
           {iconName && resolveIcon(iconName) && (
             <IonIcon
@@ -317,7 +323,7 @@ export function PrimitiveRenderer({ primitive, overrides }: Props) {
             />
           )}
           {!iconOnly && buttonLabel}
-        </IonButton>
+        </ThemedIonButton>
       );
     }
 
@@ -407,13 +413,21 @@ export function PrimitiveRenderer({ primitive, overrides }: Props) {
       const size = readString(overrides, 'size');
       const weight = readString(overrides, 'weight');
       const align = readString(overrides, 'align');
+      // Ionic's `color=` only accepts theme names (primary/secondary/
+      // dark/etc.). A hex like `#ff0000` passed to `color=` is silently
+      // dropped. Route arbitrary CSS colors through inline `style.color`
+      // and reserve `color=` for real theme names, so the builder's
+      // color picker actually changes the title.
+      const themeColor = color && isIonicThemeColor(color) ? color : undefined;
+      const inlineColor = color && !themeColor ? color : undefined;
       return (
-        <IonText color={color}>
+        <IonText color={themeColor}>
           <p style={{
             margin: 0,
             fontSize: size,
             fontWeight: weight,
-            textAlign: (align as React.CSSProperties['textAlign']) ?? undefined,
+            textAlign: (align as CSSProperties['textAlign']) ?? undefined,
+            color: inlineColor,
           }}>{label}</p>
         </IonText>
       );
@@ -558,6 +572,158 @@ function readString(overrides: PrimitiveOverrides | undefined, key: string): str
   if (typeof v === 'string' && v.length > 0) return v;
   if (typeof v === 'number') return String(v);
   return undefined;
+}
+
+/**
+ * Maps IonButton style overrides (from properties_schema `binds_to`) onto
+ * the Ionic CSS custom properties IonButton reads at runtime. Names match
+ * schema convention (border_width, border_color, border_style,
+ * border_radius, background, text_color, padding_x, padding_y) so
+ * catalog authors can wire them without knowing Ionic's `--*` names.
+ * Returns an empty map if nothing is set so callers can skip the effect.
+ */
+function buildIonButtonStyleOverrides(
+  overrides: PrimitiveOverrides | undefined,
+): Record<string, string> {
+  if (!overrides) return {};
+  const map: Array<[string, string]> = [
+    ['border_width', '--border-width'],
+    ['border_color', '--border-color'],
+    ['border_style', '--border-style'],
+    ['border_radius', '--border-radius'],
+    ['background', '--background'],
+    ['text_color', '--color'],
+    ['padding_x', '--padding-start'],
+    ['padding_y', '--padding-top'],
+  ];
+  const out: Record<string, string> = {};
+  for (const [key, cssVar] of map) {
+    const v = readString(overrides, key);
+    if (v !== undefined) out[cssVar] = v;
+  }
+  // padding_x → --padding-end mirror; padding_y → --padding-bottom mirror.
+  const px = readString(overrides, 'padding_x');
+  if (px !== undefined) out['--padding-end'] = px;
+  const py = readString(overrides, 'padding_y');
+  if (py !== undefined) out['--padding-bottom'] = py;
+  return out;
+}
+
+/**
+ * IonButton wrapper that beats Ionic's theme cascade by styling the
+ * shadow part `::part(native)` directly. Ionic's `color=` prop applies
+ * `:host` rules for `--background`, `--color`, `--border-color`, etc.,
+ * and inline custom properties on the host don't always win — the
+ * theme's `!important` variants in some cascades take over. Targeting
+ * the shadow part from OUTSIDE the shadow root, with `!important`,
+ * always wins because Ionic never gates its own shadow rules with
+ * `!important` at that layer.
+ *
+ * Each button gets a unique class (`appza-cta-<id>`) and an inline
+ * `<style>` sibling emits scoped rules keyed off that class. Cleared
+ * props render as empty styleOverrides → empty rules → Ionic defaults
+ * come back automatically.
+ */
+type ThemedIonButtonProps = ComponentProps<typeof IonButton> & {
+  styleOverrides: Record<string, string>;
+};
+
+let themedButtonCounter = 0;
+
+function ThemedIonButton({
+  styleOverrides,
+  children,
+  className,
+  ...rest
+}: ThemedIonButtonProps) {
+  const idRef = useRef<string | null>(null);
+  if (idRef.current === null) {
+    themedButtonCounter += 1;
+    idRef.current = `appza-cta-${themedButtonCounter}`;
+  }
+  const cssId = idRef.current;
+
+  // Map schema-driven CSS custom properties back to native CSS
+  // properties on `::part(native)` — that's where Ionic actually
+  // paints the button surface / label / border. Padding stays on the
+  // host as `--padding-*` (Ionic reads those internally on ion-button
+  // even when `part(native)` is styled externally).
+  const partRules: string[] = [];
+  const hostRules: string[] = [];
+  const partMap: Array<[string, string]> = [
+    ['--background', 'background-color'],
+    ['--color', 'color'],
+    ['--border-color', 'border-color'],
+    ['--border-style', 'border-style'],
+    ['--border-width', 'border-width'],
+    ['--border-radius', 'border-radius'],
+  ];
+  for (const [srcKey, cssProp] of partMap) {
+    const v = styleOverrides[srcKey];
+    if (v !== undefined) partRules.push(`${cssProp}: ${v} !important;`);
+  }
+  for (const hostKey of [
+    '--padding-start',
+    '--padding-end',
+    '--padding-top',
+    '--padding-bottom',
+  ]) {
+    const v = styleOverrides[hostKey];
+    if (v !== undefined) hostRules.push(`${hostKey}: ${v} !important;`);
+  }
+  // Border-width has to be explicit on ::part(native) for outline to
+  // paint, but Ionic's solid/clear fills also inherit border: 0. When
+  // the author sets a color WITHOUT a width, assume they want the
+  // color visible → default to 1px solid so the color has something to
+  // paint on.
+  if (styleOverrides['--border-color'] && !styleOverrides['--border-width']) {
+    partRules.push('border-width: 1px !important;');
+    if (!styleOverrides['--border-style']) {
+      partRules.push('border-style: solid !important;');
+    }
+  }
+
+  const css = [
+    hostRules.length > 0 ? `.${cssId} { ${hostRules.join(' ')} }` : '',
+    partRules.length > 0
+      ? `.${cssId}::part(native) { ${partRules.join(' ')} }`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const mergedClass = className ? `${className} ${cssId}` : cssId;
+
+  return (
+    <>
+      {css && <style>{css}</style>}
+      <IonButton className={mergedClass} {...rest}>
+        {children}
+      </IonButton>
+    </>
+  );
+}
+
+const IONIC_THEME_COLORS = new Set([
+  'primary',
+  'secondary',
+  'tertiary',
+  'success',
+  'warning',
+  'danger',
+  'light',
+  'medium',
+  'dark',
+]);
+
+/**
+ * True when the string is an Ionic theme color name (safe to pass to
+ * `color=`). Everything else (hex, rgb(), hsl(), CSS named colors) has
+ * to flow through inline style since Ionic silently drops non-theme
+ * values from the color prop.
+ */
+function isIonicThemeColor(v: string): boolean {
+  return IONIC_THEME_COLORS.has(v);
 }
 
 type PollOption = { label: string; slug: string };

@@ -489,10 +489,21 @@ export function App() {
               selected.superstructure_id != null
                 ? superstructures.find((s) => s.id === selected.superstructure_id) ?? null
                 : null;
+            // Look up the AppZet's data source slug so the panel can
+            // re-use useDataSource and hide slot-groups whose runtime
+            // data isn't there (e.g. CTA 4 when the API returns 3).
+            const dataSourceSlug: string | null = (() => {
+              const dsId = selected.default_data_source_id;
+              if (dsId == null) return null;
+              const ds = catalog?.data_sources?.find((d) => d.id === dsId);
+              const slug = ds && typeof ds.slug === 'string' ? ds.slug : null;
+              return slug;
+            })();
             return (
               <PropertiesPanel
                 appzet={selected}
                 superstructure={superstructure}
+                dataSourceSlug={dataSourceSlug}
                 customizations={envelope?.customizations}
                 customizationsEndpoint={customizationsEndpoint}
                 restNonce={nonce}

@@ -928,6 +928,33 @@ body {
   background: white;
 }
 
+/* Color option row: fixed-width swatch + text field for hex/rgba edits. */
+.appza-props-panel-color-group {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+}
+
+.appza-props-panel-color-group .appza-props-panel-color {
+  width: 36px;
+  height: 28px;
+}
+
+/* Size preset chips + custom-value fallback. Chip row inherits the
+   Wrapper-tab cell styling so the two panels feel like one system. */
+.appza-props-panel-size {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.appza-props-panel-size-custom {
+  font-size: 0.8rem;
+}
+
 .appza-props-panel-empty {
   color: var(--appza-text-muted);
   font-size: 0.85rem;

@@ -118,6 +118,19 @@ const PropertiesSchemaEntrySchema = z
     // Author-declared section label for the plug-in Options tab. When unset,
     // plug-in falls back to a name-pattern heuristic.
     group: z.string().optional(),
+    // Enum for `type: 'select'`: the values the dropdown offers. Each
+    // entry is either a raw string (label == value) or a {label, value}
+    // pair. Ignored for non-select types.
+    options: z
+      .array(z.union([z.string(), z.object({ label: z.string(), value: z.string() })]))
+      .optional(),
+    // `type: 'size'` — preset ramp for CSS length values. The panel
+    // renders a chip row for each entry in `presets`; the stored value
+    // is `${preset}${unit}` (e.g. `4px`). Ignored for other types.
+    presets: z.array(z.number()).optional(),
+    unit: z.string().optional(),
+    // Optional hint shown below the control (placeholder in inputs).
+    hint: z.string().optional(),
   })
   .passthrough();
 
