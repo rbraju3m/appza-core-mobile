@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BootstrapEnvelopeSchema,
   type BootstrapEnvelope,
@@ -102,6 +102,150 @@ export function App() {
   // when nav.push runs; irrelevant in Edit mode (screens are picked from
   // the top-bar dropdown, no stack).
   const [screenStack, setScreenStack] = useState<number[]>([]);
+  // Auth state (real WP Application Password from /fcom-login). Mirrored
+  // into localStorage so a page reload keeps the session. When null,
+  // App-mode forces the login-page screen on first render.
+  const [auth, setAuthState] = useState<StoredAuth | null>(() => readStoredAuth());
+  const setAuth = useCallback((a: StoredAuth | null) => {
+    writeStoredAuth(a);
+    setAuthState(a);
+    // Mirror the Basic Auth header into a window global so the renderer's
+    // useDataSource can forward it to the preview proxy without importing
+    // any auth state cross-package.
+    const g = window as unknown as { __appzaAuthHeader?: string };
+    if (a) g.__appzaAuthHeader = basicAuthHeader(a);
+    else delete g.__appzaAuthHeader;
+  }, []);
+  // Bootstrap the window auth header on mount if we already have a stored
+  // session (auth was hydrated from localStorage before setAuth ran).
+  useEffect(() => {
+    const g = window as unknown as { __appzaAuthHeader?: string };
+    if (auth) g.__appzaAuthHeader = basicAuthHeader(auth);
+    // Also trigger data-source refresh so any in-flight fetches that ran
+    // before the header was set can be re-issued with credentials.
+    window.dispatchEvent(new Event('appza:refresh-data'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Toast-style banner for login / post errors from the HTTP dispatchers.
+  // Auto-clears after 5s. Success paths clear it too via clearAuthMessage.
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const clearAuthMessage = useCallback(() => setAuthMessage(null), []);
+  useEffect(() => {
+    if (!authMessage) return;
+    const t = window.setTimeout(() => setAuthMessage(null), 5000);
+    return () => window.clearTimeout(t);
+  }, [authMessage]);
+  // Spaces list for the composer's space picker dropdown. Fetched lazily
+  // when App-mode is active + we're authenticated; empty when guest so
+  // the dropdown just shows a placeholder. Refetched on login.
+  const [spaceOptions, setSpaceOptions] = useState<
+    Array<{ value: string; label: string }>
+  >([]);
+  // Live-clock string for the create-post-page's user avatar card. Ticks
+  // every 30s so the date line under the user's name reads as "now".
+  // Injected into effectiveCustomizations for fc-user-avatar → children[2].text
+  // via the same override channel space_options uses.
+  const [nowLabel, setNowLabel] = useState<string>(() => formatNowLabel(new Date()));
+  useEffect(() => {
+    if (uiMode !== 'app') return;
+    const tick = () => setNowLabel(formatNowLabel(new Date()));
+    tick();
+    const id = window.setInterval(tick, 30000);
+    return () => window.clearInterval(id);
+  }, [uiMode]);
+  // Images the user has selected + uploaded for the current create-post
+  // draft. Each entry is a URL returned by /feeds/media-upload. Included
+  // as `media_images` on post.create and cleared on success + on logout.
+  const [pendingImages, setPendingImages] = useState<string[]>([]);
+  const [uploadingCount, setUploadingCount] = useState(0);
+  // Video oembed attachment for the current draft. Populated by picker.video
+  // after a successful /feeds/oembed lookup. Sent on post.create as
+  // `media: {type: 'oembed', url}` + `content_type: 'oembed'`. FC's server
+  // re-parses the URL and materializes meta.media_preview from RemoteUrlParser.
+  const [pendingVideo, setPendingVideo] = useState<{
+    url: string;
+    title?: string;
+    image?: string;
+    provider?: string;
+  } | null>(null);
+  const [videoLoading, setVideoLoading] = useState(false);
+  // Poll (FC calls it "survey") attachment for the current draft. Built via
+  // the poll modal opened by picker.poll. Sent on post.create as
+  // `survey: {type, options: [{label}]}`. FC flips content_type to 'survey'
+  // + slugs each option server-side. The composer's message body doubles as
+  // the poll question, matching FC's portal UX.
+  type PendingPoll = {
+    type: 'single_choice' | 'multi_choice';
+    options: string[];
+  };
+  const [pendingPoll, setPendingPoll] = useState<PendingPoll | null>(null);
+  const [pollModalOpen, setPollModalOpen] = useState(false);
+  // Hidden file input reused across picker.image invocations. Ref lets the
+  // dispatcher trigger `.click()` without React re-render.
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Clear all pending draft attachments (images, video, poll) on logout
+  // so nothing leaks between sessions.
+  useEffect(() => {
+    if (!auth) {
+      setPendingImages([]);
+      setPendingVideo(null);
+      setPendingPoll(null);
+      setPollModalOpen(false);
+    }
+  }, [auth]);
+  useEffect(() => {
+    if (uiMode !== 'app') return;
+    if (!auth) {
+      setSpaceOptions([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const url = '/wp-json/appza/fcom-mobile/api/v1/spaces/discover';
+      try {
+        const res = await fetch(url, {
+          // Same reasoning as post.create: avoid the WP cookie-auth path
+          // reaching this request. Basic Auth via Authorization header only.
+          credentials: 'omit',
+          headers: {
+            Accept: 'application/json',
+            Authorization: basicAuthHeader(auth),
+          },
+        });
+        const json = await res.json().catch(() => null);
+        console.log('[appza/spaces] fetch', {
+          status: res.status,
+          ok: res.ok,
+          itemCount: Array.isArray(json?.items) ? json.items.length : 'n/a',
+          json,
+        });
+        if (!res.ok) return;
+        const items = Array.isArray(json?.items) ? json.items : [];
+        if (cancelled) return;
+        // FC's FeedsController.store() uses the space SLUG (not id) — see
+        // Request::get('space') resolving to a slug string. Store slug as
+        // the option value so post.create's param_map submits the right
+        // shape. Label stays as human-readable title.
+        const opts = items
+          .filter((s: unknown) => s && typeof s === 'object')
+          .map((s: Record<string, unknown>) => ({
+            value: String(s.slug ?? s.id ?? ''),
+            label: String(s.title ?? s.slug ?? s.id ?? ''),
+          }))
+          .filter((o: { value: string; label: string }) => o.value && o.label);
+        console.log('[appza/spaces] parsed options', opts);
+        setSpaceOptions(opts);
+      } catch (err) {
+        console.error('[appza/spaces] fetch failed', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Depend on auth token so re-login refetches. uiMode gates the effect
+    // so we don't fetch in Edit mode where the composer is a design surface.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uiMode, auth?.token]);
   // Pending panel edits — mirrored into the customizations blob before
   // it's handed to DeviceFrame so the phone-frame preview reflects the
   // panel state instantly, before Save persists it.
@@ -268,7 +412,8 @@ export function App() {
   // primitive-level (Layout editor).
   const effectiveCustomizations = useMemo(() => {
     const base = envelope?.customizations;
-    if (!livePreview && !livePrimitivePreview) return base;
+    const hasSpaceInjection = uiMode === 'app' && spaceOptions.length > 0;
+    if (!livePreview && !livePrimitivePreview && !hasSpaceInjection) return base;
     const baseRecord =
       base && typeof base === 'object' && !Array.isArray(base)
         ? (base as Record<string, unknown>)
@@ -301,9 +446,137 @@ export function App() {
       scopeRecord[key] = targetRecord;
       out = { ...out, appzet_primitive: scopeRecord };
     }
+    // Inject the fetched spaces list into fc-post-information's space picker
+    // options prop. properties_schema binds `space_options` → children[1].options,
+    // so PlacementRenderer forwards it to the IonSelect primitive. Merged
+    // onto whatever's already in default_props_override (live-preview edits
+    // take precedence when both are present).
+    if (hasSpaceInjection) {
+      const scopeRecord =
+        out['appzet'] && typeof out['appzet'] === 'object'
+          ? { ...(out['appzet'] as Record<string, unknown>) }
+          : {};
+      const targetRecord =
+        scopeRecord['fc-post-information'] && typeof scopeRecord['fc-post-information'] === 'object'
+          ? { ...(scopeRecord['fc-post-information'] as Record<string, unknown>) }
+          : {};
+      const existingOverride =
+        targetRecord['default_props_override'] && typeof targetRecord['default_props_override'] === 'object'
+          ? (targetRecord['default_props_override'] as Record<string, unknown>)
+          : {};
+      targetRecord['default_props_override'] = {
+        ...existingOverride,
+        space_options: spaceOptions,
+      };
+      scopeRecord['fc-post-information'] = targetRecord;
+      out = { ...out, appzet: scopeRecord };
+    }
+    // Inject live "now" string for the create-post user-avatar card's
+    // date line. field_mappings on the AppZet also binds children[2].text
+    // to data.schedule_date (server stamp fallback); this override runs
+    // AFTER that in PlacementRenderer, so the live clock wins.
+    if (uiMode === 'app') {
+      const scopeRecord =
+        out['appzet'] && typeof out['appzet'] === 'object'
+          ? { ...(out['appzet'] as Record<string, unknown>) }
+          : {};
+      const targetRecord =
+        scopeRecord['fc-user-avatar'] && typeof scopeRecord['fc-user-avatar'] === 'object'
+          ? { ...(scopeRecord['fc-user-avatar'] as Record<string, unknown>) }
+          : {};
+      const existingOverride =
+        targetRecord['default_props_override'] && typeof targetRecord['default_props_override'] === 'object'
+          ? (targetRecord['default_props_override'] as Record<string, unknown>)
+          : {};
+      targetRecord['default_props_override'] = {
+        ...existingOverride,
+        now_label: nowLabel,
+      };
+      scopeRecord['fc-user-avatar'] = targetRecord;
+      out = { ...out, appzet: scopeRecord };
+    }
     return out;
-  }, [envelope, livePreview, livePrimitivePreview]);
+  }, [envelope, livePreview, livePrimitivePreview, spaceOptions, uiMode, nowLabel]);
 
+  const openImagePicker = useCallback(() => {
+    console.log('[appza/picker.image] openImagePicker called', {
+      hasInputRef: !!fileInputRef.current,
+    });
+    if (!fileInputRef.current) {
+      console.warn('[appza/picker.image] fileInputRef is null — input not mounted?');
+      return;
+    }
+    fileInputRef.current.click();
+  }, []);
+  const clearPendingImages = useCallback(() => setPendingImages([]), []);
+  const clearPendingVideo = useCallback(() => setPendingVideo(null), []);
+  const openPollModal = useCallback(() => setPollModalOpen(true), []);
+  const clearPendingPoll = useCallback(() => setPendingPoll(null), []);
+
+  /**
+   * Fetch oembed preview data for a video URL and stash it in pendingVideo
+   * so the composer thumbnail card can render. FC's server also re-parses
+   * the URL at post.create time — this call is purely for the preview UX
+   * + early validation (URL that doesn't resolve to oembed → banner + no
+   * attach). Errors surface via the top-of-app banner.
+   */
+  const attachVideo = useCallback(
+    async (url: string) => {
+      if (!auth) {
+        setAuthMessage('Please sign in to attach a video.');
+        return;
+      }
+      setVideoLoading(true);
+      try {
+        const res = await fetch('/wp-json/fcom-mobile/api/v1/feeds/oembed', {
+          method: 'POST',
+          credentials: 'omit',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: basicAuthHeader(auth),
+          },
+          body: JSON.stringify({ url }),
+        });
+        const json = await res.json().catch(() => null);
+        console.log('[appza/oembed]', { status: res.status, json });
+        if (!res.ok) {
+          setAuthMessage(`Video lookup failed (HTTP ${res.status})`);
+          return;
+        }
+        // Two possible failure envelopes: outer non-200 response wrapper,
+        // or a null items on 200 (no oembed match).
+        const wrapper = (json && typeof json === 'object') ? (json as Record<string, unknown>) : null;
+        const inner = wrapper && wrapper.response && typeof wrapper.response === 'object'
+          ? (wrapper.response as Record<string, unknown>)
+          : null;
+        const items = wrapper && wrapper.items && typeof wrapper.items === 'object'
+          ? (wrapper.items as Record<string, unknown>)
+          : null;
+        if (inner && inner.status && inner.status !== 200) {
+          setAuthMessage(
+            typeof inner.message === 'string' ? inner.message : 'No preview available for this URL',
+          );
+          return;
+        }
+        if (!items) {
+          setAuthMessage('No preview available for this URL');
+          return;
+        }
+        setPendingVideo({
+          url,
+          title: typeof items.title === 'string' ? items.title : undefined,
+          image: typeof items.image === 'string' ? items.image : undefined,
+          provider: typeof items.provider === 'string' ? items.provider : undefined,
+        });
+      } catch (err) {
+        setAuthMessage(err instanceof Error ? err.message : String(err));
+      } finally {
+        setVideoLoading(false);
+      }
+    },
+    [auth],
+  );
   const dispatchAction = useCallback<ActionDispatch>(
     (inv: ActionInvocation) => {
       handleAppModeAction(inv, {
@@ -311,10 +584,118 @@ export function App() {
         currentScreenId: selectedScreenId,
         setSelectedScreenId,
         setScreenStack,
+        auth,
+        setAuth,
+        onLoginError: (m) => setAuthMessage(m),
+        onLoginSuccess: () => setAuthMessage(null),
+        openImagePicker,
+        pendingImages,
+        clearPendingImages,
+        attachVideo,
+        pendingVideo,
+        clearPendingVideo,
+        openPollModal,
+        pendingPoll,
+        clearPendingPoll,
       });
     },
-    [catalog, selectedScreenId],
+    [
+      catalog, selectedScreenId, auth, setAuth,
+      openImagePicker, pendingImages, clearPendingImages,
+      attachVideo, pendingVideo, clearPendingVideo,
+      openPollModal, pendingPoll, clearPendingPoll,
+    ],
   );
+
+  /**
+   * Handle picker.image: called by the hidden file input's onChange after
+   * the user selects one or more images. Uploads each via multipart POST
+   * to fcom-mobile's /feeds/media-upload proxy with Basic Auth, then
+   * appends returned URLs to pendingImages state. Errors surface via the
+   * top-of-app red banner. Uploads run in parallel; count is tracked so
+   * we can show a "Uploading N…" indicator in the thumbnail strip.
+   */
+  const uploadImages = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
+      if (!auth) {
+        setAuthMessage('Please sign in to attach images.');
+        return;
+      }
+      const list = Array.from(files);
+      setUploadingCount((c) => c + list.length);
+      const uploads = list.map(async (file) => {
+        try {
+          const form = new FormData();
+          form.append('file', file);
+          const res = await fetch('/wp-json/fcom-mobile/api/v1/feeds/media-upload', {
+            method: 'POST',
+            credentials: 'omit',
+            headers: {
+              Accept: 'application/json',
+              Authorization: basicAuthHeader(auth),
+              // No Content-Type — the browser sets multipart/form-data
+              // with the correct boundary when body is FormData.
+            },
+            body: form,
+          });
+          const json = await res.json().catch(() => null);
+          console.log('[appza/upload]', {
+            file: file.name,
+            status: res.status,
+            json,
+          });
+          if (!res.ok) {
+            const msg = (json && typeof (json as Record<string, unknown>).message === 'string')
+              ? ((json as Record<string, unknown>).message as string)
+              : `Upload failed (HTTP ${res.status})`;
+            setAuthMessage(msg);
+            return null;
+          }
+          const url =
+            (json && typeof json === 'object' && 'items' in json &&
+              json.items && typeof json.items === 'object' &&
+              typeof (json.items as Record<string, unknown>).url === 'string')
+              ? ((json.items as Record<string, string>).url)
+              : null;
+          if (!url) {
+            setAuthMessage('Upload succeeded but no URL returned.');
+            return null;
+          }
+          return url;
+        } catch (err) {
+          setAuthMessage(err instanceof Error ? err.message : String(err));
+          return null;
+        } finally {
+          setUploadingCount((c) => c - 1);
+        }
+      });
+      const urls = (await Promise.all(uploads)).filter((u): u is string => !!u);
+      if (urls.length > 0) {
+        setPendingImages((prev) => [...prev, ...urls]);
+      }
+    },
+    [auth],
+  );
+
+  // App-mode gate: when the user has no stored auth token, force the
+  // login-page screen so they can't reach the composer / feed writes
+  // before authenticating. Applies only when the App-mode preview is
+  // active (Edit mode is a design-time surface — the auth gate would be
+  // annoying and pointless there). Runs whenever uiMode flips to 'app'
+  // or the catalog is loaded, and gets deferred until screens exist.
+  useEffect(() => {
+    if (uiMode !== 'app') return;
+    if (!catalog) return;
+    if (auth) return;
+    const login = catalog.template_screens?.find(
+      (s) => s.app_map_screen_slug === 'login-page',
+    );
+    if (login && login.id !== selectedScreenId) {
+      setScreenStack([]);
+      setSelectedScreenId(login.id);
+    }
+  }, [uiMode, catalog, auth, selectedScreenId]);
 
   const bottomPanel = useMemo(() => {
     if (!bottomTab || !envelope) return null;
@@ -390,6 +771,368 @@ export function App() {
       />
 
       {state.kind === 'error' && <div className="appza-status">{state.message}</div>}
+
+      {uiMode === 'app' && authMessage && (
+        <div
+          className="appza-status"
+          role="alert"
+          style={{ background: '#fee2e2', color: '#991b1b' }}
+        >
+          {authMessage}
+          <button
+            type="button"
+            onClick={clearAuthMessage}
+            style={{
+              marginLeft: 8,
+              background: 'transparent',
+              border: 'none',
+              color: '#991b1b',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {uiMode === 'app' && (
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const files = e.target.files;
+            void uploadImages(files);
+            // Reset so selecting the same file again re-fires onChange
+            e.target.value = '';
+          }}
+        />
+      )}
+
+      {uiMode === 'app' && auth && pendingPoll && (
+        <div
+          className="appza-pending-poll"
+          role="region"
+          aria-label="Attached poll"
+          style={{
+            position: 'fixed',
+            bottom: 250,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            gap: 8,
+            alignItems: 'center',
+            background: '#eff6ff',
+            padding: '8px 12px',
+            borderRadius: 8,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 30,
+            maxWidth: 320,
+            fontSize: 12,
+          }}
+        >
+          <span aria-hidden="true">📊</span>
+          <span>
+            Poll:{' '}
+            {pendingPoll.type === 'single_choice' ? 'single choice' : 'multi choice'} ·{' '}
+            {pendingPoll.options.filter((o) => o.trim()).length} options
+          </span>
+          <button
+            type="button"
+            onClick={() => setPollModalOpen(true)}
+            style={{
+              border: 'none',
+              background: '#dbeafe',
+              padding: '2px 8px',
+              borderRadius: 999,
+              cursor: 'pointer',
+              fontSize: 11,
+            }}
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => setPendingPoll(null)}
+            aria-label="Remove poll"
+            style={{
+              border: 'none',
+              background: '#dbeafe',
+              padding: '2px 8px',
+              borderRadius: 999,
+              cursor: 'pointer',
+              fontSize: 12,
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {uiMode === 'app' && pollModalOpen && (
+        <PollBuilderModal
+          initial={pendingPoll}
+          onCancel={() => setPollModalOpen(false)}
+          onSave={(next) => {
+            setPendingPoll(next);
+            setPollModalOpen(false);
+          }}
+        />
+      )}
+
+      {uiMode === 'app' && auth && (pendingVideo || videoLoading) && (
+        <div
+          className="appza-pending-video"
+          role="region"
+          aria-label="Attached video"
+          style={{
+            position: 'fixed',
+            bottom: 180,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            gap: 8,
+            alignItems: 'center',
+            background: '#fff',
+            padding: 8,
+            borderRadius: 8,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 30,
+            maxWidth: 320,
+          }}
+        >
+          {videoLoading ? (
+            <span style={{ fontSize: 12, color: '#6b7280' }}>⏳ Fetching video preview…</span>
+          ) : pendingVideo ? (
+            <>
+              <div
+                style={{
+                  position: 'relative',
+                  width: 72,
+                  height: 48,
+                  flex: '0 0 72px',
+                  borderRadius: 4,
+                  overflow: 'hidden',
+                  background: '#000',
+                }}
+              >
+                {pendingVideo.image && (
+                  <img
+                    src={pendingVideo.image}
+                    alt=""
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                )}
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'grid',
+                    placeItems: 'center',
+                    color: '#fff',
+                    textShadow: '0 1px 3px rgba(0,0,0,0.6)',
+                    fontSize: 20,
+                  }}
+                >
+                  ▶
+                </span>
+              </div>
+              <div style={{ flex: 1, minWidth: 0, fontSize: 12 }}>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                  title={pendingVideo.title || pendingVideo.url}
+                >
+                  {pendingVideo.title || pendingVideo.url}
+                </div>
+                {pendingVideo.provider && (
+                  <div style={{ color: '#6b7280', textTransform: 'capitalize' }}>
+                    {pendingVideo.provider}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setPendingVideo(null)}
+                aria-label="Remove video"
+                style={{
+                  border: 'none',
+                  background: '#f3f4f6',
+                  padding: '4px 8px',
+                  borderRadius: 999,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                }}
+              >
+                ×
+              </button>
+            </>
+          ) : null}
+        </div>
+      )}
+
+      {uiMode === 'app' && auth && (pendingImages.length > 0 || uploadingCount > 0) && (
+        <div
+          className="appza-pending-images"
+          role="region"
+          aria-label="Attached images"
+          style={{
+            position: 'fixed',
+            bottom: 110,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            gap: 6,
+            alignItems: 'center',
+            background: '#fff',
+            padding: 8,
+            borderRadius: 8,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 30,
+            maxWidth: 320,
+            overflowX: 'auto',
+          }}
+        >
+          {pendingImages.map((url, idx) => (
+            <div
+              key={url}
+              style={{
+                position: 'relative',
+                width: 56,
+                height: 56,
+                flex: '0 0 56px',
+                borderRadius: 6,
+                overflow: 'hidden',
+                background: '#f3f4f6',
+              }}
+            >
+              <img
+                src={url}
+                alt=""
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+              <button
+                type="button"
+                onClick={() => setPendingImages((prev) => prev.filter((_, i) => i !== idx))}
+                aria-label="Remove image"
+                style={{
+                  position: 'absolute',
+                  top: 2,
+                  right: 2,
+                  width: 18,
+                  height: 18,
+                  padding: 0,
+                  border: 'none',
+                  borderRadius: '50%',
+                  background: 'rgba(17,24,39,0.8)',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  lineHeight: '18px',
+                  textAlign: 'center',
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          {uploadingCount > 0 && (
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                flex: '0 0 56px',
+                borderRadius: 6,
+                background: '#f3f4f6',
+                display: 'grid',
+                placeItems: 'center',
+                fontSize: 11,
+                color: '#6b7280',
+              }}
+            >
+              ⏳ {uploadingCount}
+            </div>
+          )}
+        </div>
+      )}
+
+      {uiMode === 'app' && auth && (
+        <div
+          className="appza-auth-status-in-app"
+          role="status"
+          style={{
+            position: 'fixed',
+            top: 60,
+            right: 20,
+            display: 'flex',
+            gap: 6,
+            alignItems: 'center',
+            background: 'rgba(17, 24, 39, 0.92)',
+            color: '#f9fafb',
+            padding: '4px 10px 4px 4px',
+            borderRadius: 999,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+            zIndex: 30,
+            fontSize: 12,
+          }}
+        >
+          {auth.avatar ? (
+            <img
+              src={auth.avatar}
+              alt=""
+              width={22}
+              height={22}
+              style={{ borderRadius: '50%', display: 'block' }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: '50%',
+                background: '#4b5563',
+                display: 'grid',
+                placeItems: 'center',
+                fontWeight: 600,
+              }}
+            >
+              {(auth.display_name || auth.username).charAt(0).toUpperCase()}
+            </div>
+          )}
+          <span style={{ fontWeight: 500 }}>{auth.display_name || auth.username}</span>
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm('Log out?')) {
+                dispatchAction({ action_slug: 'auth.logout' });
+              }
+            }}
+            title="Log out"
+            aria-label="Log out"
+            style={{
+              border: 'none',
+              background: 'rgba(255,255,255,0.15)',
+              color: '#f9fafb',
+              padding: '3px 8px',
+              borderRadius: 999,
+              cursor: 'pointer',
+              fontSize: 11,
+              marginLeft: 4,
+            }}
+          >
+            ⎋ Logout
+          </button>
+        </div>
+      )}
 
       <div className="appza-body">
         <Sidebar
@@ -624,7 +1367,209 @@ type AppModeActionDeps = {
   currentScreenId: number | null;
   setSelectedScreenId: (id: number | null) => void;
   setScreenStack: (fn: (prev: number[]) => number[]) => void;
+  auth: StoredAuth | null;
+  setAuth: (a: StoredAuth | null) => void;
+  onLoginError: (message: string) => void;
+  onLoginSuccess: () => void;
+  openImagePicker: () => void;
+  pendingImages: string[];
+  clearPendingImages: () => void;
+  attachVideo: (url: string) => Promise<void>;
+  pendingVideo: { url: string; title?: string; image?: string; provider?: string } | null;
+  clearPendingVideo: () => void;
+  openPollModal: () => void;
+  pendingPoll: { type: 'single_choice' | 'multi_choice'; options: string[] } | null;
+  clearPendingPoll: () => void;
 };
+
+/**
+ * Auth token bag persisted in localStorage. Written by auth.login on
+ * successful /fcom-login POST; read by HTTP write actions (post.create,
+ * etc.) to construct the Authorization: Basic <base64(username:token)>
+ * header. Cleared by auth.logout.
+ *
+ * WP Application Password model — the token IS the password (opaque to
+ * us), Basic-Auth against WP's REST API validates it. Renderer never
+ * decodes / mints it; sim just stores + replays.
+ */
+const AUTH_STORAGE_KEY = 'appza:auth';
+
+type StoredAuth = {
+  username: string;
+  token: string;
+  display_name?: string;
+  avatar?: string;
+};
+
+function readStoredAuth(): StoredAuth | null {
+  try {
+    const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (
+      parsed &&
+      typeof parsed.username === 'string' &&
+      typeof parsed.token === 'string' &&
+      parsed.username &&
+      parsed.token
+    ) {
+      return parsed as StoredAuth;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredAuth(a: StoredAuth | null): void {
+  try {
+    if (a) window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(a));
+    else window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    // Notify any interested subscribers (dataFetch's auth-header injector
+    // reads on every request so no listener needed; App re-render is
+    // driven by the setter that wraps this call).
+  } catch {
+    /* localStorage unavailable — sim just runs unauthenticated */
+  }
+}
+
+/**
+ * Build the HTTP Basic Auth header for a stored WP Application Password.
+ * Exported so dataFetch can inject it on authenticated read endpoints
+ * later; App.tsx uses it directly for post.create writes.
+ */
+function basicAuthHeader(auth: StoredAuth): string {
+  return 'Basic ' + window.btoa(`${auth.username}:${auth.token}`);
+}
+
+/**
+ * Read a value out of a rendered form field by its DOM path attributes.
+ * Composer/login forms don't have a formal FormState provider yet — the
+ * SS-child wrappers already carry data-appza-appzet-slug +
+ * data-appza-primitive-path from SuperstructureRenderer, so we scope the
+ * lookup to a specific AppZet's children[i] wrapper and pull the value
+ * off whichever Ionic input lives inside.
+ *
+ * `path` is the same grammar as param_map values in action args —
+ * `children[1].value` picks up the text; `children[N].checked` picks up
+ * a checkbox; `children[N].selectedValue` picks up a native select.
+ */
+function readFormFieldValue(
+  appzetSlug: string,
+  path: string,
+): string | boolean | null {
+  const parsed = /^children\[(\d+)\]\.(\w+)$/.exec(path);
+  if (!parsed) return null;
+  const idx = Number(parsed[1]);
+  const prop = parsed[2];
+  const wrapper = document.querySelector(
+    `[data-appza-appzet-slug="${CSS.escape(appzetSlug)}"][data-appza-primitive-path="children[${idx}]"]`,
+  );
+  if (!wrapper) return null;
+  if (prop === 'value') {
+    const el = wrapper.querySelector('ion-input, ion-textarea, ion-select, input, textarea, select') as
+      | (HTMLElement & { value?: unknown })
+      | null;
+    if (!el) return null;
+    const v = el.value;
+    return typeof v === 'string' ? v : v == null ? '' : String(v);
+  }
+  if (prop === 'checked') {
+    const el = wrapper.querySelector('ion-checkbox, input[type="checkbox"]') as
+      | (HTMLElement & { checked?: unknown })
+      | null;
+    if (!el) return null;
+    return !!el.checked;
+  }
+  if (prop === 'selectedValue') {
+    const el = wrapper.querySelector('ion-select, select') as
+      | (HTMLElement & { value?: unknown })
+      | null;
+    if (!el) return null;
+    const v = el.value;
+    return typeof v === 'string' || typeof v === 'number' ? String(v) : null;
+  }
+  return null;
+}
+
+/**
+ * Resolve an action's param_map (keys → children[i].value paths) into a
+ * flat request body. Missing/empty values pass through as empty strings
+ * so the server sees them (and returns its own validation error) rather
+ * than us hiding the field entirely.
+ */
+function collectParams(
+  appzetSlug: string,
+  paramMap: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (!paramMap) return out;
+  for (const [name, path] of Object.entries(paramMap)) {
+    if (typeof path !== 'string') continue;
+    const v = readFormFieldValue(appzetSlug, path);
+    out[name] = v ?? '';
+  }
+  return out;
+}
+
+/**
+ * Find the AppZet that owns a given action wiring on the current screen.
+ * The dispatcher receives the action_slug + args but not the owning
+ * AppZet. For auth.login on the login screen only one AppZet declares
+ * the login action, so we scan the current screen's placements for the
+ * matching action_slug + event.
+ *
+ * Returns the appzet_slug or null. For screens where multiple AppZets
+ * declare the same action_slug, first-match wins — acceptable v1 since
+ * mixed-action screens aren't in the FC catalog today.
+ */
+function findAppzetForAction(
+  catalog: Catalog | null,
+  currentScreenId: number | null,
+  action_slug: string,
+): string | null {
+  if (!catalog || currentScreenId == null) return null;
+  const screen = catalog.template_screens?.find((s) => s.id === currentScreenId);
+  if (!screen) return null;
+  const placements = (screen as unknown as Record<string, unknown>).placements;
+  if (!Array.isArray(placements)) return null;
+  for (const p of placements) {
+    if (!p || typeof p !== 'object') continue;
+    const slug = (p as Record<string, unknown>).appzet_slug;
+    if (typeof slug !== 'string') continue;
+    const appzet = catalog.appzets?.find((a) => a.slug === slug);
+    if (!appzet) continue;
+    const actions = (appzet.actions ?? null) as Record<string, unknown> | null;
+    if (!actions) continue;
+    for (const wiring of Object.values(actions)) {
+      if (wiring && typeof wiring === 'object' && !Array.isArray(wiring)) {
+        const rec = wiring as Record<string, unknown>;
+        if (rec.action_slug === action_slug) return slug;
+      }
+    }
+  }
+  // Also check the screen's own appbar_placements — the create-post
+  // appbar's Post button lives outside the main slot.
+  const appbar = (screen as unknown as Record<string, unknown>).appbar_placements;
+  if (Array.isArray(appbar)) {
+    for (const p of appbar) {
+      if (!p || typeof p !== 'object') continue;
+      const slug = (p as Record<string, unknown>).appzet_slug;
+      if (typeof slug !== 'string') continue;
+      const appzet = catalog.appzets?.find((a) => a.slug === slug);
+      if (!appzet) continue;
+      const actions = (appzet.actions ?? null) as Record<string, unknown> | null;
+      if (!actions) continue;
+      for (const wiring of Object.values(actions)) {
+        if (wiring && typeof wiring === 'object' && !Array.isArray(wiring)) {
+          const rec = wiring as Record<string, unknown>;
+          if (rec.action_slug === action_slug) return slug;
+        }
+      }
+    }
+  }
+  return null;
+}
 
 /**
  * App-mode action executor for the plug-in admin sim. Same nav semantics
@@ -640,7 +1585,22 @@ type AppModeActionDeps = {
  *     App mode can safely round-trip through the server too.
  */
 function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
-  const { catalog, currentScreenId, setSelectedScreenId, setScreenStack } = deps;
+  const {
+    catalog,
+    currentScreenId,
+    setSelectedScreenId,
+    setScreenStack,
+    auth,
+    setAuth,
+    onLoginError,
+    onLoginSuccess,
+    pendingImages,
+    clearPendingImages,
+    pendingVideo,
+    clearPendingVideo,
+    pendingPoll,
+    clearPendingPoll,
+  } = deps;
   const { action_slug, args, item, binding_root } = inv;
   const argRec = (args ?? {}) as Record<string, unknown>;
   // Per-invocation item root. `binding_root` on the AppZet action wiring
@@ -694,10 +1654,314 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       window.open(url, '_blank', 'noopener,noreferrer');
       return;
     }
+    case 'auth.logout': {
+      setAuth(null);
+      // Force login screen after logout so the user sees the state change.
+      const login = catalog?.template_screens?.find(
+        (s) => s.app_map_screen_slug === 'login-page',
+      );
+      if (login) {
+        setScreenStack(() => []);
+        setSelectedScreenId(login.id);
+      }
+      return;
+    }
+
+    case 'auth.login': {
+      // Real HTTP login. Reads username/password out of the login form's
+      // ion-inputs via DOM path attributes, POSTs to the endpoint in args,
+      // stores the returned {username, token, display_name, avatar} in
+      // localStorage, and navigates to args.on_success_screen (home).
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+      const paramMap = argRec.param_map && typeof argRec.param_map === 'object'
+        ? (argRec.param_map as Record<string, unknown>)
+        : undefined;
+      const onSuccessScreen = typeof argRec.on_success_screen === 'string'
+        ? argRec.on_success_screen
+        : null;
+      if (!endpoint) {
+        console.warn('[appza-admin/app-mode] auth.login missing endpoint');
+        return;
+      }
+      const owningAppzet = findAppzetForAction(catalog, currentScreenId, 'auth.login');
+      if (!owningAppzet) {
+        console.warn('[appza-admin/app-mode] auth.login: no owning appzet found on current screen');
+        return;
+      }
+      const body = collectParams(owningAppzet, paramMap);
+      // Fire-and-forget promise (dispatcher signature is sync). Errors surface
+      // via onLoginError toast; success drives nav + auth state.
+      void (async () => {
+        try {
+          const res = await fetch(endpoint, {
+            method,
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+            },
+            body: JSON.stringify(body),
+          });
+          const json = await res.json().catch(() => null);
+          if (!res.ok || !json || typeof json !== 'object') {
+            const bodyMsg =
+              json && typeof (json as Record<string, unknown>).message === 'string'
+                ? ((json as Record<string, unknown>).message as string)
+                : null;
+            onLoginError(bodyMsg ?? `Login failed (HTTP ${res.status})`);
+            return;
+          }
+          const j = json as Record<string, unknown>;
+          const token = typeof j.token === 'string' ? j.token : null;
+          const username = typeof j.user_name === 'string'
+            ? j.user_name
+            : (typeof body.username === 'string' ? (body.username as string) : null);
+          if (!token || !username) {
+            onLoginError('Login response missing token');
+            return;
+          }
+          const stored: StoredAuth = {
+            username,
+            token,
+            display_name: typeof j.display_name === 'string' ? j.display_name : undefined,
+            avatar: typeof j.avatar === 'string' ? j.avatar : undefined,
+          };
+          setAuth(stored);
+          onLoginSuccess();
+          if (onSuccessScreen && catalog) {
+            const target = catalog.template_screens?.find(
+              (s) => s.app_map_screen_slug === onSuccessScreen,
+            );
+            if (target) {
+              setScreenStack(() => []);
+              setSelectedScreenId(target.id);
+            }
+          }
+        } catch (err) {
+          onLoginError(err instanceof Error ? err.message : String(err));
+        }
+      })();
+      return;
+    }
+
+    case 'post.create': {
+      // Real HTTP feed create. Reads message/title/space_id from the
+      // create-post form via DOM path attributes, POSTs to args.endpoint
+      // with Basic Auth (from the stored login token), on 200 → nav.back +
+      // fires appza:refresh-data so the feed reloads with the new post.
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+      const paramMap = argRec.param_map && typeof argRec.param_map === 'object'
+        ? (argRec.param_map as Record<string, unknown>)
+        : undefined;
+      const composerAppzet =
+        (typeof argRec.form_appzet_slug === 'string' && argRec.form_appzet_slug) ||
+        // Fallback: look for whichever AppZet on the current screen carries
+        // the composer form. fc-post-information is the well-known name.
+        'fc-post-information';
+      if (!endpoint) {
+        console.warn('[appza-admin/app-mode] post.create missing endpoint');
+        return;
+      }
+      if (!auth) {
+        onLoginError('Please sign in to post.');
+        return;
+      }
+      const body = collectParams(composerAppzet, paramMap);
+      // FC's /feeds endpoint refuses empty message with a 422; short-circuit
+      // to a clearer error before hitting the wire.
+      if (!body.message || (typeof body.message === 'string' && !body.message.trim())) {
+        onLoginError('Write something to post.');
+        return;
+      }
+      // Attach uploaded images (from picker.image) — FC's sanitizeAndValidateData
+      // reads `media_images: [{url, provider}]` and materializes them into
+      // meta.media_items / meta.media_preview on the created feed. content_type
+      // gets flipped to 'image' so the feed renders as an image post.
+      if (pendingImages.length > 0) {
+        body.media_images = pendingImages.map((url) => ({ url, provider: 'uploader' }));
+        body.content_type = 'image';
+      }
+      // Attach video oembed (from picker.video). FC's processFeedMetaData
+      // sees media.type=oembed and re-parses the URL server-side to build
+      // meta.media_preview (thumbnail, title, embed html). Image + video
+      // are mutually exclusive in FC's model — video wins if both present
+      // (content_type is single-valued).
+      if (pendingVideo) {
+        body.media = { type: 'oembed', url: pendingVideo.url };
+        body.content_type = 'oembed';
+      }
+      // Attach poll (survey). FC reads survey.options[].label + survey.type,
+      // slugs each option server-side (opt_1, opt_2, …), sets content_type
+      // = 'survey', and materializes meta.survey_config on the feed. Poll
+      // overrides video/image if all three are present — polls are their
+      // own post shape in FC's model.
+      if (pendingPoll && pendingPoll.options.filter((o) => o.trim()).length >= 2) {
+        body.survey = {
+          type: pendingPoll.type,
+          options: pendingPoll.options
+            .map((label) => label.trim())
+            .filter((label) => label.length > 0)
+            .map((label) => ({ label })),
+        };
+        body.content_type = 'survey';
+      }
+      void (async () => {
+        try {
+          const res = await fetch(endpoint, {
+            method,
+            // Explicit `omit` — same-origin fetch would send WP admin
+            // cookies alongside our Authorization header. WP's cookie-auth
+            // path fires first for cookie-bearing REST writes and demands
+            // an X-WP-Nonce we don't have, returning 401 before
+            // Application Passwords gets its turn. Omitting cookies forces
+            // WP straight to Basic Auth via the Authorization header.
+            credentials: 'omit',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              Authorization: basicAuthHeader(auth),
+            },
+            body: JSON.stringify(body),
+          });
+          const json = await res.json().catch(() => null);
+          const status = (json && typeof json === 'object' && 'response' in json)
+            ? ((json as Record<string, unknown>).response as Record<string, unknown> | undefined)
+            : undefined;
+          const httpOk = res.ok;
+          const bodyOk = !status || status.status === 200;
+          if (!httpOk || !bodyOk) {
+            const msg =
+              (status && typeof status.message === 'string' && status.message) ||
+              (json && typeof (json as Record<string, unknown>).message === 'string'
+                ? (json as Record<string, string>).message
+                : null) ||
+              `Post failed (HTTP ${res.status})`;
+            onLoginError(msg);
+            return;
+          }
+          // Success → pop back to feed and force a data refresh so the
+          // new post appears at the top. Also clear pending image + video
+          // attachments so the next draft starts empty.
+          clearPendingImages();
+          clearPendingVideo();
+          clearPendingPoll();
+          setScreenStack((prev) => {
+            if (prev.length === 0) return prev;
+            const rest = prev.slice(0, -1);
+            setSelectedScreenId(prev[prev.length - 1] ?? null);
+            return rest;
+          });
+          // Defer the refresh event until after React commits the nav —
+          // otherwise the feed's useDataSource hasn't mounted yet, misses
+          // the event, and shows a cached (stale) response. Two dispatches
+          // + a global marker cover the race for slow mounts.
+          const g = window as unknown as { __appzaForceRefreshUntil?: number };
+          g.__appzaForceRefreshUntil = Date.now() + 3000;
+          setTimeout(() => {
+            window.dispatchEvent(new Event('appza:refresh-data'));
+          }, 150);
+          setTimeout(() => {
+            window.dispatchEvent(new Event('appza:refresh-data'));
+          }, 600);
+        } catch (err) {
+          onLoginError(err instanceof Error ? err.message : String(err));
+        }
+      })();
+      return;
+    }
+
+    case 'picker.emoji': {
+      // Minimum-viable emoji insert: browser prompt so the user can paste
+      // or type an emoji, then append to the composer textarea. Not a
+      // proper picker UI yet — that lands with the full renderer form-
+      // state model. Works end-to-end today because FC stores emoji chars
+      // in the message body verbatim.
+      const appzet = typeof argRec.form_appzet_slug === 'string'
+        ? argRec.form_appzet_slug : 'fc-post-information';
+      const targetPath = typeof argRec.target_path === 'string'
+        ? argRec.target_path : 'children[3]';
+      const emoji = window.prompt('Enter an emoji (or paste any character):') ?? '';
+      if (emoji) appendToTextarea(appzet, targetPath, emoji);
+      return;
+    }
+
+    case 'link.attach': {
+      // Prompt for a URL and append to the composer's message body.
+      // FC's message_rendered pass auto-linkifies bare URLs, so we don't
+      // need markdown syntax — the URL itself becomes a clickable link
+      // in the feed. Full oembed preview (thumbnail + title card) lands
+      // in a follow-up pass using /feeds/oembed.
+      const appzet = typeof argRec.form_appzet_slug === 'string'
+        ? argRec.form_appzet_slug : 'fc-post-information';
+      const targetPath = typeof argRec.target_path === 'string'
+        ? argRec.target_path : 'children[3]';
+      const url = window.prompt('Paste a link URL:') ?? '';
+      if (url && /^https?:\/\//i.test(url.trim())) {
+        appendToTextarea(appzet, targetPath, ' ' + url.trim() + ' ');
+      } else if (url) {
+        onLoginError('Please enter a full URL starting with http:// or https://');
+      }
+      return;
+    }
+
+    case 'picker.image': {
+      // Trigger the hidden file input; the input's onChange handler
+      // uploads each selected file via multipart POST to
+      // /wp-json/fcom-mobile/api/v1/feeds/media-upload with Basic Auth,
+      // then appends returned URLs to pendingImages state. post.create
+      // reads pendingImages when building the feed body and clears
+      // them on success.
+      console.log('[appza/picker.image] dispatched', { hasAuth: !!auth });
+      if (!auth) {
+        onLoginError('Please sign in to attach images.');
+        return;
+      }
+      deps.openImagePicker();
+      return;
+    }
+
+    case 'picker.video': {
+      // Video oembed flow: user pastes a video URL, we POST it to
+      // /wp-json/fcom-mobile/api/v1/feeds/oembed which returns the parsed
+      // metadata (title, thumbnail image, provider, embed html). We stash
+      // the URL + preview bits in pendingVideo so the composer can show a
+      // thumbnail card; post.create sends `media: {type:'oembed', url}`
+      // and FC's server re-parses the URL to populate meta.media_preview.
+      if (!auth) {
+        onLoginError('Please sign in to attach a video.');
+        return;
+      }
+      const url = window.prompt('Paste a video URL (YouTube, Vimeo, etc.):') ?? '';
+      const trimmed = url.trim();
+      if (!trimmed) return;
+      if (!/^https?:\/\//i.test(trimmed)) {
+        onLoginError('Please enter a full URL starting with http:// or https://');
+        return;
+      }
+      void deps.attachVideo(trimmed);
+      return;
+    }
+
+    case 'picker.poll': {
+      if (!auth) {
+        onLoginError('Please sign in to create a poll.');
+        return;
+      }
+      deps.openPollModal();
+      return;
+    }
+
+    case 'picker.file': {
+      onLoginError(`File attach isn't implemented in the sim yet.`);
+      console.info('[appza-admin/app-mode] stub picker:', action_slug, argRec);
+      return;
+    }
+
     default:
-      // Mutating actions (post.create, cart.add, profile.save, etc.) are
-      // intentionally not executed in the admin sim — see the docblock
-      // above for why. Logged so the admin can confirm the wiring fired.
+      // Mutating actions we haven't wired yet (cart.add, profile.save, etc.)
+      // still fall through to log-only so admins can see them fire during
+      // preview without accidentally hitting real endpoints.
       console.info(
         '[appza-admin/app-mode] action fired (not executed in sim):',
         action_slug,
@@ -705,6 +1969,58 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         { effectiveItem },
       );
   }
+}
+
+/**
+ * Append text to an ion-textarea located by DOM path attributes. Fires
+ * an input event afterward so ion-textarea's internal state syncs — this
+ * matters because Ionic tracks value via listeners, not just DOM prop
+ * reads. Also focuses the element + moves the cursor to the end for a
+ * natural "keep typing" feel.
+ */
+function appendToTextarea(appzetSlug: string, primitivePath: string, text: string): void {
+  const wrapper = document.querySelector(
+    `[data-appza-appzet-slug="${CSS.escape(appzetSlug)}"][data-appza-primitive-path="${CSS.escape(primitivePath)}"]`,
+  );
+  if (!wrapper) {
+    console.warn('[appza-admin/app-mode] appendToTextarea: no wrapper for', appzetSlug, primitivePath);
+    return;
+  }
+  const el = wrapper.querySelector('ion-textarea, ion-input, textarea, input') as
+    | (HTMLElement & { value?: string; setFocus?: () => Promise<void> })
+    | null;
+  if (!el) {
+    console.warn('[appza-admin/app-mode] appendToTextarea: no input inside', appzetSlug, primitivePath);
+    return;
+  }
+  const current = typeof el.value === 'string' ? el.value : '';
+  el.value = current + text;
+  // Fire an input event so Ionic + any listening controlled components
+  // pick up the new value. Ionic's ion-textarea/ion-input dispatches its
+  // own ionInput event on `value` mutation via property setter, but firing
+  // a native `input` event is a belt-and-braces sync signal.
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  if (typeof el.setFocus === 'function') {
+    void el.setFocus();
+  }
+}
+
+/**
+ * Format a Date for the composer's user-avatar card date line.
+ * Style matches FC portal's "Jul 15, 2026 · 4:37 pm" pattern.
+ */
+function formatNowLabel(d: Date): string {
+  const dateStr = d.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+  const timeStr = d.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+  return `${dateStr} · ${timeStr}`;
 }
 
 function pickString(
@@ -717,4 +2033,189 @@ function pickString(
     if (typeof v === 'string' && v.length > 0) return v;
   }
   return null;
+}
+
+/**
+ * Modal for building a FC survey/poll to attach to a create-post draft.
+ * The composer's message body doubles as the poll question (matching FC's
+ * portal UX), so this modal only configures the type + options list.
+ *
+ * Options auto-expand — the last option always shows an empty input so
+ * the user can keep typing. Empty options get filtered out on Save. FC
+ * requires at least 2 non-empty options.
+ */
+function PollBuilderModal({
+  initial,
+  onCancel,
+  onSave,
+}: {
+  initial: { type: 'single_choice' | 'multi_choice'; options: string[] } | null;
+  onCancel: () => void;
+  onSave: (v: { type: 'single_choice' | 'multi_choice'; options: string[] }) => void;
+}) {
+  const [type, setType] = useState<'single_choice' | 'multi_choice'>(
+    initial?.type ?? 'single_choice',
+  );
+  const [options, setOptions] = useState<string[]>(
+    () => {
+      const base = initial?.options ?? ['', ''];
+      // Always render one blank trailing input so the user can add more.
+      return base[base.length - 1] === '' ? base : [...base, ''];
+    },
+  );
+
+  const nonEmpty = options.filter((o) => o.trim().length > 0);
+  const canSave = nonEmpty.length >= 2;
+
+  function updateOption(idx: number, value: string) {
+    setOptions((prev) => {
+      const next = [...prev];
+      next[idx] = value;
+      // Grow: if the user typed into the last input, add a new blank one.
+      if (idx === next.length - 1 && value.trim().length > 0) {
+        next.push('');
+      }
+      return next;
+    });
+  }
+  function removeOption(idx: number) {
+    setOptions((prev) => {
+      const next = prev.filter((_, i) => i !== idx);
+      // Always keep at least one blank trailing input for further entry.
+      if (next.length === 0 || next[next.length - 1] !== '') next.push('');
+      // Guarantee at least 2 rows so the form doesn't feel too small.
+      while (next.length < 2) next.push('');
+      return next;
+    });
+  }
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Poll builder"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(15,23,42,0.55)',
+        display: 'grid',
+        placeItems: 'center',
+        zIndex: 40,
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCancel();
+      }}
+    >
+      <div
+        style={{
+          background: '#fff',
+          borderRadius: 12,
+          padding: 20,
+          width: 'min(420px, 90vw)',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+        }}
+      >
+        <h3 style={{ margin: 0, fontSize: 16 }}>Create poll</h3>
+        <p style={{ margin: '4px 0 12px', fontSize: 12, color: '#6b7280' }}>
+          Your message body becomes the poll question. Add 2+ options.
+        </p>
+
+        <fieldset style={{ border: 'none', padding: 0, margin: '0 0 12px' }}>
+          <legend style={{ fontSize: 12, color: '#374151', marginBottom: 6 }}>Type</legend>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12 }}>
+            <input
+              type="radio"
+              name="polltype"
+              checked={type === 'single_choice'}
+              onChange={() => setType('single_choice')}
+            />
+            <span>Single choice</span>
+          </label>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <input
+              type="radio"
+              name="polltype"
+              checked={type === 'multi_choice'}
+              onChange={() => setType('multi_choice')}
+            />
+            <span>Multi choice</span>
+          </label>
+        </fieldset>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {options.map((opt, idx) => (
+            <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input
+                type="text"
+                value={opt}
+                placeholder={`Option ${idx + 1}`}
+                onChange={(e) => updateOption(idx, e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '8px 10px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: 6,
+                  fontSize: 13,
+                }}
+              />
+              {options.length > 2 && idx < options.length - 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeOption(idx)}
+                  aria-label={`Remove option ${idx + 1}`}
+                  style={{
+                    border: 'none',
+                    background: '#f3f4f6',
+                    borderRadius: 999,
+                    width: 24,
+                    height: 24,
+                    cursor: 'pointer',
+                    fontSize: 14,
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              border: '1px solid #e5e7eb',
+              background: '#fff',
+              padding: '8px 14px',
+              borderRadius: 6,
+              cursor: 'pointer',
+              fontSize: 13,
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!canSave}
+            onClick={() => onSave({ type, options: nonEmpty })}
+            style={{
+              border: 'none',
+              background: canSave ? '#3b82f6' : '#93c5fd',
+              color: '#fff',
+              padding: '8px 14px',
+              borderRadius: 6,
+              cursor: canSave ? 'pointer' : 'not-allowed',
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            Save poll
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }

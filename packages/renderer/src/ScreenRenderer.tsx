@@ -105,7 +105,11 @@ export function ScreenRenderer({
   const screenTitle = readScreenTitle(screen);
 
   return (
-    <IonApp className="appza-renderer-app" style={cssVars as React.CSSProperties}>
+    <IonApp
+      className="appza-renderer-app"
+      data-screen-slug={screen.app_map_screen_slug}
+      style={cssVars as React.CSSProperties}
+    >
       <IonPage className="appza-renderer-page">
         <IonHeader className="appza-renderer-header">
           <IonToolbar>

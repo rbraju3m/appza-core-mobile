@@ -60,6 +60,8 @@ import {
   ellipsisVertical,
   filter,
   filterOutline,
+  happy,
+  happyOutline,
   heart,
   heartOutline,
   home,
@@ -70,10 +72,14 @@ import {
   imagesOutline,
   informationCircle,
   informationCircleOutline,
+  link,
+  linkOutline,
   library,
   libraryOutline,
   location,
   locationOutline,
+  barChart,
+  barChartOutline,
   mail,
   mailOutline,
   menu,
@@ -192,8 +198,14 @@ const ICON_REGISTRY: Record<string, string> = {
   'chatbubbles-outline': chatbubblesOutline,
   heart,
   'heart-outline': heartOutline,
+  happy,
+  'happy-outline': happyOutline,
   home,
   'home-outline': homeOutline,
+  link,
+  'link-outline': linkOutline,
+  'bar-chart': barChart,
+  'bar-chart-outline': barChartOutline,
   notifications,
   'notifications-outline': notificationsOutline,
   people,
@@ -384,8 +396,18 @@ export function PrimitiveRenderer({ primitive, overrides }: Props) {
 
     case 'IonInput': {
       const fillProp = readString(overrides, 'fill');
+      // `type` covers text / password / email / tel / number / search / url.
+      // Everything outside that set falls back to text so a typo can't
+      // break the input entirely.
+      const rawType = readString(overrides, 'type');
+      const allowedTypes = new Set([
+        'text', 'password', 'email', 'tel', 'number', 'search', 'url',
+      ]);
+      const inputType = (rawType && allowedTypes.has(rawType) ? rawType : 'text') as
+        'text' | 'password' | 'email' | 'tel' | 'number' | 'search' | 'url';
       return (
         <IonInput
+          type={inputType}
           placeholder={readString(overrides, 'placeholder') ?? label}
           fill={(fillProp as 'solid' | 'outline' | undefined) ?? 'outline'}
         />
@@ -433,8 +455,59 @@ export function PrimitiveRenderer({ primitive, overrides }: Props) {
       );
     }
 
-    case 'IonCheckbox':
-      return <IonCheckbox aria-label={label} />;
+    case 'IonSelect': {
+      // Options come from `overrides.options` as an array of `{value,label}`
+      // pairs. The App-mode shell populates this for dynamic pickers (e.g.
+      // the composer's space picker mirrors the spaces DS in here).
+      //
+      // Rendered as a native `<select>` (not IonSelect) because IonSelect's
+      // popover interface + shadow-DOM option handoff misbehaves when the
+      // options array is injected via customizations after mount — the
+      // native select is DOM-inspectable, immediately reactive to prop
+      // changes, and works with readFormFieldValue's `.value` query. Ionic's
+      // form-element theming still cascades into the native select via the
+      // surrounding CSS custom properties from tokensToCssVars.
+      const placeholder = readString(overrides, 'placeholder') ?? label;
+      const options = readSelectOptions(overrides, 'options');
+      return (
+        <select
+          className="appza-native-select"
+          defaultValue=""
+          style={{
+            width: '100%',
+            padding: '10px 12px',
+            fontSize: 14,
+            border: '1px solid var(--ion-color-medium, #ccc)',
+            borderRadius: 6,
+            background: '#fff',
+          }}
+        >
+          <option value="" disabled>
+            {placeholder}
+          </option>
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    case 'IonCheckbox': {
+      // Render with an inline label when `text` is set — matches the
+      // FC composer's "Send announcement email to space member" pattern
+      // where the checkbox and its label sit on one line. Blank text
+      // falls back to a bare checkbox (used for standalone toggle spots).
+      const checkboxText = readString(overrides, 'text');
+      if (!checkboxText) return <IonCheckbox aria-label={label} />;
+      return (
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+          <IonCheckbox aria-label={checkboxText} />
+          <span>{checkboxText}</span>
+        </label>
+      );
+    }
 
     case 'IonChip':
       return <IonChip color={readString(overrides, 'color')}>{label}</IonChip>;
@@ -899,6 +972,33 @@ function AppzaImageLightbox({
       )}
     </div>
   );
+}
+
+type SelectOption = { value: string; label: string };
+
+/**
+ * Read a select options bag off an overrides record. Accepts `{value,label}`
+ * pairs; coerces value + label to string. Silently drops entries missing
+ * either field so the renderer never emits an empty `<ion-select-option>`.
+ */
+function readSelectOptions(
+  overrides: PrimitiveOverrides | undefined,
+  key: string,
+): SelectOption[] {
+  if (!overrides) return [];
+  const raw = overrides[key];
+  if (!Array.isArray(raw)) return [];
+  const out: SelectOption[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const rec = item as Record<string, unknown>;
+    const v = rec.value ?? rec.id ?? rec.slug;
+    const l = rec.label ?? rec.title ?? rec.name;
+    if (v === undefined || v === null) continue;
+    if (l === undefined || l === null) continue;
+    out.push({ value: String(v), label: String(l) });
+  }
+  return out;
 }
 
 function readOptions(overrides: PrimitiveOverrides | undefined, key: string): PollOption[] {

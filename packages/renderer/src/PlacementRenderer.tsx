@@ -121,8 +121,12 @@ export function PlacementRenderer({
     .filter(Boolean)
     .join(' ');
 
-  // No data source: render once with static overrides.
+  // No data source: render once with static overrides. Child actions still
+  // apply (login button, create-post button, etc. — anything that doesn't
+  // need per-item data context) so we compute them with a null item.
   if (!dataSource) {
+    const staticChildren = readChildren(ss);
+    const staticActions = computeChildActions(staticChildren, appzet, undefined);
     return (
       <div
         className={wrapperClass}
@@ -137,6 +141,7 @@ export function PlacementRenderer({
           childOverrides={baseChildOverrides}
           hiddenIndices={hiddenIndices}
           childLayoutStyles={childLayoutStyles}
+          childActions={staticActions}
           appzetSlugForPath={appzet.slug}
         />
       </div>
