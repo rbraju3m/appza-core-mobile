@@ -22,3 +22,5 @@ build/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+# Capacitor-generated Android platform — regenerate with 'cap add android'
+packages/mobile/android/
