@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * useDataSource(slug, params) — fetch a list payload for an AppZet's
@@ -141,6 +141,150 @@ export function useDataSource(slug: string | undefined, params?: Record<string, 
   }, [slug, paramsKey, previewMode, refreshTick]);
 
   return state;
+}
+
+/**
+ * Paginated variant of useDataSource — used by AppZets whose data source
+ * is marked as infinite-scroll capable (see PAGINATED_DATA_SOURCES in
+ * PlacementRenderer). Fetches page 1 on mount, then `loadMore()` fetches
+ * page N+1 and appends its items to the accumulated list.
+ *
+ * Contract:
+ *   - `items`     — accumulated across all fetched pages
+ *   - `loading`   — true during ANY fetch (first load OR loadMore)
+ *   - `error`     — most recent fetch error, cleared on retry
+ *   - `hasMore`   — true until a page returns fewer than `perPage` items
+ *                   (upstream lacks an explicit total, so we infer from
+ *                   the short-page signal — standard REST pattern)
+ *   - `loadMore()` — fetches next page. Idempotent while already loading.
+ *   - `refresh()`  — clears items + refetches page 1 (used by the global
+ *                   APPZA_REFRESH_EVENT so pull-to-refresh + window focus
+ *                   still work).
+ *
+ * The upstream is expected to accept `page` + `per_page` query params
+ * (standard WordPress REST convention). Extra `params` are merged into
+ * every page request so filters (space slug, etc.) persist across pages.
+ */
+type PagedFetchState = {
+  items: unknown[];
+  loading: boolean;
+  error: string | null;
+  hasMore: boolean;
+  loadMore: () => void;
+  refresh: () => void;
+};
+
+export function useDataSourcePaged(
+  slug: string | undefined,
+  opts?: { perPage?: number; params?: Record<string, unknown> },
+): PagedFetchState {
+  const perPage = opts?.perPage ?? 10;
+  const extraParams = opts?.params;
+  const extraKey = extraParams ? JSON.stringify(extraParams) : '';
+
+  const [items, setItems] = useState<unknown[]>([]);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(!!slug);
+  const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [refreshTick, setRefreshTick] = useState(0);
+  // Guard against concurrent loadMore invocations. IonInfiniteScroll can
+  // fire onIonInfinite before React commits the previous page's setPage,
+  // so a plain state check races. loadingRef flips synchronously.
+  const loadingRef = useRef(false);
+
+  // Subscribe to global refresh events (Refresh button + window focus).
+  // On refresh, drop everything and start over from page 1.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onRefresh = () => setRefreshTick((t) => t + 1);
+    window.addEventListener(APPZA_REFRESH_EVENT, onRefresh);
+    window.addEventListener('focus', onRefresh);
+    return () => {
+      window.removeEventListener(APPZA_REFRESH_EVENT, onRefresh);
+      window.removeEventListener('focus', onRefresh);
+    };
+  }, []);
+
+  // Reset accumulator when slug / params / refresh-tick change. Keeps the
+  // items array from mixing content across different data sources or
+  // param sets.
+  useEffect(() => {
+    setItems([]);
+    setPage(1);
+    setHasMore(true);
+    setError(null);
+    loadingRef.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, extraKey, refreshTick]);
+
+  // Fetch whichever page is current. Runs on mount + whenever `page`
+  // bumps (via loadMore) + whenever the reset effect above resets to 1.
+  useEffect(() => {
+    if (!slug) {
+      setLoading(false);
+      return;
+    }
+    if (!hasMore && page > 1) return;
+    let cancelled = false;
+    loadingRef.current = true;
+    setLoading(true);
+    setError(null);
+
+    const authHeader = (typeof window !== 'undefined'
+      ? (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader
+      : undefined) || undefined;
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (authHeader) headers['X-Appza-Auth'] = authHeader;
+
+    const mergedParams: Record<string, unknown> = {
+      ...(extraParams ?? {}),
+      page,
+      per_page: perPage,
+    };
+    // refreshTick > 0 signals a manual refresh — bypass proxy cache so
+    // fresh upstream posts land.
+    const url = buildProxyUrl(slug, mergedParams, refreshTick > 0);
+
+    fetch(url, { headers })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((json) => {
+        if (cancelled) return;
+        const pageItems: unknown[] = Array.isArray(json)
+          ? json
+          : Array.isArray(json?.items)
+            ? json.items
+            : [];
+        setItems((prev) => (page === 1 ? pageItems : [...prev, ...pageItems]));
+        // Upstream doesn't expose total-pages, so we infer end-of-list
+        // from a short page — the standard WP REST convention.
+        setHasMore(pageItems.length >= perPage);
+        setLoading(false);
+        loadingRef.current = false;
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : String(err));
+        setLoading(false);
+        loadingRef.current = false;
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, extraKey, page, perPage, refreshTick]);
+
+  const loadMore = () => {
+    if (loadingRef.current || !hasMore) return;
+    setPage((p) => p + 1);
+  };
+  const refresh = () => setRefreshTick((t) => t + 1);
+
+  return { items, loading, error, hasMore, loadMore, refresh };
 }
 
 /**

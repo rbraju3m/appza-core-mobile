@@ -1,10 +1,28 @@
+import { useEffect, useRef } from 'react';
+import { IonInfiniteScroll, IonInfiniteScrollContent } from '@ionic/react';
 import type { AppZet, LayoutStyle, PropertiesSchemaEntry, Superstructure } from '@appza/schemas';
 import type { CatalogIndex } from './catalogIndex';
 import { PrimitiveRenderer } from './PrimitiveRenderer';
-import { readDataPath, useDataSource } from './dataFetch';
+import { readDataPath, useDataSource, useDataSourcePaged } from './dataFetch';
 import { isRecord, readOverride, resolveOverridableColumn } from './resolveOverride';
 import { layoutStyleToCss } from './layoutStyle';
 import { useActionDispatch, type ActionInvocation } from './actionContext';
+
+/**
+ * Data source slugs whose AppzetPlacements render an infinite-scroll
+ * list instead of a single-fetch list. Add a slug here and the renderer
+ * automatically switches to `useDataSourcePaged` (page/per_page params
+ * to the upstream) and appends an IonInfiniteScroll trigger under the
+ * items. Upstream must accept WP-style `page` + `per_page` query args.
+ *
+ * Kept as a small allowlist rather than a schema flag because the set
+ * changes rarely; when a new paginated data source lands, add its slug
+ * here + wire a matching per_page default in PAGE_SIZE_BY_SLUG.
+ */
+const PAGINATED_DATA_SOURCES = new Set<string>(['fc-feed']);
+const PAGE_SIZE_BY_SLUG: Record<string, number> = {
+  'fc-feed': 10,
+};
 
 type PlacementRendererProps = {
   appzetSlug: string;
@@ -86,9 +104,43 @@ export function PlacementRenderer({
     ? catalogIndex.dataSourceById.get(appzet.default_data_source_id)
     : undefined;
 
-  // Always call the hook to keep hook order stable, even when there's
-  // no data source (returns an empty state immediately).
-  const dataState = useDataSource(dataSource?.slug);
+  // Always call BOTH hooks to keep hook order stable across renders
+  // regardless of whether the data source is paginated. Only one is
+  // "active" per render: the paginated hook receives the slug only when
+  // this data source is in PAGINATED_DATA_SOURCES, otherwise it's
+  // passed undefined and returns an inert empty state. Same trick for
+  // the non-paginated hook. Never gate a hook behind an `if`.
+  const isPaginated = !!dataSource && PAGINATED_DATA_SOURCES.has(dataSource.slug);
+  const pagedSlug = isPaginated ? dataSource!.slug : undefined;
+  const pagedState = useDataSourcePaged(pagedSlug, {
+    perPage: pagedSlug ? PAGE_SIZE_BY_SLUG[pagedSlug] ?? 10 : 10,
+  });
+  const staticSlug = isPaginated ? undefined : dataSource?.slug;
+  const staticState = useDataSource(staticSlug);
+  const dataState = isPaginated
+    ? { items: pagedState.items, loading: pagedState.loading, error: pagedState.error }
+    : staticState;
+
+  // IonInfiniteScroll requires the parent to call `complete()` on the
+  // element ref once the load-more fetch has actually landed — otherwise
+  // its spinner disappears before the new items render (jank) OR stays
+  // stuck if we forget entirely. Track a "loadMore in flight" flag and
+  // fire complete() when the paged hook's `loading` transitions back to
+  // false. `wasLoadingMore` prevents firing on the very first page load
+  // (there's no infinite scroll to complete at that point).
+  const infiniteScrollRef = useRef<HTMLIonInfiniteScrollElement | null>(null);
+  const wasLoadingMore = useRef(false);
+  useEffect(() => {
+    if (!isPaginated) return;
+    if (pagedState.loading) {
+      wasLoadingMore.current = true;
+      return;
+    }
+    if (wasLoadingMore.current && infiniteScrollRef.current) {
+      wasLoadingMore.current = false;
+      void infiniteScrollRef.current.complete();
+    }
+  }, [isPaginated, pagedState.loading]);
 
   if (!appzet) return <MissingNode label={`unknown appzet: ${appzetSlug}`} />;
   if (!ss) return <MissingNode label={`appzet ${appzet.slug} has no superstructure`} />;
@@ -193,6 +245,19 @@ export function PlacementRenderer({
           </div>
         );
       })}
+      {isPaginated && pagedState.hasMore && (
+        <IonInfiniteScroll
+          ref={infiniteScrollRef}
+          threshold="200px"
+          disabled={!pagedState.hasMore}
+          onIonInfinite={() => pagedState.loadMore()}
+        >
+          <IonInfiniteScrollContent
+            loadingSpinner="bubbles"
+            loadingText="Loading more posts…"
+          />
+        </IonInfiniteScroll>
+      )}
     </div>
   );
 }

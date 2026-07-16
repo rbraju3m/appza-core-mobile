@@ -302,20 +302,22 @@
 }
 
 /* fc-user-avatar as create-post-page's author row:
-   [0 avatar] [1 name + 2 date]                             [3 cal] [4 eye]  */
+   [0 avatar] [1 name + 2 date]                             [3 cal] [4 eye]
+   Plain (no button box) — icons render as bare outline glyphs on the
+   light-slate strip. Design ref: create-post-page target 2026-07-16.       */
 .appza-renderer-ss[data-slug="fc-user-avatar"] {
   display: grid;
-  grid-template-columns: 44px 1fr auto auto;
+  grid-template-columns: 40px 1fr auto auto;
   grid-template-areas:
     'avatar name . cal eye'
     'avatar date . cal eye';
-  gap: 2px 10px;
+  gap: 2px 14px;
   align-items: center;
   padding: 12px 16px;
   background: #f1f5f9;
   margin: 0;
 }
-.appza-renderer-ss[data-slug="fc-user-avatar"] [data-child-index="0"] { grid-area: avatar; width: 44px; height: 44px; }
+.appza-renderer-ss[data-slug="fc-user-avatar"] [data-child-index="0"] { grid-area: avatar; width: 40px; height: 40px; }
 .appza-renderer-ss[data-slug="fc-user-avatar"] [data-child-index="0"] ion-avatar { width: 100%; height: 100%; }
 .appza-renderer-ss[data-slug="fc-user-avatar"] [data-child-index="1"] {
   grid-area: name;
@@ -323,97 +325,116 @@
   font-size: 0.95rem;
   color: #0f172a;
   align-self: end;
+  line-height: 1.2;
 }
 .appza-renderer-ss[data-slug="fc-user-avatar"] [data-child-index="2"] {
   grid-area: date;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: #64748b;
   align-self: start;
+  line-height: 1.3;
 }
-.appza-renderer-ss[data-slug="fc-user-avatar"] [data-child-index="3"] { grid-area: cal; }
-.appza-renderer-ss[data-slug="fc-user-avatar"] [data-child-index="4"] { grid-area: eye; }
+.appza-renderer-ss[data-slug="fc-user-avatar"] [data-child-index="3"] { grid-area: cal; align-self: center; }
+.appza-renderer-ss[data-slug="fc-user-avatar"] [data-child-index="4"] { grid-area: eye; align-self: center; }
+/* Strip Ionic's button chrome so icons look like plain glyphs (target
+   design has no boxed button — just outline icons on the strip bg). */
 .appza-renderer-ss[data-slug="fc-user-avatar"] [data-child-index="3"] ion-button,
 .appza-renderer-ss[data-slug="fc-user-avatar"] [data-child-index="4"] ion-button {
-  --background: transparent;
-  --color: #64748b;
-  --padding-start: 6px;
-  --padding-end: 6px;
-  --box-shadow: none;
-  width: 36px;
-  height: 36px;
+  --background: transparent !important;
+  --background-hover: transparent !important;
+  --background-activated: transparent !important;
+  --background-focused: transparent !important;
+  --color: #64748b !important;
+  --padding-start: 0 !important;
+  --padding-end: 0 !important;
+  --box-shadow: none !important;
+  --border-radius: 0;
+  --ripple-color: transparent;
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
   margin: 0;
 }
+.appza-renderer-ss[data-slug="fc-user-avatar"] [data-child-index="3"] ion-button ion-icon,
+.appza-renderer-ss[data-slug="fc-user-avatar"] [data-child-index="4"] ion-button ion-icon {
+  font-size: 28px !important;
+  width: 28px !important;
+  height: 28px !important;
+  color: #64748b !important;
+}
 
-/* fc-post-information as the create-post form card (redesign 2026-07-15
-   for the 10-child SS: photo/video/link/poll/emoji as an actual row plus
-   an announcement checkbox at the bottom):
-   row 1:  [0 "Posted in:" | 1 space picker]
+/* fc-post-information — create-post form card. Design ref: target
+   2026-07-16.
+   row 1:  [0 "Posted in:"] [1 Select space ▼]  (inline, tight, borderless)
    row 2:  [2 title]
    row 3:  [3 body textarea (flex-grow)]
-   row 4:  [4 photo | 5 video | 6 link | 7 poll | 8 emoji | filler]
-   row 5:  [9 announcement checkbox]                                          */
+   row 4:  [4 img] [5 vid] [6 link] [7 poll] [8 emoji]  (plain outline,
+                                                        evenly spaced)
+   row 5:  [9 announcement checkbox]
+
+   Uses flex-wrap instead of grid so the label + picker sit tightly
+   inline on row 1 (label hugs content, picker hugs content right after
+   it — separated only by the row's column-gap). Title, body, and
+   announcement force a new row via `flex: 1 0 100%`. Attach icons all
+   land on row 4 sharing a single flex line via `flex: 1 1 0`, each
+   getting 1/5 of the card width so they distribute evenly regardless
+   of the label/picker widths above.                                         */
 .appza-renderer-ss[data-slug="fc-post-information"] {
-  display: grid;
-  grid-template-columns: auto auto auto auto auto auto 1fr;
-  grid-template-areas:
-    'space-label space-pick  .    .    .    .    .'
-    'title       title       title title title title title'
-    'body        body        body  body body body body'
-    'ico0        ico1        ico2  ico3 ico4 .    .'
-    'announce    announce    announce announce announce announce announce';
-  gap: 8px 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 12px;
+  column-gap: 6px;
   padding: 14px 16px;
   margin: 12px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
 }
+/* Row 1: label + picker inline, both hug content (no empty space) */
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="0"] {
-  grid-area: space-label;
+  flex: 0 0 auto;
   color: #64748b;
-  font-size: 0.85rem;
-  align-self: center;
-  justify-self: start;
+  font-size: 0.9rem;
   white-space: nowrap;
-  padding-right: 6px;
 }
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="1"] {
-  grid-area: space-pick;
-  justify-self: start;
-  align-self: center;
+  flex: 0 0 auto;
 }
+/* Borderless text-style select — "Select space ▼" reads as inline bold
+   text with a small chevron, matching the target design. */
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="1"] select.appza-native-select {
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  padding: 6px 32px 6px 12px;
-  font-size: 0.9rem;
+  border: 0 !important;
+  background: transparent !important;
+  padding: 2px 20px 2px 0 !important;
+  font-size: 0.95rem;
   font-weight: 600;
   color: #0f172a;
-  border-radius: 8px;
-  min-height: 34px;
+  min-height: 24px;
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%230f172a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 2px center !important;
+  box-shadow: none !important;
 }
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="1"] select.appza-native-select:focus {
   outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  box-shadow: none !important;
 }
+/* Row 2: title (forces new flex row via 100% basis) */
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="2"] {
-  grid-area: title;
-  border-top: 1px solid #e2e8f0;
-  padding-top: 8px;
-}
-.appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="3"] {
-  grid-area: body;
+  flex: 1 0 100%;
   border-top: 1px solid #e2e8f0;
   padding-top: 10px;
-  min-height: 160px;
+}
+/* Row 3: body (forces new flex row, grows to fill vertical space) */
+.appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="3"] {
+  flex: 1 0 100%;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 10px;
+  min-height: 320px;
 }
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="2"] ion-input,
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="3"] ion-textarea {
@@ -436,57 +457,70 @@
   box-shadow: none !important;
   background: transparent !important;
 }
-/* Attach icon row: each icon in its own grid column so they render
-   side-by-side. All 5 share a border-top for the row separator, faked by
-   putting the border on the leftmost column and stretching via padding. */
-.appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="4"] { grid-area: ico0; }
-.appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="5"] { grid-area: ico1; }
-.appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="6"] { grid-area: ico2; }
-.appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="7"] { grid-area: ico3; }
-.appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="8"] { grid-area: ico4; }
+/* Row 4: 5 attach icons — plain outline glyphs, evenly spaced.
+   Each icon takes 1/5 of the card width via flex:1 1 0 (0 basis + equal
+   grow), so all 5 share one flex line. Icons are inline-block centered
+   within their flex zone via text-align:center on the flex item wrapping
+   the ion-button primitive. */
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="4"],
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="5"],
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="6"],
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="7"],
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="8"] {
-  padding-top: 10px;
+  flex: 1 1 0;
+  min-width: 0;
+  padding-top: 14px;
   border-top: 1px solid #e2e8f0;
+  text-align: center;
 }
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="4"] ion-button,
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="5"] ion-button,
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="6"] ion-button,
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="7"] ion-button,
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="8"] ion-button {
-  --background: transparent;
-  --background-hover: #f1f5f9;
-  --background-activated: #e2e8f0;
-  --color: #475569;
-  --box-shadow: none;
-  --border-radius: 8px;
-  --padding-start: 10px;
-  --padding-end: 10px;
-  height: 40px;
-  width: 44px;
-  margin: 0 4px 0 0;
-  transition: background 0.15s ease;
+  --background: transparent !important;
+  --background-hover: transparent !important;
+  --background-activated: transparent !important;
+  --background-focused: transparent !important;
+  --color: #64748b !important;
+  --box-shadow: none !important;
+  --border-radius: 0;
+  --padding-start: 0 !important;
+  --padding-end: 0 !important;
+  --ripple-color: transparent;
+  height: 40px !important;
+  width: 40px !important;
+  min-width: 40px !important;
+  margin: 0;
+  display: inline-flex;
+  vertical-align: middle;
 }
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="4"] ion-button ion-icon,
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="5"] ion-button ion-icon,
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="6"] ion-button ion-icon,
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="7"] ion-button ion-icon,
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="8"] ion-button ion-icon {
-  font-size: 22px;
+  font-size: 36px !important;
+  width: 36px !important;
+  height: 36px !important;
+  color: #64748b !important;
 }
-/* Announcement checkbox row (children[9] in the new 10-child SS). */
+/* Row 5: announcement checkbox + label */
 .appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="9"] {
-  grid-area: announce;
+  flex: 1 0 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   color: #475569;
-  font-size: 0.85rem;
-  padding-top: 10px;
-  border-top: 1px solid #e2e8f0;
+  font-size: 0.88rem;
+  padding-top: 14px;
+}
+.appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="9"] ion-checkbox {
+  --size: 20px;
+  --border-radius: 4px;
+  --checkbox-background-checked: #6366f1;
+  --border-color-checked: #6366f1;
+  --checkmark-color: #ffffff;
 }
 
 /* bottom-tab-nav: 5 evenly distributed tabs */
