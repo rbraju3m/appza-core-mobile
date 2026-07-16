@@ -907,7 +907,7 @@ function AppzaImageGallery({ images }: { images: GalleryImage[] }) {
                 setActiveIndex(idx);
               }}
             >
-              <img src={img.url} alt="" loading="lazy" />
+              <BlobImage src={img.url} alt="" />
             </div>
           );
         })}
@@ -922,6 +922,71 @@ function AppzaImageGallery({ images }: { images: GalleryImage[] }) {
       )}
     </>
   );
+}
+
+/**
+ * <img> replacement that fetches cross-origin URLs via fetch() first, then
+ * uses the resulting blob as the src. Same-origin URLs render as a plain
+ * native <img> (no extra roundtrip; matches pre-existing behavior on the
+ * plugin-admin sim). Cross-origin path exists so the Capacitor Android
+ * shell can pick up window.fetch's header overrides (e.g. dev-tunnel
+ * bypass headers) on <img> loads, which native image loaders never send.
+ * Blob URLs are cached module-wide keyed by original src so repeated
+ * renders + multiple cards on the same image don't refetch.
+ */
+const BLOB_IMG_CACHE = new Map<string, string>();
+function BlobImage({ src, alt }: { src: string; alt: string }) {
+  const isCrossOrigin =
+    /^https?:\/\//i.test(src) &&
+    typeof window !== 'undefined' &&
+    (() => {
+      try {
+        return new URL(src).origin !== window.location.origin;
+      } catch {
+        return false;
+      }
+    })();
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(
+    isCrossOrigin ? BLOB_IMG_CACHE.get(src) ?? null : src,
+  );
+  useEffect(() => {
+    if (!isCrossOrigin) {
+      setResolvedSrc(src);
+      return;
+    }
+    const cached = BLOB_IMG_CACHE.get(src);
+    if (cached) {
+      setResolvedSrc(cached);
+      return;
+    }
+    let cancelled = false;
+    const short = src.length > 60 ? '…' + src.slice(-58) : src;
+    console.log('[BlobImage] fetch start', short);
+    void (async () => {
+      try {
+        const res = await fetch(src);
+        console.log('[BlobImage] fetch', short, 'status=' + res.status + ' ct=' + (res.headers.get('content-type') ?? ''));
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        console.log('[BlobImage] blob', short, 'size=' + blob.size + ' type=' + blob.type);
+        const url = URL.createObjectURL(blob);
+        BLOB_IMG_CACHE.set(src, url);
+        if (!cancelled) setResolvedSrc(url);
+      } catch (err) {
+        console.warn('[BlobImage] FAIL', short, err instanceof Error ? err.message : String(err));
+        if (!cancelled) setResolvedSrc(src);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [src, isCrossOrigin]);
+  if (!resolvedSrc) {
+    // Reserve the slot while the blob resolves so the collage layout
+    // doesn't collapse. Same background as .appza-image-gallery-slide.
+    return <div style={{ width: '100%', height: '100%', background: '#0f172a' }} />;
+  }
+  return <img src={resolvedSrc} alt={alt} loading="lazy" />;
 }
 
 /**
