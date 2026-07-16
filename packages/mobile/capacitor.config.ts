@@ -16,6 +16,14 @@ const config: CapacitorConfig = {
   appName: 'APPZA',
   webDir: 'dist',
   bundledWebRuntime: false,
+  android: {
+    // WebView origin is https://localhost. Feed items reference images
+    // over http:// (WP's siteurl is http). Without this, Android's
+    // WebView treats every http:// image as blocked mixed content and
+    // silently drops it. Combined with AndroidManifest's
+    // usesCleartextTraffic="true" this lets media load.
+    allowMixedContent: true,
+  },
 };
 
 export default config;
