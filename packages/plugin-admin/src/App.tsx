@@ -36,6 +36,7 @@ import { OverridesPanel } from './OverridesPanel';
 import { PropertiesPanel } from './PropertiesPanel';
 import { PrimitivePanel } from './PrimitivePanel';
 import { OnboardingModal } from './OnboardingModal';
+import { BuildAppModal } from './BuildAppModal';
 
 type FetchState =
   | { kind: 'idle' }
@@ -82,6 +83,7 @@ export function App() {
   // site owner hasn't picked any Source Integrations yet.
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [buildAppOpen, setBuildAppOpen] = useState(false);
   // Template dropdown data — pulled from the plug-in's /templates proxy,
   // which asks the Core for Templates tied to the currently-activated
   // Source Integrations. Refetched after the onboarding modal saves.
@@ -765,6 +767,7 @@ export function App() {
         syncMessage={syncMessage}
         previewMode={previewMode}
         onPreviewModeChange={setPreviewMode}
+        onBuildApp={() => setBuildAppOpen(true)}
         uiMode={uiMode}
         onUiModeChange={(m) => {
           setUiMode(m);
@@ -1378,6 +1381,14 @@ export function App() {
             loadTemplates();
             pull(templateSlug);
           }}
+        />
+      )}
+
+      {buildAppOpen && (
+        <BuildAppModal
+          onClose={() => setBuildAppOpen(false)}
+          templateOptions={templateOptions}
+          defaultTemplateSlug={templateSlug}
         />
       )}
     </div>

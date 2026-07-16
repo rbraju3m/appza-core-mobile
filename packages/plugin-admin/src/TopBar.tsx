@@ -27,6 +27,7 @@ type TopBarProps = {
   onPreviewModeChange: (mode: PreviewMode) => void;
   uiMode: UiMode;
   onUiModeChange: (mode: UiMode) => void;
+  onBuildApp: () => void;
 };
 
 const UI_MODES: Array<{ value: UiMode; label: string; title: string }> = [
@@ -59,6 +60,7 @@ export function TopBar({
   onPreviewModeChange,
   uiMode,
   onUiModeChange,
+  onBuildApp,
 }: TopBarProps) {
   const nameBySlug = new Map<string, string>();
   if (appMap && Array.isArray(appMap.screens)) {
@@ -225,7 +227,11 @@ export function TopBar({
         )}
 
         <button className="appza-btn">Preview</button>
-        <button className="appza-btn appza-btn-primary" disabled>
+        <button
+          className="appza-btn appza-btn-primary"
+          onClick={onBuildApp}
+          title="Pick an activated app + base URL, then kick off a build"
+        >
           Build App
         </button>
       </div>

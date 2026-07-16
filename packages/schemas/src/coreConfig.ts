@@ -22,9 +22,11 @@ export type AppzaCoreConfig = {
     sourceIntegrations?: string;
     activeSourceIntegrations?: string;
     templates?: string;
+    buildRequests?: string;
   };
   restNonce?: string;
   defaultTemplate?: string;
   assetsBase?: string;
   previewMode?: PreviewMode;
+  siteUrl?: string;
 };
