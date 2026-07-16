@@ -992,6 +992,38 @@
   color: #475569;
 }
 
+/* "See more" clamp — collapses long feed posts to N lines using
+   -webkit-line-clamp (works on all mobile browsers via -webkit prefix
+   even outside Safari); the toggle button in the wrapper flips
+   .appza-rich-text-clamped ↔ .appza-rich-text-expanded. Line count is
+   deliberately generous (4) so short posts never see the button. */
+.appza-rich-text-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.appza-rich-text-expanded {
+  display: block;
+}
+.appza-rich-text-toggle {
+  border: none;
+  background: transparent;
+  padding: 4px 0 0;
+  margin: 0;
+  color: #1e40af;
+  font-size: 0.85em;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+.appza-rich-text-toggle:hover {
+  text-decoration: underline;
+}
+.appza-rich-text-wrap {
+  min-width: 0;
+}
+
 /* appza-image-gallery primitive — Instagram-style collage. Layout is grid;
    template branches per data-count attribute (1/2/3/4/many).
    count=3 matches the user reference: 1 large left + 2 stacked right. */

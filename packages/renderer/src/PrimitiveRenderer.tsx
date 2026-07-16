@@ -389,14 +389,7 @@ export function PrimitiveRenderer({ primitive, overrides }: Props) {
 
     case 'AppzaRichText': {
       const html = readString(overrides, 'text') ?? '';
-      return (
-        <div
-          className="appza-rich-text"
-          // Server sanitized via wp_kses with a narrow inline safelist.
-          // Safe innerHTML sink — see PreviewProxyController::sanitize_rich_text.
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-      );
+      return <AppzaRichText html={html} />;
     }
 
     case 'AppzaImageGallery':
@@ -572,6 +565,55 @@ function isAllowedVideoHost(src: string): boolean {
 // user's "I hit play" decision. Keyed by src because a different video is
 // a legitimate reason to reset.
 const videoEmbedPlayingCache = new Map<string, boolean>();
+
+/**
+ * Rich-text body with a "See more" / "See less" toggle.
+ *
+ * On mount + on html change, measures whether the content's natural
+ * height exceeds the collapsed clamp (via scrollHeight vs clientHeight).
+ * When it does, renders a small text button below the paragraph that
+ * flips a class controlling `-webkit-line-clamp`. Short posts skip the
+ * button entirely so we don't clutter one-line feeds. HTML sink is the
+ * same wp_kses-sanitized payload from PreviewProxyController — safe to
+ * dangerouslySetInnerHTML.
+ */
+function AppzaRichText({ html }: { html: string }) {
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [overflowing, setOverflowing] = useState(false);
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    // Read the clamped height first. If content exceeds it, show the toggle.
+    // Re-measure on html change so a proxy-refreshed post with a longer
+    // body re-evaluates.
+    const isOverflow = el.scrollHeight - el.clientHeight > 2;
+    setOverflowing(isOverflow);
+    // If html shrank, reset expanded so long → short transitions are clean.
+    if (!isOverflow) setExpanded(false);
+  }, [html]);
+  return (
+    <div className="appza-rich-text-wrap">
+      <div
+        ref={bodyRef}
+        className={`appza-rich-text${expanded ? ' appza-rich-text-expanded' : ' appza-rich-text-clamped'}`}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+      {overflowing && (
+        <button
+          type="button"
+          className="appza-rich-text-toggle"
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded((v) => !v);
+          }}
+        >
+          {expanded ? 'See less' : 'See more'}
+        </button>
+      )}
+    </div>
+  );
+}
 
 function AppzaVideoEmbed({
   src,
