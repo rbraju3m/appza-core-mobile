@@ -135,16 +135,13 @@ export function App() {
     const t = window.setTimeout(() => setAuthMessage(null), 5000);
     return () => window.clearTimeout(t);
   }, [authMessage]);
-  // Spaces list for the composer's space picker dropdown. Fetched lazily
-  // when App-mode is active + we're authenticated; empty when guest so
-  // the dropdown just shows a placeholder. Refetched on login.
-  const [spaceOptions, setSpaceOptions] = useState<
-    Array<{ value: string; label: string }>
-  >([]);
+  // Spaces list is now fetched by the renderer itself via the AppZet's
+  // option_data_sources → fc-spaces-discover binding. Kept no shell-level
+  // state for it — see @appza/renderer PlacementRenderer + the fc-post-
+  // information seeder for the catalog-side wiring.
   // Live-clock string for the create-post-page's user avatar card. Ticks
   // every 30s so the date line under the user's name reads as "now".
-  // Injected into effectiveCustomizations for fc-user-avatar → children[2].text
-  // via the same override channel space_options uses.
+  // Injected into effectiveCustomizations for fc-user-avatar → children[2].text.
   const [nowLabel, setNowLabel] = useState<string>(() => formatNowLabel(new Date()));
   useEffect(() => {
     if (uiMode !== 'app') return;
@@ -180,9 +177,33 @@ export function App() {
   };
   const [pendingPoll, setPendingPoll] = useState<PendingPoll | null>(null);
   const [pollModalOpen, setPollModalOpen] = useState(false);
+  // Pending feed delete confirmation. Set by the post.delete dispatcher when
+  // the user taps the overflow menu on a post card; cleared by the modal's
+  // Cancel button OR by a successful delete. Holds everything the modal
+  // needs to fire the request without a re-lookup — the item that owned the
+  // tap has already left the render tree when the modal is shown.
+  type PendingDelete = {
+    feedId: number;
+    endpoint: string;
+    method: string;
+    bodyKey: string;
+    title: string;
+    message: string;
+    cta: string;
+  };
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
+  const [deleteInFlight, setDeleteInFlight] = useState(false);
   // Hidden file input reused across picker.image invocations. Ref lets the
   // dispatcher trigger `.click()` without React re-render.
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Endpoint the dispatcher hands over when picker.image / picker.video
+  // fires. Kept in a ref (not state) so the write is synchronous with the
+  // dispatch AND the subsequent uploadImages / attachVideo read sees the
+  // fresh value — a state setter would race the file-input onChange.
+  // Enforces "no hardcoded endpoints" — reset to null on logout so a
+  // stale endpoint from a previous session never gets reused.
+  const uploadEndpointRef = useRef<{ method: string; endpoint: string } | null>(null);
+  const oembedEndpointRef = useRef<{ method: string; endpoint: string } | null>(null);
   // Clear all pending draft attachments (images, video, poll) on logout
   // so nothing leaks between sessions.
   useEffect(() => {
@@ -191,61 +212,12 @@ export function App() {
       setPendingVideo(null);
       setPendingPoll(null);
       setPollModalOpen(false);
+      setPendingDelete(null);
+      setDeleteInFlight(false);
+      uploadEndpointRef.current = null;
+      oembedEndpointRef.current = null;
     }
   }, [auth]);
-  useEffect(() => {
-    if (uiMode !== 'app') return;
-    if (!auth) {
-      setSpaceOptions([]);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const url = '/wp-json/appza/fcom-mobile/api/v1/spaces/discover';
-      try {
-        const res = await fetch(url, {
-          // Same reasoning as post.create: avoid the WP cookie-auth path
-          // reaching this request. Basic Auth via Authorization header only.
-          credentials: 'omit',
-          headers: {
-            Accept: 'application/json',
-            Authorization: basicAuthHeader(auth),
-          },
-        });
-        const json = await res.json().catch(() => null);
-        console.log('[appza/spaces] fetch', {
-          status: res.status,
-          ok: res.ok,
-          itemCount: Array.isArray(json?.items) ? json.items.length : 'n/a',
-          json,
-        });
-        if (!res.ok) return;
-        const items = Array.isArray(json?.items) ? json.items : [];
-        if (cancelled) return;
-        // FC's FeedsController.store() uses the space SLUG (not id) — see
-        // Request::get('space') resolving to a slug string. Store slug as
-        // the option value so post.create's param_map submits the right
-        // shape. Label stays as human-readable title.
-        const opts = items
-          .filter((s: unknown) => s && typeof s === 'object')
-          .map((s: Record<string, unknown>) => ({
-            value: String(s.slug ?? s.id ?? ''),
-            label: String(s.title ?? s.slug ?? s.id ?? ''),
-          }))
-          .filter((o: { value: string; label: string }) => o.value && o.label);
-        console.log('[appza/spaces] parsed options', opts);
-        setSpaceOptions(opts);
-      } catch (err) {
-        console.error('[appza/spaces] fetch failed', err);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // Depend on auth token so re-login refetches. uiMode gates the effect
-    // so we don't fetch in Edit mode where the composer is a design surface.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uiMode, auth?.token]);
   // Pending panel edits — mirrored into the customizations blob before
   // it's handed to DeviceFrame so the phone-frame preview reflects the
   // panel state instantly, before Save persists it.
@@ -412,8 +384,7 @@ export function App() {
   // primitive-level (Layout editor).
   const effectiveCustomizations = useMemo(() => {
     const base = envelope?.customizations;
-    const hasSpaceInjection = uiMode === 'app' && spaceOptions.length > 0;
-    if (!livePreview && !livePrimitivePreview && !hasSpaceInjection) return base;
+    if (!livePreview && !livePrimitivePreview && uiMode !== 'app') return base;
     const baseRecord =
       base && typeof base === 'object' && !Array.isArray(base)
         ? (base as Record<string, unknown>)
@@ -446,31 +417,9 @@ export function App() {
       scopeRecord[key] = targetRecord;
       out = { ...out, appzet_primitive: scopeRecord };
     }
-    // Inject the fetched spaces list into fc-post-information's space picker
-    // options prop. properties_schema binds `space_options` → children[1].options,
-    // so PlacementRenderer forwards it to the IonSelect primitive. Merged
-    // onto whatever's already in default_props_override (live-preview edits
-    // take precedence when both are present).
-    if (hasSpaceInjection) {
-      const scopeRecord =
-        out['appzet'] && typeof out['appzet'] === 'object'
-          ? { ...(out['appzet'] as Record<string, unknown>) }
-          : {};
-      const targetRecord =
-        scopeRecord['fc-post-information'] && typeof scopeRecord['fc-post-information'] === 'object'
-          ? { ...(scopeRecord['fc-post-information'] as Record<string, unknown>) }
-          : {};
-      const existingOverride =
-        targetRecord['default_props_override'] && typeof targetRecord['default_props_override'] === 'object'
-          ? (targetRecord['default_props_override'] as Record<string, unknown>)
-          : {};
-      targetRecord['default_props_override'] = {
-        ...existingOverride,
-        space_options: spaceOptions,
-      };
-      scopeRecord['fc-post-information'] = targetRecord;
-      out = { ...out, appzet: scopeRecord };
-    }
+    // Spaces list is no longer injected here — the renderer's
+    // OptionDataSourceFetcher handles fc-spaces-discover directly via the
+    // fc-post-information AppZet's option_data_sources binding.
     // Inject live "now" string for the create-post user-avatar card's
     // date line. field_mappings on the AppZet also binds children[2].text
     // to data.schedule_date (server stamp fallback); this override runs
@@ -496,21 +445,26 @@ export function App() {
       out = { ...out, appzet: scopeRecord };
     }
     return out;
-  }, [envelope, livePreview, livePrimitivePreview, spaceOptions, uiMode, nowLabel]);
+  }, [envelope, livePreview, livePrimitivePreview, uiMode, nowLabel]);
 
-  const openImagePicker = useCallback(() => {
+  const openImagePicker = useCallback((target: { endpoint: string; method: string }) => {
     console.log('[appza/picker.image] openImagePicker called', {
       hasInputRef: !!fileInputRef.current,
+      endpoint: target.endpoint,
     });
     if (!fileInputRef.current) {
       console.warn('[appza/picker.image] fileInputRef is null — input not mounted?');
       return;
     }
+    uploadEndpointRef.current = target;
     fileInputRef.current.click();
   }, []);
   const clearPendingImages = useCallback(() => setPendingImages([]), []);
   const clearPendingVideo = useCallback(() => setPendingVideo(null), []);
   const openPollModal = useCallback(() => setPollModalOpen(true), []);
+  const openDeleteConfirm = useCallback((next: PendingDelete) => {
+    setPendingDelete(next);
+  }, []);
   const clearPendingPoll = useCallback(() => setPendingPoll(null), []);
 
   /**
@@ -521,15 +475,26 @@ export function App() {
    * attach). Errors surface via the top-of-app banner.
    */
   const attachVideo = useCallback(
-    async (url: string) => {
+    async (url: string, target: { endpoint: string; method: string }) => {
       if (!auth) {
         setAuthMessage('Please sign in to attach a video.');
         return;
       }
+      // Stash for consistency with picker.image's ref-based flow — future
+      // helpers reading oembedEndpointRef see the latest. The target param
+      // is authoritative for this call.
+      oembedEndpointRef.current = target;
       setVideoLoading(true);
+      if (!target || !target.endpoint) {
+        setAuthMessage(
+          'Video attach is missing its endpoint — set picker.video args.endpoint in the catalog.',
+        );
+        setVideoLoading(false);
+        return;
+      }
       try {
-        const res = await fetch('/wp-json/fcom-mobile/api/v1/feeds/oembed', {
-          method: 'POST',
+        const res = await fetch(target.endpoint, {
+          method: target.method,
           credentials: 'omit',
           headers: {
             Accept: 'application/json',
@@ -597,6 +562,7 @@ export function App() {
         openPollModal,
         pendingPoll,
         clearPendingPoll,
+        openDeleteConfirm,
       });
     },
     [
@@ -604,6 +570,7 @@ export function App() {
       openImagePicker, pendingImages, clearPendingImages,
       attachVideo, pendingVideo, clearPendingVideo,
       openPollModal, pendingPoll, clearPendingPoll,
+      openDeleteConfirm,
     ],
   );
 
@@ -622,14 +589,21 @@ export function App() {
         setAuthMessage('Please sign in to attach images.');
         return;
       }
+      const target = uploadEndpointRef.current;
+      if (!target) {
+        setAuthMessage(
+          'Image attach is missing its endpoint — set picker.image args.endpoint in the catalog.',
+        );
+        return;
+      }
       const list = Array.from(files);
       setUploadingCount((c) => c + list.length);
       const uploads = list.map(async (file) => {
         try {
           const form = new FormData();
           form.append('file', file);
-          const res = await fetch('/wp-json/fcom-mobile/api/v1/feeds/media-upload', {
-            method: 'POST',
+          const res = await fetch(target.endpoint, {
+            method: target.method,
             credentials: 'omit',
             headers: {
               Accept: 'application/json',
@@ -883,6 +857,7 @@ export function App() {
           }}
         />
       )}
+
 
       {uiMode === 'app' && auth && (pendingVideo || videoLoading) && (
         <div
@@ -1169,6 +1144,65 @@ export function App() {
                 catalog={catalog ?? null}
                 customizations={effectiveCustomizations}
                 templateName={catalog?.template?.name}
+                overlaySlot={
+                  pendingDelete ? (
+                    <ConfirmDeleteModal
+                      title={pendingDelete.title}
+                      message={pendingDelete.message}
+                      cta={pendingDelete.cta}
+                      inFlight={deleteInFlight}
+                      onCancel={() => {
+                        if (deleteInFlight) return;
+                        setPendingDelete(null);
+                      }}
+                      onConfirm={async () => {
+                        if (!auth || !pendingDelete) return;
+                        setDeleteInFlight(true);
+                        try {
+                          const res = await fetch(pendingDelete.endpoint, {
+                            method: pendingDelete.method,
+                            credentials: 'omit',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              Accept: 'application/json',
+                              Authorization: basicAuthHeader(auth),
+                            },
+                            body: JSON.stringify({ [pendingDelete.bodyKey]: pendingDelete.feedId }),
+                          });
+                          const json = await res.json().catch(() => null);
+                          const status = (json && typeof json === 'object' && 'response' in json)
+                            ? ((json as Record<string, unknown>).response as Record<string, unknown> | undefined)
+                            : undefined;
+                          const httpOk = res.ok;
+                          const bodyOk = !status || status.status === 200;
+                          if (!httpOk || !bodyOk) {
+                            const msg =
+                              (status && typeof status.message === 'string' && status.message) ||
+                              (json && typeof (json as Record<string, unknown>).message === 'string'
+                                ? (json as Record<string, string>).message
+                                : null) ||
+                              `Delete failed (HTTP ${res.status})`;
+                            setAuthMessage(msg);
+                            return;
+                          }
+                          setPendingDelete(null);
+                          const g = window as unknown as { __appzaForceRefreshUntil?: number };
+                          g.__appzaForceRefreshUntil = Date.now() + 3000;
+                          setTimeout(() => {
+                            window.dispatchEvent(new Event('appza:refresh-data'));
+                          }, 150);
+                          setTimeout(() => {
+                            window.dispatchEvent(new Event('appza:refresh-data'));
+                          }, 600);
+                        } catch (err) {
+                          setAuthMessage(err instanceof Error ? err.message : String(err));
+                        } finally {
+                          setDeleteInFlight(false);
+                        }
+                      }}
+                    />
+                  ) : null
+                }
               />
             </ActionProvider>
           ) : (
@@ -1371,15 +1405,24 @@ type AppModeActionDeps = {
   setAuth: (a: StoredAuth | null) => void;
   onLoginError: (message: string) => void;
   onLoginSuccess: () => void;
-  openImagePicker: () => void;
+  openImagePicker: (target: { endpoint: string; method: string }) => void;
   pendingImages: string[];
   clearPendingImages: () => void;
-  attachVideo: (url: string) => Promise<void>;
+  attachVideo: (url: string, target: { endpoint: string; method: string }) => Promise<void>;
   pendingVideo: { url: string; title?: string; image?: string; provider?: string } | null;
   clearPendingVideo: () => void;
   openPollModal: () => void;
   pendingPoll: { type: 'single_choice' | 'multi_choice'; options: string[] } | null;
   clearPendingPoll: () => void;
+  openDeleteConfirm: (next: {
+    feedId: number;
+    endpoint: string;
+    method: string;
+    bodyKey: string;
+    title: string;
+    message: string;
+    cta: string;
+  }) => void;
 };
 
 /**
@@ -1600,6 +1643,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     clearPendingVideo,
     pendingPoll,
     clearPendingPoll,
+    openDeleteConfirm,
   } = deps;
   const { action_slug, args, item, binding_root } = inv;
   const argRec = (args ?? {}) as Record<string, unknown>;
@@ -1871,6 +1915,55 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
+    case 'post.delete': {
+      // Overflow-menu → delete. Read feed_id off the tapped item using the
+      // action's `feed_id_path` binding (defaults to `data.id`) and open the
+      // confirm modal; the modal fires the actual DELETE on user confirm.
+      // Requires login (Basic Auth on the write). The endpoint owns
+      // authorization — server 403s a non-owner attempt; we just surface the
+      // error message via the same toast auth.login uses.
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+      const feedIdPath = typeof argRec.feed_id_path === 'string' ? argRec.feed_id_path : 'data.id';
+      // Body-payload key the endpoint expects for the item id (e.g. FC's
+      // /feeds/delete reads `feed_id`; a different Source could expect
+      // `post_id`, `id`, etc.). Defaults to `feed_id` for parity with FC.
+      const bodyKey = typeof argRec.body_key === 'string' && argRec.body_key ? argRec.body_key : 'feed_id';
+      const title = typeof argRec.confirm_title === 'string' ? argRec.confirm_title : 'Delete post?';
+      const message = typeof argRec.confirm_message === 'string'
+        ? argRec.confirm_message
+        : 'This post will be permanently removed. This action cannot be undone.';
+      const cta = typeof argRec.confirm_cta === 'string' ? argRec.confirm_cta : 'Delete';
+      if (!endpoint) {
+        console.warn('[appza-admin/app-mode] post.delete missing endpoint');
+        return;
+      }
+      if (!auth) {
+        onLoginError('Please sign in to delete a post.');
+        return;
+      }
+      // readDataPath expects a `data.` prefix but the item passed here is the
+      // item root itself (proxy already unwrapped). Resolve either way:
+      // strip the prefix if present and index directly.
+      const key = feedIdPath.startsWith('data.') ? feedIdPath.slice(5) : feedIdPath;
+      const raw = itemRec ? (itemRec as Record<string, unknown>)[key] : undefined;
+      const feedId = typeof raw === 'number'
+        ? raw
+        : typeof raw === 'string' && raw !== '' && !Number.isNaN(Number(raw))
+          ? Number(raw)
+          : null;
+      if (feedId === null) {
+        console.warn('[appza-admin/app-mode] post.delete could not resolve feed_id from', {
+          feedIdPath,
+          item: effectiveItem,
+        });
+        onLoginError('Could not identify which post to delete.');
+        return;
+      }
+      openDeleteConfirm({ feedId, endpoint, method, bodyKey, title, message, cta });
+      return;
+    }
+
     case 'picker.emoji': {
       // Minimum-viable emoji insert: browser prompt so the user can paste
       // or type an emoji, then append to the composer textarea. Not a
@@ -1906,30 +1999,40 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'picker.image': {
-      // Trigger the hidden file input; the input's onChange handler
-      // uploads each selected file via multipart POST to
-      // /wp-json/fcom-mobile/api/v1/feeds/media-upload with Basic Auth,
-      // then appends returned URLs to pendingImages state. post.create
-      // reads pendingImages when building the feed body and clears
-      // them on success.
+      // Trigger the hidden file input; onChange handler uploads each
+      // selected file via multipart POST to args.endpoint (Source-scoped,
+      // supplied by the catalog wiring; see fc-post-information's
+      // on_tap_attach_photo). Returned URLs get appended to pendingImages;
+      // post.create reads them + clears on success.
       console.log('[appza/picker.image] dispatched', { hasAuth: !!auth });
       if (!auth) {
         onLoginError('Please sign in to attach images.');
         return;
       }
-      deps.openImagePicker();
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+      if (!endpoint) {
+        onLoginError('picker.image is missing its endpoint — set args.endpoint in the catalog.');
+        return;
+      }
+      deps.openImagePicker({ endpoint, method });
       return;
     }
 
     case 'picker.video': {
-      // Video oembed flow: user pastes a video URL, we POST it to
-      // /wp-json/fcom-mobile/api/v1/feeds/oembed which returns the parsed
-      // metadata (title, thumbnail image, provider, embed html). We stash
-      // the URL + preview bits in pendingVideo so the composer can show a
-      // thumbnail card; post.create sends `media: {type:'oembed', url}`
-      // and FC's server re-parses the URL to populate meta.media_preview.
+      // Video oembed flow: user pastes a URL, we POST it to args.endpoint
+      // (Source-scoped, supplied by the catalog wiring). Response returns
+      // metadata (title, thumbnail image, provider, embed html) that
+      // populates pendingVideo. post.create sends `media: {type:'oembed', url}`
+      // and the server re-parses to populate meta.media_preview.
       if (!auth) {
         onLoginError('Please sign in to attach a video.');
+        return;
+      }
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+      if (!endpoint) {
+        onLoginError('picker.video is missing its endpoint — set args.endpoint in the catalog.');
         return;
       }
       const url = window.prompt('Paste a video URL (YouTube, Vimeo, etc.):') ?? '';
@@ -1939,7 +2042,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         onLoginError('Please enter a full URL starting with http:// or https://');
         return;
       }
-      void deps.attachVideo(trimmed);
+      void deps.attachVideo(trimmed, { endpoint, method });
       return;
     }
 
@@ -2213,6 +2316,103 @@ function PollBuilderModal({
             }}
           >
             Save poll
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Confirm-delete modal for the post.delete action. Kept intentionally
+ * lean — same overlay/card styling as PollBuilderModal so the two feel
+ * like siblings. Cancel + confirm buttons; confirm is a red "Delete" CTA
+ * that disables while the request is in flight so a double-tap can't
+ * fire two DELETEs.
+ */
+function ConfirmDeleteModal({
+  title,
+  message,
+  cta,
+  inFlight,
+  onCancel,
+  onConfirm,
+}: {
+  title: string;
+  message: string;
+  cta: string;
+  inFlight: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      style={{
+        // Absolute — the parent (.appza-device-viewport) is
+        // position:relative in the simulator, so this fills only the phone
+        // screen. On the real Capacitor build there's no bezel, so an
+        // absolute overlay against IonPage still covers the whole viewport.
+        position: 'absolute',
+        inset: 0,
+        background: 'rgba(15,23,42,0.55)',
+        display: 'grid',
+        placeItems: 'center',
+        zIndex: 60,
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCancel();
+      }}
+    >
+      <div
+        style={{
+          background: '#fff',
+          borderRadius: 12,
+          padding: 16,
+          width: 'min(300px, 88%)',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+        }}
+      >
+        <h3 style={{ margin: 0, fontSize: 15, color: '#111827' }}>{title}</h3>
+        <p style={{ margin: '6px 0 14px', fontSize: 12, color: '#4b5563', lineHeight: 1.5 }}>
+          {message}
+        </p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={inFlight}
+            style={{
+              border: '1px solid #d1d5db',
+              background: '#fff',
+              color: '#374151',
+              padding: '8px 14px',
+              borderRadius: 6,
+              cursor: inFlight ? 'not-allowed' : 'pointer',
+              fontSize: 13,
+              fontWeight: 500,
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={inFlight}
+            style={{
+              border: 'none',
+              background: inFlight ? '#fca5a5' : '#dc2626',
+              color: '#fff',
+              padding: '8px 14px',
+              borderRadius: 6,
+              cursor: inFlight ? 'not-allowed' : 'pointer',
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            {inFlight ? 'Deleting…' : cta}
           </button>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IonInfiniteScroll, IonInfiniteScrollContent } from '@ionic/react';
 import type { AppZet, LayoutStyle, PropertiesSchemaEntry, Superstructure } from '@appza/schemas';
 import type { CatalogIndex } from './catalogIndex';
@@ -80,6 +80,42 @@ export function PlacementRenderer({
 }: PlacementRendererProps) {
   const baseAppzet = catalogIndex.appzetBySlug.get(appzetSlug);
 
+  // === Option data sources ===
+  // AppZets can declare `option_data_sources: { <prop_name>: <ds_slug> }`
+  // to populate option-list children (e.g. fc-post-information's space
+  // picker). Fetch each and inject the mapped {value,label} items into
+  // default_props_override under prop_name — the SS properties_schema
+  // binding then routes it to whichever child prop needs it.
+  //
+  // The fetches are delegated to <OptionDataSourceFetcher /> child
+  // components so hook order stays stable regardless of how many entries
+  // are configured. Each reports its items upward via handleOptionLoaded.
+  const optionDsEntries = useMemo(() => {
+    const map = baseAppzet?.option_data_sources ?? null;
+    if (!map || typeof map !== 'object') return [] as Array<[string, string]>;
+    return Object.entries(map as Record<string, unknown>).filter(
+      (pair): pair is [string, string] =>
+        typeof pair[0] === 'string' && typeof pair[1] === 'string' && pair[1].length > 0,
+    );
+  }, [baseAppzet?.option_data_sources]);
+  const [optionData, setOptionData] = useState<Record<string, Array<{ value: string; label: string }>>>({});
+  const handleOptionLoaded = useCallback(
+    (propName: string, items: Array<{ value: string; label: string }>) => {
+      setOptionData((prev) => {
+        const existing = prev[propName];
+        if (
+          existing &&
+          existing.length === items.length &&
+          existing.every((o, i) => o.value === items[i]!.value && o.label === items[i]!.label)
+        ) {
+          return prev;
+        }
+        return { ...prev, [propName]: items };
+      });
+    },
+    [],
+  );
+
   // Apply customizations.appzet.<slug>.default_props_override on top of the
   // catalog's default_props_override (leaf-level merge). The customization
   // is where the right-side properties panel persists user edits — same
@@ -87,13 +123,18 @@ export function PlacementRenderer({
   const appzet = baseAppzet
     ? {
         ...baseAppzet,
-        default_props_override: resolveOverridableColumn(
-          customizations,
-          'appzet',
-          baseAppzet.slug,
-          'default_props_override',
-          baseAppzet.default_props_override ?? {},
-        ) as Record<string, unknown> | null,
+        default_props_override: {
+          ...(resolveOverridableColumn(
+            customizations,
+            'appzet',
+            baseAppzet.slug,
+            'default_props_override',
+            baseAppzet.default_props_override ?? {},
+          ) as Record<string, unknown>),
+          // Fetched option lists override any static default for the same
+          // prop — the live catalog value is the truer one.
+          ...optionData,
+        } as Record<string, unknown>,
       }
     : baseAppzet;
 
@@ -173,6 +214,24 @@ export function PlacementRenderer({
     .filter(Boolean)
     .join(' ');
 
+  // Sub-mount used by both render branches below. Each entry mounts once
+  // per (propName, dsSlug) pair and fires a useDataSource fetch; results
+  // flow back into `optionData` via handleOptionLoaded and land in
+  // appzet.default_props_override on the next render.
+  const optionFetchers =
+    optionDsEntries.length > 0 ? (
+      <>
+        {optionDsEntries.map(([propName, dsSlug]) => (
+          <OptionDataSourceFetcher
+            key={propName + ':' + dsSlug}
+            propName={propName}
+            dsSlug={dsSlug}
+            onLoaded={handleOptionLoaded}
+          />
+        ))}
+      </>
+    ) : null;
+
   // No data source: render once with static overrides. Child actions still
   // apply (login button, create-post button, etc. — anything that doesn't
   // need per-item data context) so we compute them with a null item.
@@ -180,23 +239,26 @@ export function PlacementRenderer({
     const staticChildren = readChildren(ss);
     const staticActions = computeChildActions(staticChildren, appzet, undefined);
     return (
-      <div
-        className={wrapperClass}
-        data-slug={appzet.slug}
-        style={spacingStyle(spacing)}
-        onClick={handleClick}
-      >
-        <SuperstructureRenderer
-          ss={ss}
-          catalogIndex={catalogIndex}
-          depth={0}
-          childOverrides={baseChildOverrides}
-          hiddenIndices={hiddenIndices}
-          childLayoutStyles={childLayoutStyles}
-          childActions={staticActions}
-          appzetSlugForPath={appzet.slug}
-        />
-      </div>
+      <>
+        {optionFetchers}
+        <div
+          className={wrapperClass}
+          data-slug={appzet.slug}
+          style={spacingStyle(spacing)}
+          onClick={handleClick}
+        >
+          <SuperstructureRenderer
+            ss={ss}
+            catalogIndex={catalogIndex}
+            depth={0}
+            childOverrides={baseChildOverrides}
+            hiddenIndices={hiddenIndices}
+            childLayoutStyles={childLayoutStyles}
+            childActions={staticActions}
+            appzetSlugForPath={appzet.slug}
+          />
+        </div>
+      </>
     );
   }
 
@@ -206,14 +268,21 @@ export function PlacementRenderer({
   // subtree, resetting local component state like the video-embed's
   // `playing` flag, which reads as "video hides when clicked".
   if (dataState.loading && dataState.items.length === 0) {
-    return <div className="appza-renderer-loading" data-slug={appzet.slug}>Loading…</div>;
+    return (
+      <>
+        {optionFetchers}
+        <div className="appza-renderer-loading" data-slug={appzet.slug}>Loading…</div>
+      </>
+    );
   }
 
   const items = dataState.items.length > 0 ? dataState.items : [{}];
   const ssChildren = readChildren(ss);
 
   return (
-    <div className="appza-renderer-appzet-list" data-slug={appzet.slug}>
+    <>
+      {optionFetchers}
+      <div className="appza-renderer-appzet-list" data-slug={appzet.slug}>
       {items.map((item, idx) => {
         const itemOverrides = mergeFieldMappingsOntoOverrides(baseChildOverrides, appzet, item);
         const dataHidden = computeDataHiddenIndices(ssChildren, item);
@@ -258,8 +327,46 @@ export function PlacementRenderer({
           />
         </IonInfiniteScroll>
       )}
-    </div>
+      </div>
+    </>
   );
+}
+
+/**
+ * Fires a useDataSource fetch for one entry of an AppZet's
+ * option_data_sources map and reports the mapped {value,label} items
+ * back to the parent via onLoaded. Renders null — presence is purely
+ * to keep hook order stable per (propName, dsSlug) pair.
+ *
+ * Mapping heuristic: `slug` (fallback `id`) → value; `title` (fallback
+ * `name`, then `slug`/`id`) → label. If a Source's DS returns a
+ * different shape, add `value_path`/`label_path` on the DataSource row
+ * and read them here — deferred until a second use case surfaces.
+ */
+function OptionDataSourceFetcher({
+  propName,
+  dsSlug,
+  onLoaded,
+}: {
+  propName: string;
+  dsSlug: string;
+  onLoaded: (propName: string, items: Array<{ value: string; label: string }>) => void;
+}) {
+  const { items, loading, error } = useDataSource(dsSlug);
+  useEffect(() => {
+    if (loading || error) return;
+    const mapped = items
+      .map((raw) => {
+        if (!raw || typeof raw !== 'object') return null;
+        const rec = raw as Record<string, unknown>;
+        const value = String(rec.slug ?? rec.id ?? '');
+        const label = String(rec.title ?? rec.name ?? rec.slug ?? rec.id ?? '');
+        return value && label ? { value, label } : null;
+      })
+      .filter((o): o is { value: string; label: string } => o !== null);
+    onLoaded(propName, mapped);
+  }, [propName, items, loading, error, onLoaded]);
+  return null;
 }
 
 /**

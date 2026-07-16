@@ -81,6 +81,10 @@ const AppZetRowSchema = z
     superstructure_id: z.number().int().nullable().optional(),
     default_data_source_id: z.number().int().nullable().optional(),
     default_props_override: z.record(z.unknown()).nullable().optional(),
+    // Map of prop_name → data_source_slug for single-shot lookups the
+    // renderer injects as {value,label} pairs into the named prop.
+    // Distinct from default_data_source_id (per-item repeat rendering).
+    option_data_sources: z.record(z.string()).nullable().optional(),
     is_active: z.boolean().optional(),
   })
   .passthrough();

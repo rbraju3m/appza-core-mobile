@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { ScreenRenderer } from '@appza/renderer';
 import type { Catalog, TemplateScreen } from '@appza/schemas';
 
@@ -17,6 +17,13 @@ type DeviceFrameProps = {
   onSelectAppzet?: (slug: string | null) => void;
   selectedPrimitive?: SelectedPrimitive | null;
   onSelectPrimitive?: (sel: SelectedPrimitive | null) => void;
+  /**
+   * In-device overlay slot — rendered as an absolutely positioned layer
+   * inside `.appza-device-viewport`, so modals/action-sheets align with the
+   * simulated phone screen instead of the browser viewport. On the real
+   * Capacitor app, modals stay position:fixed against the actual device.
+   */
+  overlaySlot?: ReactNode;
 };
 
 /**
@@ -46,6 +53,7 @@ export function DeviceFrame({
   onSelectAppzet,
   selectedPrimitive,
   onSelectPrimitive,
+  overlaySlot,
 }: DeviceFrameProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
 
@@ -87,6 +95,7 @@ export function DeviceFrame({
         className="appza-device-viewport"
         ref={viewportRef}
         onClickCapture={handleClickCapture}
+        style={{ position: 'relative' }}
       >
         {!screen || !catalog ? (
           <div className="appza-renderer-empty">
@@ -102,6 +111,7 @@ export function DeviceFrame({
             onSelectAppzet={onSelectAppzet}
           />
         )}
+        {overlaySlot}
       </div>
       <div className="appza-device-homebar" aria-hidden="true" />
     </div>
