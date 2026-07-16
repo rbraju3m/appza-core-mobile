@@ -111,16 +111,27 @@ export function App() {
     setAuthState(a);
     // Mirror the Basic Auth header into a window global so the renderer's
     // useDataSource can forward it to the preview proxy without importing
-    // any auth state cross-package.
-    const g = window as unknown as { __appzaAuthHeader?: string };
-    if (a) g.__appzaAuthHeader = basicAuthHeader(a);
-    else delete g.__appzaAuthHeader;
+    // any auth state cross-package. Same channel exposes user_id so the
+    // renderer's enrichItemWithMyReactions can flag the viewer's own
+    // reactions on each feed item.
+    const g = window as unknown as { __appzaAuthHeader?: string; __appzaCurrentUserId?: number };
+    if (a) {
+      g.__appzaAuthHeader = basicAuthHeader(a);
+      if (typeof a.user_id === 'number') g.__appzaCurrentUserId = a.user_id;
+      else delete g.__appzaCurrentUserId;
+    } else {
+      delete g.__appzaAuthHeader;
+      delete g.__appzaCurrentUserId;
+    }
   }, []);
   // Bootstrap the window auth header on mount if we already have a stored
   // session (auth was hydrated from localStorage before setAuth ran).
   useEffect(() => {
-    const g = window as unknown as { __appzaAuthHeader?: string };
-    if (auth) g.__appzaAuthHeader = basicAuthHeader(auth);
+    const g = window as unknown as { __appzaAuthHeader?: string; __appzaCurrentUserId?: number };
+    if (auth) {
+      g.__appzaAuthHeader = basicAuthHeader(auth);
+      if (typeof auth.user_id === 'number') g.__appzaCurrentUserId = auth.user_id;
+    }
     // Also trigger data-source refresh so any in-flight fetches that ran
     // before the header was set can be re-issued with credentials.
     window.dispatchEvent(new Event('appza:refresh-data'));
@@ -193,6 +204,22 @@ export function App() {
   };
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [deleteInFlight, setDeleteInFlight] = useState(false);
+  // In-device comment panel — replaces the earlier window.prompt path.
+  // Owned by App.tsx (not the renderer) so we can mount it in the
+  // DeviceFrame's overlaySlot with the same absolute-inside-viewport
+  // positioning as ConfirmDeleteModal.
+  type CommentPanelState = {
+    feedId: number;
+    endpoint: string;
+    method: string;
+    listEndpoint: string;
+    bodyKey: string;
+    messageKey: string;
+    panelTitle: string;
+    placeholder: string;
+    sendLabel: string;
+  };
+  const [commentPanel, setCommentPanel] = useState<CommentPanelState | null>(null);
   // Hidden file input reused across picker.image invocations. Ref lets the
   // dispatcher trigger `.click()` without React re-render.
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -204,6 +231,11 @@ export function App() {
   // stale endpoint from a previous session never gets reused.
   const uploadEndpointRef = useRef<{ method: string; endpoint: string } | null>(null);
   const oembedEndpointRef = useRef<{ method: string; endpoint: string } | null>(null);
+  // Session-scoped tracker of which (feed_id, react_type) pairs the current
+  // viewer has toggled on. The feed API doesn't surface a per-viewer
+  // "did I react?" flag, so we mirror server state locally: adding on the
+  // first tap, sending `remove=1` on the second. Cleared on logout below.
+  const reactedRef = useRef<Set<string>>(new Set());
   // Clear all pending draft attachments (images, video, poll) on logout
   // so nothing leaks between sessions.
   useEffect(() => {
@@ -216,6 +248,8 @@ export function App() {
       setDeleteInFlight(false);
       uploadEndpointRef.current = null;
       oembedEndpointRef.current = null;
+      reactedRef.current = new Set();
+      setCommentPanel(null);
     }
   }, [auth]);
   // Pending panel edits — mirrored into the customizations blob before
@@ -465,6 +499,9 @@ export function App() {
   const openDeleteConfirm = useCallback((next: PendingDelete) => {
     setPendingDelete(next);
   }, []);
+  const openCommentPanel = useCallback((next: CommentPanelState) => {
+    setCommentPanel(next);
+  }, []);
   const clearPendingPoll = useCallback(() => setPendingPoll(null), []);
 
   /**
@@ -563,6 +600,8 @@ export function App() {
         pendingPoll,
         clearPendingPoll,
         openDeleteConfirm,
+        reactedSet: reactedRef.current,
+        openCommentPanel,
       });
     },
     [
@@ -570,7 +609,7 @@ export function App() {
       openImagePicker, pendingImages, clearPendingImages,
       attachVideo, pendingVideo, clearPendingVideo,
       openPollModal, pendingPoll, clearPendingPoll,
-      openDeleteConfirm,
+      openDeleteConfirm, openCommentPanel,
     ],
   );
 
@@ -1201,6 +1240,21 @@ export function App() {
                         }
                       }}
                     />
+                  ) : commentPanel && auth ? (
+                    <CommentPanel
+                      feedId={commentPanel.feedId}
+                      endpoint={commentPanel.endpoint}
+                      method={commentPanel.method}
+                      listEndpoint={commentPanel.listEndpoint}
+                      bodyKey={commentPanel.bodyKey}
+                      messageKey={commentPanel.messageKey}
+                      panelTitle={commentPanel.panelTitle}
+                      placeholder={commentPanel.placeholder}
+                      sendLabel={commentPanel.sendLabel}
+                      auth={auth}
+                      onClose={() => setCommentPanel(null)}
+                      onError={(m) => setAuthMessage(m)}
+                    />
                   ) : null
                 }
               />
@@ -1423,6 +1477,21 @@ type AppModeActionDeps = {
     message: string;
     cta: string;
   }) => void;
+  // Session-scoped tracker of (feed_id, react_type) pairs the viewer has
+  // toggled on. Passed as a mutable Set so the dispatcher can add/delete
+  // without re-render. Cleared on logout.
+  reactedSet: Set<string>;
+  openCommentPanel: (next: {
+    feedId: number;
+    endpoint: string;
+    method: string;
+    listEndpoint: string;
+    bodyKey: string;
+    messageKey: string;
+    panelTitle: string;
+    placeholder: string;
+    sendLabel: string;
+  }) => void;
 };
 
 /**
@@ -1442,6 +1511,10 @@ type StoredAuth = {
   token: string;
   display_name?: string;
   avatar?: string;
+  // WP user id returned by /fcom-login. Threaded to the renderer via
+  // `window.__appzaCurrentUserId` so per-item reaction enrichment can
+  // decide whether the viewer has liked / bookmarked each feed.
+  user_id?: number;
 };
 
 function readStoredAuth(): StoredAuth | null {
@@ -1484,6 +1557,100 @@ function writeStoredAuth(a: StoredAuth | null): void {
 function basicAuthHeader(auth: StoredAuth): string {
   return 'Basic ' + window.btoa(`${auth.username}:${auth.token}`);
 }
+
+/**
+ * Ionicon + Ionic-theme-color pairs for the outline / filled variants of
+ * each reaction type. Add a row here when a new react_type ships.
+ * `childPath` is the SS path of the reaction button on fc-post-card;
+ * `countPath` is the paired count text (null when the card doesn't show
+ * one, e.g. bookmark).
+ */
+const REACTION_UI: Record<
+  string,
+  { childPath: string; iconOn: string; iconOff: string; colorOn: string; countPath: string | null }
+> = {
+  like: {
+    childPath: 'children[10]',
+    iconOn: 'heart',
+    iconOff: 'heart-outline',
+    colorOn: 'danger',
+    countPath: 'children[13]',
+  },
+  bookmark: {
+    childPath: 'children[12]',
+    iconOn: 'bookmark',
+    iconOff: 'bookmark-outline',
+    colorOn: 'primary',
+    countPath: null,
+  },
+};
+
+/**
+ * Optimistic UI update for like / bookmark. Finds every rendered card
+ * matching `feedId` (data-appza-item-id, stamped by PlacementRenderer),
+ * flips the reaction button's ion-icon + color, and — for `like` — nudges
+ * the paired count text by ±1 so the visible "N likes" stays honest. All
+ * mutation is DOM-level so we skip a React re-render + avoid the full
+ * feed refetch flash. Caller reverts on HTTP failure by calling this
+ * again with the opposite `on` flag.
+ */
+function applyReactionOptimistic(feedId: number, reactType: string, on: boolean) {
+  const cfg = REACTION_UI[reactType];
+  if (!cfg) return;
+  const wrappers = document.querySelectorAll<HTMLElement>(
+    `[data-appza-item-id="${CSS.escape(String(feedId))}"]`,
+  );
+  wrappers.forEach((wrapper) => {
+    // Attribute value is a plain quoted string in the CSS selector, so
+    // the [12] brackets need no escaping — they're just part of the
+    // string being matched.
+    const btn = wrapper.querySelector<HTMLElement>(
+      `[data-appza-primitive-path="${cfg.childPath}"]`,
+    );
+    if (btn) {
+      const nextIcon = on ? cfg.iconOn : cfg.iconOff;
+      const nextColor = on ? cfg.colorOn : 'medium';
+      btn.querySelectorAll<HTMLElement>('ion-icon').forEach((ic) => {
+        ic.setAttribute('name', nextIcon);
+        // Wipe the resolved src/icon so Ionic re-fetches from the new name.
+        ic.removeAttribute('src');
+        ic.removeAttribute('icon');
+      });
+      btn.querySelectorAll<HTMLElement>('ion-button').forEach((b) => {
+        b.setAttribute('color', nextColor);
+      });
+    }
+    if (cfg.countPath) {
+      const countWrap = wrapper.querySelector<HTMLElement>(
+        `[data-appza-primitive-path="${cfg.countPath}"]`,
+      );
+      if (countWrap) {
+        // ion-text renders `<ion-text><p>N likes</p></ion-text>`.
+        const p = countWrap.querySelector<HTMLElement>('ion-text p') ?? countWrap;
+        const text = p.textContent ?? '';
+        const match = text.match(/(\d+)/);
+        const cur = match && match[1] ? parseInt(match[1], 10) : 0;
+        const next = Math.max(0, cur + (on ? 1 : -1));
+        const label = next === 1 ? 'like' : 'likes';
+        p.textContent = `${next} ${label}`;
+      }
+    }
+  });
+}
+
+/**
+ * Fires the app-side "refetch every mounted data source" signal + sets
+ * the proxy-cache bypass window so a re-mounting AppZet's first fetch
+ * still bypasses the 5-min transient. Used after write actions
+ * (post.create / delete, comment.create) so counts reflect server truth.
+ */
+function triggerFeedRefresh() {
+  const g = window as unknown as { __appzaForceRefreshUntil?: number };
+  g.__appzaForceRefreshUntil = Date.now() + 3000;
+  setTimeout(() => window.dispatchEvent(new Event('appza:refresh-data')), 150);
+  setTimeout(() => window.dispatchEvent(new Event('appza:refresh-data')), 600);
+}
+
 
 /**
  * Read a value out of a rendered form field by its DOM path attributes.
@@ -1644,6 +1811,8 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     pendingPoll,
     clearPendingPoll,
     openDeleteConfirm,
+    reactedSet,
+    openCommentPanel,
   } = deps;
   const { action_slug, args, item, binding_root } = inv;
   const argRec = (args ?? {}) as Record<string, unknown>;
@@ -1764,11 +1933,17 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             onLoginError('Login response missing token');
             return;
           }
+          const userId = typeof j.user_id === 'number'
+            ? j.user_id
+            : typeof j.user_id === 'string' && j.user_id !== '' && !Number.isNaN(Number(j.user_id))
+              ? Number(j.user_id)
+              : undefined;
           const stored: StoredAuth = {
             username,
             token,
             display_name: typeof j.display_name === 'string' ? j.display_name : undefined,
             avatar: typeof j.avatar === 'string' ? j.avatar : undefined,
+            user_id: userId,
           };
           setAuth(stored);
           onLoginSuccess();
@@ -1961,6 +2136,169 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         return;
       }
       openDeleteConfirm({ feedId, endpoint, method, bodyKey, title, message, cta });
+      return;
+    }
+
+    case 'post.like':
+    case 'bookmark.toggle': {
+      // Optimistic-UI reaction flow. The current toggle direction is read
+      // straight off the tapped item's `my_reactions` (server-authored
+      // per-viewer array from the plug-in proxy). We flip icon + color +
+      // like-count text imperatively via data-appza-item-id BEFORE the
+      // POST fires so the tap feels instant; on HTTP failure we revert.
+      // No appza:refresh-data — that would refetch every data source on
+      // screen and flash the whole feed. Server truth is picked up on
+      // the next natural refresh (screen switch, manual reload).
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+      const bodyKey = typeof argRec.body_key === 'string' && argRec.body_key ? argRec.body_key : 'feed_id';
+      const reactType = typeof argRec.react_type === 'string' && argRec.react_type
+        ? argRec.react_type
+        : (action_slug === 'bookmark.toggle' ? 'bookmark' : 'like');
+      const feedIdPath = typeof argRec.feed_id_path === 'string' ? argRec.feed_id_path : 'data.id';
+      if (!endpoint) {
+        onLoginError(`${action_slug} is missing its endpoint — set args.endpoint in the catalog.`);
+        return;
+      }
+      if (!auth) {
+        onLoginError('Please sign in to react.');
+        return;
+      }
+      const key = feedIdPath.startsWith('data.') ? feedIdPath.slice(5) : feedIdPath;
+      const rawId = itemRec ? (itemRec as Record<string, unknown>)[key] : undefined;
+      const feedId = typeof rawId === 'number'
+        ? rawId
+        : typeof rawId === 'string' && rawId !== '' && !Number.isNaN(Number(rawId))
+          ? Number(rawId)
+          : null;
+      if (feedId === null) {
+        onLoginError('Could not identify which post to react to.');
+        return;
+      }
+      // Toggle direction: prefer the server-authored `my_reactions` array
+      // on the tapped item (survives page loads); fall back to the
+      // session-scoped reactedSet when the item shape doesn't carry it.
+      const myReactions =
+        itemRec && Array.isArray((itemRec as Record<string, unknown>).my_reactions)
+          ? ((itemRec as Record<string, unknown>).my_reactions as unknown[]).filter(
+              (t): t is string => typeof t === 'string',
+            )
+          : null;
+      const reactKey = `${feedId}:${reactType}`;
+      const alreadyOn = myReactions
+        ? myReactions.includes(reactType)
+        : reactedSet.has(reactKey);
+      const nextOn = !alreadyOn;
+      // Optimistic UI first — before the network call.
+      applyReactionOptimistic(feedId, reactType, nextOn);
+      const body: Record<string, unknown> = {
+        [bodyKey]: feedId,
+        react_type: reactType,
+      };
+      if (alreadyOn) body.remove = 1;
+      void (async () => {
+        try {
+          const res = await fetch(endpoint, {
+            method,
+            credentials: 'omit',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              Authorization: basicAuthHeader(auth),
+            },
+            body: JSON.stringify(body),
+          });
+          const json = await res.json().catch(() => null);
+          const status = (json && typeof json === 'object' && 'response' in json)
+            ? ((json as Record<string, unknown>).response as Record<string, unknown> | undefined)
+            : undefined;
+          const httpOk = res.ok;
+          const bodyOk = !status || status.status === 200;
+          if (!httpOk || !bodyOk) {
+            // Revert the optimistic UI on failure.
+            applyReactionOptimistic(feedId, reactType, alreadyOn);
+            const msg =
+              (status && typeof status.message === 'string' && status.message) ||
+              `Reaction failed (HTTP ${res.status})`;
+            onLoginError(msg);
+            return;
+          }
+          // Mirror the new state into the session Set so a subsequent
+          // tap on the same card (whose in-memory item shape may still
+          // carry the pre-tap my_reactions) toggles the correct way.
+          if (nextOn) reactedSet.add(reactKey);
+          else reactedSet.delete(reactKey);
+          // Also patch the tapped item's my_reactions in place so the
+          // next dispatch reads the fresh state without a data refetch.
+          if (itemRec) {
+            const rec = itemRec as Record<string, unknown>;
+            const cur = Array.isArray(rec.my_reactions) ? [...(rec.my_reactions as string[])] : [];
+            if (nextOn && !cur.includes(reactType)) cur.push(reactType);
+            if (!nextOn) {
+              const idx = cur.indexOf(reactType);
+              if (idx >= 0) cur.splice(idx, 1);
+            }
+            rec.my_reactions = cur;
+          }
+        } catch (err) {
+          applyReactionOptimistic(feedId, reactType, alreadyOn);
+          onLoginError(err instanceof Error ? err.message : String(err));
+        }
+      })();
+      return;
+    }
+
+    case 'comment.create': {
+      // Open the in-device comment panel — a proper overlay sheet that
+      // lists existing comments (GET list_endpoint?feed_id=X) and hosts
+      // a composer. The dispatcher's role is only to resolve the target
+      // feed_id + arg names and hand them to the panel; all HTTP happens
+      // inside the panel component so its list state stays in sync with
+      // submits + the panel can refetch after send without touching the
+      // outer feed's data source.
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      const listEndpoint = typeof argRec.list_endpoint === 'string' ? argRec.list_endpoint : null;
+      const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+      const bodyKey = typeof argRec.body_key === 'string' && argRec.body_key ? argRec.body_key : 'feed_id';
+      const messageKey = typeof argRec.message_key === 'string' && argRec.message_key ? argRec.message_key : 'comment';
+      const feedIdPath = typeof argRec.feed_id_path === 'string' ? argRec.feed_id_path : 'data.id';
+      const panelTitle = typeof argRec.panel_title === 'string' ? argRec.panel_title : 'Comments';
+      const placeholder = typeof argRec.placeholder === 'string' ? argRec.placeholder : 'Write a comment…';
+      const sendLabel = typeof argRec.send_label === 'string' ? argRec.send_label : 'Send';
+      if (!endpoint) {
+        onLoginError('comment.create is missing its endpoint — set args.endpoint in the catalog.');
+        return;
+      }
+      if (!listEndpoint) {
+        onLoginError('comment.create is missing its list_endpoint — set args.list_endpoint in the catalog.');
+        return;
+      }
+      if (!auth) {
+        onLoginError('Please sign in to comment.');
+        return;
+      }
+      const key = feedIdPath.startsWith('data.') ? feedIdPath.slice(5) : feedIdPath;
+      const rawId = itemRec ? (itemRec as Record<string, unknown>)[key] : undefined;
+      const feedId = typeof rawId === 'number'
+        ? rawId
+        : typeof rawId === 'string' && rawId !== '' && !Number.isNaN(Number(rawId))
+          ? Number(rawId)
+          : null;
+      if (feedId === null) {
+        onLoginError('Could not identify which post to comment on.');
+        return;
+      }
+      openCommentPanel({
+        feedId,
+        endpoint,
+        method,
+        listEndpoint,
+        bodyKey,
+        messageKey,
+        panelTitle,
+        placeholder,
+        sendLabel,
+      });
       return;
     }
 
@@ -2413,6 +2751,327 @@ function ConfirmDeleteModal({
             }}
           >
             {inFlight ? 'Deleting…' : cta}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * In-device comment panel opened by the comment.create action. Owns:
+ *  - GET list_endpoint?feed_id=<id> on mount + after each successful
+ *    send, populates a scrollable list of existing comments (avatar +
+ *    display name + created_at + message).
+ *  - Text input + Send button that POSTs to endpoint with Basic Auth,
+ *    body { [body_key]: feed_id, [message_key]: text }.
+ *  - Backdrop click / X button dismisses.
+ *
+ * Same absolute-inside-viewport positioning as ConfirmDeleteModal so it
+ * lives inside the DeviceFrame's phone bezel on the simulator and full-
+ * viewport on the real Capacitor build.
+ */
+type PanelComment = {
+  id?: number | string;
+  message?: string;
+  created_at?: string;
+  xprofile?: {
+    display_name?: string;
+    avatar?: string;
+  } | null;
+};
+
+function CommentPanel({
+  feedId,
+  endpoint,
+  method,
+  listEndpoint,
+  bodyKey,
+  messageKey,
+  panelTitle,
+  placeholder,
+  sendLabel,
+  auth,
+  onClose,
+  onError,
+}: {
+  feedId: number;
+  endpoint: string;
+  method: string;
+  listEndpoint: string;
+  bodyKey: string;
+  messageKey: string;
+  panelTitle: string;
+  placeholder: string;
+  sendLabel: string;
+  auth: StoredAuth;
+  onClose: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [comments, setComments] = useState<PanelComment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
+  const listRef = useRef<HTMLDivElement | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const sep = listEndpoint.includes('?') ? '&' : '?';
+      const res = await fetch(`${listEndpoint}${sep}feed_id=${encodeURIComponent(String(feedId))}`, {
+        credentials: 'omit',
+        headers: {
+          Accept: 'application/json',
+          Authorization: basicAuthHeader(auth),
+        },
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json || typeof json !== 'object') {
+        onError(`Loading comments failed (HTTP ${res.status})`);
+        return;
+      }
+      const rec = json as Record<string, unknown>;
+      const items = Array.isArray(rec.items) ? (rec.items as PanelComment[]) : [];
+      setComments(items);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [listEndpoint, feedId, auth, onError]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const send = useCallback(async () => {
+    const trimmed = draft.trim();
+    if (!trimmed || sending) return;
+    setSending(true);
+    try {
+      const res = await fetch(endpoint, {
+        method,
+        credentials: 'omit',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: basicAuthHeader(auth),
+        },
+        body: JSON.stringify({
+          [bodyKey]: feedId,
+          [messageKey]: trimmed,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      const status = (json && typeof json === 'object' && 'response' in json)
+        ? ((json as Record<string, unknown>).response as Record<string, unknown> | undefined)
+        : undefined;
+      const httpOk = res.ok;
+      const bodyOk = !status || status.status === 200;
+      if (!httpOk || !bodyOk) {
+        const msg =
+          (status && typeof status.message === 'string' && status.message) ||
+          `Comment failed (HTTP ${res.status})`;
+        onError(msg);
+        return;
+      }
+      setDraft('');
+      await load();
+      // Also refresh the outer feed so the post's comments_summary
+      // ("N comments") updates on the card behind the panel.
+      triggerFeedRefresh();
+      // Scroll to bottom so the fresh comment is visible.
+      requestAnimationFrame(() => {
+        const el = listRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+      });
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSending(false);
+    }
+  }, [draft, sending, endpoint, method, auth, bodyKey, messageKey, feedId, load, onError]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={panelTitle}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'rgba(15,23,42,0.55)',
+        display: 'grid',
+        placeItems: 'end center',
+        zIndex: 60,
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        style={{
+          background: '#fff',
+          borderTopLeftRadius: 16,
+          borderTopRightRadius: 16,
+          width: '100%',
+          height: '78%',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 -6px 24px rgba(0,0,0,0.25)',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '10px 14px',
+            borderBottom: '1px solid #e5e7eb',
+          }}
+        >
+          <h3 style={{ margin: 0, fontSize: 15, color: '#111827', fontWeight: 600 }}>
+            {panelTitle}
+          </h3>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              fontSize: 20,
+              lineHeight: 1,
+              color: '#6b7280',
+              cursor: 'pointer',
+              padding: 4,
+            }}
+          >
+            ×
+          </button>
+        </div>
+        <div
+          ref={listRef}
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '12px 14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+            background: '#f9fafb',
+          }}
+        >
+          {loading && comments.length === 0 ? (
+            <div style={{ color: '#6b7280', fontSize: 12, textAlign: 'center', padding: 20 }}>
+              Loading comments…
+            </div>
+          ) : comments.length === 0 ? (
+            <div style={{ color: '#6b7280', fontSize: 12, textAlign: 'center', padding: 20 }}>
+              No comments yet. Be the first to comment.
+            </div>
+          ) : (
+            comments.map((c, i) => {
+              const name = c.xprofile?.display_name ?? 'User';
+              const avatar = c.xprofile?.avatar ?? '';
+              return (
+                <div
+                  key={c.id ?? i}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 10,
+                    background: '#fff',
+                    padding: 10,
+                    borderRadius: 10,
+                    border: '1px solid #e5e7eb',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: '50%',
+                      background: avatar ? `#eee url(${avatar}) center/cover` : '#d1d5db',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>{name}</span>
+                      {c.created_at && (
+                        <span style={{ fontSize: 11, color: '#9ca3af' }}>{c.created_at}</span>
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: '#374151',
+                        lineHeight: 1.5,
+                        marginTop: 2,
+                        wordBreak: 'break-word',
+                      }}
+                      // Comments from fcom-mobile arrive as HTML. Trust the
+                      // server here — same pattern as message_rendered.
+                      dangerouslySetInnerHTML={{ __html: String(c.message ?? '') }}
+                    />
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+        <div
+          style={{
+            padding: 10,
+            borderTop: '1px solid #e5e7eb',
+            display: 'flex',
+            gap: 8,
+            alignItems: 'flex-end',
+            background: '#fff',
+          }}
+        >
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={placeholder}
+            rows={2}
+            disabled={sending}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                void send();
+              }
+            }}
+            style={{
+              flex: 1,
+              resize: 'none',
+              border: '1px solid #d1d5db',
+              borderRadius: 8,
+              padding: '8px 10px',
+              fontSize: 13,
+              fontFamily: 'inherit',
+              outline: 'none',
+              color: '#111827',
+              background: '#f9fafb',
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => void send()}
+            disabled={sending || draft.trim().length === 0}
+            style={{
+              border: 'none',
+              background: sending || draft.trim().length === 0 ? '#93c5fd' : '#2563eb',
+              color: '#fff',
+              padding: '10px 14px',
+              borderRadius: 8,
+              cursor: sending || draft.trim().length === 0 ? 'not-allowed' : 'pointer',
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            {sending ? '…' : sendLabel}
           </button>
         </div>
       </div>

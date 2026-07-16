@@ -284,18 +284,36 @@ export function PlacementRenderer({
       {optionFetchers}
       <div className="appza-renderer-appzet-list" data-slug={appzet.slug}>
       {items.map((item, idx) => {
-        const itemOverrides = mergeFieldMappingsOntoOverrides(baseChildOverrides, appzet, item);
-        const dataHidden = computeDataHiddenIndices(ssChildren, item);
+        // Enrich the raw item with computed viewer-scoped fields (e.g.
+        // whether the current user has liked / bookmarked this item)
+        // so field_mappings can bind icon + color straight off the data
+        // without renderer needing to know about reactions.
+        const enrichedItem = enrichItemWithMyReactions(item);
+        const itemOverrides = mergeFieldMappingsOntoOverrides(baseChildOverrides, appzet, enrichedItem);
+        const dataHidden = computeDataHiddenIndices(ssChildren, enrichedItem);
         const effectiveHidden =
           dataHidden.size === 0
             ? hiddenIndices
             : new Set<number>([...hiddenIndices, ...dataHidden]);
-        const childOpenUrls = computeChildOpenUrls(ssChildren, item);
-        const childActions = computeChildActions(ssChildren, appzet, item);
+        const childOpenUrls = computeChildOpenUrls(ssChildren, enrichedItem);
+        const childActions = computeChildActions(ssChildren, appzet, enrichedItem);
+        // Stamp the item's identifier on the wrapper so the shell can
+        // target one specific card imperatively (e.g. flip a reaction
+        // icon after like/bookmark without a full data refetch). We
+        // accept either `id` or `_id` since Source Integrations vary,
+        // and coerce to string for use in DOM selectors.
+        const rawItemId = isRecord(item)
+          ? ((item as Record<string, unknown>).id ?? (item as Record<string, unknown>)._id)
+          : undefined;
+        const itemIdAttr =
+          typeof rawItemId === 'string' || typeof rawItemId === 'number'
+            ? String(rawItemId)
+            : undefined;
         return (
           <div
             className={wrapperClass}
             data-slug={appzet.slug}
+            data-appza-item-id={itemIdAttr}
             style={spacingStyle(spacing)}
             onClick={handleClick}
             key={idx}
@@ -375,6 +393,67 @@ function OptionDataSourceFetcher({
  * per-event wiring supplies the action_slug + any static args; the current
  * data item rides along so the shell can resolve `data.<path>` params.
  */
+/**
+ * Enrich an item with computed viewer-scoped keys so field_mappings can
+ * bind reaction icon + color directly off the data. Only fluent-community
+ * shape today (item.reactions is an array of `{ user_id, type }`); a
+ * missing reactions array or missing viewer id is a no-op (returns the
+ * item unchanged). Handles both flat items and `{ data: {...} }` wrappers.
+ *
+ * The viewer id is read from `window.__appzaCurrentUserId`, populated by
+ * the shell after auth.login. Reactions are matched exactly on numeric
+ * user_id — anonymous viewers see the default outline icons.
+ *
+ * Emitted keys on the item:
+ *   _like_icon / _like_color         — 'heart' + 'danger'  when reacted, else defaults
+ *   _bookmark_icon / _bookmark_color — 'bookmark' + 'primary' when reacted, else defaults
+ */
+function enrichItemWithMyReactions(item: unknown): unknown {
+  if (!isRecord(item)) return item;
+  const viewerId =
+    typeof (globalThis as { __appzaCurrentUserId?: unknown }).__appzaCurrentUserId === 'number'
+      ? ((globalThis as { __appzaCurrentUserId?: number }).__appzaCurrentUserId as number)
+      : null;
+  const src = (item as Record<string, unknown>);
+  const myTypes = new Set<string>();
+  // Preferred: `my_reactions` array injected server-side by the plug-in
+  // proxy (batch DB read of the viewer's rows in wp_fcom_post_reactions).
+  // Falls back to walking `reactions[]` for Sources / envs that don't
+  // enrich server-side — the feed's built-in reactions list only carries
+  // `type='like'` in FC (bookmarks are filtered out there), so the
+  // server-side path is the only way to detect bookmark state.
+  const myServer = src.my_reactions
+    ?? (isRecord(src.data) ? (src.data as Record<string, unknown>).my_reactions : undefined);
+  if (Array.isArray(myServer)) {
+    for (const t of myServer) {
+      if (typeof t === 'string') myTypes.add(t);
+    }
+  } else if (viewerId != null) {
+    const reactionsRaw =
+      src.reactions ?? (isRecord(src.data) ? (src.data as Record<string, unknown>).reactions : undefined);
+    const reactions = Array.isArray(reactionsRaw) ? (reactionsRaw as unknown[]) : [];
+    for (const r of reactions) {
+      if (!isRecord(r)) continue;
+      const uid = (r as Record<string, unknown>).user_id;
+      const type = (r as Record<string, unknown>).type;
+      const uidNum = typeof uid === 'number' ? uid : typeof uid === 'string' ? Number(uid) : NaN;
+      if (uidNum === viewerId && typeof type === 'string') {
+        myTypes.add(type);
+      }
+    }
+  }
+  const enriched: Record<string, unknown> = { ...src };
+  enriched._like_icon = myTypes.has('like') ? 'heart' : 'heart-outline';
+  // `medium` is Ionic's neutral gray — used for the un-reacted resting
+  // state so the icon looks quiet. Field mappings ignore null/undefined,
+  // so we ALWAYS emit a real string here otherwise un-reacting would
+  // leave the previous color stuck on the button.
+  enriched._like_color = myTypes.has('like') ? 'danger' : 'medium';
+  enriched._bookmark_icon = myTypes.has('bookmark') ? 'bookmark' : 'bookmark-outline';
+  enriched._bookmark_color = myTypes.has('bookmark') ? 'primary' : 'medium';
+  return enriched;
+}
+
 function computeChildActions(
   children: SSChild[],
   appzet: AppZet,
