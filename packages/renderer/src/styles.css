@@ -55,15 +55,16 @@
   display: none !important;
 }
 .appza-renderer-app[data-screen-slug="login-page"] .appza-renderer-content {
-  --background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  --background: #ffffff;
 }
 .appza-renderer-app[data-screen-slug="login-page"] .appza-renderer-screen {
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 40px 24px;
-  gap: 20px;
+  justify-content: flex-start;
+  padding: 48px 20px 24px;
+  gap: 24px;
+  background: #ffffff;
 }
 
 /* fc-signin-header as the login page's branded title block:
@@ -72,99 +73,124 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 0 8px 4px;
+  gap: 6px;
+  padding: 0;
   text-align: center;
 }
 .appza-renderer-ss[data-slug="fc-signin-header"] [data-child-index="0"] {
   width: 64px;
   height: 64px;
-  border-radius: 16px;
-  overflow: hidden;
-  background: #eef2ff;
   display: grid;
   place-items: center;
-  margin-bottom: 4px;
+  margin-bottom: 16px;
+  background: transparent;
+}
+.appza-renderer-ss[data-slug="fc-signin-header"] [data-child-index="0"] ion-img,
+.appza-renderer-ss[data-slug="fc-signin-header"] [data-child-index="0"] img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border-radius: 50%;
 }
 .appza-renderer-ss[data-slug="fc-signin-header"] [data-child-index="1"] {
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: #0f172a;
-  line-height: 1.2;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.3;
 }
 .appza-renderer-ss[data-slug="fc-signin-header"] [data-child-index="2"] {
   font-size: 0.9rem;
-  color: #64748b;
+  color: #6b7280;
   line-height: 1.4;
 }
 
 /* fc-signin-info as the login form card:
    [0 user label] [1 user input]
    [2 pass label] [3 pass input]
-   [4 sign in button — full width]                                            */
+   [4 sign in button — full width]
+   [5 forgot password — right-aligned red link]
+   [6 "Other way to sign in" divider — line·text·line]
+   [7 Continue with Google — outlined white, multi-color G logo]              */
 .appza-renderer-ss[data-slug="fc-signin-info"] {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   background: #ffffff;
   padding: 24px 20px;
   margin: 0 auto;
   max-width: 340px;
   width: 100%;
-  border-radius: 14px;
-  box-shadow: 0 10px 25px -12px rgba(15, 23, 42, 0.15),
-              0 4px 6px -2px rgba(15, 23, 42, 0.05);
 }
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="0"],
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="2"] {
-  font-size: 0.78rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: #475569;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: -8px;
+  color: #111827;
+  margin-bottom: -6px;
 }
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="1"] ion-input,
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="3"] ion-input {
-  --background: #f8fafc;
+  --background: #ffffff;
   --color: #0f172a;
-  --placeholder-color: #94a3b8;
+  --placeholder-color: #9ca3af;
   --placeholder-opacity: 1;
   --padding-start: 14px;
   --padding-end: 14px;
   --padding-top: 12px;
   --padding-bottom: 12px;
   --highlight-height: 0;
-  --border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  --border-radius: 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
   font-size: 0.95rem;
   min-height: 46px;
 }
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="1"] ion-input:focus-within,
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="3"] ion-input:focus-within {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  border-color: #2456f0;
+  box-shadow: 0 0 0 3px rgba(36, 86, 240, 0.15);
 }
+
+/* Forgot password link — right-aligned red text under password input */
+.appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="5"] {
+  text-align: right;
+  margin-top: -4px;
+  margin-bottom: 4px;
+}
+.appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="5"] ion-text,
+.appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="5"] ion-text > p {
+  color: #dc2626;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin: 0;
+}
+
+/* Sign in button — bright blue, full-width, rounded.
+   Both wrapper and ion-button forced to block so Ionic's default
+   inline-block on ion-button doesn't collapse it to content-width. */
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="4"] {
   margin-top: 6px;
+  display: block;
+  width: 100%;
 }
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="4"] ion-button {
-  --background: #6366f1;
-  --background-hover: #4f46e5;
-  --background-activated: #4338ca;
+  --background: #2456f0;
+  --background-hover: #1d47cf;
+  --background-activated: #1a3fb8;
   --color: #ffffff;
-  --border-radius: 10px;
-  --box-shadow: 0 4px 12px -4px rgba(99, 102, 241, 0.5);
+  --border-radius: 8px;
+  --box-shadow: none;
   --padding-top: 14px;
   --padding-bottom: 14px;
-  height: 48px;
+  display: block;
   width: 100%;
+  height: 48px;
   margin: 0;
-  font-size: 0.98rem;
+  font-size: 1rem;
   font-weight: 600;
-  letter-spacing: 0.2px;
+  letter-spacing: 0;
   text-transform: none;
   transition: transform 0.1s ease;
 }
@@ -172,14 +198,100 @@
   transform: translateY(1px);
 }
 
-/* fc-signin-domain footer — subtle "Powered by …" line below the form. */
+/* "Other way to sign in" divider — grid with explicit 1fr auto 1fr
+   tracks so ::before / ::after occupy the outer columns as visible
+   1px lines regardless of ion-text's shadow-DOM rendering. */
+.appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="6"] {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 4px;
+  width: 100%;
+}
+.appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="6"]::before,
+.appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="6"]::after {
+  content: "";
+  display: block;
+  height: 1px;
+  background: #d1d5db;
+  min-height: 1px;
+  align-self: center;
+}
+.appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="6"] ion-text,
+.appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="6"] ion-text > p {
+  color: #6b7280;
+  font-size: 0.85rem;
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* Continue with Google — outlined white, dark text, G on the left.
+   Ionic's outline fill inherits --ion-color-base for text/border; we
+   override both --color AND --ion-color-base so it stays neutral gray
+   regardless of the color= attribute (or lack thereof). */
+.appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="7"] {
+  display: block;
+  width: 100%;
+}
+.appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="7"] ion-button {
+  --background: #ffffff;
+  --background-hover: #f9fafb;
+  --background-activated: #f3f4f6;
+  --color: #111827;
+  --color-hover: #111827;
+  --color-activated: #111827;
+  --color-focused: #111827;
+  --border-color: #e5e7eb;
+  --border-width: 1px;
+  --border-style: solid;
+  --border-radius: 8px;
+  --box-shadow: none;
+  --padding-top: 14px;
+  --padding-bottom: 14px;
+  --ion-color-base: #111827;
+  --ion-color-contrast: #ffffff;
+  display: block;
+  width: 100%;
+  height: 48px;
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #111827;
+}
+.appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="7"] ion-button ion-icon {
+  font-size: 22px;
+  margin-inline-end: 10px;
+}
+
+/* fc-signin-domain footer — domain URL (blue) + Powered by line below. */
 .appza-renderer-ss[data-slug="fc-signin-domain"] {
   display: flex;
-  justify-content: center;
-  padding-top: 6px;
-  gap: 4px;
-  font-size: 0.78rem;
-  color: #94a3b8;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 24px;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #6b7280;
+  text-align: center;
+}
+.appza-renderer-ss[data-slug="fc-signin-domain"] [data-child-index="0"],
+.appza-renderer-ss[data-slug="fc-signin-domain"] [data-child-index="0"] ion-text,
+.appza-renderer-ss[data-slug="fc-signin-domain"] [data-child-index="0"] ion-text > p {
+  color: #2456f0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0;
+  cursor: pointer;
+}
+.appza-renderer-ss[data-slug="fc-signin-domain"] [data-child-index="1"],
+.appza-renderer-ss[data-slug="fc-signin-domain"] [data-child-index="1"] ion-text,
+.appza-renderer-ss[data-slug="fc-signin-domain"] [data-child-index="1"] ion-text > p {
+  color: #111827;
+  font-size: 0.85rem;
+  margin: 0;
 }
 
 /* ============================================================

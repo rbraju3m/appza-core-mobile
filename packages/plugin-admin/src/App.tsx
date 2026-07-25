@@ -206,6 +206,9 @@ export function App() {
   };
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [deleteInFlight, setDeleteInFlight] = useState(false);
+  const [simMenuOpen, setSimMenuOpen] = useState(false);
+  const [simRefreshing, setSimRefreshing] = useState(false);
+  const [simPullDistance, setSimPullDistance] = useState(0);
   // In-device comment panel — replaces the earlier window.prompt path.
   // Owned by App.tsx (not the renderer) so we can mount it in the
   // DeviceFrame's overlaySlot with the same absolute-inside-viewport
@@ -614,6 +617,142 @@ export function App() {
       openDeleteConfirm, openCommentPanel,
     ],
   );
+
+  const refreshSim = useCallback(async () => {
+    if (simRefreshing) return;
+    setSimRefreshing(true);
+    try {
+      await pull(templateSlug);
+      triggerFeedRefresh();
+    } finally {
+      setSimRefreshing(false);
+    }
+  }, [simRefreshing, templateSlug]);
+
+  const navigateSimTo = useCallback(
+    (targetId: number) => {
+      setSimMenuOpen(false);
+      if (targetId === selectedScreenId) return;
+      if (selectedScreenId != null) {
+        setScreenStack((prev) => [...prev, selectedScreenId]);
+      }
+      setSelectedScreenId(targetId);
+    },
+    [selectedScreenId],
+  );
+
+  const logoutFromSimMenu = useCallback(() => {
+    setSimMenuOpen(false);
+    setAuth(null);
+    const login = catalog?.template_screens?.find(
+      (s) => s.app_map_screen_slug === 'login-page',
+    );
+    if (login) {
+      setScreenStack(() => []);
+      setSelectedScreenId(login.id);
+    }
+  }, [catalog, setAuth]);
+
+  // Wire the template's native app-bar leading button (☰) to open our
+  // Pages drawer. The renderer stamps data-appza-primitive-path on every
+  // top-level SS child; child[0] is the leading slot on appbar-shell and
+  // its variants, so we match any click landing inside an ion-header on
+  // the children[0] wrapper.
+  useEffect(() => {
+    if (uiMode !== 'app') return;
+    const outer = document.querySelector('.appza-device-viewport');
+    if (!outer) return;
+    const onClick = (e: Event) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (!target.closest('ion-header, ion-toolbar')) return;
+      const wrapper = target.closest(
+        '[data-appza-primitive-path="children[0]"]',
+      ) as HTMLElement | null;
+      if (!wrapper) return;
+      // If the leading slot already has an action wired (back button,
+      // custom click), let it run — don't hijack.
+      if (wrapper.getAttribute('data-appza-inline-click') === 'true') return;
+      const slug = wrapper.getAttribute('data-appza-appzet-slug') ?? '';
+      if (!/appbar|header|topbar/i.test(slug)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setSimMenuOpen(true);
+    };
+    outer.addEventListener('click', onClick, true);
+    return () => outer.removeEventListener('click', onClick, true);
+  }, [uiMode, currentScreen]);
+
+  // Pull-to-refresh: pointer drag from the top of the phone viewport.
+  useEffect(() => {
+    if (uiMode !== 'app') return;
+    const outer = document.querySelector('.appza-device-viewport') as HTMLElement | null;
+    if (!outer) return;
+
+    let startY: number | null = null;
+    let dy = 0;
+    let armed = false;
+    let scrollEl: HTMLElement | null = null;
+
+    const findScroll = async (): Promise<HTMLElement | null> => {
+      const ic = outer.querySelector('ion-content') as unknown as {
+        getScrollElement?: () => Promise<HTMLElement>;
+      } | null;
+      if (ic && typeof ic.getScrollElement === 'function') {
+        try {
+          return await ic.getScrollElement();
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    };
+
+    const onDown = async (e: PointerEvent) => {
+      if (simMenuOpen || simRefreshing) return;
+      if (!scrollEl) scrollEl = await findScroll();
+      if (!scrollEl || scrollEl.scrollTop > 2) {
+        armed = false;
+        return;
+      }
+      armed = true;
+      startY = e.clientY;
+      dy = 0;
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!armed || startY == null) return;
+      dy = e.clientY - startY;
+      setSimPullDistance(dy > 0 ? Math.min(dy * 0.6, 90) : 0);
+    };
+    const onUp = async () => {
+      if (!armed) return;
+      armed = false;
+      const finalDist = Math.min(dy * 0.6, 90);
+      setSimPullDistance(0);
+      startY = null;
+      dy = 0;
+      if (finalDist > 55) {
+        setSimRefreshing(true);
+        try {
+          await refreshSim();
+        } finally {
+          setSimRefreshing(false);
+        }
+      }
+    };
+
+    outer.addEventListener('pointerdown', onDown, { passive: true });
+    outer.addEventListener('pointermove', onMove, { passive: true });
+    outer.addEventListener('pointerup', onUp, { passive: true });
+    outer.addEventListener('pointercancel', onUp, { passive: true });
+    return () => {
+      outer.removeEventListener('pointerdown', onDown);
+      outer.removeEventListener('pointermove', onMove);
+      outer.removeEventListener('pointerup', onUp);
+      outer.removeEventListener('pointercancel', onUp);
+      scrollEl = null;
+    };
+  }, [uiMode, refreshSim, simMenuOpen, simRefreshing, selectedScreenId]);
 
   /**
    * Handle picker.image: called by the hidden file input's onChange after
@@ -1187,7 +1326,89 @@ export function App() {
                 customizations={effectiveCustomizations}
                 templateName={catalog?.template?.name}
                 overlaySlot={
-                  pendingDelete ? (
+                  <>
+                    {(simPullDistance > 0 || simRefreshing) && (
+                      <div
+                        className="appza-sim-pull-indicator"
+                        style={{
+                          transform: `translateY(${
+                            (simRefreshing ? 60 : simPullDistance) - 40
+                          }px)`,
+                        }}
+                        aria-hidden="true"
+                      >
+                        <span
+                          className={
+                            simRefreshing || simPullDistance > 55
+                              ? 'appza-sim-pull-icon is-spinning'
+                              : 'appza-sim-pull-icon'
+                          }
+                        >
+                          ↻
+                        </span>
+                      </div>
+                    )}
+
+                    {simMenuOpen && (
+                      <>
+                        <div
+                          className="appza-sim-menu-backdrop"
+                          onClick={() => setSimMenuOpen(false)}
+                          aria-hidden="true"
+                        />
+                        <div
+                          className="appza-sim-menu-drawer"
+                          role="dialog"
+                          aria-label="Pages"
+                        >
+                          <div className="appza-sim-menu-header">
+                            <span>Pages</span>
+                            <button
+                              type="button"
+                              onClick={() => setSimMenuOpen(false)}
+                              className="appza-sim-menu-close"
+                              aria-label="Close menu"
+                            >
+                              ×
+                            </button>
+                          </div>
+                          {auth && (
+                            <div className="appza-sim-menu-user">
+                              Signed in as{' '}
+                              <strong>{auth.display_name || auth.username}</strong>
+                            </div>
+                          )}
+                          <ul className="appza-sim-menu-list">
+                            {(catalog?.template_screens ?? []).map((s) => (
+                              <li key={s.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => navigateSimTo(s.id)}
+                                  className={
+                                    s.id === selectedScreenId
+                                      ? 'appza-sim-menu-item is-current'
+                                      : 'appza-sim-menu-item'
+                                  }
+                                >
+                                  {humanizeSlug(s.app_map_screen_slug)}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                          {auth && (
+                            <button
+                              type="button"
+                              onClick={logoutFromSimMenu}
+                              className="appza-sim-menu-logout"
+                            >
+                              Log out
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
+
+                    {pendingDelete ? (
                     <ConfirmDeleteModal
                       title={pendingDelete.title}
                       message={pendingDelete.message}
@@ -1258,7 +1479,8 @@ export function App() {
                       onClose={() => setCommentPanel(null)}
                       onError={(m) => setAuthMessage(m)}
                     />
-                  ) : null
+                  ) : null}
+                  </>
                 }
               />
             </ActionProvider>
@@ -1660,6 +1882,14 @@ function triggerFeedRefresh() {
   g.__appzaForceRefreshUntil = Date.now() + 3000;
   setTimeout(() => window.dispatchEvent(new Event('appza:refresh-data')), 150);
   setTimeout(() => window.dispatchEvent(new Event('appza:refresh-data')), 600);
+}
+
+function humanizeSlug(slug: string): string {
+  if (!slug) return '';
+  return slug
+    .replace(/[-_]+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 
@@ -2784,13 +3014,63 @@ function ConfirmDeleteModal({
  */
 type PanelComment = {
   id?: number | string;
+  parent_id?: number | string | null;
   message?: string;
   created_at?: string;
   xprofile?: {
     display_name?: string;
     avatar?: string;
   } | null;
+  children?: PanelComment[];
 };
+
+// FCOM /feeds/comments returns a flat list — nest by parent_id here.
+// Keys normalized to string because the API returns id as number but
+// parent_id as string.
+function buildCommentTree(flat: PanelComment[]): PanelComment[] {
+  const byId = new Map<string, PanelComment>();
+  for (const c of flat) {
+    if (c.id != null) byId.set(String(c.id), { ...c, children: [] });
+  }
+  const roots: PanelComment[] = [];
+  for (const c of flat) {
+    if (c.id == null) continue;
+    const node = byId.get(String(c.id));
+    if (!node) continue;
+    const pid = c.parent_id;
+    const pidKey =
+      pid == null || pid === 0 || pid === '0' ? null : String(pid);
+    if (pidKey && byId.has(pidKey)) {
+      const parent = byId.get(pidKey);
+      if (parent) (parent.children ??= []).push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  return roots;
+}
+
+function formatCommentTimestamp(raw?: string): string {
+  if (!raw) return '';
+  const iso = raw.includes('T') ? raw : raw.replace(' ', 'T');
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return raw;
+  const diffMs = Date.now() - d.getTime();
+  const sec = Math.max(0, Math.floor(diffMs / 1000));
+  if (sec < 60) return 'just now';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} min ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr} ${hr === 1 ? 'hour' : 'hours'} ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day} ${day === 1 ? 'day' : 'days'} ago`;
+  const wk = Math.floor(day / 7);
+  if (wk < 5) return `${wk} ${wk === 1 ? 'week' : 'weeks'} ago`;
+  const mo = Math.floor(day / 30);
+  if (mo < 12) return `${mo} ${mo === 1 ? 'month' : 'months'} ago`;
+  const yr = Math.floor(day / 365);
+  return `${yr} ${yr === 1 ? 'year' : 'years'} ago`;
+}
 
 function CommentPanel({
   feedId,
@@ -2823,7 +3103,9 @@ function CommentPanel({
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<{ id: number | string; name: string } | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2843,7 +3125,7 @@ function CommentPanel({
       }
       const rec = json as Record<string, unknown>;
       const items = Array.isArray(rec.items) ? (rec.items as PanelComment[]) : [];
-      setComments(items);
+      setComments(buildCommentTree(items));
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -2860,6 +3142,11 @@ function CommentPanel({
     if (!trimmed || sending) return;
     setSending(true);
     try {
+      const body: Record<string, unknown> = {
+        [bodyKey]: feedId,
+        [messageKey]: trimmed,
+      };
+      if (replyingTo) body.parent_id = replyingTo.id;
       const res = await fetch(endpoint, {
         method,
         credentials: 'omit',
@@ -2868,10 +3155,7 @@ function CommentPanel({
           Accept: 'application/json',
           Authorization: basicAuthHeader(auth),
         },
-        body: JSON.stringify({
-          [bodyKey]: feedId,
-          [messageKey]: trimmed,
-        }),
+        body: JSON.stringify(body),
       });
       const json = await res.json().catch(() => null);
       const status = (json && typeof json === 'object' && 'response' in json)
@@ -2887,6 +3171,7 @@ function CommentPanel({
         return;
       }
       setDraft('');
+      setReplyingTo(null);
       await load();
       // Also refresh the outer feed so the post's comments_summary
       // ("N comments") updates on the card behind the panel.
@@ -2901,7 +3186,15 @@ function CommentPanel({
     } finally {
       setSending(false);
     }
-  }, [draft, sending, endpoint, method, auth, bodyKey, messageKey, feedId, load, onError]);
+  }, [draft, sending, endpoint, method, auth, bodyKey, messageKey, feedId, replyingTo, load, onError]);
+
+  const startReply = useCallback((c: PanelComment) => {
+    if (c.id == null) return;
+    const name = c.xprofile?.display_name ?? 'User';
+    setReplyingTo({ id: c.id, name });
+    requestAnimationFrame(() => composerRef.current?.focus());
+  }, []);
+  const cancelReply = useCallback(() => setReplyingTo(null), []);
 
   return (
     <div
@@ -2982,56 +3275,49 @@ function CommentPanel({
               No comments yet. Be the first to comment.
             </div>
           ) : (
-            comments.map((c, i) => {
-              const name = c.xprofile?.display_name ?? 'User';
-              const avatar = c.xprofile?.avatar ?? '';
-              return (
-                <div
-                  key={c.id ?? i}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 10,
-                    background: '#fff',
-                    padding: 10,
-                    borderRadius: 10,
-                    border: '1px solid #e5e7eb',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: '50%',
-                      background: avatar ? `#eee url(${avatar}) center/cover` : '#d1d5db',
-                      flexShrink: 0,
-                    }}
-                  />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>{name}</span>
-                      {c.created_at && (
-                        <span style={{ fontSize: 11, color: '#9ca3af' }}>{c.created_at}</span>
-                      )}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: '#374151',
-                        lineHeight: 1.5,
-                        marginTop: 2,
-                        wordBreak: 'break-word',
-                      }}
-                      // Comments from fcom-mobile arrive as HTML. Trust the
-                      // server here — same pattern as message_rendered.
-                      dangerouslySetInnerHTML={{ __html: String(c.message ?? '') }}
-                    />
-                  </div>
-                </div>
-              );
-            })
+            comments.map((c, i) => (
+              <CommentThreadItem
+                key={c.id ?? i}
+                comment={c}
+                depth={0}
+                onReply={startReply}
+              />
+            ))
           )}
         </div>
+        {replyingTo && (
+          <div
+            style={{
+              padding: '6px 12px',
+              borderTop: '1px solid #e5e7eb',
+              background: '#eff6ff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: 12,
+              color: '#1e40af',
+            }}
+          >
+            <span>
+              Replying to <strong>@{replyingTo.name}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={cancelReply}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: '#1e40af',
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: 600,
+                padding: 4,
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
         <div
           style={{
             padding: 10,
@@ -3043,9 +3329,10 @@ function CommentPanel({
           }}
         >
           <textarea
+            ref={composerRef}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder={placeholder}
+            placeholder={replyingTo ? `Reply to ${replyingTo.name}…` : placeholder}
             rows={2}
             disabled={sending}
             onKeyDown={(e) => {
@@ -3082,10 +3369,109 @@ function CommentPanel({
               fontWeight: 600,
             }}
           >
-            {sending ? '…' : sendLabel}
+            {sending ? '…' : replyingTo ? 'Reply' : sendLabel}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function CommentThreadItem({
+  comment,
+  depth,
+  onReply,
+}: {
+  comment: PanelComment;
+  depth: number;
+  onReply: (c: PanelComment) => void;
+}) {
+  const name = comment.xprofile?.display_name ?? 'User';
+  const avatar = comment.xprofile?.avatar ?? '';
+  const children = Array.isArray(comment.children) ? comment.children : [];
+  const avatarSize = depth === 0 ? 32 : 26;
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 10,
+          background: '#fff',
+          padding: 10,
+          borderRadius: 10,
+          border: '1px solid #e5e7eb',
+        }}
+      >
+        <div
+          style={{
+            width: avatarSize,
+            height: avatarSize,
+            borderRadius: '50%',
+            background: avatar ? `#eee url(${avatar}) center/cover` : '#d1d5db',
+            flexShrink: 0,
+          }}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>{name}</span>
+            {comment.created_at && (
+              <span style={{ fontSize: 11, color: '#9ca3af' }}>
+                {formatCommentTimestamp(comment.created_at)}
+              </span>
+            )}
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              color: '#374151',
+              lineHeight: 1.5,
+              marginTop: 2,
+              wordBreak: 'break-word',
+            }}
+            dangerouslySetInnerHTML={{ __html: String(comment.message ?? '') }}
+          />
+          {comment.id != null && (
+            <button
+              type="button"
+              onClick={() => onReply(comment)}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: '#2563eb',
+                cursor: 'pointer',
+                fontSize: 11,
+                fontWeight: 600,
+                padding: '4px 0 0',
+              }}
+            >
+              Reply
+            </button>
+          )}
+        </div>
+      </div>
+      {children.length > 0 && (
+        <div
+          style={{
+            marginTop: 8,
+            marginLeft: 10 + avatarSize / 2,
+            paddingLeft: 14,
+            borderLeft: '2px solid #e5e7eb',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+          }}
+        >
+          {children.map((child, idx) => (
+            <CommentThreadItem
+              key={child.id ?? idx}
+              comment={child}
+              depth={depth + 1}
+              onReply={onReply}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

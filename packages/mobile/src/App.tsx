@@ -173,6 +173,14 @@ function triggerFeedRefresh() {
   setTimeout(() => window.dispatchEvent(new Event('appza:refresh-data')), 600);
 }
 
+function humanizeSlug(slug: string): string {
+  if (!slug) return '';
+  return slug
+    .replace(/[-_]+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 // Grammar: `children[N].value|checked|selectedValue`. Reads Ionic input
 // values out of the DOM by the wrapper attributes SuperstructureRenderer
 // stamps (data-appza-appzet-slug + data-appza-primitive-path).
@@ -355,6 +363,10 @@ export function App() {
   const [pollModalOpen, setPollModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const uploadEndpointRef = useRef<{ endpoint: string; method: string } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const shellRef = useRef<HTMLDivElement | null>(null);
 
   const setAuth = useCallback((a: StoredAuth | null) => {
     writeStoredAuth(a);
@@ -646,6 +658,196 @@ export function App() {
   // dispatcher already reads/writes it via setScreenStack.
   void screenStack;
 
+  const refreshApp = useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      const url = `${SITE_URL}/wp-json/appza/v1/bootstrap?template=${encodeURIComponent(TEMPLATE)}`;
+      const res = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const parsed = BootstrapEnvelopeSchema.safeParse(json);
+      if (!parsed.success) {
+        throw new Error(
+          'Bootstrap validation failed: ' +
+            parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
+        );
+      }
+      setState({ kind: 'ok', envelope: parsed.data });
+      triggerFeedRefresh();
+    } catch (err) {
+      setErrorToast(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshing]);
+
+  const navigateToScreen = useCallback(
+    (targetId: number) => {
+      setMenuOpen(false);
+      if (targetId === selectedScreenId) return;
+      if (selectedScreenId != null) {
+        setScreenStack((prev) => [...prev, selectedScreenId]);
+      }
+      setSelectedScreenId(targetId);
+    },
+    [selectedScreenId],
+  );
+
+  const logoutFromMenu = useCallback(() => {
+    setMenuOpen(false);
+    setAuth(null);
+    const login = catalog?.template_screens?.find(
+      (s) => s.app_map_screen_slug === 'login-page',
+    );
+    if (login) {
+      setScreenStack([]);
+      setSelectedScreenId(login.id);
+    }
+  }, [catalog, setAuth]);
+
+  useEffect(() => {
+    const outer = shellRef.current;
+    if (!outer) return;
+    const onClick = (e: Event) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (!target.closest('ion-header, ion-toolbar')) return;
+      const wrapper = target.closest(
+        '[data-appza-primitive-path="children[0]"]',
+      ) as HTMLElement | null;
+      if (!wrapper) return;
+      if (wrapper.getAttribute('data-appza-inline-click') === 'true') return;
+      const slug = wrapper.getAttribute('data-appza-appzet-slug') ?? '';
+      if (!/appbar|header|topbar/i.test(slug)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setMenuOpen(true);
+    };
+    outer.addEventListener('click', onClick, true);
+    return () => outer.removeEventListener('click', onClick, true);
+  }, [selectedScreenId]);
+
+  useEffect(() => {
+    const outer = shellRef.current;
+    if (!outer) return;
+
+    let startY: number | null = null;
+    let dy = 0;
+    let armed = false;
+    let scrollEl: HTMLElement | null = null;
+
+    const findScroll = async (): Promise<HTMLElement | null> => {
+      const ic = outer.querySelector('ion-content') as unknown as {
+        getScrollElement?: () => Promise<HTMLElement>;
+      } | null;
+      if (ic && typeof ic.getScrollElement === 'function') {
+        try {
+          return await ic.getScrollElement();
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    };
+
+    // Touch listeners (mobile). touchmove uses passive:false so we can
+    // preventDefault while pulling — otherwise the WebView cancels our
+    // pointer stream as soon as it decides the drag is a scroll gesture.
+    const onTouchStart = async (e: TouchEvent) => {
+      if (menuOpen || refreshing) return;
+      if (e.touches.length !== 1) return;
+      if (!scrollEl) scrollEl = await findScroll();
+      if (!scrollEl || scrollEl.scrollTop > 2) {
+        armed = false;
+        return;
+      }
+      const t0 = e.touches[0];
+      if (!t0) return;
+      armed = true;
+      startY = t0.clientY;
+      dy = 0;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!armed || startY == null || e.touches.length !== 1) return;
+      const t0 = e.touches[0];
+      if (!t0) return;
+      dy = t0.clientY - startY;
+      if (dy > 0) {
+        // Only preventDefault when actively pulling down at scroll-top,
+        // so normal scrolling everywhere else is untouched.
+        if (e.cancelable) e.preventDefault();
+        setPullDistance(Math.min(dy * 0.6, 90));
+      } else {
+        setPullDistance(0);
+      }
+    };
+    const onTouchEnd = async () => {
+      if (!armed) return;
+      armed = false;
+      const finalDist = Math.min(dy * 0.6, 90);
+      setPullDistance(0);
+      startY = null;
+      dy = 0;
+      if (finalDist > 55) {
+        await refreshApp();
+      }
+    };
+
+    // Pointer listeners (desktop/mouse). Skip for touch — the touch path
+    // handles that with preventDefault, and we don't want double-firing.
+    const onPointerDown = async (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return;
+      if (menuOpen || refreshing) return;
+      if (!scrollEl) scrollEl = await findScroll();
+      if (!scrollEl || scrollEl.scrollTop > 2) {
+        armed = false;
+        return;
+      }
+      armed = true;
+      startY = e.clientY;
+      dy = 0;
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return;
+      if (!armed || startY == null) return;
+      dy = e.clientY - startY;
+      setPullDistance(dy > 0 ? Math.min(dy * 0.6, 90) : 0);
+    };
+    const onPointerUp = async (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return;
+      if (!armed) return;
+      armed = false;
+      const finalDist = Math.min(dy * 0.6, 90);
+      setPullDistance(0);
+      startY = null;
+      dy = 0;
+      if (finalDist > 55) {
+        await refreshApp();
+      }
+    };
+
+    outer.addEventListener('touchstart', onTouchStart, { passive: true });
+    outer.addEventListener('touchmove', onTouchMove, { passive: false });
+    outer.addEventListener('touchend', onTouchEnd, { passive: true });
+    outer.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    outer.addEventListener('pointerdown', onPointerDown, { passive: true });
+    outer.addEventListener('pointermove', onPointerMove, { passive: true });
+    outer.addEventListener('pointerup', onPointerUp, { passive: true });
+    outer.addEventListener('pointercancel', onPointerUp, { passive: true });
+    return () => {
+      outer.removeEventListener('touchstart', onTouchStart);
+      outer.removeEventListener('touchmove', onTouchMove);
+      outer.removeEventListener('touchend', onTouchEnd);
+      outer.removeEventListener('touchcancel', onTouchEnd);
+      outer.removeEventListener('pointerdown', onPointerDown);
+      outer.removeEventListener('pointermove', onPointerMove);
+      outer.removeEventListener('pointerup', onPointerUp);
+      outer.removeEventListener('pointercancel', onPointerUp);
+      scrollEl = null;
+    };
+  }, [refreshApp, menuOpen, refreshing, selectedScreenId]);
+
   if (state.kind === 'loading') {
     return <div className="appza-mobile-loading">Loading…</div>;
   }
@@ -657,7 +859,10 @@ export function App() {
   }
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '100vh' }}>
+    <div
+      ref={shellRef}
+      style={{ position: 'relative', width: '100%', height: '100%', minHeight: '100vh' }}
+    >
       <ActionProvider dispatch={dispatchAction}>
         <ScreenRenderer
           screen={screen}
@@ -877,6 +1082,80 @@ export function App() {
           onClose={() => setCommentPanel(null)}
           onError={setErrorToast}
         />
+      )}
+
+      {(pullDistance > 0 || refreshing) && (
+        <div
+          className="appza-pull-indicator"
+          style={{
+            transform: `translateY(${(refreshing ? 60 : pullDistance) - 40}px)`,
+          }}
+          aria-hidden="true"
+        >
+          <span
+            className={
+              refreshing || pullDistance > 55
+                ? 'appza-pull-icon is-spinning'
+                : 'appza-pull-icon'
+            }
+          >
+            ↻
+          </span>
+        </div>
+      )}
+
+      {menuOpen && (
+        <>
+          <div
+            className="appza-menu-backdrop"
+            onClick={() => setMenuOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="appza-menu-drawer" role="dialog" aria-label="Pages">
+            <div className="appza-menu-header">
+              <span>Pages</span>
+              <button
+                type="button"
+                onClick={() => setMenuOpen(false)}
+                className="appza-menu-close"
+                aria-label="Close menu"
+              >
+                ×
+              </button>
+            </div>
+            {auth && (
+              <div className="appza-menu-user">
+                Signed in as <strong>{auth.display_name || auth.username}</strong>
+              </div>
+            )}
+            <ul className="appza-menu-list">
+              {(catalog.template_screens ?? []).map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => navigateToScreen(s.id)}
+                    className={
+                      s.id === selectedScreenId
+                        ? 'appza-menu-item is-current'
+                        : 'appza-menu-item'
+                    }
+                  >
+                    {humanizeSlug(s.app_map_screen_slug)}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {auth && (
+              <button
+                type="button"
+                onClick={logoutFromMenu}
+                className="appza-menu-logout"
+              >
+                Log out
+              </button>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
@@ -1680,13 +1959,64 @@ function PollBuilderModal({
 
 type PanelComment = {
   id?: number | string;
+  parent_id?: number | string | null;
   message?: string;
   created_at?: string;
   xprofile?: {
     display_name?: string;
     avatar?: string;
   } | null;
+  children?: PanelComment[];
 };
+
+// FCOM /feeds/comments returns a flat list — every comment carries
+// parent_id but no children[]. Nest here so CommentThreadItem's
+// recursive render produces a proper tree. Keys are normalized to
+// strings because the API returns id as number but parent_id as string.
+function buildCommentTree(flat: PanelComment[]): PanelComment[] {
+  const byId = new Map<string, PanelComment>();
+  for (const c of flat) {
+    if (c.id != null) byId.set(String(c.id), { ...c, children: [] });
+  }
+  const roots: PanelComment[] = [];
+  for (const c of flat) {
+    if (c.id == null) continue;
+    const node = byId.get(String(c.id));
+    if (!node) continue;
+    const pid = c.parent_id;
+    const pidKey =
+      pid == null || pid === 0 || pid === '0' ? null : String(pid);
+    if (pidKey && byId.has(pidKey)) {
+      const parent = byId.get(pidKey);
+      if (parent) (parent.children ??= []).push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  return roots;
+}
+
+function formatCommentTimestamp(raw?: string): string {
+  if (!raw) return '';
+  const iso = raw.includes('T') ? raw : raw.replace(' ', 'T');
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return raw;
+  const diffMs = Date.now() - d.getTime();
+  const sec = Math.max(0, Math.floor(diffMs / 1000));
+  if (sec < 60) return 'just now';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} min ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr} ${hr === 1 ? 'hour' : 'hours'} ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day} ${day === 1 ? 'day' : 'days'} ago`;
+  const wk = Math.floor(day / 7);
+  if (wk < 5) return `${wk} ${wk === 1 ? 'week' : 'weeks'} ago`;
+  const mo = Math.floor(day / 30);
+  if (mo < 12) return `${mo} ${mo === 1 ? 'month' : 'months'} ago`;
+  const yr = Math.floor(day / 365);
+  return `${yr} ${yr === 1 ? 'year' : 'years'} ago`;
+}
 
 function CommentPanel({
   feedId,
@@ -1719,7 +2049,9 @@ function CommentPanel({
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<{ id: number | string; name: string } | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1742,7 +2074,7 @@ function CommentPanel({
       }
       const rec = json as Record<string, unknown>;
       const items = Array.isArray(rec.items) ? (rec.items as PanelComment[]) : [];
-      setComments(items);
+      setComments(buildCommentTree(items));
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -1759,6 +2091,11 @@ function CommentPanel({
     if (!trimmed || sending) return;
     setSending(true);
     try {
+      const body: Record<string, unknown> = {
+        [bodyKey]: feedId,
+        [messageKey]: trimmed,
+      };
+      if (replyingTo) body.parent_id = replyingTo.id;
       const res = await fetch(endpoint, {
         method,
         credentials: 'omit',
@@ -1767,10 +2104,7 @@ function CommentPanel({
           Accept: 'application/json',
           Authorization: basicAuthHeader(auth),
         },
-        body: JSON.stringify({
-          [bodyKey]: feedId,
-          [messageKey]: trimmed,
-        }),
+        body: JSON.stringify(body),
       });
       const json = await res.json().catch(() => null);
       const status =
@@ -1789,6 +2123,7 @@ function CommentPanel({
         return;
       }
       setDraft('');
+      setReplyingTo(null);
       await load();
       triggerFeedRefresh();
       requestAnimationFrame(() => {
@@ -1800,7 +2135,36 @@ function CommentPanel({
     } finally {
       setSending(false);
     }
-  }, [draft, sending, endpoint, method, auth, bodyKey, messageKey, feedId, load, onError]);
+  }, [draft, sending, endpoint, method, auth, bodyKey, messageKey, feedId, replyingTo, load, onError]);
+
+  const startReply = useCallback((c: PanelComment) => {
+    if (c.id == null) return;
+    const name = c.xprofile?.display_name ?? 'User';
+    setReplyingTo({ id: c.id, name });
+    requestAnimationFrame(() => composerRef.current?.focus());
+  }, []);
+  const cancelReply = useCallback(() => setReplyingTo(null), []);
+
+  // Track visualViewport height so the panel shrinks when the on-screen
+  // keyboard opens — otherwise the composer at the bottom of the sheet
+  // gets hidden behind the keyboard.
+  const [visibleHeight, setVisibleHeight] = useState<number>(() =>
+    typeof window !== 'undefined'
+      ? (window.visualViewport?.height ?? window.innerHeight)
+      : 800,
+  );
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => setVisibleHeight(vv.height);
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    update();
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, []);
 
   return (
     <div
@@ -1809,7 +2173,10 @@ function CommentPanel({
       aria-label={panelTitle}
       style={{
         position: 'fixed',
-        inset: 0,
+        top: 0,
+        left: 0,
+        right: 0,
+        height: visibleHeight,
         background: 'rgba(15,23,42,0.55)',
         display: 'grid',
         placeItems: 'end center',
@@ -1825,7 +2192,8 @@ function CommentPanel({
           borderTopLeftRadius: 16,
           borderTopRightRadius: 16,
           width: '100%',
-          height: '78%',
+          height: Math.max(240, Math.round(visibleHeight * 0.78)),
+          maxHeight: visibleHeight,
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 -6px 24px rgba(0,0,0,0.25)',
@@ -1881,56 +2249,49 @@ function CommentPanel({
               No comments yet. Be the first to comment.
             </div>
           ) : (
-            comments.map((c, i) => {
-              const name = c.xprofile?.display_name ?? 'User';
-              const avatar = c.xprofile?.avatar ?? '';
-              return (
-                <div
-                  key={c.id ?? i}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 10,
-                    background: '#fff',
-                    padding: 10,
-                    borderRadius: 10,
-                    border: '1px solid #e5e7eb',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: '50%',
-                      background: avatar ? `#eee url(${avatar}) center/cover` : '#d1d5db',
-                      flexShrink: 0,
-                    }}
-                  />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>
-                        {name}
-                      </span>
-                      {c.created_at && (
-                        <span style={{ fontSize: 11, color: '#9ca3af' }}>{c.created_at}</span>
-                      )}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: '#374151',
-                        lineHeight: 1.5,
-                        marginTop: 2,
-                        wordBreak: 'break-word',
-                      }}
-                      dangerouslySetInnerHTML={{ __html: String(c.message ?? '') }}
-                    />
-                  </div>
-                </div>
-              );
-            })
+            comments.map((c, i) => (
+              <CommentThreadItem
+                key={c.id ?? i}
+                comment={c}
+                depth={0}
+                onReply={startReply}
+              />
+            ))
           )}
         </div>
+        {replyingTo && (
+          <div
+            style={{
+              padding: '6px 12px',
+              borderTop: '1px solid #e5e7eb',
+              background: '#eff6ff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: 12,
+              color: '#1e40af',
+            }}
+          >
+            <span>
+              Replying to <strong>@{replyingTo.name}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={cancelReply}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: '#1e40af',
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: 600,
+                padding: 4,
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
         <div
           style={{
             padding: 10,
@@ -1942,11 +2303,23 @@ function CommentPanel({
           }}
         >
           <textarea
+            ref={composerRef}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder={placeholder}
+            placeholder={replyingTo ? `Reply to ${replyingTo.name}…` : placeholder}
             rows={2}
             disabled={sending}
+            onFocus={() => {
+              // Belt-and-suspenders for Android WebViews where the
+              // visualViewport resize event lags — nudge the composer
+              // into view after the keyboard has had a moment to open.
+              setTimeout(() => {
+                composerRef.current?.scrollIntoView({
+                  block: 'end',
+                  behavior: 'smooth',
+                });
+              }, 250);
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -1981,10 +2354,111 @@ function CommentPanel({
               fontWeight: 600,
             }}
           >
-            {sending ? '…' : sendLabel}
+            {sending ? '…' : replyingTo ? 'Reply' : sendLabel}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function CommentThreadItem({
+  comment,
+  depth,
+  onReply,
+}: {
+  comment: PanelComment;
+  depth: number;
+  onReply: (c: PanelComment) => void;
+}) {
+  const name = comment.xprofile?.display_name ?? 'User';
+  const avatar = comment.xprofile?.avatar ?? '';
+  const children = Array.isArray(comment.children) ? comment.children : [];
+  const avatarSize = depth === 0 ? 32 : 26;
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 10,
+          background: '#fff',
+          padding: 10,
+          borderRadius: 10,
+          border: '1px solid #e5e7eb',
+        }}
+      >
+        <div
+          style={{
+            width: avatarSize,
+            height: avatarSize,
+            borderRadius: '50%',
+            background: avatar ? `#eee url(${avatar}) center/cover` : '#d1d5db',
+            flexShrink: 0,
+          }}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>
+              {name}
+            </span>
+            {comment.created_at && (
+              <span style={{ fontSize: 11, color: '#9ca3af' }}>
+                {formatCommentTimestamp(comment.created_at)}
+              </span>
+            )}
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              color: '#374151',
+              lineHeight: 1.5,
+              marginTop: 2,
+              wordBreak: 'break-word',
+            }}
+            dangerouslySetInnerHTML={{ __html: String(comment.message ?? '') }}
+          />
+          {comment.id != null && (
+            <button
+              type="button"
+              onClick={() => onReply(comment)}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: '#2563eb',
+                cursor: 'pointer',
+                fontSize: 11,
+                fontWeight: 600,
+                padding: '4px 0 0',
+              }}
+            >
+              Reply
+            </button>
+          )}
+        </div>
+      </div>
+      {children.length > 0 && (
+        <div
+          style={{
+            marginTop: 8,
+            marginLeft: 10 + avatarSize / 2,
+            paddingLeft: 14,
+            borderLeft: '2px solid #e5e7eb',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+          }}
+        >
+          {children.map((child, idx) => (
+            <CommentThreadItem
+              key={child.id ?? idx}
+              comment={child}
+              depth={depth + 1}
+              onReply={onReply}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
