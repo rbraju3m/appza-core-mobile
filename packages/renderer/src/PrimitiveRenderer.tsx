@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ComponentProps, type CSSProperties } from 'react';
+import { useActionDispatch, type ActionInvocation } from './actionContext';
 import {
   IonAvatar,
   IonButton,
@@ -64,6 +65,8 @@ import {
   eyeOutline,
   filter,
   filterOutline,
+  grid,
+  gridOutline,
   happy,
   happyOutline,
   heart,
@@ -74,6 +77,10 @@ import {
   imageOutline,
   images,
   imagesOutline,
+  list,
+  listOutline,
+  reorderFour,
+  reorderFourOutline,
   informationCircle,
   informationCircleOutline,
   link,
@@ -188,6 +195,12 @@ const ICON_REGISTRY: Record<string, string> = {
   'eye-off-outline': eyeOffOutline,
   filter,
   'filter-outline': filterOutline,
+  grid,
+  'grid-outline': gridOutline,
+  list,
+  'list-outline': listOutline,
+  'reorder-four': reorderFour,
+  'reorder-four-outline': reorderFourOutline,
   menu,
   'menu-outline': menuOutline,
   refresh,
@@ -315,7 +328,23 @@ type PrimitiveOverrides = Record<string, unknown>;
 type Props = {
   primitive: PrimitiveRow;
   overrides?: PrimitiveOverrides;
+  /**
+   * Wiring for primitives whose native event isn't `click` (currently just
+   * ion-select's change event). When set, the primitive fires
+   * dispatch(action) with the selected value grafted onto action.item. The
+   * SSRenderer wrapper skips its usual click-dispatch for these primitives
+   * (see SELF_ACTION_PRIMITIVES below).
+   */
+  action?: ActionInvocation;
 };
+
+/**
+ * Primitives that handle their own action dispatch (via a native event
+ * other than click). The SSRenderer wrapper skips its onClick handler for
+ * these — otherwise the wrapper-click would fire dispatch when the user
+ * just opens the select, before a value is chosen.
+ */
+export const SELF_ACTION_PRIMITIVES: ReadonlySet<string> = new Set(['ion-select']);
 
 /**
  * Maps a Primitive row's `ionic_component` value to the corresponding
@@ -331,8 +360,9 @@ type Props = {
  * Unknown Ionic components fall through to a labeled placeholder so
  * additions to appza_primitives don't crash the renderer.
  */
-export function PrimitiveRenderer({ primitive, overrides }: Props) {
+export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
   const label = readString(overrides, 'text') ?? primitive.name ?? primitive.slug;
+  const dispatch = useActionDispatch();
 
   switch (primitive.ionic_component) {
     case 'IonButton': {
@@ -341,6 +371,16 @@ export function PrimitiveRenderer({ primitive, overrides }: Props) {
       const textExplicitlyEmpty = rawText === '';
       const iconOnly = !!iconName && (textExplicitlyEmpty || readString(overrides, 'text') === undefined);
       const buttonLabel = textExplicitlyEmpty ? '' : label;
+      // icon_slot override — accepts 'start' | 'end'. Default 'start' to
+      // preserve prior behavior; catalog opts in via override (e.g. the
+      // fc-feed-toolbar sort button uses 'end' so the chevron sits after
+      // the label).
+      const iconSlotOverride = readString(overrides, 'icon_slot');
+      const iconSlot = iconOnly
+        ? 'icon-only'
+        : iconSlotOverride === 'end'
+          ? 'end'
+          : 'start';
       // Ionic's `color=` prop applies a class that sets `--background`,
       // `--color`, `--border-color`, etc. via `:host`, which can shadow
       // our inline overrides. `ThemedIonButton` uses a ref + setProperty
@@ -353,13 +393,13 @@ export function PrimitiveRenderer({ primitive, overrides }: Props) {
           color={readString(overrides, 'color')}
           styleOverrides={buildIonButtonStyleOverrides(overrides)}
         >
-          {iconName && resolveIcon(iconName) && (
-            <IonIcon
-              icon={resolveIcon(iconName)}
-              slot={iconOnly ? 'icon-only' : 'start'}
-            />
+          {iconName && resolveIcon(iconName) && iconSlot !== 'end' && (
+            <IonIcon icon={resolveIcon(iconName)} slot={iconSlot} />
           )}
           {!iconOnly && buttonLabel}
+          {iconName && resolveIcon(iconName) && iconSlot === 'end' && (
+            <IonIcon icon={resolveIcon(iconName)} slot="end" />
+          )}
         </ThemedIonButton>
       );
     }
@@ -487,28 +527,104 @@ export function PrimitiveRenderer({ primitive, overrides }: Props) {
       // surrounding CSS custom properties from tokensToCssVars.
       const placeholder = readString(overrides, 'placeholder') ?? label;
       const options = readSelectOptions(overrides, 'options');
-      return (
+      const initialValue = readString(overrides, 'value') ?? '';
+      // The wrapper's onClick is bypassed for ion-select (see SELF_ACTION_
+      // PRIMITIVES); dispatch fires here with the chosen value grafted onto
+      // action.item so App-side dispatchers can read
+      // ({value}) via inv.item.value or effectiveItem.value.
+      const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        if (!action) return;
+        const value = e.target.value;
+        dispatch({
+          ...action,
+          item: { ...(action.item as Record<string, unknown> | null | undefined ?? {}), value },
+        });
+      };
+      // Two modes:
+      //   1. Action wired (e.g. fc-feed-toolbar sort) — controlled select.
+      //      `value` follows the prop so updating overrides.value (via
+      //      setFeedControls) reflects in the visible selection; onChange
+      //      dispatches the pick.
+      //   2. No action (e.g. fc-post-information space picker) — uncontrolled
+      //      select via `defaultValue`. Value lives in the DOM; the form's
+      //      dispatcher reads it via readFormFieldValue on submit. Marking
+      //      it controlled without an onChange source would snap the pick
+      //      back to defaultValue immediately.
+      //
+      // If overrides.label is set (e.g. fc-feed-toolbar's sort_label
+      // = "Sort by:"), render it as a leading span since the native
+      // <select> has no label slot. Wrapper is inline-flex so the label
+      // + select sit on one line.
+      const leadingLabel = readString(overrides, 'label');
+      const selectEl = action ? (
         <select
           className="appza-native-select"
-          defaultValue=""
+          value={initialValue}
+          onChange={handleChange}
           style={{
-            width: '100%',
-            padding: '10px 12px',
+            padding: '4px 20px 4px 4px',
             fontSize: 14,
-            border: '1px solid var(--ion-color-medium, #ccc)',
-            borderRadius: 6,
-            background: '#fff',
+            border: 'none',
+            background: 'transparent',
+            color: 'var(--ion-color-dark, #1f2937)',
+            fontWeight: 500,
+            cursor: action ? 'pointer' : 'default',
+            appearance: 'auto',
           }}
         >
-          <option value="" disabled>
-            {placeholder}
-          </option>
+          {initialValue === '' && (
+            <option value="" disabled>
+              {placeholder}
+            </option>
+          )}
           {options.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>
           ))}
         </select>
+      ) : (
+        <select
+          className="appza-native-select"
+          defaultValue={initialValue}
+          style={{
+            padding: '4px 20px 4px 4px',
+            fontSize: 14,
+            border: '1px solid var(--ion-color-medium, #d1d5db)',
+            borderRadius: 6,
+            background: '#fff',
+            color: 'var(--ion-color-dark, #1f2937)',
+          }}
+        >
+          {initialValue === '' && (
+            <option value="" disabled>
+              {placeholder}
+            </option>
+          )}
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      );
+      if (!leadingLabel) return selectEl;
+      return (
+        <span
+          className="appza-select-with-label"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+        >
+          <span
+            style={{
+              color: 'var(--ion-color-medium, #6b7280)',
+              fontSize: 14,
+              fontWeight: 400,
+            }}
+          >
+            {leadingLabel}
+          </span>
+          {selectEl}
+        </span>
       );
     }
 

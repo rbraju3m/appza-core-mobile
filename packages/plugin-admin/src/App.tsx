@@ -9,9 +9,13 @@ import {
 } from '@appza/schemas';
 import {
   ActionProvider,
+  ViewModePopover,
+  openViewModePopover,
   readDataPath,
+  setFeedControls,
   type ActionDispatch,
   type ActionInvocation,
+  type ViewModeOption,
 } from '@appza/renderer';
 
 // Re-exported so existing local consumers (e.g. TopBar) keep working
@@ -1483,6 +1487,7 @@ export function App() {
                   </>
                 }
               />
+              <ViewModePopover />
             </ActionProvider>
           ) : (
             <DeviceFrame
@@ -1798,23 +1803,27 @@ function basicAuthHeader(auth: StoredAuth): string {
  * `countPath` is the paired count text (null when the card doesn't show
  * one, e.g. bookmark).
  */
+// Reaction visual config — matches the mobile App's REACTION_UI. Now
+// keyed by semantic `on_tap_*` action name so we don't need per-variant
+// child-index tables. Works for timeline (children[10]), card
+// (children[6]) and list (children[5]) uniformly.
 const REACTION_UI: Record<
   string,
-  { childPath: string; iconOn: string; iconOff: string; colorOn: string; countPath: string | null }
+  { actionName: string; iconOn: string; iconOff: string; colorOn: string; countPathTimeline: string | null }
 > = {
   like: {
-    childPath: 'children[10]',
+    actionName: 'on_tap_like',
     iconOn: 'heart',
     iconOff: 'heart-outline',
     colorOn: 'danger',
-    countPath: 'children[13]',
+    countPathTimeline: 'children[13]',
   },
   bookmark: {
-    childPath: 'children[12]',
+    actionName: 'on_tap_bookmark',
     iconOn: 'bookmark',
     iconOff: 'bookmark-outline',
     colorOn: 'primary',
-    countPath: null,
+    countPathTimeline: null,
   },
 };
 
@@ -1822,7 +1831,7 @@ const REACTION_UI: Record<
  * Optimistic UI update for like / bookmark. Finds every rendered card
  * matching `feedId` (data-appza-item-id, stamped by PlacementRenderer),
  * flips the reaction button's ion-icon + color, and — for `like` — nudges
- * the paired count text by ±1 so the visible "N likes" stays honest. All
+ * the paired count text by ±1 so the visible count stays honest. All
  * mutation is DOM-level so we skip a React re-render + avoid the full
  * feed refetch flash. Caller reverts on HTTP failure by calling this
  * again with the opposite `on` flag.
@@ -1834,18 +1843,15 @@ function applyReactionOptimistic(feedId: number, reactType: string, on: boolean)
     `[data-appza-item-id="${CSS.escape(String(feedId))}"]`,
   );
   wrappers.forEach((wrapper) => {
-    // Attribute value is a plain quoted string in the CSS selector, so
-    // the [12] brackets need no escaping — they're just part of the
-    // string being matched.
+    // Query by semantic action attribute → variant-independent.
     const btn = wrapper.querySelector<HTMLElement>(
-      `[data-appza-primitive-path="${cfg.childPath}"]`,
+      `[data-appza-action="${cfg.actionName}"]`,
     );
     if (btn) {
       const nextIcon = on ? cfg.iconOn : cfg.iconOff;
       const nextColor = on ? cfg.colorOn : 'medium';
       btn.querySelectorAll<HTMLElement>('ion-icon').forEach((ic) => {
         ic.setAttribute('name', nextIcon);
-        // Wipe the resolved src/icon so Ionic re-fetches from the new name.
         ic.removeAttribute('src');
         ic.removeAttribute('icon');
       });
@@ -1853,20 +1859,28 @@ function applyReactionOptimistic(feedId: number, reactType: string, on: boolean)
         b.setAttribute('color', nextColor);
       });
     }
-    if (cfg.countPath) {
-      const countWrap = wrapper.querySelector<HTMLElement>(
-        `[data-appza-primitive-path="${cfg.countPath}"]`,
+    // The SS renders the count text immediately after the reaction
+    // button (all three variants). Fall back to the timeline-only
+    // children[13] path if the sibling isn't a count wrapper.
+    let countWrap: HTMLElement | null = btn ? (btn.nextElementSibling as HTMLElement | null) : null;
+    if (!countWrap && cfg.countPathTimeline) {
+      countWrap = wrapper.querySelector<HTMLElement>(
+        `[data-appza-primitive-path="${cfg.countPathTimeline}"]`,
       );
-      if (countWrap) {
-        // ion-text renders `<ion-text><p>N likes</p></ion-text>`.
-        const p = countWrap.querySelector<HTMLElement>('ion-text p') ?? countWrap;
-        const text = p.textContent ?? '';
-        const match = text.match(/(\d+)/);
-        const cur = match && match[1] ? parseInt(match[1], 10) : 0;
-        const next = Math.max(0, cur + (on ? 1 : -1));
-        const label = next === 1 ? 'like' : 'likes';
-        p.textContent = `${next} ${label}`;
-      }
+    }
+    if (countWrap) {
+      const target =
+        countWrap.querySelector<HTMLElement>('ion-text p') ??
+        countWrap.querySelector<HTMLElement>('ion-text') ??
+        countWrap;
+      const text = target.textContent ?? '';
+      const match = text.match(/(\d+)/);
+      const cur = match && match[1] ? parseInt(match[1], 10) : 0;
+      const next = Math.max(0, cur + (on ? 1 : -1));
+      // Preserve trailing " likes"/"like" if the timeline variant has
+      // it; card + list use raw integers with no suffix.
+      const suffix = text.replace(/^\s*\d+/, '').trim();
+      target.textContent = suffix ? `${next} ${suffix}` : String(next);
     }
   });
 }
@@ -2637,6 +2651,47 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     case 'picker.file': {
       onLoginError(`File attach isn't implemented in the sim yet.`);
       console.info('[appza-admin/app-mode] stub picker:', action_slug, argRec);
+      return;
+    }
+
+    case 'feed.set_sort': {
+      // Sort button tapped → open popover with sort options + stateKey='sort'.
+      // Popover writes to feedControls.sort on pick; PlacementRenderer's
+      // useFeedControls hook triggers a paged refetch with order_by_type.
+      const rawOptions = Array.isArray(argRec.options) ? argRec.options : [];
+      const options: ViewModeOption[] = rawOptions
+        .filter((o): o is Record<string, unknown> => isRecord(o))
+        .map((o) => ({
+          value: typeof o.value === 'string' ? o.value : '',
+          label: typeof o.label === 'string' ? o.label : '',
+          icon: typeof o.icon === 'string' ? o.icon : undefined,
+        }))
+        .filter((o) => o.value && o.label);
+      const anchor = document.querySelector(
+        '[data-appza-appzet-slug="fc-feed-toolbar"][data-child-index="0"]',
+      );
+      openViewModePopover(options, anchor, 'sort');
+      return;
+    }
+
+    case 'feed.set_view_mode': {
+      // Open popover anchored to the toolbar's view-toggle button. In the
+      // plugin-admin sim the device-viewport is the CSS positioning root,
+      // but ViewModePopover uses position:fixed with viewport coords, so
+      // the anchor resolution is the same as mobile.
+      const rawOptions = Array.isArray(argRec.options) ? argRec.options : [];
+      const options: ViewModeOption[] = rawOptions
+        .filter((o): o is Record<string, unknown> => isRecord(o))
+        .map((o) => ({
+          value: typeof o.value === 'string' ? o.value : '',
+          label: typeof o.label === 'string' ? o.label : '',
+          icon: typeof o.icon === 'string' ? o.icon : undefined,
+        }))
+        .filter((o) => o.value && o.label);
+      const anchor = document.querySelector(
+        '[data-appza-appzet-slug="fc-feed-toolbar"][data-child-index="1"]',
+      );
+      openViewModePopover(options, anchor);
       return;
     }
 

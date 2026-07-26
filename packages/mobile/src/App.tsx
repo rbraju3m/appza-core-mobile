@@ -2,9 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionProvider,
   ScreenRenderer,
+  ViewModePopover,
+  openViewModePopover,
   readDataPath,
+  setFeedControls,
   type ActionDispatch,
   type ActionInvocation,
+  type ViewModeOption,
 } from '@appza/renderer';
 import {
   BootstrapEnvelopeSchema,
@@ -106,24 +110,39 @@ function pickString(rec: Record<string, unknown> | null | undefined, keys: strin
 }
 
 // Ionicon + Ionic-theme-color pairs for reaction toggle states. Mirrors
-// plugin-admin's REACTION_UI so both surfaces produce the same visual.
+// Reaction visual config. childPath / countPath are hardcoded for
+// the timeline layout (fc-post-card). Card + list variants have the
+// like button at different child indices, so applyReactionOptimistic
+// now queries by the semantic `data-appza-action` attribute the
+// SSRenderer stamps — works across all three variants without needing
+// per-variant config here. The paths below are kept only as a
+// fallback for the count text (whose semantic attr doesn't exist yet).
 const REACTION_UI: Record<
   string,
-  { childPath: string; iconOn: string; iconOff: string; colorOn: string; countPath: string | null }
+  { actionName: string; iconOn: string; iconOff: string; colorOn: string; countPathTimeline: string | null; countActionName: string | null }
 > = {
   like: {
-    childPath: 'children[10]',
+    actionName: 'on_tap_like',
     iconOn: 'heart',
     iconOff: 'heart-outline',
     colorOn: 'danger',
-    countPath: 'children[13]',
+    // For timeline the comments-count text sits at children[14] and the
+    // like-count at children[13]. Card / list variants use raw integer
+    // counts (data.reactions_count → children[N].text) which optimistic
+    // update can't easily locate without knowing N. We adjust the count
+    // for the like button's PAIRED count text by querying the wrapper
+    // that shares the parent and sits directly after the like button —
+    // see selectCountWrapper below.
+    countPathTimeline: 'children[13]',
+    countActionName: null,
   },
   bookmark: {
-    childPath: 'children[12]',
+    actionName: 'on_tap_bookmark',
     iconOn: 'bookmark',
     iconOff: 'bookmark-outline',
     colorOn: 'primary',
-    countPath: null,
+    countPathTimeline: null,
+    countActionName: null,
   },
 };
 
@@ -134,8 +153,11 @@ function applyReactionOptimistic(feedId: number, reactType: string, on: boolean)
     `[data-appza-item-id="${CSS.escape(String(feedId))}"]`,
   );
   wrappers.forEach((wrapper) => {
+    // Query the reaction button by its semantic action attribute rather
+    // than a hardcoded child index. Works for timeline (children[10]),
+    // card (children[6]), list (children[5]) uniformly.
     const btn = wrapper.querySelector<HTMLElement>(
-      `[data-appza-primitive-path="${cfg.childPath}"]`,
+      `[data-appza-action="${cfg.actionName}"]`,
     );
     if (btn) {
       const nextIcon = on ? cfg.iconOn : cfg.iconOff;
@@ -149,19 +171,31 @@ function applyReactionOptimistic(feedId: number, reactType: string, on: boolean)
         b.setAttribute('color', nextColor);
       });
     }
-    if (cfg.countPath) {
-      const countWrap = wrapper.querySelector<HTMLElement>(
-        `[data-appza-primitive-path="${cfg.countPath}"]`,
+    // Count text — the SS puts a count immediately after each reaction
+    // button, so we look up the button's next sibling (same-level ss-child
+    // wrapper). That's true for all three variants. Fallback to the
+    // timeline-only children[13] path if the sibling isn't a count.
+    let countWrap: HTMLElement | null = btn ? (btn.nextElementSibling as HTMLElement | null) : null;
+    if (!countWrap && cfg.countPathTimeline) {
+      countWrap = wrapper.querySelector<HTMLElement>(
+        `[data-appza-primitive-path="${cfg.countPathTimeline}"]`,
       );
-      if (countWrap) {
-        const p = countWrap.querySelector<HTMLElement>('ion-text p') ?? countWrap;
-        const text = p.textContent ?? '';
-        const match = text.match(/(\d+)/);
-        const cur = match && match[1] ? parseInt(match[1], 10) : 0;
-        const next = Math.max(0, cur + (on ? 1 : -1));
-        const label = next === 1 ? 'like' : 'likes';
-        p.textContent = `${next} ${label}`;
-      }
+    }
+    if (countWrap) {
+      // ion-text renders content inside a shadow-DOM <p>; find it, or
+      // fall back to the wrapper itself for plain text nodes.
+      const target =
+        countWrap.querySelector<HTMLElement>('ion-text p') ??
+        countWrap.querySelector<HTMLElement>('ion-text') ??
+        countWrap;
+      const text = target.textContent ?? '';
+      const match = text.match(/(\d+)/);
+      const cur = match && match[1] ? parseInt(match[1], 10) : 0;
+      const next = Math.max(0, cur + (on ? 1 : -1));
+      // Preserve trailing text (e.g. " likes") if present; otherwise
+      // render just the number (card + list variants use raw integers).
+      const suffix = text.replace(/^\s*\d+/, '').trim();
+      target.textContent = suffix ? `${next} ${suffix}` : String(next);
     }
   });
 }
@@ -871,6 +905,8 @@ export function App() {
         />
       </ActionProvider>
 
+      <ViewModePopover />
+
       {errorToast && (
         <div
           role="status"
@@ -1318,6 +1354,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
 
     case 'post.like':
     case 'bookmark.toggle': {
+      console.log('[appza-mobile] dispatch:', action_slug, { argRec, effectiveItem });
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
       const bodyKey =
@@ -1410,6 +1447,12 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
             }
             rec.my_reactions = cur;
           }
+          // No full feed refresh — jarring UX and unnecessary. The
+          // optimistic DOM update (applyReactionOptimistic) now queries
+          // by [data-appza-action] so it works across all three variants
+          // (timeline / card / list) without hardcoded child indices.
+          // Only the reacted post's icon + count flip; the rest of the
+          // feed stays put.
         } catch (err) {
           applyReactionOptimistic(feedId, reactType, alreadyOn);
           onError(err instanceof Error ? err.message : String(err));
@@ -1419,6 +1462,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     }
 
     case 'comment.create': {
+      console.log('[appza-mobile] dispatch: comment.create', { argRec, effectiveItem });
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       const listEndpoint =
         typeof argRec.list_endpoint === 'string' ? argRec.list_endpoint : null;
@@ -1676,6 +1720,49 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       } else if (url) {
         onError('Please enter a full URL starting with http:// or https://');
       }
+      return;
+    }
+
+    case 'feed.set_sort': {
+      // Sort button tapped → open the same popover component we use for
+      // view-mode with stateKey='sort'. Popover parses args.options and
+      // calls setFeedControls({sort: value}) on pick. PlacementRenderer's
+      // useFeedControls hook then propagates the new sort → paged refetch
+      // with order_by_type=<value>.
+      const rawOptions = Array.isArray(argRec.options) ? argRec.options : [];
+      const options: ViewModeOption[] = rawOptions
+        .filter((o): o is Record<string, unknown> => isRecord(o))
+        .map((o) => ({
+          value: typeof o.value === 'string' ? o.value : '',
+          label: typeof o.label === 'string' ? o.label : '',
+          icon: typeof o.icon === 'string' ? o.icon : undefined,
+        }))
+        .filter((o) => o.value && o.label);
+      const anchor = document.querySelector(
+        '[data-appza-appzet-slug="fc-feed-toolbar"][data-child-index="0"]',
+      );
+      openViewModePopover(options, anchor, 'sort');
+      return;
+    }
+
+    case 'feed.set_view_mode': {
+      // Open a popover anchored to the toolbar's view-toggle button
+      // (children[1] under fc-feed-toolbar's stamped data attrs). The
+      // popover picks options out of args.options — the catalog wiring
+      // decides which modes are offered, we don't hardcode.
+      const rawOptions = Array.isArray(argRec.options) ? argRec.options : [];
+      const options: ViewModeOption[] = rawOptions
+        .filter((o): o is Record<string, unknown> => isRecord(o))
+        .map((o) => ({
+          value: typeof o.value === 'string' ? o.value : '',
+          label: typeof o.label === 'string' ? o.label : '',
+          icon: typeof o.icon === 'string' ? o.icon : undefined,
+        }))
+        .filter((o) => o.value && o.label);
+      const anchor = document.querySelector(
+        '[data-appza-appzet-slug="fc-feed-toolbar"][data-child-index="1"]',
+      );
+      openViewModePopover(options, anchor);
       return;
     }
 

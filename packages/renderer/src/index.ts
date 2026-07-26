@@ -12,3 +12,11 @@ export { tokensToCssVars } from './tokens';
 export { useDataSource, useDataSourcePaged, readDataPath } from './dataFetch';
 export { layoutStyleToCss, hasLayoutStyle } from './layoutStyle';
 export { ActionProvider, useActionDispatch, type ActionDispatch, type ActionInvocation } from './actionContext';
+export {
+  getFeedControls,
+  setFeedControls,
+  useFeedControls,
+  type FeedControls,
+  type FeedViewMode,
+} from './feedControls';
+export { ViewModePopover, openViewModePopover, type ViewModeOption } from './ViewModePopover';

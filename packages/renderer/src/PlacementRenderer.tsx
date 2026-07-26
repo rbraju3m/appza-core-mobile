@@ -7,6 +7,8 @@ import { readDataPath, useDataSource, useDataSourcePaged } from './dataFetch';
 import { isRecord, readOverride, resolveOverridableColumn } from './resolveOverride';
 import { layoutStyleToCss } from './layoutStyle';
 import { useActionDispatch, type ActionInvocation } from './actionContext';
+import { useFeedControls } from './feedControls';
+import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
 
 /**
  * Data source slugs whose AppzetPlacements render an infinite-scroll
@@ -71,6 +73,16 @@ type HiddenIndices = ReadonlySet<number>;
  * grammar — `children[<index>].<propName>`). Nested Superstructures
  * receive no overrides at v1 (scope deferred).
  */
+// Map from timeline appzet slug -> {card, list} variant slugs. When
+// feedControls.viewMode !== 'timeline' and the current placement targets
+// the timeline slug, PlacementRenderer substitutes the variant so its
+// SS + field_mappings + default_props apply per item. Keeps the swap
+// self-contained here; the catalog just needs to ship the variant
+// appzets under these slugs.
+const VIEW_MODE_VARIANTS: Record<string, { card?: string; list?: string }> = {
+  'fc-post-card': { card: 'fc-post-grid-item', list: 'fc-post-list-item' },
+};
+
 export function PlacementRenderer({
   appzetSlug,
   catalogIndex,
@@ -78,7 +90,23 @@ export function PlacementRenderer({
   selectedAppzetSlug,
   onSelectAppzet,
 }: PlacementRendererProps) {
-  const baseAppzet = catalogIndex.appzetBySlug.get(appzetSlug);
+  // Read view mode + sort up here so we can swap the appzet BEFORE
+  // resolving baseAppzet's SS / data source / props overrides — otherwise
+  // the swap would fight the memoized derivations below. feedSort is
+  // consumed by useDataSourcePaged further down (fc-feed order_by_type).
+  const { viewMode: feedViewMode, sort: feedSort } = useFeedControls();
+  const requestedAppzet = catalogIndex.appzetBySlug.get(appzetSlug);
+  const variantSlug =
+    requestedAppzet && VIEW_MODE_VARIANTS[requestedAppzet.slug]
+      ? feedViewMode === 'card'
+        ? VIEW_MODE_VARIANTS[requestedAppzet.slug]!.card
+        : feedViewMode === 'list'
+          ? VIEW_MODE_VARIANTS[requestedAppzet.slug]!.list
+          : undefined
+      : undefined;
+  const baseAppzet = variantSlug
+    ? catalogIndex.appzetBySlug.get(variantSlug) ?? requestedAppzet
+    : requestedAppzet;
 
   // === Option data sources ===
   // AppZets can declare `option_data_sources: { <prop_name>: <ds_slug> }`
@@ -134,6 +162,45 @@ export function PlacementRenderer({
           // Fetched option lists override any static default for the same
           // prop — the live catalog value is the truer one.
           ...optionData,
+          // fc-feed-toolbar reflects the persisted user preference in its
+          // controls — the sort button's text becomes "Sort by: <label>"
+          // where <label> is resolved by scanning the action wiring's
+          // args.options for a matching value. If no match, we fall back
+          // to the raw value key (better than showing "Sort by:" alone).
+          ...(baseAppzet.slug === 'fc-feed-toolbar'
+            ? (() => {
+                const actions = (baseAppzet.actions ?? null) as Record<string, unknown> | null;
+                const sortWiring = actions && actions.on_change_sort;
+                const opts =
+                  isRecord(sortWiring) && isRecord((sortWiring as Record<string, unknown>).args)
+                    ? (((sortWiring as Record<string, unknown>).args as Record<string, unknown>).options)
+                    : undefined;
+                let label = feedSort;
+                if (Array.isArray(opts)) {
+                  const match = opts.find(
+                    (o) => isRecord(o) && (o as Record<string, unknown>).value === feedSort,
+                  );
+                  if (match && typeof (match as Record<string, unknown>).label === 'string') {
+                    label = (match as Record<string, unknown>).label as string;
+                  }
+                }
+                // View-toggle icon reflects current view mode so the user
+                // sees immediate feedback of their pick (grid for card,
+                // rows for list, lines for timeline).
+                const viewIcon =
+                  feedViewMode === 'card'
+                    ? 'grid-outline'
+                    : feedViewMode === 'list'
+                      ? 'reorder-four-outline'
+                      : 'list-outline';
+                return {
+                  sort_button_text: `Sort by: ${label}`,
+                  default_sort: feedSort,
+                  default_view_mode: feedViewMode,
+                  view_toggle_icon: viewIcon,
+                };
+              })()
+            : {}),
         } as Record<string, unknown>,
       }
     : baseAppzet;
@@ -153,8 +220,15 @@ export function PlacementRenderer({
   // the non-paginated hook. Never gate a hook behind an `if`.
   const isPaginated = !!dataSource && PAGINATED_DATA_SOURCES.has(dataSource.slug);
   const pagedSlug = isPaginated ? dataSource!.slug : undefined;
+  // fc-feed reads sort from the shared feedControls store (see feedSort
+  // above) — the fc-feed-toolbar's on_change dispatcher writes it, we
+  // forward as order_by_type (FC's native query param, see FC's
+  // Feed::scopeCustomOrderBy). Changing sort bumps useDataSourcePaged's
+  // extraKey → reset to page 1 + refetch.
+  const pagedExtraParams = pagedSlug === 'fc-feed' ? { order_by_type: feedSort } : undefined;
   const pagedState = useDataSourcePaged(pagedSlug, {
     perPage: pagedSlug ? PAGE_SIZE_BY_SLUG[pagedSlug] ?? 10 : 10,
+    params: pagedExtraParams,
   });
   const staticSlug = isPaginated ? undefined : dataSource?.slug;
   const staticState = useDataSource(staticSlug);
@@ -276,13 +350,39 @@ export function PlacementRenderer({
     );
   }
 
+  // Empty state — a paginated data source that returned zero items (e.g.
+  // 'unanswered' sort with no matching posts, or a fresh community with
+  // an empty feed). Non-paginated single-fetch keeps the previous behavior
+  // of rendering one empty card, which is useful for spot-fetched appzets
+  // that always exist (e.g. current user avatar).
+  if (isPaginated && !dataState.loading && dataState.items.length === 0) {
+    return (
+      <>
+        {optionFetchers}
+        <div
+          className="appza-renderer-empty"
+          data-slug={appzet.slug}
+          data-view-mode={variantSlug ? feedViewMode : undefined}
+        >
+          <p>No posts to show</p>
+          <small>Try a different sort or come back later.</small>
+        </div>
+      </>
+    );
+  }
+
   const items = dataState.items.length > 0 ? dataState.items : [{}];
   const ssChildren = readChildren(ss);
 
   return (
     <>
       {optionFetchers}
-      <div className="appza-renderer-appzet-list" data-slug={appzet.slug}>
+      <div
+        className="appza-renderer-appzet-list"
+        data-slug={appzet.slug}
+        data-view-mode={variantSlug ? feedViewMode : undefined}
+        data-appza-swap-from={variantSlug ? appzetSlug : undefined}
+      >
       {items.map((item, idx) => {
         // Enrich the raw item with computed viewer-scoped fields (e.g.
         // whether the current user has liked / bookmarked this item)
@@ -578,11 +678,23 @@ function SuperstructureRenderer({
         const childLayoutStyle = isTopLevel ? childLayoutStyles?.[idx] : undefined;
         const openUrl = isTopLevel ? childOpenUrls?.[idx] : undefined;
         const action = isTopLevel ? childActions?.[idx] : undefined;
-        const rendered = renderChild(child.slug, catalogIndex, depth + 1, childOverrides?.[idx]);
+        // Self-action primitives (ion-select) fire dispatch from their own
+        // native event, not the wrapper's onClick — otherwise clicking to
+        // open the dropdown would dispatch before the user picks a value.
+        const primitiveSelfHandles = SELF_ACTION_PRIMITIVES.has(child.slug);
+        const wrapperAction = action && !primitiveSelfHandles ? action : undefined;
+        const primitiveAction = action && primitiveSelfHandles ? action : undefined;
+        const rendered = renderChild(
+          child.slug,
+          catalogIndex,
+          depth + 1,
+          childOverrides?.[idx],
+          primitiveAction,
+        );
         const wrapperClass = [
           'appza-renderer-ss-child',
           openUrl ? 'appza-renderer-ss-child-linked' : '',
-          action ? 'appza-renderer-ss-child-actionable' : '',
+          wrapperAction ? 'appza-renderer-ss-child-actionable' : '',
         ]
           .filter(Boolean)
           .join(' ');
@@ -595,14 +707,15 @@ function SuperstructureRenderer({
             data-appza-primitive-path={isTopLevel ? `children[${idx}]` : undefined}
             data-appza-appzet-slug={isTopLevel ? appzetSlugForPath : undefined}
             data-appza-inline-click={action ? 'true' : undefined}
+            data-appza-action={child.on_click_action}
             style={childLayoutStyle ? layoutStyleToCss(childLayoutStyle) : undefined}
-            onClick={action
+            onClick={wrapperAction
               ? (e) => {
                   e.stopPropagation();
-                  dispatch(action);
+                  dispatch(wrapperAction);
                 }
               : undefined}
-            role={action ? 'button' : undefined}
+            role={wrapperAction ? 'button' : undefined}
           >
             {openUrl ? (
               <a
@@ -628,10 +741,11 @@ function renderChild(
   catalogIndex: CatalogIndex,
   depth: number,
   overrides?: Record<string, unknown>,
+  action?: ActionInvocation,
 ) {
   const primitive = catalogIndex.primitiveBySlug.get(slug);
   if (primitive) {
-    return <PrimitiveRenderer primitive={primitive} overrides={overrides} />;
+    return <PrimitiveRenderer primitive={primitive} overrides={overrides} action={action} />;
   }
   const ss = catalogIndex.superstructureBySlug.get(slug);
   if (ss) {

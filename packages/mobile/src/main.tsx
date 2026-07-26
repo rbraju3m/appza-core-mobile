@@ -209,23 +209,14 @@ imgObserver.observe(document.documentElement, {
   attributeFilter: ['src'],
 });
 
-// Register the Bypass-Tunnel-Reminder service worker as early as possible
-// so image loads on the very first render are intercepted. See public/sw.js
-// for the full explanation. Fire-and-forget; SW registration failure just
-// leaves us in the pre-SW state (images through loca.lt will 511 in that
-// case — same as if the SW hadn't shipped).
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker
-    .register('/sw.js', { scope: '/' })
-    .then(() => {
-      // If a new SW is now controlling the page, force any in-flight image
-      // <img> elements to re-fetch through the SW by reloading them.
-      // Cheap belt-and-braces — usually the app's own state changes trigger
-      // re-renders anyway.
-    })
-    .catch((err) => {
-      console.warn('[appza-mobile] SW registration failed:', err);
-    });
+// SW only rewrites loca.lt requests (see public/sw.js). Skip registration
+// when the backend isn't a loca.lt tunnel — on Capacitor's https://localhost
+// origin the WebView often can't fetch /sw.js and the failure surfaces in
+// the debug panel as "Failed to fetch" with no useful effect either way.
+if ('serviceWorker' in navigator && /(^|\.)loca\.lt(:|\/|$)/i.test(SITE_URL)) {
+  navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((err) => {
+    console.warn('[appza-mobile] SW registration failed:', err);
+  });
 }
 
 setupIonicReact();
