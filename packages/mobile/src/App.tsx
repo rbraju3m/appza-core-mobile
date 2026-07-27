@@ -721,7 +721,19 @@ export function App() {
             parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
         );
       }
-      setState({ kind: 'ok', envelope: parsed.data });
+      // Must gate template_screens on refresh too — otherwise pull-to-refresh
+      // leaks plugin-only and hidden screens back into the mobile drawer.
+      const gated: BootstrapEnvelope = {
+        ...parsed.data,
+        catalog: {
+          ...parsed.data.catalog,
+          template_screens: filterScreensBySurface(
+            parsed.data.catalog.template_screens ?? [],
+            'mobile',
+          ),
+        },
+      };
+      setState({ kind: 'ok', envelope: gated });
       triggerFeedRefresh();
     } catch (err) {
       setErrorToast(err instanceof Error ? err.message : String(err));
