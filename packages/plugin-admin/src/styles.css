@@ -1684,11 +1684,6 @@ body {
 }
 
 .appza-icon-picker-pop {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 20;
   background: #fff;
   border: 1px solid #d1d5db;
   border-radius: 8px;

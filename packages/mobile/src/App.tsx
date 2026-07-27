@@ -3,6 +3,7 @@ import {
   ActionProvider,
   ScreenRenderer,
   ViewModePopover,
+  filterScreensBySurface,
   openViewModePopover,
   readDataPath,
   setFeedControls,
@@ -464,9 +465,22 @@ export function App() {
               parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
           );
         }
+        // Surface-gate template_screens once at ingest so every downstream
+        // .find/.map/.filter already sees only rows tagged for this surface
+        // (or 'both'). Screens tagged 'plugin' won't render on mobile.
+        const gated: BootstrapEnvelope = {
+          ...parsed.data,
+          catalog: {
+            ...parsed.data.catalog,
+            template_screens: filterScreensBySurface(
+              parsed.data.catalog.template_screens ?? [],
+              'mobile',
+            ),
+          },
+        };
         // Guest boots to first screen; unauthenticated users see the
         // login-page screen (if one exists) so write actions have credentials.
-        const catalog = parsed.data.catalog;
+        const catalog = gated.catalog;
         const storedAuth = readStoredAuth();
         const login = catalog.template_screens?.find(
           (s) => s.app_map_screen_slug === 'login-page',
@@ -474,7 +488,7 @@ export function App() {
         const first = catalog.template_screens?.[0];
         const target = !storedAuth && login ? login : first;
         setSelectedScreenId(target ? target.id : null);
-        setState({ kind: 'ok', envelope: parsed.data });
+        setState({ kind: 'ok', envelope: gated });
       })
       .catch((err) => {
         setState({

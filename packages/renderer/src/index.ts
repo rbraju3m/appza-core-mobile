@@ -20,3 +20,4 @@ export {
   type FeedViewMode,
 } from './feedControls';
 export { ViewModePopover, openViewModePopover, type ViewModeOption } from './ViewModePopover';
+export { filterScreensBySurface } from './surface';

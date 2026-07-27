@@ -1,9 +1,11 @@
 export { BootstrapEnvelopeSchema, type BootstrapEnvelope } from './bootstrap';
 export {
   CatalogSchema,
+  AppSurfaceSchema,
   type Catalog,
   type Template,
   type TemplateScreen,
+  type AppSurface,
   type AppZet,
   type Superstructure,
   type SourceIntegration,

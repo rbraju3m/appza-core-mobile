@@ -57,12 +57,18 @@ const TemplateRowSchema = z
   })
   .passthrough();
 
+export const AppSurfaceSchema = z.enum(['plugin', 'mobile', 'both', 'none']);
+export type AppSurface = z.infer<typeof AppSurfaceSchema>;
+
 const TemplateScreenRowSchema = z
   .object({
     id: z.number().int(),
     template_id: z.number().int().optional(),
     app_map_screen_slug: z.string(),
     position: z.number().int().optional(),
+    // Author-tagged surface availability. 'both' = ship everywhere.
+    // Default keeps older snapshots without the column working.
+    surface: AppSurfaceSchema.default('both'),
     placements: z.array(z.record(z.unknown())).default([]),
     screen_tokens: TokenBagSchema.nullable().optional(),
     // Per-screen appbar override. Renderer prefers this over the template's

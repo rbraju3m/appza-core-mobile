@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { IonIcon } from '@ionic/react';
 import { iconNames, resolveIcon } from '@appza/renderer';
 
@@ -25,13 +26,37 @@ type Props = {
 export function IconPicker({ value, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+
+  // Portal the popover to <body> with position: fixed so it escapes
+  // .appza-props-panel-section's overflow:hidden (which was clipping
+  // the dropdown, making it look like it was "under" other layers).
+  useEffect(() => {
+    if (!open) return;
+    const update = () => {
+      if (triggerRef.current) {
+        setAnchorRect(triggerRef.current.getBoundingClientRect());
+      }
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (!rootRef.current) return;
-      if (!rootRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (rootRef.current?.contains(t)) return;
+      if (popRef.current?.contains(t)) return;
+      setOpen(false);
     };
     const onEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
@@ -56,6 +81,7 @@ export function IconPicker({ value, onChange }: Props) {
   return (
     <div className="appza-icon-picker" ref={rootRef}>
       <button
+        ref={triggerRef}
         type="button"
         className="appza-icon-picker-trigger"
         onClick={() => setOpen((o) => !o)}
@@ -89,8 +115,20 @@ export function IconPicker({ value, onChange }: Props) {
         </button>
       )}
 
-      {open && (
-        <div className="appza-icon-picker-pop" role="dialog" aria-label="Pick an icon">
+      {open && anchorRect && createPortal(
+        <div
+          ref={popRef}
+          className="appza-icon-picker-pop"
+          role="dialog"
+          aria-label="Pick an icon"
+          style={{
+            position: 'fixed',
+            top: anchorRect.bottom + 4,
+            left: anchorRect.left,
+            width: anchorRect.width,
+            zIndex: 10000,
+          }}
+        >
           <input
             type="search"
             className="appza-props-panel-input appza-icon-picker-search"
@@ -125,7 +163,8 @@ export function IconPicker({ value, onChange }: Props) {
               })
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

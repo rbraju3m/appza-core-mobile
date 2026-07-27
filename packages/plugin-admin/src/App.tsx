@@ -10,6 +10,7 @@ import {
 import {
   ActionProvider,
   ViewModePopover,
+  filterScreensBySurface,
   openViewModePopover,
   readDataPath,
   setFeedControls,
@@ -396,9 +397,22 @@ export function App() {
         });
         return;
       }
-      setState({ kind: 'ok', envelope: parsed.data });
+      // Surface-gate template_screens once at ingest so every downstream
+      // .find/.map/.filter already sees only rows tagged for this surface
+      // (or 'both'). Screens tagged 'mobile' won't render in the simulator.
+      const gated: BootstrapEnvelope = {
+        ...parsed.data,
+        catalog: {
+          ...parsed.data.catalog,
+          template_screens: filterScreensBySurface(
+            parsed.data.catalog.template_screens ?? [],
+            'plugin',
+          ),
+        },
+      };
+      setState({ kind: 'ok', envelope: gated });
       // Auto-select first screen on successful load.
-      const firstScreen = parsed.data.catalog.template_screens?.[0];
+      const firstScreen = gated.catalog.template_screens?.[0];
       setSelectedScreenId(firstScreen ? firstScreen.id : null);
     } catch (err) {
       setState({
