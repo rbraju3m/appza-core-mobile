@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionProvider,
+  PostOptionsPopover,
   ScreenRenderer,
   ViewModePopover,
   filterScreensBySurface,
+  openPostOptionsPopover,
   openViewModePopover,
   readDataPath,
+  setCatalogGlobal,
   setFeedControls,
+  tryHandlePostMenuAction,
   type ActionDispatch,
   type ActionInvocation,
+  type PostMenuItem,
   type ViewModeOption,
 } from '@appza/renderer';
 import {
@@ -357,6 +362,7 @@ type ActionDeps = {
   auth: StoredAuth | null;
   setAuth: (a: StoredAuth | null) => void;
   onError: (msg: string) => void;
+  onInfo: (msg: string) => void;
   reactedSet: Set<string>;
   openDeleteConfirm: (p: PendingDelete) => void;
   openCommentPanel: (p: CommentPanelState) => void;
@@ -377,6 +383,10 @@ export function App() {
   const [screenStack, setScreenStack] = useState<number[]>([]);
   const [auth, setAuthState] = useState<StoredAuth | null>(() => readStoredAuth());
   const [errorToast, setErrorToast] = useState<string | null>(null);
+  // Success/info toast — green, auto-clears after 2s. Used by the new post-menu
+  // action cases (copy_link, pin_top, pin_sidebar, disable_comments, report,
+  // edit) so a happy-path acknowledgement doesn't render in red.
+  const [infoToast, setInfoToast] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [deleteInFlight, setDeleteInFlight] = useState(false);
   const [commentPanel, setCommentPanel] = useState<CommentPanelState | null>(null);
@@ -451,6 +461,12 @@ export function App() {
   }, [errorToast]);
 
   useEffect(() => {
+    if (!infoToast) return;
+    const t = setTimeout(() => setInfoToast(null), 2000);
+    return () => clearTimeout(t);
+  }, [infoToast]);
+
+  useEffect(() => {
     const url = `${SITE_URL}/wp-json/appza/v1/bootstrap?template=${encodeURIComponent(TEMPLATE)}`;
     fetch(url, { headers: { Accept: 'application/json' } })
       .then(async (res) => {
@@ -500,6 +516,15 @@ export function App() {
 
   const envelope = state.kind === 'ok' ? state.envelope : null;
   const catalog = envelope?.catalog ?? null;
+
+  // Publish the catalog on a window global so PostOptionsPopover can look
+  // up each menu item's action defaults (endpoint / method / patch_key)
+  // at click time. Without this every non-copy_link menu action toasts
+  // "missing endpoint or patch_key" because the menu-item wiring only
+  // carries display metadata, not the HTTP shape.
+  useEffect(() => {
+    setCatalogGlobal(catalog);
+  }, [catalog]);
 
   const screen = useMemo<TemplateScreen | null>(() => {
     if (!catalog || selectedScreenId == null) return null;
@@ -670,6 +695,7 @@ export function App() {
         auth,
         setAuth,
         onError: setErrorToast,
+        onInfo: setInfoToast,
         reactedSet: reactedRef.current,
         openDeleteConfirm,
         openCommentPanel,
@@ -932,6 +958,7 @@ export function App() {
       </ActionProvider>
 
       <ViewModePopover />
+      <PostOptionsPopover />
 
       {errorToast && (
         <div
@@ -953,6 +980,29 @@ export function App() {
           onClick={() => setErrorToast(null)}
         >
           {errorToast}
+        </div>
+      )}
+
+      {infoToast && (
+        <div
+          role="status"
+          style={{
+            position: 'fixed',
+            bottom: 16,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#111827',
+            color: '#fff',
+            padding: '10px 14px',
+            borderRadius: 8,
+            fontSize: 13,
+            maxWidth: '90%',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+            zIndex: 80,
+          }}
+          onClick={() => setInfoToast(null)}
+        >
+          {infoToast}
         </div>
       )}
 
@@ -1232,6 +1282,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     auth,
     setAuth,
     onError,
+    onInfo,
     reactedSet,
     openDeleteConfirm,
     openCommentPanel,
@@ -1676,6 +1727,58 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         return;
       }
       openDeleteConfirm({ feedId, endpoint, method, bodyKey, title, message, cta });
+      return;
+    }
+
+    // ── Post 3-dot overflow menu ──────────────────────────────────────
+    // The 3-dot button on each post card fires on_tap_menu → post.options.
+    // We resolve the tapped button's DOM rect via the [data-appza-item-id]
+    // ancestor and open PostOptionsPopover with the catalog-defined items.
+    // Each menu row's click routes back through this dispatcher.
+    case 'post.options': {
+      const rawItems = Array.isArray(argRec.items) ? argRec.items : [];
+      const items = rawItems
+        .filter((i): i is Record<string, unknown> => isRecord(i))
+        .map((i) => i as unknown as PostMenuItem)
+        .filter((i) => typeof i.action_slug === 'string' && i.action_slug);
+      if (items.length === 0) {
+        onError('The post options menu has no entries wired.');
+        return;
+      }
+      const itemId =
+        itemRec && (typeof itemRec.id === 'number' || typeof itemRec.id === 'string')
+          ? String(itemRec.id)
+          : null;
+      // The 3-dot button lives inside the post-card wrapper stamped with
+      // data-appza-item-id. Falls back to the first on_tap_menu anchor when
+      // the item id is unknown (single-item screens like post detail).
+      const anchor = itemId
+        ? document.querySelector(
+            `[data-appza-item-id="${CSS.escape(itemId)}"] [data-appza-action="on_tap_menu"]`,
+          )
+        : document.querySelector('[data-appza-action="on_tap_menu"]');
+      openPostOptionsPopover(items, effectiveItem, anchor);
+      return;
+    }
+
+    case 'post.copy_link':
+    case 'post.pin_top':
+    case 'post.pin_sidebar':
+    case 'post.disable_comments':
+    case 'post.report':
+    case 'post.edit': {
+      // All six catalog-driven post-menu actions share the same shape and
+      // are implemented once in @appza/renderer/postMenuHandlers so the
+      // simulator + mobile stay identical. tryHandlePostMenuAction reads
+      // args from the catalog, resolves feed_id off the tapped item and
+      // fires the HTTP call (or copy-to-clipboard for post.copy_link).
+      const handled = tryHandlePostMenuAction(inv, {
+        auth,
+        authHeader: basicAuthHeader,
+        onError,
+        onInfo,
+      });
+      if (handled) return;
       return;
     }
 

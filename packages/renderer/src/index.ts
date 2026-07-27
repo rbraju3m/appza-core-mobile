@@ -20,4 +20,6 @@ export {
   type FeedViewMode,
 } from './feedControls';
 export { ViewModePopover, openViewModePopover, type ViewModeOption } from './ViewModePopover';
+export { PostOptionsPopover, openPostOptionsPopover, setCatalogGlobal, type PostMenuItem } from './PostOptionsPopover';
+export { tryHandlePostMenuAction, type PostMenuDeps, type StoredAuthLike } from './postMenuHandlers';
 export { filterScreensBySurface } from './surface';

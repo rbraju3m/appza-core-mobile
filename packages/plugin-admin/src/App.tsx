@@ -9,13 +9,18 @@ import {
 } from '@appza/schemas';
 import {
   ActionProvider,
+  PostOptionsPopover,
   ViewModePopover,
   filterScreensBySurface,
+  openPostOptionsPopover,
   openViewModePopover,
   readDataPath,
+  setCatalogGlobal,
   setFeedControls,
+  tryHandlePostMenuAction,
   type ActionDispatch,
   type ActionInvocation,
+  type PostMenuItem,
   type ViewModeOption,
 } from '@appza/renderer';
 
@@ -148,6 +153,18 @@ export function App() {
   // Auto-clears after 5s. Success paths clear it too via clearAuthMessage.
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const clearAuthMessage = useCallback(() => setAuthMessage(null), []);
+  // Post-menu toast — anchored inside the DeviceFrame viewport so success
+  // + error feedback for the 3-dot menu actions (Copy Link, Pin to top,
+  // Report, etc.) shows inside the phone preview rather than as a full-
+  // width red banner above the WP admin canvas.
+  const [menuToast, setMenuToast] = useState<{ message: string; kind: 'info' | 'error' } | null>(null);
+  useEffect(() => {
+    if (!menuToast) return;
+    const t = window.setTimeout(() => setMenuToast(null), menuToast.kind === 'error' ? 3500 : 2000);
+    return () => window.clearTimeout(t);
+  }, [menuToast]);
+  const showMenuInfo = useCallback((m: string) => setMenuToast({ message: m, kind: 'info' }), []);
+  const showMenuError = useCallback((m: string) => setMenuToast({ message: m, kind: 'error' }), []);
   useEffect(() => {
     if (!authMessage) return;
     const t = window.setTimeout(() => setAuthMessage(null), 5000);
@@ -428,6 +445,14 @@ export function App() {
   const appzets = catalog?.appzets ?? [];
   const superstructures = catalog?.superstructures ?? [];
 
+  // Publish the catalog on window so PostOptionsPopover can look up each
+  // menu item's action defaults at click time. See mobile App.tsx for
+  // context — without this the non-copy_link menu items resolve without
+  // their endpoint / patch_key / body_key defaults.
+  useEffect(() => {
+    setCatalogGlobal(catalog ?? null);
+  }, [catalog]);
+
   const currentScreen = useMemo<TemplateScreen | null>(() => {
     if (!selectedScreenId) return null;
     return screens.find((s) => s.id === selectedScreenId) ?? null;
@@ -613,6 +638,8 @@ export function App() {
         setAuth,
         onLoginError: (m) => setAuthMessage(m),
         onLoginSuccess: () => setAuthMessage(null),
+        onMenuInfo: showMenuInfo,
+        onMenuError: showMenuError,
         openImagePicker,
         pendingImages,
         clearPendingImages,
@@ -1498,10 +1525,39 @@ export function App() {
                       onError={(m) => setAuthMessage(m)}
                     />
                   ) : null}
+
+                  {menuToast && (
+                    <div
+                      className="appza-menu-toast"
+                      role="status"
+                      onClick={() => setMenuToast(null)}
+                      style={{
+                        position: 'absolute',
+                        bottom: 24,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        background: menuToast.kind === 'error' ? '#dc2626' : '#111827',
+                        color: '#fff',
+                        padding: '8px 14px',
+                        borderRadius: 999,
+                        fontSize: 12,
+                        maxWidth: '90%',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        boxShadow: '0 6px 20px rgba(0,0,0,0.25)',
+                        zIndex: 60,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {menuToast.message}
+                    </div>
+                  )}
                   </>
                 }
               />
               <ViewModePopover />
+              <PostOptionsPopover />
             </ActionProvider>
           ) : (
             <DeviceFrame
@@ -1711,6 +1767,8 @@ type AppModeActionDeps = {
   setAuth: (a: StoredAuth | null) => void;
   onLoginError: (message: string) => void;
   onLoginSuccess: () => void;
+  onMenuInfo: (message: string) => void;
+  onMenuError: (message: string) => void;
   openImagePicker: (target: { endpoint: string; method: string }) => void;
   pendingImages: string[];
   clearPendingImages: () => void;
@@ -2073,6 +2131,8 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     setAuth,
     onLoginError,
     onLoginSuccess,
+    onMenuInfo,
+    onMenuError,
     pendingImages,
     clearPendingImages,
     pendingVideo,
@@ -2405,6 +2465,56 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         return;
       }
       openDeleteConfirm({ feedId, endpoint, method, bodyKey, title, message, cta });
+      return;
+    }
+
+    // ── Post 3-dot overflow menu ──────────────────────────────────────
+    // Simulator preview only opens the popover; the individual post.*
+    // action cases (copy_link, report, edit, pin_top, pin_sidebar,
+    // disable_comments) are handled fully in the mobile shell. Tapping
+    // an item in the simulator will log a no-op warning — that's fine
+    // for preview UX, and matches what post.delete already does here.
+    case 'post.options': {
+      const rawItems = Array.isArray(argRec.items) ? argRec.items : [];
+      const items = rawItems
+        .filter((i): i is Record<string, unknown> => isRecord(i))
+        .map((i) => i as unknown as PostMenuItem)
+        .filter((i) => typeof i.action_slug === 'string' && i.action_slug);
+      if (items.length === 0) return;
+      const itemId =
+        itemRec && (typeof itemRec.id === 'number' || typeof itemRec.id === 'string')
+          ? String(itemRec.id)
+          : null;
+      const anchor = itemId
+        ? document.querySelector(
+            `[data-appza-item-id="${CSS.escape(itemId)}"] [data-appza-action="on_tap_menu"]`,
+          )
+        : document.querySelector('[data-appza-action="on_tap_menu"]');
+      openPostOptionsPopover(items, effectiveItem, anchor);
+      return;
+    }
+
+    // Six catalog-driven post-menu actions (copy_link, pin_top,
+    // pin_sidebar, disable_comments, report, edit) share their
+    // implementation with the mobile shell via @appza/renderer's
+    // tryHandlePostMenuAction. onLoginError doubles as info toast in the
+    // simulator since there's no separate success-message channel.
+    case 'post.copy_link':
+    case 'post.pin_top':
+    case 'post.pin_sidebar':
+    case 'post.disable_comments':
+    case 'post.report':
+    case 'post.edit': {
+      const handled = tryHandlePostMenuAction(inv, {
+        auth,
+        authHeader: basicAuthHeader,
+        // Route menu feedback through the in-frame toast (rendered inside
+        // DeviceFrame.overlaySlot) rather than the top-banner authMessage
+        // so success + error land inside the phone preview.
+        onError: onMenuError,
+        onInfo: onMenuInfo,
+      });
+      if (handled) return;
       return;
     }
 
