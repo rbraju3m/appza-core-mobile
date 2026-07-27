@@ -955,10 +955,16 @@ export function App() {
           catalog={catalog}
           customizations={customizationsForRender}
         />
+        {/*
+          Popovers must live INSIDE ActionProvider — PostOptionsPopover's
+          handlePick reads dispatch via useActionDispatch(), and outside
+          the provider that resolves to the module-level no-op that just
+          console.warns. On mobile the 3-dot menu opens but every tap
+          silently drops (Copy Link, Edit, Delete, etc. all no-op).
+        */}
+        <ViewModePopover />
+        <PostOptionsPopover />
       </ActionProvider>
-
-      <ViewModePopover />
-      <PostOptionsPopover />
 
       {errorToast && (
         <div
