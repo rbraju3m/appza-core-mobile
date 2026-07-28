@@ -1002,7 +1002,11 @@ export function App() {
   }, [refreshApp, menuOpen, refreshing, selectedScreenId]);
 
   if (state.kind === 'loading') {
-    return <div className="appza-mobile-loading">Loading…</div>;
+    return (
+      <div className="appza-mobile-loading" aria-busy="true" aria-live="polite">
+        <span className="appza-mobile-spinner" aria-hidden="true" />
+      </div>
+    );
   }
   if (state.kind === 'error') {
     return <div className="appza-mobile-error">{state.message}</div>;

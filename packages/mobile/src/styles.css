@@ -12,16 +12,28 @@ body {
   color: #111827;
 }
 
-.appza-mobile-loading,
-.appza-mobile-error {
-  padding: 32px 16px;
-  text-align: center;
-  color: #6b7280;
-  font-size: 0.95rem;
+.appza-mobile-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #ffffff;
+}
+
+.appza-mobile-spinner {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid rgba(67, 56, 202, 0.15);
+  border-top-color: #4338ca;
+  animation: appza-spin 0.9s linear infinite;
 }
 
 .appza-mobile-error {
+  padding: 32px 16px;
+  text-align: center;
   color: #b91c1c;
+  font-size: 0.95rem;
 }
 
 .appza-chrome-bar {

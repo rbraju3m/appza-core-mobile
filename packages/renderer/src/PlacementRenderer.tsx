@@ -342,10 +342,20 @@ export function PlacementRenderer({
   // subtree, resetting local component state like the video-embed's
   // `playing` flag, which reads as "video hides when clicked".
   if (dataState.loading && dataState.items.length === 0) {
+    const skeletonCount = isPaginated ? 3 : 1;
     return (
       <>
         {optionFetchers}
-        <div className="appza-renderer-loading" data-slug={appzet.slug}>Loading…</div>
+        <div
+          className="appza-renderer-skeleton-list"
+          data-slug={appzet.slug}
+          aria-busy="true"
+          aria-live="polite"
+        >
+          {Array.from({ length: skeletonCount }).map((_, i) => (
+            <AppzetSkeleton key={i} slug={appzet.slug} />
+          ))}
+        </div>
       </>
     );
   }
@@ -447,6 +457,25 @@ export function PlacementRenderer({
       )}
       </div>
     </>
+  );
+}
+
+/**
+ * Skeleton placeholder for an AppZet whose data is loading. The wrapper
+ * carries the AppZet's slug so per-slug CSS can shape the skeleton to
+ * match the real content (post-card = header row + body + media block;
+ * composer teaser = avatar + input pill; feed banner = wide block).
+ * Everything animates via the shared `appza-shimmer` keyframe defined
+ * in styles.css — no JS timing, purely CSS.
+ */
+function AppzetSkeleton({ slug }: { slug: string }) {
+  return (
+    <div className="appza-renderer-skeleton" data-slug={slug}>
+      <span className="appza-skel-line appza-skel-w-40" />
+      <span className="appza-skel-line appza-skel-w-70" />
+      <span className="appza-skel-line appza-skel-w-90" />
+      <span className="appza-skel-block" />
+    </div>
   );
 }
 
