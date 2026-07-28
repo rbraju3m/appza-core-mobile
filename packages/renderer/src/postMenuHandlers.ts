@@ -2,15 +2,17 @@ import { readDataPath } from './dataFetch';
 import type { ActionInvocation } from './actionContext';
 
 /**
- * Shared implementation of the six catalog-driven post-menu actions —
- * copy_link, pin_top, pin_sidebar, disable_comments, report, edit.
+ * Shared implementation of the five catalog-driven post-menu actions —
+ * copy_link, pin_top, pin_sidebar, disable_comments, report.
  *
  * Both the Capacitor mobile shell + the WP-admin simulator's app-mode
  * dispatcher call {@link tryHandlePostMenuAction} from their post.*
  * cases; keeping the logic here means the two dispatchers never drift.
  * `post.options` (opens the popover) + `post.delete` (uses each app's
  * own confirm-modal state) stay in the app-side dispatchers because
- * they need shell-specific DOM/state helpers.
+ * they need shell-specific DOM/state helpers. `post.edit` also lives in
+ * each app's dispatcher — it navigates to edit-post-page and dispatches
+ * from that screen's appbar CTA with form access.
  */
 
 export type StoredAuthLike = { username: string; token: string };
@@ -188,50 +190,6 @@ export function tryHandlePostMenuAction(
       void sendJson(endpoint, method, body, auth, authHeader).then((result) => {
         if (result.ok) onInfo(toastMsg);
         else onError(result.error);
-      });
-      return true;
-    }
-
-    case 'post.edit': {
-      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
-      const method =
-        typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
-      const bodyKey =
-        typeof argRec.body_key === 'string' && argRec.body_key ? argRec.body_key : 'id';
-      const feedIdPath =
-        typeof argRec.feed_id_path === 'string' ? argRec.feed_id_path : 'data.id';
-      if (!endpoint) {
-        onError('post.edit is missing its endpoint.');
-        return true;
-      }
-      if (!auth) {
-        onError('Please sign in to edit.');
-        return true;
-      }
-      const feedId = resolveFeedId(feedIdPath, itemRec);
-      if (feedId === null) {
-        onError('Could not identify which post to edit.');
-        return true;
-      }
-      const currentMessage = readDataPath(effectiveItem, 'data.message');
-      const currentTitle = readDataPath(effectiveItem, 'data.title');
-      const nextMessage = window.prompt(
-        'Edit post message:',
-        typeof currentMessage === 'string' ? currentMessage : '',
-      );
-      if (nextMessage === null) return true;
-      const body: Record<string, unknown> = {
-        [bodyKey]: feedId,
-        message: nextMessage,
-      };
-      if (typeof currentTitle === 'string' && currentTitle) body.title = currentTitle;
-      void sendJson(endpoint, method, body, auth, authHeader).then((result) => {
-        if (result.ok) {
-          onInfo('Post updated');
-          dispatchRefreshFeed();
-        } else {
-          onError(result.error);
-        }
       });
       return true;
     }

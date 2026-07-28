@@ -7,6 +7,7 @@ import {
   filterScreensBySurface,
   openPostOptionsPopover,
   openViewModePopover,
+  prefillPostInformationFromContext,
   readDataPath,
   setCatalogGlobal,
   setFeedControls,
@@ -273,6 +274,25 @@ function collectParams(
   return out;
 }
 
+/**
+ * Resolve a feed id off a screen-mount context blob (bound feed post
+ * item stashed by nav.push(pass_item_as_context=true)). Matches the
+ * feed_id_path grammar used by post.delete/report — `data.<key>` or
+ * plain `<key>`. Returns null when the value can't be coerced.
+ */
+function resolveFeedIdFromContext(ctx: unknown, feedIdPath: string): number | null {
+  if (!isRecord(ctx)) return null;
+  const key = feedIdPath.startsWith('data.') ? feedIdPath.slice(5) : feedIdPath;
+  const source =
+    isRecord((ctx as Record<string, unknown>).data)
+      ? ((ctx as Record<string, unknown>).data as Record<string, unknown>)
+      : (ctx as Record<string, unknown>);
+  const raw = source[key];
+  if (typeof raw === 'number') return raw;
+  if (typeof raw === 'string' && raw !== '' && !Number.isNaN(Number(raw))) return Number(raw);
+  return null;
+}
+
 function findAppzetForAction(
   catalog: Catalog | null,
   currentScreenId: number | null,
@@ -320,9 +340,15 @@ function findAppzetForAction(
   return null;
 }
 
+type PendingPollOption = { label: string; slug?: string };
+// Poll (FC "survey") for the current draft. Options carry the server-issued
+// slug when they came from an existing post being edited — FC's edit
+// endpoint rejects updates that drop or blank an existing slug (see
+// fluent-community FeedsHelper::getSurveyOptionsUpdateError). Newly-added
+// options omit slug (server assigns one on save).
 type PendingPoll = {
   type: 'single_choice' | 'multi_choice';
-  options: string[];
+  options: PendingPollOption[];
 };
 
 type PendingVideo = {
@@ -375,12 +401,30 @@ type ActionDeps = {
   clearPendingVideo: () => void;
   pendingPoll: PendingPoll | null;
   clearPendingPoll: () => void;
+  // Set by nav.push(pass_item_as_context=true); consumed by post.edit to
+  // resolve feed_id off the passed post (composer form has no id field).
+  screenContextRef: React.MutableRefObject<Record<string, unknown>>;
+  // Cleared by nav.push so a fresh Edit tap re-prefills; read by the
+  // prefill useEffect to skip when already done for this visit.
+  screenPrefilledRef: React.MutableRefObject<Record<string, true>>;
 };
 
 export function App() {
   const [state, setState] = useState<FetchState>({ kind: 'loading' });
   const [selectedScreenId, setSelectedScreenId] = useState<number | null>(null);
   const [screenStack, setScreenStack] = useState<number[]>([]);
+  // Screen-mount context: seeded by nav.push(pass_item_as_context=true).
+  // Keyed by target screen slug. Read by (a) the prefill effect that
+  // fills fc-post-information on edit-post-page and (b) the post.edit
+  // HTTP handler to resolve feed_id from the passed post (composer form
+  // doesn't itself carry the id). Ref-not-state so writes don't rerender.
+  // Context PERSISTS across re-renders on the same screen — post.edit
+  // needs it at Save time.
+  const screenContextRef = useRef<Record<string, unknown>>({});
+  // Companion "already prefilled" flag. Prevents the prefill effect from
+  // re-writing when currentScreen's memo re-computes; nav.push clears
+  // the flag for a fresh Edit tap.
+  const screenPrefilledRef = useRef<Record<string, true>>({});
   const [auth, setAuthState] = useState<StoredAuth | null>(() => readStoredAuth());
   const [errorToast, setErrorToast] = useState<string | null>(null);
   // Success/info toast — green, auto-clears after 2s. Used by the new post-menu
@@ -530,6 +574,27 @@ export function App() {
     if (!catalog || selectedScreenId == null) return null;
     return catalog.template_screens?.find((s) => s.id === selectedScreenId) ?? null;
   }, [catalog, selectedScreenId]);
+
+  // Prefill composer forms from screen-mount context set by
+  // nav.push(pass_item_as_context=true). Currently only
+  // fc-post-information on edit-post-page uses this. Guarded by
+  // screenPrefilledRef so a screen memo re-compute doesn't retrigger
+  // the write and overwrite user edits. Context stays put — post.edit
+  // reads it at Save time to resolve feed_id.
+  useEffect(() => {
+    if (!screen) return;
+    const slug = screen.app_map_screen_slug;
+    if (!slug) return;
+    const ctx = screenContextRef.current[slug];
+    if (ctx == null) return;
+    if (screenPrefilledRef.current[slug]) return;
+    screenPrefilledRef.current[slug] = true;
+    prefillPostInformationFromContext(ctx, {
+      setImages: setPendingImages,
+      setVideo: setPendingVideo,
+      setPoll: setPendingPoll,
+    });
+  }, [screen]);
 
   // Overlay the live `now_label` on fc-user-avatar via the customizations
   // blob's appzet.<slug>.default_props_override. Matches plugin-admin's
@@ -708,6 +773,8 @@ export function App() {
         clearPendingVideo,
         pendingPoll,
         clearPendingPoll,
+        screenContextRef,
+        screenPrefilledRef,
       });
     },
     [
@@ -1152,7 +1219,7 @@ export function App() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span>
                 📊 {pendingPoll.type === 'single_choice' ? 'Single' : 'Multi'} ·{' '}
-                {pendingPoll.options.filter((o) => o.trim()).length} opts
+                {pendingPoll.options.filter((o) => o.label.trim()).length} opts
               </span>
               <button
                 type="button"
@@ -1295,6 +1362,8 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     openImagePicker,
     openPollModal,
     attachVideo,
+    screenContextRef,
+    screenPrefilledRef,
   } = deps;
   const { action_slug, args, item, binding_root } = inv;
   const argRec = (args ?? {}) as Record<string, unknown>;
@@ -1312,6 +1381,16 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       if (!target) {
         console.warn('[appza-mobile] nav.push target not found:', targetSlug);
         return;
+      }
+      // Carry the tapped item into the target screen's context BEFORE
+      // the setSelectedScreenId — the prefill effect that watches the
+      // screen sees it on the very first render pass, so the composer
+      // form comes up already populated with no empty-form flash. Also
+      // clear the "already prefilled" flag so a fresh Edit tap on a
+      // different post re-prefills instead of skipping.
+      if (argRec.pass_item_as_context === true && effectiveItem != null) {
+        screenContextRef.current[targetSlug] = effectiveItem;
+        delete screenPrefilledRef.current[targetSlug];
       }
       if (currentScreenId != null) {
         setScreenStack((prev) => [...prev, currentScreenId]);
@@ -1640,13 +1719,14 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         body.media = { type: 'oembed', url: deps.pendingVideo.url };
         body.content_type = 'oembed';
       }
-      if (deps.pendingPoll && deps.pendingPoll.options.filter((o) => o.trim()).length >= 2) {
+      if (deps.pendingPoll && deps.pendingPoll.options.filter((o) => o.label.trim()).length >= 2) {
+        // post.create — server assigns fresh slugs; omit any that may
+        // have leaked in from a stale edit state.
         body.survey = {
           type: deps.pendingPoll.type,
           options: deps.pendingPoll.options
-            .map((label) => label.trim())
-            .filter((label) => label.length > 0)
-            .map((label) => ({ label })),
+            .filter((o) => o.label.trim().length > 0)
+            .map((o) => ({ label: o.label.trim() })),
         };
         body.content_type = 'survey';
       }
@@ -1771,13 +1851,12 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     case 'post.pin_top':
     case 'post.pin_sidebar':
     case 'post.disable_comments':
-    case 'post.report':
-    case 'post.edit': {
-      // All six catalog-driven post-menu actions share the same shape and
+    case 'post.report': {
+      // Five catalog-driven post-menu actions share the same shape and
       // are implemented once in @appza/renderer/postMenuHandlers so the
-      // simulator + mobile stay identical. tryHandlePostMenuAction reads
-      // args from the catalog, resolves feed_id off the tapped item and
-      // fires the HTTP call (or copy-to-clipboard for post.copy_link).
+      // simulator + mobile stay identical. Edit is NOT in this set — it
+      // dispatches from the appbar CTA on edit-post-page (see post.edit
+      // case below).
       const handled = tryHandlePostMenuAction(inv, {
         auth,
         authHeader: basicAuthHeader,
@@ -1785,6 +1864,123 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         onInfo,
       });
       if (handled) return;
+      return;
+    }
+
+    case 'post.edit': {
+      // Real HTTP feed update, dispatched from fc-edit-post-appbar's
+      // Save button on edit-post-page. Body includes an `id` field
+      // resolved from the screen-mount context (the post passed by the
+      // 3-dot menu's nav.push) — composer form itself has no id. On
+      // success we nav.back and trigger a feed refresh.
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+      const bodyKey =
+        typeof argRec.body_key === 'string' && argRec.body_key ? argRec.body_key : 'id';
+      const feedIdPath =
+        typeof argRec.feed_id_path === 'string' ? argRec.feed_id_path : 'data.id';
+      const paramMap =
+        argRec.param_map && typeof argRec.param_map === 'object'
+          ? (argRec.param_map as Record<string, unknown>)
+          : undefined;
+      const composerAppzet =
+        (typeof argRec.form_appzet_slug === 'string' && argRec.form_appzet_slug) ||
+        'fc-post-information';
+      if (!endpoint) {
+        onError('post.edit is missing its endpoint.');
+        return;
+      }
+      if (!auth) {
+        onError('Please sign in to edit.');
+        return;
+      }
+      const screenSlug =
+        catalog?.template_screens?.find((s) => s.id === currentScreenId)?.app_map_screen_slug ??
+        null;
+      const ctx = screenSlug ? screenContextRef.current[screenSlug] : null;
+      const feedId = resolveFeedIdFromContext(ctx ?? effectiveItem, feedIdPath);
+      if (feedId === null) {
+        onError('Could not identify which post to update.');
+        return;
+      }
+      const body = collectParams(composerAppzet as string, paramMap);
+      if (!body.message || (typeof body.message === 'string' && !body.message.trim())) {
+        onError('Write something to post.');
+        return;
+      }
+      body[bodyKey] = feedId;
+      // Attach media the same way post.create does — otherwise Save on
+      // a post that had images / video / poll would drop them because
+      // the update endpoint reads the same shape as create. On
+      // edit-post-page the prefill effect hydrated pendingImages /
+      // pendingVideo / pendingPoll from the item's meta, so submitting
+      // untouched round-trips the existing media. Precedence: survey >
+      // oembed > image > text (matches post.create).
+      if (deps.pendingImages.length > 0) {
+        body.media_images = deps.pendingImages.map((u) => ({ url: u, provider: 'uploader' }));
+        body.content_type = 'image';
+      }
+      if (deps.pendingVideo) {
+        body.media = { type: 'oembed', url: deps.pendingVideo.url };
+        body.content_type = 'oembed';
+      }
+      if (deps.pendingPoll && deps.pendingPoll.options.filter((o) => o.label.trim()).length >= 2) {
+        // post.edit MUST forward the server-issued slug on every option
+        // that had one — FC's FeedsHelper::getSurveyOptionsUpdateError
+        // rejects updates that drop an existing slug or blank its label.
+        body.survey = {
+          type: deps.pendingPoll.type,
+          options: deps.pendingPoll.options
+            .filter((o) => o.label.trim().length > 0)
+            .map((o) => (o.slug ? { label: o.label.trim(), slug: o.slug } : { label: o.label.trim() })),
+        };
+        body.content_type = 'survey';
+      }
+      void (async () => {
+        try {
+          const res = await fetch(endpoint, {
+            method,
+            credentials: 'omit',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              Authorization: basicAuthHeader(auth),
+            },
+            body: JSON.stringify(body),
+          });
+          const json = await res.json().catch(() => null);
+          const status =
+            json && typeof json === 'object' && 'response' in json
+              ? ((json as Record<string, unknown>).response as
+                  | Record<string, unknown>
+                  | undefined)
+              : undefined;
+          const httpOk = res.ok;
+          const bodyOk = !status || status.status === 200;
+          if (!httpOk || !bodyOk) {
+            const msg =
+              (status && typeof status.message === 'string' && status.message) ||
+              (json && typeof (json as Record<string, unknown>).message === 'string'
+                ? (json as Record<string, string>).message
+                : null) ||
+              `Update failed (HTTP ${res.status})`;
+            onError(msg);
+            return;
+          }
+          deps.clearPendingImages();
+          deps.clearPendingVideo();
+          deps.clearPendingPoll();
+          setScreenStack((prev) => {
+            if (prev.length === 0) return prev;
+            const rest = prev.slice(0, -1);
+            setSelectedScreenId(prev[prev.length - 1] ?? null);
+            return rest;
+          });
+          triggerFeedRefresh();
+        } catch (err) {
+          onError(err instanceof Error ? err.message : String(err));
+        }
+      })();
       return;
     }
 
@@ -2027,26 +2223,38 @@ function PollBuilderModal({
   const [type, setType] = useState<'single_choice' | 'multi_choice'>(
     initial?.type ?? 'single_choice',
   );
-  const [options, setOptions] = useState<string[]>(() => {
-    const base = initial?.options ?? ['', ''];
-    return base[base.length - 1] === '' ? base : [...base, ''];
+  const [options, setOptions] = useState<PendingPollOption[]>(() => {
+    const base = initial?.options ?? [{ label: '' }, { label: '' }];
+    return base.length && base[base.length - 1]!.label === ''
+      ? base
+      : [...base, { label: '' }];
   });
-  const nonEmpty = options.filter((o) => o.trim().length > 0);
-  const canSave = nonEmpty.length >= 2;
+  // Options with a slug came from the server (existing poll being
+  // edited). FC's edit endpoint rejects updates that drop them or blank
+  // their label — the ✕ button is hidden for those rows + Save blocks
+  // if any slug'd row has an empty label.
+  const missingExistingLabel = options.some(
+    (o) => !!o.slug && o.label.trim().length === 0,
+  );
+  const nonEmptyCount = options.filter((o) => o.label.trim().length > 0).length;
+  const canSave = nonEmptyCount >= 2 && !missingExistingLabel;
 
   function updateOption(idx: number, value: string) {
     setOptions((prev) => {
       const next = [...prev];
-      next[idx] = value;
-      if (idx === next.length - 1 && value.trim().length > 0) next.push('');
+      next[idx] = { ...next[idx]!, label: value };
+      if (idx === next.length - 1 && value.trim().length > 0) next.push({ label: '' });
       return next;
     });
   }
   function removeOption(idx: number) {
     setOptions((prev) => {
+      if (prev[idx]?.slug) return prev; // existing option — never remove
       const next = prev.filter((_, i) => i !== idx);
-      if (next.length === 0 || next[next.length - 1] !== '') next.push('');
-      while (next.length < 2) next.push('');
+      if (next.length === 0 || next[next.length - 1]!.label !== '') {
+        next.push({ label: '' });
+      }
+      while (next.length < 2) next.push({ label: '' });
       return next;
     });
   }
@@ -2105,42 +2313,53 @@ function PollBuilderModal({
           </label>
         </fieldset>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {options.map((opt, idx) => (
-            <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <input
-                type="text"
-                value={opt}
-                placeholder={`Option ${idx + 1}`}
-                onChange={(e) => updateOption(idx, e.target.value)}
-                style={{
-                  flex: 1,
-                  padding: '8px 10px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: 6,
-                  fontSize: 13,
-                }}
-              />
-              {options.length > 2 && idx < options.length - 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeOption(idx)}
-                  aria-label={`Remove option ${idx + 1}`}
+          {options.map((opt, idx) => {
+            const isExisting = !!opt.slug;
+            const removable =
+              !isExisting && options.length > 2 && idx < options.length - 1;
+            return (
+              <div key={opt.slug ?? `new:${idx}`} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input
+                  type="text"
+                  value={opt.label}
+                  placeholder={`Option ${idx + 1}`}
+                  onChange={(e) => updateOption(idx, e.target.value)}
                   style={{
-                    border: 'none',
-                    background: '#f3f4f6',
-                    borderRadius: 999,
-                    width: 24,
-                    height: 24,
-                    cursor: 'pointer',
-                    fontSize: 14,
+                    flex: 1,
+                    padding: '8px 10px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    background: isExisting && opt.label.trim() === '' ? '#fef2f2' : '#fff',
                   }}
-                >
-                  ×
-                </button>
-              )}
-            </div>
-          ))}
+                />
+                {removable && (
+                  <button
+                    type="button"
+                    onClick={() => removeOption(idx)}
+                    aria-label={`Remove option ${idx + 1}`}
+                    style={{
+                      border: 'none',
+                      background: '#f3f4f6',
+                      borderRadius: 999,
+                      width: 24,
+                      height: 24,
+                      cursor: 'pointer',
+                      fontSize: 14,
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
+        {missingExistingLabel && (
+          <p style={{ margin: '8px 0 0', fontSize: 12, color: '#dc2626' }}>
+            Existing options can't be left empty — restore the label or the poll can't be saved.
+          </p>
+        )}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
           <button
             type="button"
@@ -2159,7 +2378,16 @@ function PollBuilderModal({
           <button
             type="button"
             disabled={!canSave}
-            onClick={() => onSave({ type, options: nonEmpty })}
+            onClick={() => {
+              // Drop trailing empty rows from the saved shape; keep any
+              // slug'd row even if somehow empty (canSave already blocks
+              // that path — defense-in-depth so an existing option never
+              // disappears through the sanitizer).
+              const cleaned = options.filter(
+                (o) => o.slug || o.label.trim().length > 0,
+              );
+              onSave({ type, options: cleaned });
+            }}
             style={{
               border: 'none',
               background: canSave ? '#3b82f6' : '#93c5fd',

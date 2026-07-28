@@ -22,4 +22,8 @@ export {
 export { ViewModePopover, openViewModePopover, type ViewModeOption } from './ViewModePopover';
 export { PostOptionsPopover, openPostOptionsPopover, setCatalogGlobal, type PostMenuItem } from './PostOptionsPopover';
 export { tryHandlePostMenuAction, type PostMenuDeps, type StoredAuthLike } from './postMenuHandlers';
+export {
+  prefillPostInformationFromContext,
+  type PrefillMediaSetters,
+} from './postInformationPrefill';
 export { filterScreensBySurface } from './surface';
