@@ -19,6 +19,14 @@ export {
   type FeedControls,
   type FeedViewMode,
 } from './feedControls';
+export {
+  getSpacesControls,
+  setSpacesControls,
+  useSpacesControls,
+  type SpacesControls,
+  type SpacesTab,
+  type SpacesSort,
+} from './spacesControls';
 export { ViewModePopover, openViewModePopover, type ViewModeOption } from './ViewModePopover';
 export { PostOptionsPopover, openPostOptionsPopover, setCatalogGlobal, type PostMenuItem } from './PostOptionsPopover';
 export { tryHandlePostMenuAction, type PostMenuDeps, type StoredAuthLike } from './postMenuHandlers';

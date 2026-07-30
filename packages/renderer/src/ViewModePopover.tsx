@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { IonIcon } from '@ionic/react';
 import { setFeedControls, type FeedViewMode } from './feedControls';
+import { setSpacesControls, type SpacesSort } from './spacesControls';
 import { resolveIcon } from './PrimitiveRenderer';
 
 // Floating popover anchored to a DOM element, with a small list of
@@ -21,7 +22,7 @@ export type ViewModeOption = {
 
 const OPEN_EVENT = 'appza:open-view-mode-popover';
 
-export type PopoverStateKey = 'sort' | 'viewMode';
+export type PopoverStateKey = 'sort' | 'viewMode' | 'spaces_sort';
 
 type OpenDetail = {
   options: ViewModeOption[];
@@ -104,6 +105,10 @@ export function ViewModePopover() {
   const handlePick = (value: string) => {
     if (detail.stateKey === 'sort') {
       setFeedControls({ sort: value });
+    } else if (detail.stateKey === 'spaces_sort') {
+      if (value === 'alphabetical' || value === 'members' || value === 'recent') {
+        setSpacesControls({ sort: value as SpacesSort });
+      }
     } else if (value === 'timeline' || value === 'card' || value === 'list') {
       setFeedControls({ viewMode: value as FeedViewMode });
     }

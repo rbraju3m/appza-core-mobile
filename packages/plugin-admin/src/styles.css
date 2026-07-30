@@ -1489,6 +1489,22 @@ body {
 .appza-center-app-mode .appza-renderer-appzet-clickable {
   outline: none !important;
 }
+/* Spaces screen: sim-side suppression of design-time primitive outlines
+ * so the rendered output matches the production Capacitor app 1:1 even
+ * in Edit mode. Selection still works via Sidebar → Primitive picker.
+ * Scoped to the screen slug so other screens keep their edit affordances. */
+.appza-device-viewport .appza-renderer-app[data-screen-slug="spaces"] [data-appza-primitive-path],
+.appza-device-viewport .appza-renderer-app[data-screen-slug="spaces"] [data-appza-primitive-path]:hover,
+.appza-device-viewport .appza-renderer-app[data-screen-slug="spaces"] [data-appza-primitive-path].is-selected-primitive {
+  outline: none !important;
+  box-shadow: none !important;
+  cursor: default !important;
+}
+.appza-device-viewport .appza-renderer-app[data-screen-slug="spaces"] .appza-renderer-appzet-clickable,
+.appza-device-viewport .appza-renderer-app[data-screen-slug="spaces"] .appza-renderer-appzet-clickable:hover,
+.appza-device-viewport .appza-renderer-app[data-screen-slug="spaces"] .appza-renderer-appzet-clickable.is-selected {
+  outline: none !important;
+}
 /* Clickable elements (buttons, actionable SS children) get a pointer
    cursor so App mode reads as interactive where interactions actually fire. */
 .appza-center-app-mode .appza-renderer-ss-child-actionable,

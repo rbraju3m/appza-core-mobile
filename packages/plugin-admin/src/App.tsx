@@ -18,6 +18,7 @@ import {
   readDataPath,
   setCatalogGlobal,
   setFeedControls,
+  setSpacesControls,
   tryHandlePostMenuAction,
   type ActionDispatch,
   type ActionInvocation,
@@ -3118,6 +3119,83 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         '[data-appza-appzet-slug="fc-feed-toolbar"][data-child-index="1"]',
       );
       openViewModePopover(options, anchor);
+      return;
+    }
+
+    case 'spaces.set_tab': {
+      // Tab button tapped. `value` comes from either the button's declared
+      // value prop (read from inv.item.value on the tapped item context) or
+      // an explicit runtime value arg. Writes to spacesControls.tab;
+      // ScreenRenderer re-evaluates placement visible_when against
+      // state.spaces_tab.
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      // For fc-spaces-tabs the SS declares children[0..1].value ('all' | 'my'),
+      // which the primitive stamps onto the click invocation via inv.item.
+      // Fall back to reading the child's rendered text as a last resort.
+      const picked = (runtimeValue ?? itemValue ?? '').toString().toLowerCase();
+      if (picked === 'all' || picked === 'my') {
+        setSpacesControls({ tab: picked });
+      } else {
+        console.warn('[appza-admin/app-mode] spaces.set_tab: no picked value', {
+          argRec,
+          item,
+        });
+      }
+      return;
+    }
+
+    case 'spaces.set_search': {
+      // Fires on every keystroke from ion-input. The value is threaded
+      // through inv.item.value payload the PrimitiveRenderer stamps on
+      // input events.
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      const value = runtimeValue ?? itemValue ?? '';
+      setSpacesControls({ search: value });
+      return;
+    }
+
+    case 'spaces.set_sort': {
+      // Same popover pattern as feed.set_sort. Anchored to the toolbar's
+      // sort button (child index 1 on fc-spaces-toolbar).
+      const rawOptions = Array.isArray(argRec.options) ? argRec.options : [];
+      const options: ViewModeOption[] = rawOptions
+        .filter((o): o is Record<string, unknown> => isRecord(o))
+        .map((o) => ({
+          value: typeof o.value === 'string' ? o.value : '',
+          label: typeof o.label === 'string' ? o.label : '',
+          icon: typeof o.icon === 'string' ? o.icon : undefined,
+        }))
+        .filter((o) => o.value && o.label);
+      const anchor = document.querySelector(
+        '[data-appza-appzet-slug="fc-spaces-toolbar"][data-child-index="1"]',
+      );
+      openViewModePopover(options, anchor, 'spaces_sort');
+      return;
+    }
+
+    case 'space.join': {
+      // Sim shortcut — real endpoint fires in mobile shell. Stamp a
+      // synthetic space_pivot onto the tapped item so the CTA swaps to
+      // View Space immediately; the real endpoint call the mobile shell
+      // makes returns the same shape after cache TTL.
+      if (isRecord(effectiveItem)) {
+        (effectiveItem as Record<string, unknown>).space_pivot = { status: 'active' };
+      }
+      console.info('[appza-admin/app-mode] space.join dispatched (sim: no HTTP):', argRec);
+      window.dispatchEvent(new CustomEvent('appza:refresh-data'));
+      return;
+    }
+
+    case 'space.leave': {
+      if (isRecord(effectiveItem)) {
+        delete (effectiveItem as Record<string, unknown>).space_pivot;
+      }
+      console.info('[appza-admin/app-mode] space.leave dispatched (sim: no HTTP):', argRec);
+      window.dispatchEvent(new CustomEvent('appza:refresh-data'));
       return;
     }
 

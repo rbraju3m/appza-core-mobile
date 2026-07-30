@@ -8,6 +8,7 @@ import { isRecord, readOverride, resolveOverridableColumn } from './resolveOverr
 import { layoutStyleToCss } from './layoutStyle';
 import { useActionDispatch, type ActionInvocation } from './actionContext';
 import { useFeedControls } from './feedControls';
+import { useSpacesControls } from './spacesControls';
 import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
 
 /**
@@ -95,6 +96,11 @@ export function PlacementRenderer({
   // the swap would fight the memoized derivations below. feedSort is
   // consumed by useDataSourcePaged further down (fc-feed order_by_type).
   const { viewMode: feedViewMode, sort: feedSort } = useFeedControls();
+  // spacesControls drives client-side search + sort on the space list
+  // AppZets (fc-space-card / fc-space-card-my). Read unconditionally so
+  // hook order stays stable; only applied below when the current AppZet's
+  // data source is spaces-scoped.
+  const { tab: spacesTab, search: spacesSearch, sort: spacesSort } = useSpacesControls();
   const requestedAppzet = catalogIndex.appzetBySlug.get(appzetSlug);
   const variantSlug =
     requestedAppzet && VIEW_MODE_VARIANTS[requestedAppzet.slug]
@@ -318,6 +324,7 @@ export function PlacementRenderer({
         <div
           className={wrapperClass}
           data-slug={appzet.slug}
+          data-spaces-active-tab={appzet.slug === 'fc-spaces-tabs' ? spacesTab : undefined}
           style={spacingStyle(spacing)}
           onClick={handleClick}
         >
@@ -381,7 +388,53 @@ export function PlacementRenderer({
     );
   }
 
-  const items = dataState.items.length > 0 ? dataState.items : [{}];
+  // Spaces list: apply client-side search + sort against spacesControls.
+  // Scoped by data source slug (fc-spaces-all / fc-spaces-my) so other
+  // AppZets sharing the list layout aren't affected. Search matches
+  // title OR description (case-insensitive substring). Sort keys:
+  // alphabetical (title A→Z), members (members_count desc), recent
+  // (created_at desc; falls back to id desc when timestamp is missing).
+  let filteredItems = dataState.items;
+  const dsSlug = dataSource?.slug ?? '';
+  if (dsSlug === 'fc-spaces-all' || dsSlug === 'fc-spaces-my') {
+    if (spacesSearch && spacesSearch.trim().length > 0) {
+      const needle = spacesSearch.toLowerCase();
+      filteredItems = filteredItems.filter((it) => {
+        if (!it || typeof it !== 'object') return false;
+        const rec = it as Record<string, unknown>;
+        const title = typeof rec.title === 'string' ? rec.title.toLowerCase() : '';
+        const desc = typeof rec.description === 'string' ? rec.description.toLowerCase() : '';
+        return title.includes(needle) || desc.includes(needle);
+      });
+    }
+    filteredItems = [...filteredItems].sort((a, b) => {
+      const ra = (a ?? {}) as Record<string, unknown>;
+      const rb = (b ?? {}) as Record<string, unknown>;
+      switch (spacesSort) {
+        case 'members': {
+          const ma = typeof ra.members_count === 'number' ? ra.members_count : Number(ra.members_count ?? 0) || 0;
+          const mb = typeof rb.members_count === 'number' ? rb.members_count : Number(rb.members_count ?? 0) || 0;
+          return mb - ma;
+        }
+        case 'recent': {
+          const ta = typeof ra.created_at === 'string' ? ra.created_at : '';
+          const tb = typeof rb.created_at === 'string' ? rb.created_at : '';
+          if (ta && tb) return tb.localeCompare(ta);
+          const ia = typeof ra.id === 'number' ? ra.id : Number(ra.id ?? 0) || 0;
+          const ib = typeof rb.id === 'number' ? rb.id : Number(rb.id ?? 0) || 0;
+          return ib - ia;
+        }
+        case 'alphabetical':
+        default: {
+          const ta = typeof ra.title === 'string' ? ra.title : '';
+          const tb = typeof rb.title === 'string' ? rb.title : '';
+          return ta.localeCompare(tb);
+        }
+      }
+    });
+  }
+
+  const items = filteredItems.length > 0 ? filteredItems : [{}];
   const ssChildren = readChildren(ss);
 
   return (
@@ -392,6 +445,7 @@ export function PlacementRenderer({
         data-slug={appzet.slug}
         data-view-mode={variantSlug ? feedViewMode : undefined}
         data-appza-swap-from={variantSlug ? appzetSlug : undefined}
+        data-spaces-active-tab={appzet.slug === 'fc-spaces-tabs' ? spacesTab : undefined}
       >
       {items.map((item, idx) => {
         // Enrich the raw item with computed viewer-scoped fields (e.g.

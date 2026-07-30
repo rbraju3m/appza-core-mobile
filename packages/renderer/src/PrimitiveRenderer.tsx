@@ -84,7 +84,11 @@ import {
   informationCircle,
   chatbubbleEllipsesOutline,
   flagOutline,
+  globe,
+  globeOutline,
   informationCircleOutline,
+  lockClosed,
+  lockClosedOutline,
   link,
   linkOutline,
   pencilOutline,
@@ -245,6 +249,10 @@ const ICON_REGISTRY: Record<string, string> = {
   'link-outline': linkOutline,
   'chatbubble-ellipses-outline': chatbubbleEllipsesOutline,
   'flag-outline': flagOutline,
+  globe,
+  'globe-outline': globeOutline,
+  'lock-closed': lockClosed,
+  'lock-closed-outline': lockClosedOutline,
   'pencil-outline': pencilOutline,
   'pin-outline': pinOutline,
   'bar-chart': barChart,
@@ -655,6 +663,18 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
 
     case 'IonChip':
       return <IonChip color={readString(overrides, 'color')}>{label}</IonChip>;
+
+    case 'IonIcon': {
+      // Standalone icon glyph. Reads `icon` (slug) + `color` from overrides.
+      // Ionicons imports are lazy — resolveIcon returns undefined for unknown
+      // slugs and we render nothing rather than a broken chip so a stale
+      // catalog can't break the row visually.
+      const iconSlug = readString(overrides, 'icon');
+      const resolved = iconSlug ? resolveIcon(iconSlug) : undefined;
+      if (!resolved) return null;
+      const iconColor = readString(overrides, 'color');
+      return <IonIcon icon={resolved} color={iconColor} />;
+    }
 
     case 'IonList':
       // Renderer never actually nests Ionic list items at v1; this is a

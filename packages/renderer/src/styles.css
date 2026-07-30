@@ -2120,3 +2120,431 @@
 .appza-renderer-ss[data-slug="fc-post-list-item"] ion-button ion-icon {
   font-size: 16px !important;
 }
+
+/* ============================================================
+ * Spaces list screen (2026-07-30)
+ * Three Superstructures: fc-spaces-tabs, fc-spaces-toolbar,
+ * fc-space-card. Ships from the FC catalog seeder; renderer
+ * gates the two card-list variants via visible_when on
+ * state.spaces_tab (spacesControls slice).
+ * ============================================================ */
+
+/* Screen background — light neutral so the white cards pop */
+.appza-renderer-app[data-screen-slug="spaces"] .appza-renderer-content {
+  --background: #f3f4f6;
+}
+.appza-renderer-app[data-screen-slug="spaces"] .appza-renderer-slot[data-slot="main"] {
+  gap: 12px;
+  padding: 0 12px 16px;
+}
+
+/* Sim: suppress the design-time primitive selection outline on the
+ * spaces screen so the rendered output matches the production Capacitor
+ * app 1:1. Selection still available via the Sidebar → Primitive picker
+ * when authors need to edit a specific primitive. */
+.appza-renderer-app[data-screen-slug="spaces"] [data-appza-primitive-path],
+.appza-renderer-app[data-screen-slug="spaces"] [data-appza-primitive-path]:hover {
+  outline: none !important;
+  box-shadow: none !important;
+}
+.appza-renderer-app[data-screen-slug="spaces"] .appza-renderer-appzet-clickable,
+.appza-renderer-app[data-screen-slug="spaces"] .appza-renderer-appzet-clickable:hover {
+  outline: none !important;
+}
+
+/* -----------------------------------------------------------
+ * fc-spaces-tabs — plain-text tabs with an underline under the active
+ * one (Material tab-bar style). Sits above a thin gray divider that
+ * spans the whole content width.
+ * ----------------------------------------------------------- */
+.appza-renderer-appzet[data-slug="fc-spaces-tabs"] {
+  background: #ffffff;
+  margin: 0 -12px 8px;
+  padding: 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+.appza-renderer-ss[data-slug="fc-spaces-tabs"] {
+  display: flex;
+  gap: 0;
+  padding: 0;
+  background: transparent;
+  margin: 0;
+}
+.appza-renderer-ss[data-slug="fc-spaces-tabs"] [data-child-index="0"],
+.appza-renderer-ss[data-slug="fc-spaces-tabs"] [data-child-index="1"] {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+.appza-renderer-ss[data-slug="fc-spaces-tabs"] ion-button {
+  --background: transparent !important;
+  --background-hover: transparent !important;
+  --background-activated: transparent !important;
+  --background-focused: transparent !important;
+  --box-shadow: none !important;
+  --border-width: 0 !important;
+  --border-style: none !important;
+  --border-radius: 0 !important;
+  --color: #6b7280 !important;
+  --ripple-color: transparent !important;
+  --padding-start: 0 !important;
+  --padding-end: 0 !important;
+  border: 0 !important;
+  outline: none !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  width: 100% !important;
+  margin: 0 !important;
+  font-weight: 500 !important;
+  font-size: 0.95rem !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+.appza-renderer-ss[data-slug="fc-spaces-tabs"] ion-button::part(native) {
+  border: 0 !important;
+  outline: none !important;
+  color: #6b7280 !important;
+  background-color: transparent !important;
+}
+/* Active tab ::part(native) overrides */
+.appza-renderer-appzet[data-spaces-active-tab="all"] .appza-renderer-ss[data-slug="fc-spaces-tabs"] [data-child-index="0"] ion-button::part(native),
+.appza-renderer-appzet[data-spaces-active-tab="my"] .appza-renderer-ss[data-slug="fc-spaces-tabs"] [data-child-index="1"] ion-button::part(native) {
+  color: #2563eb !important;
+}
+/* Active tab: blue text + solid blue underline. Driven by the
+ * data-spaces-active-tab attribute stamped on the appzet-list wrapper
+ * by PlacementRenderer for this SS slug. */
+.appza-renderer-appzet[data-spaces-active-tab="all"] .appza-renderer-ss[data-slug="fc-spaces-tabs"] [data-child-index="0"] ion-button,
+.appza-renderer-appzet[data-spaces-active-tab="my"] .appza-renderer-ss[data-slug="fc-spaces-tabs"] [data-child-index="1"] ion-button {
+  --color: #2563eb !important;
+  font-weight: 600 !important;
+}
+.appza-renderer-appzet[data-spaces-active-tab="all"] .appza-renderer-ss[data-slug="fc-spaces-tabs"] [data-child-index="0"]::after,
+.appza-renderer-appzet[data-spaces-active-tab="my"] .appza-renderer-ss[data-slug="fc-spaces-tabs"] [data-child-index="1"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  background: #2563eb;
+  border-radius: 2px 2px 0 0;
+  z-index: 1;
+}
+
+/* -----------------------------------------------------------
+ * fc-spaces-toolbar — search + sort
+ * ----------------------------------------------------------- */
+.appza-renderer-ss[data-slug="fc-spaces-toolbar"] {
+  display: block;
+  padding: 4px 0 0;
+  background: transparent;
+}
+/* Search input row */
+.appza-renderer-ss[data-slug="fc-spaces-toolbar"] [data-child-index="0"] {
+  display: block;
+  margin: 0 0 12px;
+  position: relative;
+}
+.appza-renderer-ss[data-slug="fc-spaces-toolbar"] [data-child-index="0"] ion-input {
+  --background: #ffffff;
+  --color: #111827;
+  --placeholder-color: #9ca3af;
+  --padding-start: 40px !important;
+  --padding-end: 12px !important;
+  --padding-top: 12px !important;
+  --padding-bottom: 12px !important;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  min-height: 44px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+/* Search magnifier glyph — pure CSS mask so we don't need an SVG asset.
+ * Attached to the SS-child wrapper (not ion-input itself) because
+ * pseudo-elements can't attach to custom elements consistently. */
+.appza-renderer-ss[data-slug="fc-spaces-toolbar"] [data-child-index="0"]::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  background: #9ca3af;
+  -webkit-mask: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='32' d='M221.09 64a157.09 157.09 0 10157.09 157.09A157.1 157.1 0 00221.09 64z'/%3E%3Cpath fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='32' d='M338.29 338.29L448 448'/%3E%3C/svg%3E") no-repeat center / contain;
+          mask: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='32' d='M221.09 64a157.09 157.09 0 10157.09 157.09A157.1 157.1 0 00221.09 64z'/%3E%3Cpath fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='32' d='M338.29 338.29L448 448'/%3E%3C/svg%3E") no-repeat center / contain;
+  pointer-events: none;
+  z-index: 2;
+}
+/* Sort button row — right-aligned below the search, above the card list */
+.appza-renderer-ss[data-slug="fc-spaces-toolbar"] [data-child-index="1"] {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 10px;
+  margin: 0 0 4px;
+}
+.appza-renderer-ss[data-slug="fc-spaces-toolbar"] [data-child-index="1"] ion-button {
+  --background: transparent !important;
+  --color: #4b5563 !important;
+  --box-shadow: none !important;
+  --border-width: 0 !important;
+  --padding-start: 6px !important;
+  --padding-end: 6px !important;
+  --ripple-color: transparent !important;
+  border: 0 !important;
+  outline: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  font-size: 0.85rem !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  color: #4b5563 !important;
+}
+.appza-renderer-ss[data-slug="fc-spaces-toolbar"] [data-child-index="1"] ion-button::part(native) {
+  border: 0 !important;
+  outline: none !important;
+  color: #4b5563 !important;
+  background-color: transparent !important;
+}
+.appza-renderer-ss[data-slug="fc-spaces-toolbar"] [data-child-index="1"] ion-button ion-icon {
+  font-size: 16px !important;
+  margin-inline-start: 4px !important;
+}
+
+/* -----------------------------------------------------------
+ * fc-space-card — one space entry (cover + title + meta + CTA)
+ * ----------------------------------------------------------- */
+.appza-renderer-appzet-list[data-slug="fc-space-card"],
+.appza-renderer-appzet-list[data-slug="fc-space-card-my"] {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.appza-renderer-ss[data-slug="fc-space-card"] {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  grid-template-rows: auto auto auto auto auto;
+  gap: 0;
+  background: #ffffff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 0 0 1px #e5e7eb;
+}
+
+/* [0] Cover image — spans full width, 16:9 aspect */
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="0"] {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #f3f4f6;
+}
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="0"] ion-img,
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="0"] img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* Placeholder when no cover: no "Image" text, just the gray block */
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="0"] .appza-renderer-img-placeholder {
+  width: 100%;
+  height: 100%;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="0"] .appza-renderer-img-placeholder span {
+  display: none;
+}
+
+/* [1] Title */
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="1"] {
+  grid-column: 1 / span 2;
+  grid-row: 2;
+  padding: 12px 14px 0;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #111827;
+  align-self: center;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* [2] Member pill — green outlined */
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="2"] {
+  grid-column: 3;
+  grid-row: 2;
+  padding: 12px 14px 0;
+  align-self: center;
+}
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="2"] ion-chip {
+  --background: #ecfdf5 !important;
+  --color: #059669 !important;
+  border: 1px solid #a7f3d0;
+  height: 22px !important;
+  min-height: 22px !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  margin: 0 !important;
+  padding: 0 8px !important;
+}
+
+/* [3] Public icon  [4] Public label  [5] Private icon  [6] Private label
+   All live on row 3 left half — visibility row.
+   [7] Members icon [8] Members count sit on row 3 right half. */
+/* Visibility row — icon slot (children[3]/[5]) fixed 18px wide flush-
+ * left of the card; label (children[4]/[6]) sits alongside. */
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="3"],
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="5"] {
+  grid-column: 1;
+  grid-row: 3;
+  align-self: center;
+  padding: 8px 0 0 14px;
+  color: #6b7280;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 32px;
+  z-index: 1;
+}
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="3"] ion-icon,
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="5"] ion-icon {
+  font-size: 18px;
+  color: #6b7280;
+  display: block;
+}
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="4"],
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="6"] {
+  grid-column: 1;
+  grid-row: 3;
+  align-self: center;
+  padding: 8px 0 0 40px; /* 14 (gutter) + 18 (icon) + 8 (gap) */
+  color: #6b7280;
+  font-size: 0.82rem;
+}
+
+/* Members icon [7] + count [8] — both live in the right half of the
+ * visibility row. Icon sits in column 2 flush-right so the count text
+ * in column 3 stays right-aligned without overflowing the card. */
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="7"] {
+  grid-column: 2;
+  grid-row: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 8px 6px 0 0;
+}
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="7"] ion-icon {
+  font-size: 16px;
+  color: #6b7280;
+}
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="8"] {
+  grid-column: 3;
+  grid-row: 3;
+  align-self: center;
+  padding: 8px 14px 0 0;
+  font-size: 0.82rem;
+  color: #6b7280;
+  white-space: nowrap;
+  justify-self: end;
+}
+
+/* [9] Description — 2-line clamp with ellipsis. The clamp goes on the
+ * inner <p> too because ion-text wraps its child in a <p> that starts a
+ * new block context which -webkit-line-clamp doesn't reach through. */
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="9"] {
+  grid-column: 1 / -1;
+  grid-row: 4;
+  padding: 8px 14px 12px;
+  color: #4b5563;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  overflow: hidden;
+}
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="9"] ion-text,
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="9"] p {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+}
+
+/* [10] View Space  [11] Join Space — both live on row 5 full width */
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="10"],
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="11"] {
+  grid-column: 1 / -1;
+  grid-row: 5;
+  padding: 0 14px 14px;
+}
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="10"] ion-button,
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="11"] ion-button {
+  border: 0 !important;
+  outline: none !important;
+}
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="10"] ion-button::part(native),
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="11"] ion-button::part(native) {
+  border: 0 !important;
+  outline: none !important;
+}
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="10"] ion-button {
+  --background: #2563eb !important;
+  --background-hover: #1d4ed8 !important;
+  --background-activated: #1e40af !important;
+  --background-focused: #1e40af !important;
+  --color: #ffffff !important;
+  --box-shadow: none !important;
+  --border-width: 0 !important;
+  --border-radius: 8px !important;
+  --padding-start: 16px !important;
+  --padding-end: 16px !important;
+  width: 100% !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  margin: 0 !important;
+  font-weight: 600 !important;
+  font-size: 0.95rem !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  color: #ffffff !important;
+}
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="10"] ion-button::part(native) {
+  color: #ffffff !important;
+  background-color: #2563eb !important;
+}
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="11"] ion-button {
+  --background: #f3f4f6 !important;
+  --background-hover: #e5e7eb !important;
+  --background-activated: #d1d5db !important;
+  --background-focused: #d1d5db !important;
+  --color: #4b5563 !important;
+  --box-shadow: none !important;
+  --border-width: 0 !important;
+  --border-radius: 8px !important;
+  --padding-start: 16px !important;
+  --padding-end: 16px !important;
+  width: 100% !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  margin: 0 !important;
+  font-weight: 500 !important;
+  font-size: 0.95rem !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  color: #4b5563 !important;
+}
+.appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="11"] ion-button::part(native) {
+  color: #4b5563 !important;
+  background-color: #f3f4f6 !important;
+}

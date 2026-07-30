@@ -13,6 +13,7 @@ import { indexCatalog } from './catalogIndex';
 import { PlacementRenderer } from './PlacementRenderer';
 import { resolveOverridableColumn } from './resolveOverride';
 import { tokensToCssVars } from './tokens';
+import { useSpacesControls } from './spacesControls';
 
 type ScreenRendererProps = {
   screen: TemplateScreen;
@@ -76,6 +77,19 @@ export function ScreenRenderer({
     };
   }, [catalog.template, screen, customizations]);
 
+  // Read state slices that placement-level visible_when may reference.
+  // Adding a slice here is enough — the evaluator looks up state.<key>
+  // out of the assembled `stateBag` at match time.
+  const spacesControls = useSpacesControls();
+  const stateBag: Record<string, unknown> = useMemo(
+    () => ({
+      spaces_tab: spacesControls.tab,
+      spaces_search: spacesControls.search,
+      spaces_sort: spacesControls.sort,
+    }),
+    [spacesControls.tab, spacesControls.search, spacesControls.sort],
+  );
+
   const placements = screen.placements ?? [];
   const bySlot = new Map<SlotKey, Array<{ appzet_slug: string }>>();
   for (const p of placements) {
@@ -83,6 +97,10 @@ export function ScreenRenderer({
     const slot = normalizeSlot(rawSlot);
     const appzet_slug = typeof p['appzet_slug'] === 'string' ? (p['appzet_slug'] as string) : '';
     if (!appzet_slug) continue;
+    // Placement-level visible_when — currently only supports state.* bindings.
+    // Failing-open on unparseable shapes keeps a stale catalog from silently
+    // dropping placements the renderer doesn't recognize yet.
+    if (!evaluatePlacementVisibleWhen(p as Record<string, unknown>, stateBag)) continue;
     const list = bySlot.get(slot) ?? [];
     list.push({ appzet_slug });
     bySlot.set(slot, list);
@@ -283,4 +301,51 @@ function readScreenTitle(screen: TemplateScreen): string {
   const raw = (screen as unknown as Record<string, unknown>)['name'];
   if (typeof raw === 'string' && raw.length > 0) return raw;
   return screen.app_map_screen_slug ?? '';
+}
+
+/**
+ * Placement-level `visible_when` evaluator. Supports `state.<key>` bindings
+ * only for now (data.* has no meaning at placement level — placements are
+ * pre-item). Fail-open on missing / unparseable shapes so a catalog that
+ * ships an unknown op or binding root still shows the placement.
+ *
+ * Grammar mirrors the per-child evaluator in PlacementRenderer:
+ *   { binding: 'state.spaces_tab', op: '==', value: 'all' }
+ */
+function evaluatePlacementVisibleWhen(
+  placement: Record<string, unknown>,
+  stateBag: Record<string, unknown>,
+): boolean {
+  const vw = placement['visible_when'];
+  if (!vw || typeof vw !== 'object' || Array.isArray(vw)) return true;
+  const rec = vw as Record<string, unknown>;
+  const binding = typeof rec['binding'] === 'string' ? (rec['binding'] as string) : '';
+  const op = typeof rec['op'] === 'string' ? (rec['op'] as string) : '';
+  const value = 'value' in rec ? rec['value'] : undefined;
+  if (!binding || !op) return true;
+
+  let resolved: unknown = undefined;
+  if (binding.startsWith('state.')) {
+    resolved = stateBag[binding.slice(6)];
+  } else {
+    // Unknown root — fail open. data.* has no meaning at placement level.
+    return true;
+  }
+
+  switch (op) {
+    case '==':
+      return resolved === value;
+    case '!=':
+      return resolved !== value;
+    case 'exists':
+      return resolved !== undefined && resolved !== null && resolved !== '';
+    case 'not_exists':
+      return resolved === undefined || resolved === null || resolved === '';
+    case 'in':
+      return Array.isArray(value) && (value as unknown[]).includes(resolved);
+    case 'not_in':
+      return !(Array.isArray(value) && (value as unknown[]).includes(resolved));
+    default:
+      return true;
+  }
 }
