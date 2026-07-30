@@ -1054,7 +1054,10 @@
   grid-area: poll;
 }
 
-/* appza-poll-block primitive — vertical stack of radio/checkbox rows.
+/* appza-poll-block primitive — vertical stack of interactive rows that
+   mirror the FluentCommunity portal UX: radio/checkbox + label + %
+   count, each row overlaid on a progress bar reflecting its share of
+   votes. Rows stay tappable at all times (change or clear the vote).
    Scoped to the primitive class so it's reusable across any SS. */
 .appza-poll-block {
   display: flex;
@@ -1071,22 +1074,57 @@
   font-style: italic;
 }
 .appza-poll-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 4px 2px;
+  position: relative;
+  display: block;
+  min-height: 34px;
+  padding: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #dbeafe;
   cursor: pointer;
   font-size: 0.9rem;
   color: #1e293b;
+}
+.appza-poll-row-voted {
+  background: #bfdbfe;
+  font-weight: 600;
+}
+.appza-poll-row-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: #93c5fd;
+  transition: width 0.3s ease-out;
+  z-index: 0;
+}
+.appza-poll-row-voted .appza-poll-row-bar {
+  background: #60a5fa;
+}
+.appza-poll-row-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  width: 100%;
 }
 .appza-poll-label {
   flex: 1;
   line-height: 1.35;
 }
+.appza-poll-pct {
+  font-variant-numeric: tabular-nums;
+  color: #1e40af;
+}
 .appza-poll-block ion-radio,
 .appza-poll-block ion-checkbox {
   --size: 20px;
   min-width: 20px;
+  /* Ignore clicks so the label's onClick owns the toggle — otherwise
+     the checkbox/radio's own event double-fires syncVotes. */
+  pointer-events: none;
 }
 
 /* appza-rich-text primitive — sanitized inline HTML rendered via

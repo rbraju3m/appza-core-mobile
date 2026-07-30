@@ -2896,6 +2896,93 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
+    case 'poll.vote': {
+      // Poll submit — AppzaPollBlock (SELF_ACTION_PRIMITIVES) grafts the
+      // picked option slugs onto inv.item.vote_indexes before dispatching.
+      // Read them off the item, POST { [body_key]: feed_id, [vote_key]:
+      // [...slugs] } to fcom-mobile /feeds/survey-vote, then patch the
+      // item's meta.survey_config in place with the fresh server-computed
+      // options (vote_counts + percentage + voted) so the block re-renders
+      // as results. No feed refetch — the mutation propagates through the
+      // shared meta reference and the block's local justVoted state keeps
+      // it in results mode for the rest of the session.
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+      const bodyKey = typeof argRec.body_key === 'string' && argRec.body_key ? argRec.body_key : 'feed_id';
+      const voteKey = typeof argRec.vote_key === 'string' && argRec.vote_key ? argRec.vote_key : 'vote_indexes';
+      const feedIdPath = typeof argRec.feed_id_path === 'string' ? argRec.feed_id_path : 'data.id';
+      if (!endpoint) {
+        onLoginError('poll.vote is missing its endpoint — set args.endpoint in the catalog.');
+        return;
+      }
+      if (!auth) {
+        onLoginError('Please sign in to vote.');
+        return;
+      }
+      const voteIndexesRaw =
+        (itemRec ? (itemRec as Record<string, unknown>).vote_indexes : undefined) ??
+        (isRecord(item) ? (item as Record<string, unknown>).vote_indexes : undefined);
+      const voteIndexes = Array.isArray(voteIndexesRaw)
+        ? voteIndexesRaw.filter((v): v is string => typeof v === 'string' && v.length > 0)
+        : [];
+      if (voteIndexes.length === 0) {
+        onLoginError('Please pick an option before voting.');
+        return;
+      }
+      const key = feedIdPath.startsWith('data.') ? feedIdPath.slice(5) : feedIdPath;
+      const rawId = itemRec ? (itemRec as Record<string, unknown>)[key] : undefined;
+      const feedId = typeof rawId === 'number'
+        ? rawId
+        : typeof rawId === 'string' && rawId !== '' && !Number.isNaN(Number(rawId))
+          ? Number(rawId)
+          : null;
+      if (feedId === null) {
+        onLoginError('Could not identify which post to vote on.');
+        return;
+      }
+      const body: Record<string, unknown> = {
+        [bodyKey]: feedId,
+        [voteKey]: voteIndexes,
+      };
+      void (async () => {
+        try {
+          const res = await fetch(endpoint, {
+            method,
+            credentials: 'omit',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              Authorization: basicAuthHeader(auth),
+            },
+            body: JSON.stringify(body),
+          });
+          const json = await res.json().catch(() => null);
+          const status = (json && typeof json === 'object' && 'response' in json)
+            ? ((json as Record<string, unknown>).response as Record<string, unknown> | undefined)
+            : undefined;
+          const httpOk = res.ok;
+          const bodyOk = !status || status.status === 200;
+          if (!httpOk || !bodyOk) {
+            const msg =
+              (status && typeof status.message === 'string' && status.message) ||
+              `Vote failed (HTTP ${res.status})`;
+            onLoginError(msg);
+            return;
+          }
+          const items = json && typeof json === 'object'
+            ? (json as Record<string, unknown>).items
+            : null;
+          if (isRecord(items) && itemRec && isRecord((itemRec as Record<string, unknown>).meta)) {
+            const meta = (itemRec as Record<string, unknown>).meta as Record<string, unknown>;
+            meta.survey_config = items;
+          }
+        } catch (err) {
+          onLoginError(err instanceof Error ? err.message : String(err));
+        }
+      })();
+      return;
+    }
+
     case 'picker.emoji': {
       // Minimum-viable emoji insert: browser prompt so the user can paste
       // or type an emoji, then append to the composer textarea. Not a

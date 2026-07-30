@@ -352,7 +352,7 @@ type Props = {
  * these — otherwise the wrapper-click would fire dispatch when the user
  * just opens the select, before a value is chosen.
  */
-export const SELF_ACTION_PRIMITIVES: ReadonlySet<string> = new Set(['ion-select']);
+export const SELF_ACTION_PRIMITIVES: ReadonlySet<string> = new Set(['ion-select', 'appza-poll-block']);
 
 /**
  * Maps a Primitive row's `ionic_component` value to the corresponding
@@ -449,6 +449,8 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
         <AppzaPollBlock
           type={readString(overrides, 'type')}
           options={readOptions(overrides, 'options')}
+          action={action}
+          dispatch={dispatch}
         />
       );
 
@@ -990,7 +992,13 @@ function isIonicThemeColor(v: string): boolean {
   return IONIC_THEME_COLORS.has(v);
 }
 
-type PollOption = { label: string; slug: string };
+type PollOption = {
+  label: string;
+  slug: string;
+  vote_counts?: number;
+  percentage?: number;
+  voted?: boolean;
+};
 
 type GalleryImage = { url: string; width?: number; height?: number };
 
@@ -1268,74 +1276,181 @@ function readOptions(overrides: PrimitiveOverrides | undefined, key: string): Po
     const label = typeof rec.label === 'string' ? rec.label : null;
     const slug = typeof rec.slug === 'string' ? rec.slug : null;
     if (!label) continue;
-    out.push({ label, slug: slug ?? label });
+    const voteCountsRaw = rec.vote_counts;
+    const percentageRaw = rec.percentage;
+    const votedRaw = rec.voted;
+    out.push({
+      label,
+      slug: slug ?? label,
+      vote_counts:
+        typeof voteCountsRaw === 'number'
+          ? voteCountsRaw
+          : typeof voteCountsRaw === 'string' && voteCountsRaw !== '' && !Number.isNaN(Number(voteCountsRaw))
+            ? Number(voteCountsRaw)
+            : undefined,
+      percentage:
+        typeof percentageRaw === 'number'
+          ? percentageRaw
+          : typeof percentageRaw === 'string' && percentageRaw !== '' && !Number.isNaN(Number(percentageRaw))
+            ? Number(percentageRaw)
+            : undefined,
+      voted: votedRaw === true || votedRaw === 1 || votedRaw === '1' || votedRaw === 'yes',
+    });
   }
   return out;
 }
 
 /**
- * Interactive poll options — radio group for `single_choice`, list of
- * checkboxes for `multi_choice`. Local selection only; no submit, no
- * vote counts, no persistence (voting persistence lands in a future DC).
+ * Interactive poll — mirrors the FluentCommunity web portal UX. Each row
+ * is always tappable (radio for `single_choice`, checkbox for `multi_
+ * choice`) with a progress bar overlay showing the current percentage.
+ * There is no separate "Vote" button + no locked results view: every
+ * tap flips the option's local `voted` state and immediately dispatches
+ * `on_tap_poll_vote` with the current set of voted slugs (portal calls
+ * this `syncVotes`). The server treats it as an idempotent set-vote
+ * operation — add new, remove missing — so the user can change or clear
+ * their pick at any time.
  *
- * Wrapped in `data-appza-inline-click` so DC#20 primitive-select ignores
- * clicks on the options (the tap belongs to the radio/checkbox toggle,
- * not to entering the LayoutEditor).
+ * Local `optionState` mirrors props.options so the tap→toggle is
+ * responsive even before the server response lands. When the parent
+ * pushes fresh options (dispatcher patches item.meta.survey_config after
+ * the vote succeeds), the deep-equals sync in useEffect re-seeds.
+ *
+ * Registered in SELF_ACTION_PRIMITIVES so the SS wrapper skips onClick.
+ * `data-appza-inline-click` also keeps DC#20 primitive-select from
+ * capturing the tap in Edit mode.
  */
 function AppzaPollBlock({
   type,
   options,
+  action,
+  dispatch,
 }: {
   type: string | undefined;
   options: PollOption[];
+  action?: ActionInvocation;
+  dispatch: (inv: ActionInvocation) => void;
 }) {
   const isMulti = type === 'multi_choice';
-  const [singleValue, setSingleValue] = useState<string | undefined>(undefined);
-  const [multiValues, setMultiValues] = useState<Set<string>>(() => new Set());
+  const [optionState, setOptionState] = useState<PollOption[]>(options);
+  // Re-seed local state whenever the incoming options[] shape changes
+  // (server response replaces survey_config; on-network mount reload).
+  // Deep-compare via JSON so we don't reset the user's mid-flight click
+  // just because a shallow reference changed.
+  const optionsKey = JSON.stringify(options);
+  useEffect(() => {
+    setOptionState(options);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [optionsKey]);
 
-  if (options.length === 0) {
+  if (optionState.length === 0) {
     return <div className="appza-poll-block appza-poll-block-empty">No options.</div>;
   }
+
+  const totalVotes = optionState.reduce((sum, o) => sum + (o.vote_counts ?? 0), 0);
+
+  const syncVotes = (nextState: PollOption[]) => {
+    if (!action) return;
+    const votedSlugs = nextState.filter((o) => o.voted === true).map((o) => o.slug);
+    dispatch({
+      ...action,
+      item: {
+        ...((action.item as Record<string, unknown> | null | undefined) ?? {}),
+        vote_indexes: votedSlugs,
+      },
+    });
+  };
+
+  const toggle = (slug: string) => {
+    setOptionState((prev) => {
+      // Optimistic vote_counts adjustment so percentages reflect the
+      // change immediately. The dispatcher's server response mutates
+      // item.meta.survey_config in place, but React state may not
+      // re-render the parent — the local sync keeps the UI in step
+      // between the tap and the next natural re-render, when the
+      // useEffect on optionsKey re-seeds from authoritative props.
+      const next = prev.map((o) => {
+        if (isMulti) {
+          if (o.slug !== slug) return o;
+          const nowVoted = !o.voted;
+          const cur = o.vote_counts ?? 0;
+          return { ...o, voted: nowVoted, vote_counts: Math.max(0, cur + (nowVoted ? 1 : -1)) };
+        }
+        // single_choice: the tapped option flips; any previously voted
+        // option loses its vote (counts drops by 1).
+        if (o.slug === slug) {
+          const nowVoted = !o.voted;
+          const cur = o.vote_counts ?? 0;
+          return { ...o, voted: nowVoted, vote_counts: Math.max(0, cur + (nowVoted ? 1 : -1)) };
+        }
+        if (o.voted) {
+          const cur = o.vote_counts ?? 0;
+          return { ...o, voted: false, vote_counts: Math.max(0, cur - 1) };
+        }
+        return o;
+      });
+      // Recompute percentage locally against the new totals so the
+      // progress bars widen/shrink alongside the vote change.
+      const newTotal = next.reduce((sum, o) => sum + (o.vote_counts ?? 0), 0);
+      const withPct = next.map((o) => ({
+        ...o,
+        percentage: newTotal > 0 ? Math.round(((o.vote_counts ?? 0) / newTotal) * 1000) / 10 : 0,
+      }));
+      syncVotes(withPct);
+      return withPct;
+    });
+  };
+
+  const rows = optionState.map((opt) => {
+    const pctRaw =
+      typeof opt.percentage === 'number'
+        ? opt.percentage
+        : totalVotes > 0
+          ? Math.round(((opt.vote_counts ?? 0) / totalVotes) * 1000) / 10
+          : 0;
+    const pct = Math.max(0, Math.min(100, pctRaw));
+    const checked = !!opt.voted;
+    return (
+      <label
+        key={opt.slug}
+        className={`appza-poll-row${checked ? ' appza-poll-row-voted' : ''}`}
+        onClick={(e) => {
+          // Own the toggle from the label — the IonCheckbox/IonRadio
+          // inside gets a controlled `checked` prop and no onIonChange,
+          // so it stays purely visual and never double-fires the sync.
+          e.preventDefault();
+          toggle(opt.slug);
+        }}
+      >
+        <div className="appza-poll-row-bar" style={{ width: `${pct}%` }} />
+        <div className="appza-poll-row-content">
+          {isMulti ? (
+            <IonCheckbox checked={checked} />
+          ) : (
+            <IonRadio value={opt.slug} />
+          )}
+          <span className="appza-poll-label">{opt.label}</span>
+          <span className="appza-poll-pct">{pct}%</span>
+        </div>
+      </label>
+    );
+  });
 
   if (isMulti) {
     return (
       <div className="appza-poll-block" data-appza-inline-click="true">
-        {options.map((opt) => {
-          const checked = multiValues.has(opt.slug);
-          return (
-            <label key={opt.slug} className="appza-poll-row">
-              <IonCheckbox
-                checked={checked}
-                onIonChange={(e) => {
-                  setMultiValues((prev) => {
-                    const next = new Set(prev);
-                    if (e.detail.checked) next.add(opt.slug);
-                    else next.delete(opt.slug);
-                    return next;
-                  });
-                }}
-              />
-              <span className="appza-poll-label">{opt.label}</span>
-            </label>
-          );
-        })}
+        {rows}
       </div>
     );
   }
 
+  // single_choice — wrap in IonRadioGroup so the picked slug is the
+  // group's `value`. Ionic uses that to render the checked ring on the
+  // right IonRadio without us managing per-radio checked state.
+  const pickedSlug = optionState.find((o) => o.voted)?.slug ?? '';
   return (
     <div className="appza-poll-block" data-appza-inline-click="true">
-      <IonRadioGroup
-        value={singleValue ?? ''}
-        onIonChange={(e) => setSingleValue(String(e.detail.value ?? ''))}
-      >
-        {options.map((opt) => (
-          <label key={opt.slug} className="appza-poll-row">
-            <IonRadio value={opt.slug} />
-            <span className="appza-poll-label">{opt.label}</span>
-          </label>
-        ))}
-      </IonRadioGroup>
+      <IonRadioGroup value={pickedSlug}>{rows}</IonRadioGroup>
     </div>
   );
 }

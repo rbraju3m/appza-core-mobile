@@ -1685,6 +1685,115 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       return;
     }
 
+    case 'poll.vote': {
+      // Poll submit — AppzaPollBlock grafts the picked option slugs onto
+      // inv.item.vote_indexes before dispatching. Read them off the item,
+      // POST { [body_key]: feed_id, [vote_key]: [...slugs] } to fcom-mobile,
+      // then update the item's meta.survey_config in place with the fresh
+      // server-computed options (vote_counts + percentage + voted) so the
+      // block re-renders as results without a full feed refetch.
+      console.log('[appza-mobile] dispatch: poll.vote', { argRec, effectiveItem });
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+      const bodyKey =
+        typeof argRec.body_key === 'string' && argRec.body_key ? argRec.body_key : 'feed_id';
+      const voteKey =
+        typeof argRec.vote_key === 'string' && argRec.vote_key ? argRec.vote_key : 'vote_indexes';
+      const feedIdPath =
+        typeof argRec.feed_id_path === 'string' ? argRec.feed_id_path : 'data.id';
+      if (!endpoint) {
+        onError('poll.vote is missing its endpoint.');
+        return;
+      }
+      if (!auth) {
+        onError('Please sign in to vote.');
+        return;
+      }
+      // AppzaPollBlock puts vote_indexes on the item it dispatches with;
+      // fall back to reading it off the effective item root.
+      const voteIndexesRaw =
+        (itemRec ? (itemRec as Record<string, unknown>).vote_indexes : undefined) ??
+        (isRecord(item) ? (item as Record<string, unknown>).vote_indexes : undefined);
+      const voteIndexes = Array.isArray(voteIndexesRaw)
+        ? voteIndexesRaw.filter((v): v is string => typeof v === 'string' && v.length > 0)
+        : [];
+      if (voteIndexes.length === 0) {
+        onError('Please pick an option before voting.');
+        return;
+      }
+      const key = feedIdPath.startsWith('data.') ? feedIdPath.slice(5) : feedIdPath;
+      const rawId = itemRec ? (itemRec as Record<string, unknown>)[key] : undefined;
+      const feedId =
+        typeof rawId === 'number'
+          ? rawId
+          : typeof rawId === 'string' && rawId !== '' && !Number.isNaN(Number(rawId))
+            ? Number(rawId)
+            : null;
+      if (feedId === null) {
+        onError('Could not identify which post to vote on.');
+        return;
+      }
+      const body: Record<string, unknown> = {
+        [bodyKey]: feedId,
+        [voteKey]: voteIndexes,
+      };
+      void (async () => {
+        try {
+          const res = await fetch(endpoint, {
+            method,
+            credentials: 'omit',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              Authorization: basicAuthHeader(auth),
+            },
+            body: JSON.stringify(body),
+          });
+          const json = await res.json().catch(() => null);
+          const status =
+            json && typeof json === 'object' && 'response' in json
+              ? ((json as Record<string, unknown>).response as
+                  | Record<string, unknown>
+                  | undefined)
+              : undefined;
+          const httpOk = res.ok;
+          const bodyOk = !status || status.status === 200;
+          if (!httpOk || !bodyOk) {
+            const msg =
+              (status && typeof status.message === 'string' && status.message) ||
+              `Vote failed (HTTP ${res.status})`;
+            onError(msg);
+            return;
+          }
+          // fcom-mobile returns the fresh survey_config on `items`; graft
+          // it onto the item's meta so the poll block flips into results
+          // mode on the next feed refresh (and immediately from the local
+          // justVoted state).
+          const items =
+            json && typeof json === 'object' ? (json as Record<string, unknown>).items : null;
+          if (
+            isRecord(items) &&
+            itemRec &&
+            isRecord((itemRec as Record<string, unknown>).meta)
+          ) {
+            const meta = (itemRec as Record<string, unknown>).meta as Record<string, unknown>;
+            meta.survey_config = items;
+          }
+          // No triggerFeedRefresh — the in-place mutation above is
+          // shared with the useDataSource item (shallow spread by the
+          // primitive preserves the meta reference), and the block's
+          // local justVoted state keeps it in results mode for the
+          // rest of the session. A full refetch would blow away the
+          // voted flag unless the FC list endpoint enriches it per-
+          // viewer (which fcom-mobile doesn't today).
+          onInfo('Vote submitted');
+        } catch (err) {
+          onError(err instanceof Error ? err.message : String(err));
+        }
+      })();
+      return;
+    }
+
     case 'post.create': {
       // Text-only create — media pickers (image/video/poll) are not ported
       // yet. If the form has an image/video slot, this posts without them.
