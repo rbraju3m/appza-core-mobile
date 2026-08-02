@@ -1612,8 +1612,6 @@ export function App() {
                   </>
                 }
               />
-              <ViewModePopover />
-              <PostOptionsPopover />
               </>
               ) : (
                 <DeviceFrame
@@ -1634,6 +1632,12 @@ export function App() {
                   }}
                 />
               )}
+              {/* Popovers must always be mounted (not just in App mode)
+                  because Edit-mode dispatches also open them — e.g.
+                  spaces.set_sort fires from a state-only tap and expects
+                  ViewModePopover to be ready. */}
+              <ViewModePopover />
+              <PostOptionsPopover />
             </ActionProvider>
           )}
         </main>

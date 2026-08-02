@@ -106,7 +106,10 @@ export function ViewModePopover() {
     if (detail.stateKey === 'sort') {
       setFeedControls({ sort: value });
     } else if (detail.stateKey === 'spaces_sort') {
-      if (value === 'alphabetical' || value === 'members' || value === 'recent') {
+      // Sort keys are catalog-driven now (fc-space-card.sort_specs).
+      // Any non-empty string is accepted; the renderer's spec lookup
+      // falls back to title-asc when the value isn't mapped.
+      if (typeof value === 'string' && value.length > 0) {
         setSpacesControls({ sort: value as SpacesSort });
       }
     } else if (value === 'timeline' || value === 'card' || value === 'list') {

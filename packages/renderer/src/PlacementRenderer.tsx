@@ -444,9 +444,11 @@ export function PlacementRenderer({
   // Spaces list: apply client-side search + sort against spacesControls.
   // Scoped by data source slug (fc-spaces-all / fc-spaces-my) so other
   // AppZets sharing the list layout aren't affected. Search matches
-  // title OR description (case-insensitive substring). Sort keys:
-  // alphabetical (title A→Z), members (members_count desc), recent
-  // (created_at desc; falls back to id desc when timestamp is missing).
+  // title OR description (case-insensitive substring). Sort is now
+  // catalog-driven: fc-space-card.default_props.sort_specs is an array
+  // of { value, field, dir } entries. Renderer picks the entry whose
+  // value === spacesSort and sorts generically by that field + dir.
+  // Unmapped value / missing sort_specs → title-asc fallback.
   let filteredItems = dataState.items;
   const dsSlug = dataSource?.slug ?? '';
   if (dsSlug === 'fc-spaces-all' || dsSlug === 'fc-spaces-my') {
@@ -460,30 +462,11 @@ export function PlacementRenderer({
         return title.includes(needle) || desc.includes(needle);
       });
     }
+    const activeSortSpec = resolveSortSpec(appzet, spacesSort);
     filteredItems = [...filteredItems].sort((a, b) => {
       const ra = (a ?? {}) as Record<string, unknown>;
       const rb = (b ?? {}) as Record<string, unknown>;
-      switch (spacesSort) {
-        case 'members': {
-          const ma = typeof ra.members_count === 'number' ? ra.members_count : Number(ra.members_count ?? 0) || 0;
-          const mb = typeof rb.members_count === 'number' ? rb.members_count : Number(rb.members_count ?? 0) || 0;
-          return mb - ma;
-        }
-        case 'recent': {
-          const ta = typeof ra.created_at === 'string' ? ra.created_at : '';
-          const tb = typeof rb.created_at === 'string' ? rb.created_at : '';
-          if (ta && tb) return tb.localeCompare(ta);
-          const ia = typeof ra.id === 'number' ? ra.id : Number(ra.id ?? 0) || 0;
-          const ib = typeof rb.id === 'number' ? rb.id : Number(rb.id ?? 0) || 0;
-          return ib - ia;
-        }
-        case 'alphabetical':
-        default: {
-          const ta = typeof ra.title === 'string' ? ra.title : '';
-          const tb = typeof rb.title === 'string' ? rb.title : '';
-          return ta.localeCompare(tb);
-        }
-      }
+      return compareByFieldDir(ra, rb, activeSortSpec.field, activeSortSpec.dir);
     });
   }
 
@@ -1035,6 +1018,66 @@ function readExpandedChildren(
     entryOverrides[children.length - 1] = bucket;
   }
   return { children, entryOverrides };
+}
+
+/**
+ * Sort spec — { field, dir } — resolved for the current spacesSort
+ * value against the AppZet's `default_props.sort_specs` array. Each
+ * spec entry: `{ value, field, dir?: 'asc'|'desc' }`. Adding a sort
+ * option is a JSON edit on the AppZet, not a code change.
+ *
+ * Fallback when the AppZet has no sort_specs, or when the picked
+ * value doesn't match any entry: `{ field: 'title', dir: 'asc' }`.
+ * Keeps the list stable rather than random-order when a stale
+ * localStorage sort value survives a catalog edit that removed it.
+ */
+type SortSpec = { field: string; dir: 'asc' | 'desc' };
+
+function resolveSortSpec(appzet: AppZet, pickedValue: string): SortSpec {
+  const fallback: SortSpec = { field: 'title', dir: 'asc' };
+  const overrides = appzet.default_props_override as Record<string, unknown> | null | undefined;
+  const rawSpecs = overrides ? overrides['sort_specs'] : undefined;
+  if (!Array.isArray(rawSpecs)) return fallback;
+  for (const entry of rawSpecs) {
+    if (!isRecord(entry)) continue;
+    if (entry.value !== pickedValue) continue;
+    const field = typeof entry.field === 'string' && entry.field.length > 0 ? entry.field : fallback.field;
+    const dir = entry.dir === 'desc' ? 'desc' : 'asc';
+    return { field, dir };
+  }
+  return fallback;
+}
+
+/**
+ * Generic field comparator for sort_specs-driven ordering. Numeric
+ * fields (members_count, id, ...) compare as numbers; strings use
+ * locale-aware compare; nullish sorts to the end regardless of dir
+ * so partial data doesn't create phantom top rows. `created_at` +
+ * other ISO-8601 strings sort correctly under localeCompare.
+ */
+function compareByFieldDir(
+  a: Record<string, unknown>,
+  b: Record<string, unknown>,
+  field: string,
+  dir: 'asc' | 'desc',
+): number {
+  const av = a[field];
+  const bv = b[field];
+  if (av == null && bv == null) return 0;
+  if (av == null) return 1;
+  if (bv == null) return -1;
+  const mul = dir === 'desc' ? -1 : 1;
+  if (typeof av === 'number' && typeof bv === 'number') {
+    return (av - bv) * mul;
+  }
+  const an = typeof av === 'number' ? av : Number(av);
+  const bn = typeof bv === 'number' ? bv : Number(bv);
+  if (Number.isFinite(an) && Number.isFinite(bn)) {
+    return (an - bn) * mul;
+  }
+  const as = typeof av === 'string' ? av : String(av);
+  const bs = typeof bv === 'string' ? bv : String(bv);
+  return as.localeCompare(bs) * mul;
 }
 
 /**

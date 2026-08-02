@@ -11,12 +11,12 @@ import { useEffect, useState } from 'react';
 // justify the duplication over a generic slice manager. localStorage
 // persistence survives page reloads + Capacitor app restarts.
 
-// Tab value is now catalog-driven (fc-spaces-tabs.tabs array). Any string
-// accepted; the initial value defaults to the first tab entry's `value`
-// (see PlacementRenderer's variadic-children path). Sort keys stay pinned
-// to a small enum for now — extending them is a separate arc.
+// Both tab AND sort values are catalog-driven. Any string accepted;
+// PlacementRenderer resolves the picked sort against the fc-space-card
+// AppZet's default_props.sort_specs (each entry declares { value, field,
+// dir }) so adding a sort option is a JSON edit, not a code change.
 export type SpacesTab = string;
-export type SpacesSort = 'alphabetical' | 'members' | 'recent';
+export type SpacesSort = string;
 
 export type SpacesControls = {
   tab: SpacesTab;
@@ -43,9 +43,7 @@ function readFromStorage(): SpacesControls {
       tab: typeof parsed.tab === 'string' && parsed.tab.length > 0 ? parsed.tab : DEFAULTS.tab,
       search: typeof parsed.search === 'string' ? parsed.search : DEFAULTS.search,
       sort:
-        parsed.sort === 'members' || parsed.sort === 'recent' || parsed.sort === 'alphabetical'
-          ? parsed.sort
-          : DEFAULTS.sort,
+        typeof parsed.sort === 'string' && parsed.sort.length > 0 ? parsed.sort : DEFAULTS.sort,
     };
   } catch {
     return DEFAULTS;
@@ -62,7 +60,7 @@ export function setSpacesControls(patch: Partial<SpacesControls>): void {
   const next: SpacesControls = {
     tab: typeof patch.tab === 'string' ? patch.tab : current.tab,
     search: patch.search ?? current.search,
-    sort: patch.sort ?? current.sort,
+    sort: typeof patch.sort === 'string' ? patch.sort : current.sort,
   };
   if (
     next.tab === current.tab &&
