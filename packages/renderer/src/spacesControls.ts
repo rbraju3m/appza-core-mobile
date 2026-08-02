@@ -11,7 +11,11 @@ import { useEffect, useState } from 'react';
 // justify the duplication over a generic slice manager. localStorage
 // persistence survives page reloads + Capacitor app restarts.
 
-export type SpacesTab = 'all' | 'my';
+// Tab value is now catalog-driven (fc-spaces-tabs.tabs array). Any string
+// accepted; the initial value defaults to the first tab entry's `value`
+// (see PlacementRenderer's variadic-children path). Sort keys stay pinned
+// to a small enum for now — extending them is a separate arc.
+export type SpacesTab = string;
 export type SpacesSort = 'alphabetical' | 'members' | 'recent';
 
 export type SpacesControls = {
@@ -36,7 +40,7 @@ function readFromStorage(): SpacesControls {
     if (!raw) return DEFAULTS;
     const parsed = JSON.parse(raw) as Partial<SpacesControls>;
     return {
-      tab: parsed.tab === 'my' ? 'my' : 'all',
+      tab: typeof parsed.tab === 'string' && parsed.tab.length > 0 ? parsed.tab : DEFAULTS.tab,
       search: typeof parsed.search === 'string' ? parsed.search : DEFAULTS.search,
       sort:
         parsed.sort === 'members' || parsed.sort === 'recent' || parsed.sort === 'alphabetical'
@@ -56,7 +60,7 @@ export function getSpacesControls(): SpacesControls {
 
 export function setSpacesControls(patch: Partial<SpacesControls>): void {
   const next: SpacesControls = {
-    tab: patch.tab ?? current.tab,
+    tab: typeof patch.tab === 'string' ? patch.tab : current.tab,
     search: patch.search ?? current.search,
     sort: patch.sort ?? current.sort,
   };

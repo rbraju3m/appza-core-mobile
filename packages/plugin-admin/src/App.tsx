@@ -3132,19 +3132,15 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'spaces.set_tab': {
-      // Tab button tapped. `value` comes from either the button's declared
-      // value prop (read from inv.item.value on the tapped item context) or
-      // an explicit runtime value arg. Writes to spacesControls.tab;
-      // ScreenRenderer re-evaluates placement visible_when against
-      // state.spaces_tab.
+      // Tab value comes from the tapped child's `value` prop (stamped by
+      // the wrapper onClick from binds_to 'children[i].value'). Tab set is
+      // catalog-driven now (fc-spaces-tabs.tabs); PlacementRenderer's
+      // data_source_by_state maps the picked value to the DS to fetch.
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
       const itemValue =
         itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
-      // For fc-spaces-tabs the SS declares children[0..1].value ('all' | 'my'),
-      // which the primitive stamps onto the click invocation via inv.item.
-      // Fall back to reading the child's rendered text as a last resort.
-      const picked = (runtimeValue ?? itemValue ?? '').toString().toLowerCase();
-      if (picked === 'all' || picked === 'my') {
+      const picked = runtimeValue ?? itemValue ?? '';
+      if (picked && typeof picked === 'string') {
         setSpacesControls({ tab: picked });
       } else {
         console.warn('[appza-admin/app-mode] spaces.set_tab: no picked value', {

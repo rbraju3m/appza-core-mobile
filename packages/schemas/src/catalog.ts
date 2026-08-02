@@ -91,6 +91,17 @@ const AppZetRowSchema = z
     // renderer injects as {value,label} pairs into the named prop.
     // Distinct from default_data_source_id (per-item repeat rendering).
     option_data_sources: z.record(z.string()).nullable().optional(),
+    // State-scoped data source resolution. When set, the renderer reads
+    // `state_binding` (e.g. 'state.spaces_tab') at render time and looks
+    // up the matching entry in `ds_by_value` to pick the active DataSource.
+    // Falls back to `default_data_source_id` if the state value is unmapped.
+    data_source_by_state: z
+      .object({
+        state_binding: z.string(),
+        ds_by_value: z.record(z.string()),
+      })
+      .nullable()
+      .optional(),
     is_active: z.boolean().optional(),
   })
   .passthrough();
@@ -150,6 +161,11 @@ const SuperstructureRowSchema = z
     slug: z.string(),
     name: z.string(),
     parent_superstructure_id: z.number().int().nullable().optional(),
+    // When set, names an AppZet default_props array (typically 'tabs')
+    // whose entries expand into N synthetic children — one per array
+    // item. `children[0]` acts as the template for the generated
+    // children's primitive slug + on_click_action wiring.
+    children_from_prop: z.string().nullable().optional(),
     properties_schema: z.array(PropertiesSchemaEntrySchema).nullable().optional(),
     is_active: z.boolean().optional(),
   })

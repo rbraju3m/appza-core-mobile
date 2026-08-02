@@ -214,9 +214,48 @@ export function PlacementRenderer({
   const ss = appzet?.superstructure_id
     ? catalogIndex.superstructureById.get(appzet.superstructure_id)
     : undefined;
-  const dataSource = appzet?.default_data_source_id
-    ? catalogIndex.dataSourceById.get(appzet.default_data_source_id)
-    : undefined;
+  // data_source_by_state resolution: when the AppZet declares one, read
+  // the state binding (e.g. 'state.spaces_tab') out of the local
+  // stateBag, look up the matching entry in ds_by_value, and resolve
+  // that DS by slug. Falls back to default_data_source_id when the
+  // state value is unmapped OR the AppZet has no state-scoped config.
+  // Adding a state slice here is enough — grows the same way as
+  // ScreenRenderer's stateBag.
+  const localStateBag: Record<string, unknown> = {
+    'state.spaces_tab': spacesTab,
+    'state.spaces_search': spacesSearch,
+    'state.spaces_sort': spacesSort,
+    'state.feed_sort': feedSort,
+    'state.feed_view_mode': feedViewMode,
+  };
+  const dataSourceByState = (appzet as unknown as {
+    data_source_by_state?: {
+      state_binding?: unknown;
+      ds_by_value?: unknown;
+    } | null;
+  } | undefined)?.data_source_by_state;
+  let stateResolvedDs: ReturnType<typeof catalogIndex.dataSourceById.get> = undefined;
+  if (
+    appzet &&
+    dataSourceByState &&
+    typeof dataSourceByState.state_binding === 'string' &&
+    isRecord(dataSourceByState.ds_by_value)
+  ) {
+    const stateValue = localStateBag[dataSourceByState.state_binding];
+    const dsMap = dataSourceByState.ds_by_value as Record<string, unknown>;
+    const dsSlug =
+      typeof stateValue === 'string' && typeof dsMap[stateValue] === 'string'
+        ? (dsMap[stateValue] as string)
+        : null;
+    if (dsSlug) {
+      stateResolvedDs = catalogIndex.dataSourceBySlug.get(dsSlug);
+    }
+  }
+  const dataSource =
+    stateResolvedDs ??
+    (appzet?.default_data_source_id
+      ? catalogIndex.dataSourceById.get(appzet.default_data_source_id)
+      : undefined);
 
   // Always call BOTH hooks to keep hook order stable across renders
   // regardless of whether the data source is paginated. Only one is
@@ -266,7 +305,21 @@ export function PlacementRenderer({
   if (!appzet) return <MissingNode label={`unknown appzet: ${appzetSlug}`} />;
   if (!ss) return <MissingNode label={`appzet ${appzet.slug} has no superstructure`} />;
 
+  // Variadic children expansion: when the SS opts into children_from_prop
+  // (e.g. 'tabs'), replicate ss.children[0] once per array entry. Falls
+  // back to the static-children path when the prop is absent OR the
+  // array is empty. Per-entry leaf values (label→text, value, icon, ...)
+  // land in `entryOverrides` which we merge into baseChildOverrides so
+  // the tab labels + values render off the AppZet default_props.
+  const expanded = readExpandedChildren(ss, appzet);
   const baseChildOverrides = computeChildOverrides(ss, appzet);
+  for (const idxStr of Object.keys(expanded.entryOverrides)) {
+    const i = Number(idxStr);
+    baseChildOverrides[i] = {
+      ...(baseChildOverrides[i] ?? {}),
+      ...expanded.entryOverrides[i],
+    };
+  }
   const hiddenIndices = computeHiddenIndices(ss, appzet);
   const childLayoutStyles = computeChildLayoutStyles(appzet, ss, customizations);
 
@@ -316,8 +369,7 @@ export function PlacementRenderer({
   // apply (login button, create-post button, etc. — anything that doesn't
   // need per-item data context) so we compute them with a null item.
   if (!dataSource) {
-    const staticChildren = readChildren(ss);
-    const staticActions = computeChildActions(staticChildren, appzet, undefined);
+    const staticActions = computeChildActions(expanded.children, appzet, undefined);
     return (
       <>
         {optionFetchers}
@@ -337,6 +389,7 @@ export function PlacementRenderer({
             childLayoutStyles={childLayoutStyles}
             childActions={staticActions}
             appzetSlugForPath={appzet.slug}
+            expandedChildren={expanded.children}
           />
         </div>
       </>
@@ -435,7 +488,7 @@ export function PlacementRenderer({
   }
 
   const items = filteredItems.length > 0 ? filteredItems : [{}];
-  const ssChildren = readChildren(ss);
+  const ssChildren = expanded.children;
 
   return (
     <>
@@ -492,6 +545,7 @@ export function PlacementRenderer({
               childOpenUrls={childOpenUrls}
               childActions={childActions}
               appzetSlugForPath={appzet.slug}
+              expandedChildren={expanded.children}
             />
           </div>
         );
@@ -727,6 +781,13 @@ type SuperstructureRendererProps = {
    * composite key. Undefined at depth > 0.
    */
   appzetSlugForPath?: string;
+  /**
+   * Pre-expanded child list. Used at depth 0 when the SS opts into
+   * `children_from_prop` — the caller reads the AppZet's tabs array
+   * and expands `ss.children[0]` as a template. When undefined we fall
+   * back to `readChildren(ss)`, which is the static-children path.
+   */
+  expandedChildren?: SSChild[];
 };
 
 const MAX_DEPTH = 4;
@@ -741,6 +802,7 @@ function SuperstructureRenderer({
   childOpenUrls,
   childActions,
   appzetSlugForPath,
+  expandedChildren,
 }: SuperstructureRendererProps) {
   const dispatch = useActionDispatch();
 
@@ -748,7 +810,7 @@ function SuperstructureRenderer({
     return <MissingNode label={`depth>${MAX_DEPTH} at ${ss.slug}`} />;
   }
 
-  const children = readChildren(ss);
+  const children = expandedChildren ?? readChildren(ss);
   if (children.length === 0) {
     return <MissingNode label={`${ss.slug} has no children`} />;
   }
@@ -909,6 +971,70 @@ function readChildren(ss: Superstructure): SSChild[] {
       return out;
     })
     .filter((c): c is SSChild => c !== null);
+}
+
+/**
+ * Reads the AppZet's default_props array named by `ss.children_from_prop`
+ * (typically 'tabs') and, if present + non-empty, expands `ss.children[0]`
+ * as a template into one synthetic child per array entry. When the prop
+ * is absent or the array is empty, returns `readChildren(ss)` unchanged so
+ * static SS definitions keep working.
+ *
+ * Additionally emits per-entry override buckets ({ text, value, ...rest })
+ * so the caller can merge them into the child override map at each index.
+ */
+function readExpandedChildren(
+  ss: Superstructure,
+  appzet: AppZet,
+): { children: SSChild[]; entryOverrides: Record<number, Record<string, unknown>> } {
+  const propName = (ss as unknown as { children_from_prop?: unknown }).children_from_prop;
+  const staticChildren = readChildren(ss);
+  if (typeof propName !== 'string' || propName.length === 0) {
+    return { children: staticChildren, entryOverrides: {} };
+  }
+  const overrides = appzet.default_props_override as Record<string, unknown> | null | undefined;
+  const rawEntries = overrides ? overrides[propName] : undefined;
+  if (!Array.isArray(rawEntries) || rawEntries.length === 0) {
+    return { children: staticChildren, entryOverrides: {} };
+  }
+  const template = staticChildren[0];
+  if (!template) return { children: staticChildren, entryOverrides: {} };
+  const children: SSChild[] = [];
+  const entryOverrides: Record<number, Record<string, unknown>> = {};
+  for (let i = 0; i < rawEntries.length; i++) {
+    const entry = rawEntries[i];
+    if (!isRecord(entry)) continue;
+    // Skip explicit `hidden: true` entries — the customer can hide a tab
+    // from the admin without removing it from the config.
+    if (entry.hidden === true) continue;
+    // Clone the template shape; per-entry `on_click_action` overrides win.
+    const child: SSChild = {
+      slug: template.slug,
+      on_click_action:
+        typeof entry.on_click_action === 'string'
+          ? entry.on_click_action
+          : template.on_click_action,
+      on_click_open_url: template.on_click_open_url,
+    };
+    children.push(child);
+    // Stamp the entry's leaf values as this child's overrides. `text`
+    // + `value` are the two universal ones; anything else on the entry
+    // (icon, badge_color, ...) rides along by name so future tab knobs
+    // don't need a renderer change.
+    const bucket: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(entry)) {
+      if (k === 'hidden' || k === 'on_click_action') continue;
+      // Renderer convention: `label` in the tabs entry maps to the
+      // primitive's `text` prop, matching how ion-button reads its label.
+      if (k === 'label') {
+        bucket.text = v;
+      } else {
+        bucket[k] = v;
+      }
+    }
+    entryOverrides[children.length - 1] = bucket;
+  }
+  return { children, entryOverrides };
 }
 
 /**

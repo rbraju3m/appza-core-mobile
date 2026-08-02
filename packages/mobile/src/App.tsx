@@ -2212,15 +2212,15 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     }
 
     case 'spaces.set_tab': {
-      // fc-spaces-tabs: child value ('all' | 'my') is stamped by the
-      // primitive onto inv.item. Write to spacesControls.tab; placement
-      // visible_when re-evaluates state.spaces_tab and swaps the two
-      // card list variants (fc-space-card / fc-space-card-my).
+      // fc-spaces-tabs: child value is stamped by the primitive onto
+      // inv.item. Tab values are catalog-driven (fc-spaces-tabs.tabs
+      // array), so any string is accepted here; PlacementRenderer's
+      // data_source_by_state resolves the matching data source.
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
       const itemValue =
         itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
-      const picked = (runtimeValue ?? itemValue ?? '').toString().toLowerCase();
-      if (picked === 'all' || picked === 'my') {
+      const picked = runtimeValue ?? itemValue ?? '';
+      if (picked && typeof picked === 'string') {
         setSpacesControls({ tab: picked });
       } else {
         console.warn('[appza-mobile] spaces.set_tab: no picked value', { argRec, item });

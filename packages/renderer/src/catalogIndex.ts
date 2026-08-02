@@ -28,6 +28,7 @@ export type CatalogIndex = {
   superstructureBySlug: Map<string, Superstructure>;
   primitiveBySlug: Map<string, PrimitiveRow>;
   dataSourceById: Map<number, DataSourceRow>;
+  dataSourceBySlug: Map<string, DataSourceRow>;
 };
 
 export function indexCatalog(catalog: Catalog): CatalogIndex {
@@ -47,9 +48,18 @@ export function indexCatalog(catalog: Catalog): CatalogIndex {
   }
 
   const dataSourceById = new Map<number, DataSourceRow>();
+  const dataSourceBySlug = new Map<string, DataSourceRow>();
   for (const d of (catalog.data_sources ?? []) as DataSourceRow[]) {
     if (typeof d.id === 'number') dataSourceById.set(d.id, d);
+    if (typeof d.slug === 'string') dataSourceBySlug.set(d.slug, d);
   }
 
-  return { appzetBySlug, superstructureById, superstructureBySlug, primitiveBySlug, dataSourceById };
+  return {
+    appzetBySlug,
+    superstructureById,
+    superstructureBySlug,
+    primitiveBySlug,
+    dataSourceById,
+    dataSourceBySlug,
+  };
 }
