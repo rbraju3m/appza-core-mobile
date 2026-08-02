@@ -360,7 +360,7 @@ type Props = {
  * these — otherwise the wrapper-click would fire dispatch when the user
  * just opens the select, before a value is chosen.
  */
-export const SELF_ACTION_PRIMITIVES: ReadonlySet<string> = new Set(['ion-select', 'appza-poll-block']);
+export const SELF_ACTION_PRIMITIVES: ReadonlySet<string> = new Set(['ion-select', 'appza-poll-block', 'ion-input']);
 
 /**
  * Maps a Primitive row's `ionic_component` value to the corresponding
@@ -481,11 +481,32 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
       ]);
       const inputType = (rawType && allowedTypes.has(rawType) ? rawType : 'text') as
         'text' | 'password' | 'email' | 'tel' | 'number' | 'search' | 'url';
+      // When an action is wired to the input (e.g. fc-spaces-toolbar search
+      // → spaces.set_search), dispatch on every keystroke with item.value
+      // set to the current text. Mirrors ion-select's pattern of grafting
+      // the picked value onto action.item so the shell's dispatcher can
+      // read the current value uniformly. onIonInput fires for every
+      // character (including clears); onIonChange only fires on blur, so
+      // it would feel laggy for search-as-you-type.
+      const handleInput = action
+        ? (e: CustomEvent) => {
+            const target = e.target as { value?: unknown } | null;
+            const value = typeof target?.value === 'string' ? target.value : '';
+            dispatch({
+              ...action,
+              item: {
+                ...((action.item as Record<string, unknown> | null | undefined) ?? {}),
+                value,
+              },
+            });
+          }
+        : undefined;
       return (
         <IonInput
           type={inputType}
           placeholder={readString(overrides, 'placeholder') ?? label}
           fill={(fillProp as 'solid' | 'outline' | undefined) ?? 'outline'}
+          onIonInput={handleInput}
         />
       );
     }

@@ -1409,10 +1409,17 @@ export function App() {
         >
           {state.kind === 'loading' ? (
             <div className="appza-loading">Loading…</div>
-          ) : uiMode === 'app' ? (
-            // App mode — same renderer, but click intercepts are OFF so
-            // the AppZet's on_click_action wiring reaches the ActionProvider.
+          ) : (
+            // ActionProvider wraps BOTH modes: in App mode it powers real
+            // on_click_action wiring; in Edit mode it powers state-only
+            // actions like spaces.set_tab / feed.set_sort / spaces.set_search
+            // so segmented controls + toolbars still switch what's rendered
+            // while the builder is in edit-select mode. Clicks that would
+            // trigger network side-effects (post.create, space.join, etc.)
+            // are still filtered by App-mode intercepts inside DeviceFrame.
             <ActionProvider dispatch={dispatchAction}>
+              {uiMode === 'app' ? (
+              <>
               <DeviceFrame
                 key={`preview-${previewMode}-app`}
                 screen={currentScreen}
@@ -1607,25 +1614,27 @@ export function App() {
               />
               <ViewModePopover />
               <PostOptionsPopover />
+              </>
+              ) : (
+                <DeviceFrame
+                  key={`preview-${previewMode}-edit`}
+                  screen={currentScreen}
+                  catalog={catalog ?? null}
+                  customizations={effectiveCustomizations}
+                  templateName={catalog?.template?.name}
+                  selectedAppzetSlug={selectedAppzetSlug}
+                  onSelectAppzet={(slug) => {
+                    setSelectedAppzetSlug(slug);
+                    if (slug) setSelectedPrimitive(null);
+                  }}
+                  selectedPrimitive={selectedPrimitive}
+                  onSelectPrimitive={(sel) => {
+                    setSelectedPrimitive(sel);
+                    if (sel) setSelectedAppzetSlug(null);
+                  }}
+                />
+              )}
             </ActionProvider>
-          ) : (
-            <DeviceFrame
-              key={`preview-${previewMode}-edit`}
-              screen={currentScreen}
-              catalog={catalog ?? null}
-              customizations={effectiveCustomizations}
-              templateName={catalog?.template?.name}
-              selectedAppzetSlug={selectedAppzetSlug}
-              onSelectAppzet={(slug) => {
-                setSelectedAppzetSlug(slug);
-                if (slug) setSelectedPrimitive(null);
-              }}
-              selectedPrimitive={selectedPrimitive}
-              onSelectPrimitive={(sel) => {
-                setSelectedPrimitive(sel);
-                if (sel) setSelectedAppzetSlug(null);
-              }}
-            />
           )}
         </main>
 

@@ -11,6 +11,7 @@ import {
   readDataPath,
   setCatalogGlobal,
   setFeedControls,
+  setSpacesControls,
   tryHandlePostMenuAction,
   type ActionDispatch,
   type ActionInvocation,
@@ -2207,6 +2208,93 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         '[data-appza-appzet-slug="fc-feed-toolbar"][data-child-index="1"]',
       );
       openViewModePopover(options, anchor);
+      return;
+    }
+
+    case 'spaces.set_tab': {
+      // fc-spaces-tabs: child value ('all' | 'my') is stamped by the
+      // primitive onto inv.item. Write to spacesControls.tab; placement
+      // visible_when re-evaluates state.spaces_tab and swaps the two
+      // card list variants (fc-space-card / fc-space-card-my).
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      const picked = (runtimeValue ?? itemValue ?? '').toString().toLowerCase();
+      if (picked === 'all' || picked === 'my') {
+        setSpacesControls({ tab: picked });
+      } else {
+        console.warn('[appza-mobile] spaces.set_tab: no picked value', { argRec, item });
+      }
+      return;
+    }
+
+    case 'spaces.set_search': {
+      // Fires on every keystroke from the search ion-input. Value threaded
+      // through inv.item.value by the primitive input handler.
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      const value = runtimeValue ?? itemValue ?? '';
+      setSpacesControls({ search: value });
+      return;
+    }
+
+    case 'spaces.set_sort': {
+      // Same popover pattern as feed.set_sort; anchored to the toolbar's
+      // sort button (children[1] under fc-spaces-toolbar).
+      const rawOptions = Array.isArray(argRec.options) ? argRec.options : [];
+      const options: ViewModeOption[] = rawOptions
+        .filter((o): o is Record<string, unknown> => isRecord(o))
+        .map((o) => ({
+          value: typeof o.value === 'string' ? o.value : '',
+          label: typeof o.label === 'string' ? o.label : '',
+          icon: typeof o.icon === 'string' ? o.icon : undefined,
+        }))
+        .filter((o) => o.value && o.label);
+      const anchor = document.querySelector(
+        '[data-appza-appzet-slug="fc-spaces-toolbar"][data-child-index="1"]',
+      );
+      openViewModePopover(options, anchor, 'spaces_sort');
+      return;
+    }
+
+    case 'space.join':
+    case 'space.leave': {
+      // POST /spaces/{slug}/join or /leave against the FC mobile namespace
+      // then trigger a data-source refetch so the joined-state pill flips
+      // to "View Space". The catalog wires slug_path='data.slug' — the
+      // effectiveItem is the current space row.
+      const method = typeof argRec.method === 'string' ? argRec.method : 'POST';
+      const endpointTpl = typeof argRec.endpoint === 'string' ? argRec.endpoint : '';
+      const slugPath = typeof argRec.slug_path === 'string' ? argRec.slug_path : 'data.slug';
+      const slug = readDataPath(effectiveItem, slugPath);
+      if (!endpointTpl || typeof slug !== 'string' || !slug) {
+        console.warn('[appza-mobile] space.join/leave: missing endpoint or slug', {
+          endpointTpl,
+          slug,
+        });
+        return;
+      }
+      const endpoint = endpointTpl.replace('{space_slug}', encodeURIComponent(slug));
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      };
+      const authHeader = (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader;
+      if (authHeader) headers.Authorization = authHeader;
+      fetch(endpoint, { method, headers, credentials: 'omit' })
+        .then(async (res) => {
+          if (!res.ok) {
+            const t = await res.text().catch(() => '');
+            throw new Error(`HTTP ${res.status}: ${t.slice(0, 120)}`);
+          }
+          const g = window as unknown as { __appzaForceRefreshUntil?: number };
+          g.__appzaForceRefreshUntil = Date.now() + 3000;
+          window.dispatchEvent(new CustomEvent('appza:refresh-data'));
+        })
+        .catch((err) => {
+          onError(err instanceof Error ? err.message : String(err));
+        });
       return;
     }
 

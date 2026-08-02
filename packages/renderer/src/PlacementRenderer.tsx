@@ -795,7 +795,28 @@ function SuperstructureRenderer({
             onClick={wrapperAction
               ? (e) => {
                   e.stopPropagation();
-                  dispatch(wrapperAction);
+                  // Stamp the child's declared `value` (from binds_to
+                  // 'children[<i>].value' in the SS properties_schema)
+                  // onto action.item so tab/segmented dispatchers can
+                  // read the picked value the same way ion-select does.
+                  // Segmented tabs (fc-spaces-tabs) declare per-child
+                  // value = 'all' | 'my'; without this stamp the click
+                  // dispatch lands with item=undefined.
+                  const childValue = childOverrides?.[idx]?.value;
+                  const dispatched =
+                    childValue != null
+                      ? {
+                          ...wrapperAction,
+                          item: {
+                            ...((wrapperAction.item as
+                              | Record<string, unknown>
+                              | null
+                              | undefined) ?? {}),
+                            value: childValue,
+                          },
+                        }
+                      : wrapperAction;
+                  dispatch(dispatched);
                 }
               : undefined}
             role={wrapperAction ? 'button' : undefined}
