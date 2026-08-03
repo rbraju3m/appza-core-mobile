@@ -359,6 +359,59 @@ export function PlacementRenderer({
   if (!appzet) return <MissingNode label={`unknown appzet: ${appzetSlug}`} />;
   if (!ss) return <MissingNode label={`appzet ${appzet.slug} has no superstructure`} />;
 
+  // === _data_prop_mirror ===
+  // Generic bridge from a resolved DS response into a named AppZet prop.
+  // Declared as a meta key inside default_props_override (piggybacked to
+  // avoid an AppZet-column migration):
+  //   default_props_override._data_prop_mirror:
+  //     { data_path: 'data.topics', prop: 'topics' }
+  //     - `data_path` starting with 'data.' reads FROM the first fetched
+  //       item (single-object DS shape — e.g. fc-space-detail's topics
+  //       array lives on the row itself).
+  //     - `data_path: ''` (or missing) uses the entire items array
+  //       verbatim — for list DSes like fc-spaces-discover whose whole
+  //       return should populate a `spaces` prop.
+  // Only mirrors when the target prop is empty/absent so authors can
+  // hardcode a static list if they don't want the DS-driven behaviour.
+  // Runs BEFORE readExpandedChildren so children_from_prop sees the
+  // mirrored array on the same render pass — no second commit needed.
+  const dpoBag = (appzet.default_props_override ?? null) as Record<string, unknown> | null;
+  const mirrorSpecRaw = dpoBag ? dpoBag['_data_prop_mirror'] : undefined;
+  const mirrorSpec =
+    mirrorSpecRaw && typeof mirrorSpecRaw === 'object' && !Array.isArray(mirrorSpecRaw)
+      ? (mirrorSpecRaw as { data_path?: unknown; prop?: unknown })
+      : null;
+  if (
+    mirrorSpec &&
+    typeof mirrorSpec.prop === 'string' &&
+    mirrorSpec.prop.length > 0
+  ) {
+    const propName = mirrorSpec.prop;
+    const dataPath = typeof mirrorSpec.data_path === 'string' ? mirrorSpec.data_path : '';
+    const existing = dpoBag ? dpoBag[propName] : undefined;
+    const isEmptyArray = Array.isArray(existing) && existing.length === 0;
+    const missing = existing === undefined || existing === null;
+    if (isEmptyArray || missing) {
+      let mirrored: unknown = undefined;
+      if (!dataPath) {
+        // Whole items array (list DS → prop expects a list of records).
+        mirrored = dataState.items;
+      } else if (dataPath.startsWith('data.') && dataState.items.length > 0) {
+        // Nested read from the first item (single-object DS shape).
+        mirrored = readDataPath(dataState.items[0], dataPath);
+      }
+      if (Array.isArray(mirrored) && mirrored.length > 0) {
+        // Mutating the freshly-cloned override bag from line 181 —
+        // safe because that spread produced a new object owned by this
+        // render. Cast keeps the schema-level `nullable` type quiet.
+        (appzet as { default_props_override: Record<string, unknown> }).default_props_override = {
+          ...(appzet.default_props_override ?? {}),
+          [propName]: mirrored,
+        };
+      }
+    }
+  }
+
   // Variadic children expansion: when the SS opts into children_from_prop
   // (e.g. 'tabs'), replicate ss.children[0] once per array entry. Falls
   // back to the static-children path when the prop is absent OR the

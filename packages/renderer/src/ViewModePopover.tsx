@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { IonIcon } from '@ionic/react';
 import { setFeedControls, type FeedViewMode } from './feedControls';
 import { setSpacesControls, type SpacesSort } from './spacesControls';
+import { setSpaceDetailControls } from './spaceDetailControls';
 import { resolveIcon } from './PrimitiveRenderer';
 
 // Floating popover anchored to a DOM element, with a small list of
@@ -22,7 +23,7 @@ export type ViewModeOption = {
 
 const OPEN_EVENT = 'appza:open-view-mode-popover';
 
-export type PopoverStateKey = 'sort' | 'viewMode' | 'spaces_sort';
+export type PopoverStateKey = 'sort' | 'viewMode' | 'spaces_sort' | 'space_detail_sort';
 
 type OpenDetail = {
   options: ViewModeOption[];
@@ -111,6 +112,13 @@ export function ViewModePopover() {
       // falls back to title-asc when the value isn't mapped.
       if (typeof value === 'string' && value.length > 0) {
         setSpacesControls({ sort: value as SpacesSort });
+      }
+    } else if (detail.stateKey === 'space_detail_sort') {
+      // fc-space-post-toolbar sort. Writes into spaceDetailControls.sort;
+      // fc-space-feeds' order_by_type query_param binds to this state key
+      // and auto-refetches when it changes.
+      if (typeof value === 'string' && value.length > 0) {
+        setSpaceDetailControls({ sort: value });
       }
     } else if (value === 'timeline' || value === 'card' || value === 'list') {
       setFeedControls({ viewMode: value as FeedViewMode });

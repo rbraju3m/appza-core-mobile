@@ -18,6 +18,8 @@ import {
   readDataPath,
   setCatalogGlobal,
   setFeedControls,
+  setRouteParams,
+  setSpaceDetailControls,
   setSpacesControls,
   tryHandlePostMenuAction,
   type ActionDispatch,
@@ -2270,6 +2272,27 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       if (argRec.pass_item_as_context === true && effectiveItem != null) {
         screenContextRef.current[targetSlug] = effectiveItem;
         delete screenPrefilledRef.current[targetSlug];
+        // Populate route params from the passed item so DS query_params
+        // with `source: 'route_param'` (e.g. fc-space-detail.slug,
+        // fc-space-feeds.space_slug) resolve on the destination screen.
+        // Same convention as mobile shell — keeps sim + real app in sync.
+        if (isRecord(effectiveItem)) {
+          const ctx = effectiveItem as Record<string, unknown>;
+          const routeBag: Record<string, unknown> = {};
+          if (typeof ctx.slug === 'string' && ctx.slug) routeBag.slug = ctx.slug;
+          if (typeof ctx.space_slug === 'string' && ctx.space_slug) {
+            routeBag.space_slug = ctx.space_slug;
+            if (!routeBag.slug) routeBag.slug = ctx.space_slug;
+          }
+          if (typeof ctx.post_slug === 'string' && ctx.post_slug) routeBag.post_slug = ctx.post_slug;
+          if (typeof ctx.id === 'number' || typeof ctx.id === 'string') routeBag.id = ctx.id;
+          if (Object.keys(routeBag).length > 0) {
+            setRouteParams(routeBag);
+            if (typeof routeBag.slug === 'string' && targetSlug === 'space-detail') {
+              setSpaceDetailControls({ space_slug: routeBag.slug });
+            }
+          }
+        }
       }
       if (currentScreenId != null) {
         setScreenStack((prev) => [...prev, currentScreenId]);
@@ -3183,6 +3206,121 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         '[data-appza-appzet-slug="fc-spaces-toolbar"][data-child-index="1"]',
       );
       openViewModePopover(options, anchor, 'spaces_sort');
+      return;
+    }
+
+    case 'space_detail.set_subtab': {
+      // fc-space-subtabs children_from_prop strip. Same shape as
+      // spaces.set_tab above — value flows through inv.item.value.
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      const picked = runtimeValue ?? itemValue ?? '';
+      if (picked) {
+        setSpaceDetailControls({ active_subtab: picked });
+      } else {
+        console.warn('[appza-admin/app-mode] space_detail.set_subtab: no picked value', {
+          argRec,
+          item,
+        });
+      }
+      return;
+    }
+
+    case 'space_detail.set_topic': {
+      // fc-space-topics chip. topic_slug='' = "All"; refetch of
+      // fc-space-feeds is automatic via query_params state binding.
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      const picked = runtimeValue ?? itemValue ?? '';
+      setSpaceDetailControls({ topic_slug: picked });
+      return;
+    }
+
+    case 'space_detail.set_sort': {
+      // Sort popover on fc-space-post-toolbar. Same shape as
+      // spaces.set_sort: no runtime value = open the picker; runtime
+      // value present = commit the picked sort.
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      if (runtimeValue) {
+        setSpaceDetailControls({ sort: runtimeValue });
+        return;
+      }
+      const rawOptions = Array.isArray(argRec.options) ? argRec.options : [];
+      const options: ViewModeOption[] = rawOptions
+        .filter((o): o is Record<string, unknown> => isRecord(o))
+        .map((o) => ({
+          value: typeof o.value === 'string' ? o.value : '',
+          label: typeof o.label === 'string' ? o.label : '',
+          icon: typeof o.icon === 'string' ? o.icon : undefined,
+        }))
+        .filter((o) => o.value && o.label);
+      const anchor = document.querySelector(
+        '[data-appza-appzet-slug="fc-space-post-toolbar"][data-child-index="1"]',
+      );
+      openViewModePopover(options, anchor, 'space_detail_sort');
+      return;
+    }
+
+    case 'space.compose_open': {
+      // Nav.push variant to create-post-page. Carries the current
+      // space context so fc-post-information can prefill its space
+      // picker. When effectiveItem is null (composer teaser has no
+      // per-item context) we synthesize one from the route params.
+      const target = catalog?.template_screens?.find(
+        (s) => s.app_map_screen_slug === 'create-post-page',
+      );
+      if (!target) {
+        console.warn('[appza-admin/app-mode] space.compose_open: create-post-page not in catalog');
+        return;
+      }
+      let ctx: unknown = effectiveItem;
+      if (ctx == null) {
+        const rp = (window as unknown as { __appzaRouteParams?: Record<string, unknown> })
+          .__appzaRouteParams;
+        const spaceSlug = rp && typeof rp.slug === 'string' ? rp.slug : '';
+        if (spaceSlug) ctx = { slug: spaceSlug };
+      }
+      if (ctx != null) {
+        screenContextRef.current['create-post-page'] = ctx;
+        delete screenPrefilledRef.current['create-post-page'];
+      }
+      if (currentScreenId != null) {
+        setScreenStack((prev) => [...prev, currentScreenId]);
+      }
+      setSelectedScreenId(target.id);
+      return;
+    }
+
+    case 'post.open': {
+      // Nav.push to post-detail carrying the tapped post. Distinct
+      // action slug from a plain nav.push so analytics can filter
+      // "View more comments" taps separately later.
+      const target = catalog?.template_screens?.find(
+        (s) => s.app_map_screen_slug === 'post-detail',
+      );
+      if (!target) {
+        console.warn('[appza-admin/app-mode] post.open: post-detail not in catalog');
+        return;
+      }
+      if (effectiveItem != null) {
+        screenContextRef.current['post-detail'] = effectiveItem;
+        delete screenPrefilledRef.current['post-detail'];
+        if (isRecord(effectiveItem)) {
+          const ctx = effectiveItem as Record<string, unknown>;
+          const routeBag: Record<string, unknown> = {};
+          if (typeof ctx.slug === 'string' && ctx.slug) routeBag.post_slug = ctx.slug;
+          if (typeof ctx.id === 'number' || typeof ctx.id === 'string') routeBag.id = ctx.id;
+          const spaceCtx = isRecord(ctx.space) ? (ctx.space as Record<string, unknown>) : null;
+          if (spaceCtx && typeof spaceCtx.slug === 'string') routeBag.slug = spaceCtx.slug;
+          if (Object.keys(routeBag).length > 0) setRouteParams(routeBag);
+        }
+      }
+      if (currentScreenId != null) {
+        setScreenStack((prev) => [...prev, currentScreenId]);
+      }
+      setSelectedScreenId(target.id);
       return;
     }
 

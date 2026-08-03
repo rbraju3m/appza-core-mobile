@@ -11,6 +11,8 @@ import {
   readDataPath,
   setCatalogGlobal,
   setFeedControls,
+  setRouteParams,
+  setSpaceDetailControls,
   setSpacesControls,
   tryHandlePostMenuAction,
   type ActionDispatch,
@@ -1396,6 +1398,31 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       if (argRec.pass_item_as_context === true && effectiveItem != null) {
         screenContextRef.current[targetSlug] = effectiveItem;
         delete screenPrefilledRef.current[targetSlug];
+        // Populate route params from the passed item so DS query_params
+        // with `source: 'route_param'` (e.g. fc-space-detail.slug,
+        // fc-space-feeds.space_slug) resolve on the destination screen.
+        // Convention: prefer `slug` as-is; also thread known synonyms
+        // (space_slug, post_slug) so nested routes work.
+        if (isRecord(effectiveItem)) {
+          const ctx = effectiveItem as Record<string, unknown>;
+          const routeBag: Record<string, unknown> = {};
+          if (typeof ctx.slug === 'string' && ctx.slug) routeBag.slug = ctx.slug;
+          if (typeof ctx.space_slug === 'string' && ctx.space_slug) {
+            routeBag.space_slug = ctx.space_slug;
+            if (!routeBag.slug) routeBag.slug = ctx.space_slug;
+          }
+          if (typeof ctx.post_slug === 'string' && ctx.post_slug) routeBag.post_slug = ctx.post_slug;
+          if (typeof ctx.id === 'number' || typeof ctx.id === 'string') routeBag.id = ctx.id;
+          if (Object.keys(routeBag).length > 0) {
+            setRouteParams(routeBag);
+            // Space-detail screen needs its space_slug in the state slice
+            // (not just route params) — placement visible_when + a few
+            // future actions read it there.
+            if (typeof routeBag.slug === 'string' && targetSlug === 'space-detail') {
+              setSpaceDetailControls({ space_slug: routeBag.slug });
+            }
+          }
+        }
       }
       if (currentScreenId != null) {
         setScreenStack((prev) => [...prev, currentScreenId]);
@@ -2255,6 +2282,137 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         '[data-appza-appzet-slug="fc-spaces-toolbar"][data-child-index="1"]',
       );
       openViewModePopover(options, anchor, 'spaces_sort');
+      return;
+    }
+
+    case 'space_detail.set_subtab': {
+      // fc-space-subtabs children_from_prop strip. Value flows through
+      // inv.item.value (variadic child template stamps it) with an
+      // args.value fallback for direct-fire callers. See
+      // spaces.set_tab above for the same pattern.
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      const picked = runtimeValue ?? itemValue ?? '';
+      if (picked) {
+        setSpaceDetailControls({ active_subtab: picked });
+      } else {
+        console.warn('[appza-mobile] space_detail.set_subtab: no picked value', { argRec, item });
+      }
+      return;
+    }
+
+    case 'space_detail.set_topic': {
+      // fc-space-topics chip tap. Value = topic slug ('' means "All" —
+      // the prepend_all synthetic entry passes value:''). Refetch is
+      // implicit: fc-space-feeds' query_params bind to this state key,
+      // so the store event bumps PlacementRenderer's params → hook
+      // refetches automatically.
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      const picked = runtimeValue ?? itemValue ?? '';
+      setSpaceDetailControls({ topic_slug: picked });
+      return;
+    }
+
+    case 'space_detail.set_sort': {
+      // Sort popover for the space post toolbar. Same shape as
+      // spaces.set_sort — args.options carries the choice list; the
+      // popover writes the picked value back into state via the
+      // 'space_detail_sort' scope which our ViewModePopover routes to
+      // this action's state slice.
+      const rawOptions = Array.isArray(argRec.options) ? argRec.options : [];
+      const options: ViewModeOption[] = rawOptions
+        .filter((o): o is Record<string, unknown> => isRecord(o))
+        .map((o) => ({
+          value: typeof o.value === 'string' ? o.value : '',
+          label: typeof o.label === 'string' ? o.label : '',
+          icon: typeof o.icon === 'string' ? o.icon : undefined,
+        }))
+        .filter((o) => o.value && o.label);
+      // Runtime value takes precedence — the popover fires this action
+      // with { value: <picked> } once the user taps a row. When invoked
+      // WITHOUT a runtime value, we open the popover instead.
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      if (runtimeValue) {
+        setSpaceDetailControls({ sort: runtimeValue });
+        return;
+      }
+      const anchor = document.querySelector(
+        '[data-appza-appzet-slug="fc-space-post-toolbar"][data-child-index="1"]',
+      );
+      openViewModePopover(options, anchor, 'space_detail_sort');
+      return;
+    }
+
+    case 'space.compose_open': {
+      // Nav.push variant that carries the current space (from screen
+      // context OR effectiveItem) into create-post-page so
+      // fc-post-information prefills its space picker. Mirrors the
+      // nav.push case above but with a fixed target + a smarter item
+      // fallback: on the space-detail screen the composer teaser has no
+      // per-item context, so we synthesize one from spaceDetailControls
+      // when effectiveItem is null.
+      const target = catalog?.template_screens?.find(
+        (s) => s.app_map_screen_slug === 'create-post-page',
+      );
+      if (!target) {
+        console.warn('[appza-mobile] space.compose_open: create-post-page not in catalog');
+        return;
+      }
+      let ctx: unknown = effectiveItem;
+      if (ctx == null) {
+        const spaceSlug =
+          typeof (window as unknown as { __appzaRouteParams?: Record<string, unknown> })
+            .__appzaRouteParams?.slug === 'string'
+            ? ((window as unknown as { __appzaRouteParams?: Record<string, unknown> })
+                .__appzaRouteParams!.slug as string)
+            : '';
+        if (spaceSlug) ctx = { slug: spaceSlug };
+      }
+      if (ctx != null) {
+        screenContextRef.current['create-post-page'] = ctx;
+        delete screenPrefilledRef.current['create-post-page'];
+      }
+      if (currentScreenId != null) {
+        setScreenStack((prev) => [...prev, currentScreenId]);
+      }
+      setSelectedScreenId(target.id);
+      return;
+    }
+
+    case 'post.open': {
+      // Nav.push to post-detail carrying the tapped post. Fires from
+      // fc-post-card's "View more comments" tap — same wire shape as
+      // the on_tap_row post-open, distinct action slug so analytics can
+      // differentiate the entry point later.
+      const target = catalog?.template_screens?.find(
+        (s) => s.app_map_screen_slug === 'post-detail',
+      );
+      if (!target) {
+        console.warn('[appza-mobile] post.open: post-detail not in catalog');
+        return;
+      }
+      if (effectiveItem != null) {
+        screenContextRef.current['post-detail'] = effectiveItem;
+        delete screenPrefilledRef.current['post-detail'];
+        if (isRecord(effectiveItem)) {
+          const ctx = effectiveItem as Record<string, unknown>;
+          const routeBag: Record<string, unknown> = {};
+          if (typeof ctx.slug === 'string' && ctx.slug) routeBag.post_slug = ctx.slug;
+          if (typeof ctx.id === 'number' || typeof ctx.id === 'string') routeBag.id = ctx.id;
+          // Carry the parent space slug forward so the post-detail
+          // screen's DSes (comments etc.) can still bind to route.slug.
+          const spaceCtx = isRecord(ctx.space) ? (ctx.space as Record<string, unknown>) : null;
+          if (spaceCtx && typeof spaceCtx.slug === 'string') routeBag.slug = spaceCtx.slug;
+          if (Object.keys(routeBag).length > 0) setRouteParams(routeBag);
+        }
+      }
+      if (currentScreenId != null) {
+        setScreenStack((prev) => [...prev, currentScreenId]);
+      }
+      setSelectedScreenId(target.id);
       return;
     }
 
