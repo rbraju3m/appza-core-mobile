@@ -2823,7 +2823,7 @@
    inline comment footer) while other children span the full width.
    Scoped strictly to cards that carry child[15] (the topic pill), so
    ordinary Feed cards keep the original grid.                          */
-.appza-renderer-appzet-list[data-slug="fc-post-card"] .appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) {
+[data-screen-slug="space-detail"] .appza-renderer-appzet-list[data-slug="fc-post-card"] .appza-renderer-ss[data-slug="fc-post-card"] {
   display: grid;
   grid-template-columns: 14px 44px 1fr auto auto 14px;
   grid-template-areas:
@@ -2832,6 +2832,7 @@
     ".       .       byline  byline  byline  ."
     ".       title   title   title   title   ."
     ".       body    body    body    body    ."
+    "poll    poll    poll    poll    poll    poll"
     "image   image   image   image   image   image"
     ".       react   react   react   react   ."
     "chdr    chdr    chdr    chdr    chdr    chdr"
@@ -2839,7 +2840,7 @@
     "cbody   cbody   cbody   cbody   cbody   cbody"
     "cfoot   cfoot   cfoot   cfoot   cfoot   cfoot"
     ".       viewmore viewmore viewmore viewmore .";
-  grid-template-rows: auto auto auto auto auto auto auto auto auto auto auto auto;
+  grid-template-rows: auto auto auto auto auto auto auto auto auto auto auto auto auto;
   column-gap: 8px;
   row-gap: 0;
   padding: 0;
@@ -2849,7 +2850,7 @@
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
   margin: 12px 16px;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) > * {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] > * {
   grid-area: unset;
   margin: 0;
   min-width: 0;
@@ -2857,12 +2858,12 @@
 
 /* Topic pill row — style the ion-chip directly. Prepend "# " via chip
    ::before. Ionic exposes ion-chip appearance via CSS custom props. */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="15"] {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] {
   grid-row: 1;
   grid-column: 1 / -1;
   padding: 14px 14px 4px 14px;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="15"] ion-chip {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] ion-chip {
   --background: #f3f4f6 !important;
   --color: #374151 !important;
   background: #f3f4f6 !important;
@@ -2878,16 +2879,16 @@
   opacity: 1 !important;
   visibility: visible !important;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="15"] ion-chip::part(native) {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] ion-chip::part(native) {
   background: #f3f4f6 !important;
   color: #374151 !important;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="15"] ion-chip::before {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] ion-chip::before {
   content: "#\00a0";
   color: #374151;
   font-weight: 700;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="15"] ion-chip {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] ion-chip {
   --background: #f3f4f6 !important;
   --color: #374151 !important;
   border: 0 !important;
@@ -2900,38 +2901,51 @@
 }
 
 /* Author row: avatar | name+verified | menu */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="0"] {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="0"] {
   grid-area: avatar;
   width: 44px;
   height: 44px;
   align-self: center;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="0"] ion-avatar {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="0"] ion-avatar {
   width: 44px;
   height: 44px;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="1"] {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="1"] {
   grid-area: name;
   font-weight: 700;
   font-size: 0.95rem;
   color: #111827;
   align-self: end;
-  display: inline-flex;
+  /* Use flex (not inline-flex) so the cell stretches to fill the 1fr
+     name column. min-width:0 + overflow-hidden allows the name to
+     truncate with ellipsis instead of wrapping to 2 lines when long.  */
+  display: flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="23"] {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="1"] > * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="23"] {
   grid-area: verify;
   align-self: end;
   display: inline-flex;
   align-items: center;
   padding-bottom: 2px;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="23"] ion-icon {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="23"] ion-icon {
   color: #1d4ed8;
   font-size: 16px;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="4"] {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="4"] {
   grid-area: menu;
   align-self: center;
   justify-self: end;
@@ -2939,7 +2953,7 @@
 }
 
 /* Byline: time + " · " + space name (small gray) */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="2"] {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="2"] {
   grid-column: name-start / verify-end;
   grid-row: 3;
   font-size: 0.75rem;
@@ -2947,17 +2961,26 @@
   align-self: start;
   display: inline;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="3"] {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="3"] {
   grid-column: name-start / menu-end;
   grid-row: 3;
   font-size: 0.75rem;
-  color: #6b7280;
+  color: #6b7280 !important;
   padding-left: 32px;
   align-self: start;
 }
+/* Force the byline space-name to gray — some Source Integrations
+   render it as an <a> that inherits the app's link color (orange in
+   FC). Override on the child + any nested anchor.                     */
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="3"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="3"] a,
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="3"] * {
+  color: #6b7280 !important;
+  text-decoration: none !important;
+}
 
 /* Title + body */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="5"] {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="5"] {
   grid-area: title;
   font-weight: 700;
   font-size: 1.05rem;
@@ -2965,7 +2988,7 @@
   padding-top: 10px;
   padding-bottom: 4px;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="6"] {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="6"] {
   grid-area: body;
   color: #4b5563;
   font-size: 0.9rem;
@@ -2973,16 +2996,24 @@
   padding-bottom: 10px;
 }
 
+/* Poll block (child[9]) — sits between body and image on poll posts.
+   The `poll` grid area collapses to zero height when the child is
+   absent (regular text/image posts).                                  */
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="9"] {
+  grid-area: poll;
+  padding: 4px 14px 10px 14px;
+}
+
 /* Featured image (full-bleed) */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="16"] {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="16"] {
   grid-area: image;
   padding: 0;
   background: #e5e7eb;
   aspect-ratio: 16 / 9;
   overflow: hidden;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="16"] img,
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="16"] ion-img {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="16"] img,
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="16"] ion-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -2993,13 +3024,13 @@
    with sub-grid on a wrapper div. Since children[10..14,17] are direct
    grandchildren of the card, use grid subgrid via a wrapper isn't
    possible — instead, place each on grid-row 7 with explicit columns. */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="10"],
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="11"],
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="12"],
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="13"],
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="14"],
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="17"] {
-  grid-row: 7;
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="13"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="14"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="17"] {
+  grid-row: 8;
   align-self: center;
   padding-top: 10px;
   padding-bottom: 10px;
@@ -3008,21 +3039,41 @@
    in cols 2-3. Summary text ("N likes", "N Comments") sits RIGHT in cols
    4-5 on a single line each. Reset the feed-variant `margin-left` values
    from lines 1363-1364 that would otherwise push 11/12 off the grid.    */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="10"],
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="11"],
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="12"] {
-  grid-row: 7;
+/* Three action icons occupy cols 2-3 as a fixed-width cluster
+   (44+40+40=124px). Each icon has a hard `width` cap so the ion-button
+   host + its bordered ::part(native) can never bleed past the icon
+   slot into cols 4-5 where the "N likes" / "N comments" labels sit.  */
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] {
+  grid-row: 8;
   grid-column: 2 / 4;
   justify-self: start;
+  align-self: center;
   margin: 0 !important;
   padding: 0;
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  height: 28px;
+  overflow: hidden;
+  box-sizing: border-box;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="10"] { padding-left: 4px; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="11"] { padding-left: 44px; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="12"] { padding-left: 84px; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="10"] ion-button,
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="11"] ion-button,
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="12"] ion-button {
+/* Stagger the three via left-margin offsets since they all share the
+   same grid cell.                                                     */
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"] { margin-left: 4px !important; }
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] { margin-left: 44px !important; }
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] { margin-left: 84px !important; }
+/* The ion-button host also needs a width cap for the same reason. */
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"] ion-button,
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] ion-button,
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] ion-button {
+  width: 36px !important;
+  max-width: 36px !important;
+}
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"] ion-button,
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] ion-button,
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] ion-button {
   --border-color: transparent !important;
   --background: transparent !important;
   --box-shadow: none !important;
@@ -3032,8 +3083,8 @@
   height: 28px !important;
   margin: 0 !important;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="13"] {
-  grid-row: 7;
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="13"] {
+  grid-row: 8;
   grid-column: 4 / 5;
   justify-self: end;
   align-self: center;
@@ -3045,8 +3096,8 @@
   display: inline-flex;
   align-items: center;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="14"] {
-  grid-row: 7;
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="14"] {
+  grid-row: 8;
   grid-column: 5 / 6;
   justify-self: end;
   align-self: center;
@@ -3060,28 +3111,28 @@
 }
 /* child[17] is a redundant likes-count number ("24"); the "N likes"
    summary already appears in child[13]. Hide it to avoid overlap. */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="17"] {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="17"] {
   display: none !important;
 }
 
 /* Inline comment block: each row of the block lives on its own grid-row
    with a shared background. Left/right insets are faked with box-shadow
    so a single continuous gray box appears across rows without gaps.   */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="18"],
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="19"],
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="20"],
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="21"],
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="24"],
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="25"],
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="26"],
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="27"] {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="19"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="20"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="21"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="24"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="26"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"] {
   background: #f3f4f6;
 }
 /* Header row: avatar left, name right of it. The avatar sits in a
    col-1/-1 full-width bg strip; the name overlays it via z-index and
    left padding. Same for time and body rows below.                   */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="18"] {
-  grid-row: 8;
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"] {
+  grid-row: 9;
   grid-column: 1 / -1;
   padding: 12px 0 0 20px;
   margin-top: 8px;
@@ -3091,14 +3142,14 @@
   height: 44px;
   box-sizing: border-box;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="18"] ion-avatar,
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="18"] img {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"] ion-avatar,
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"] img {
   width: 32px;
   height: 32px;
   border-radius: 999px;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="19"] {
-  grid-row: 8;
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="19"] {
+  grid-row: 9;
   grid-column: 1 / -1;
   font-weight: 700;
   font-size: 0.9rem;
@@ -3109,8 +3160,8 @@
   align-self: start;
   z-index: 1;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="20"] {
-  grid-row: 9;
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="20"] {
+  grid-row: 10;
   grid-column: 1 / -1;
   font-size: 0.72rem;
   color: #6b7280;
@@ -3118,8 +3169,8 @@
   margin-left: 14px;
   margin-right: 14px;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="21"] {
-  grid-row: 10;
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="21"] {
+  grid-row: 11;
   grid-column: 1 / -1;
   font-size: 0.85rem;
   color: #374151;
@@ -3129,12 +3180,12 @@
   line-height: 1.4;
 }
 /* Strip any stray <p> wrapper margins */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="21"] p {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="21"] p {
   margin: 0;
 }
 /* Comment footer row: Reply | blue heart+(1) on left, "1 Reply" right */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="24"] {
-  grid-row: 11;
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="24"] {
+  grid-row: 12;
   grid-column: 1 / 4;
   font-size: 0.78rem;
   color: #374151;
@@ -3145,8 +3196,8 @@
   display: inline-flex;
   align-items: center;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="25"] {
-  grid-row: 11;
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"] {
+  grid-row: 12;
   grid-column: 1 / 4;
   padding: 4px 0 12px 90px;
   margin-left: 14px;
@@ -3155,7 +3206,7 @@
   display: inline-flex;
   align-items: center;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="25"] ion-button {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"] ion-button {
   --color: #1d4ed8 !important;
   --border-color: transparent !important;
   --background: transparent !important;
@@ -3166,8 +3217,8 @@
   height: 24px !important;
   margin: 0 !important;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="26"] {
-  grid-row: 11;
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="26"] {
+  grid-row: 12;
   grid-column: 1 / 4;
   font-size: 0.78rem;
   color: #1d4ed8;
@@ -3176,8 +3227,8 @@
   align-self: center;
   justify-self: start;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="27"] {
-  grid-row: 11;
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"] {
+  grid-row: 12;
   grid-column: 4 / -1;
   font-size: 0.78rem;
   color: #6b7280;
@@ -3189,17 +3240,17 @@
   border-radius: 0 0 8px 0;
 }
 /* Add " Reply" suffix so raw count reads like "1 Reply" */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="27"]::after {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"]::after {
   content: " Reply";
   color: #6b7280;
 }
 /* Bottom-left rounded corner on the last-row of comment box */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="24"] {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="24"] {
   border-radius: 0 0 0 8px;
 }
 
 /* View more comments link */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="22"] {
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="22"] {
   grid-area: viewmore;
   padding: 10px 0 14px 0;
   font-size: 0.82rem;
