@@ -2818,12 +2818,30 @@
    column so the `order` property works. Scope to cards that carry
    the extra children[15] (the topic pill) — i.e. only fires on the
    space-detail variant of the card.                                   */
+/* Space-detail variant of fc-post-card uses CSS grid so we can pack
+   multiple children onto a single visual row (author row, reaction row,
+   inline comment footer) while other children span the full width.
+   Scoped strictly to cards that carry child[15] (the topic pill), so
+   ordinary Feed cards keep the original grid.                          */
 .appza-renderer-appzet-list[data-slug="fc-post-card"] .appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) {
-  display: flex;
-  flex-direction: column;
-  grid-template-columns: none;
-  grid-template-areas: none;
-  gap: 0;
+  display: grid;
+  grid-template-columns: 14px 44px 1fr auto auto 14px;
+  grid-template-areas:
+    "pill    pill    pill    pill    pill    pill"
+    ".       avatar  name    verify  menu    ."
+    ".       .       byline  byline  byline  ."
+    ".       title   title   title   title   ."
+    ".       body    body    body    body    ."
+    "image   image   image   image   image   image"
+    ".       react   react   react   react   ."
+    "chdr    chdr    chdr    chdr    chdr    chdr"
+    "ctime   ctime   ctime   ctime   ctime   ctime"
+    "cbody   cbody   cbody   cbody   cbody   cbody"
+    "cfoot   cfoot   cfoot   cfoot   cfoot   cfoot"
+    ".       viewmore viewmore viewmore viewmore .";
+  grid-template-rows: auto auto auto auto auto auto auto auto auto auto auto auto;
+  column-gap: 8px;
+  row-gap: 0;
   padding: 0;
   background: #ffffff;
   border-radius: 12px;
@@ -2832,58 +2850,336 @@
   margin: 12px 16px;
 }
 .appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) > * {
-  grid-area: unset !important;
-  width: 100%;
-  padding-left: 14px;
-  padding-right: 14px;
+  grid-area: unset;
   margin: 0;
+  min-width: 0;
 }
-/* Row order — mirrors the mock (top → bottom):
-   [15 topic pill] → [0 avatar + 1 name + 23 verified] → [2 time + 4 menu]
-   → [5 title] → [6 body] → [16 featured image] → [10/11/12 icons + 17 summary]
-   → [comment block 18..21 + 24 Reply + 25 like + 26 count + 27 N Reply]
-   → [22 View more comments] */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="15"] { order: 1; padding-top: 14px; padding-bottom: 4px; }
+
+/* Topic pill row — style the ion-chip directly. Prepend "# " via chip
+   ::before. Ionic exposes ion-chip appearance via CSS custom props. */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="15"] {
+  grid-row: 1;
+  grid-column: 1 / -1;
+  padding: 14px 14px 4px 14px;
+}
 .appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="15"] ion-chip {
-  --background: transparent !important;
-  --color: #1d4ed8 !important;
+  --background: #f3f4f6 !important;
+  --color: #374151 !important;
+  background: #f3f4f6 !important;
+  color: #374151 !important;
   border: 0 !important;
-  padding: 0 !important;
-  font-size: 0.8rem !important;
+  padding: 4px 10px !important;
+  font-size: 0.78rem !important;
   font-weight: 600 !important;
   height: auto !important;
   min-height: 0 !important;
+  border-radius: 6px !important;
+  margin: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
-/* Author row */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="0"]  { order: 2; padding-top: 4px; width: 44px; height: 44px; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="1"]  { order: 3; font-weight: 600; font-size: 0.95rem; padding-top: 4px; padding-left: 4px; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="23"] { order: 4; padding-left: 2px; color: #1d4ed8; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="23"] ion-icon { color: #1d4ed8; font-size: 16px; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="4"]  { order: 5; align-self: flex-end; margin-top: -36px; padding-right: 8px; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="2"]  { order: 6; font-size: 0.78rem; color: #6b7280; padding-left: 4px; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="3"]  { order: 7; font-size: 0.78rem; color: #f97316; padding-left: 6px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="15"] ion-chip::part(native) {
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="15"] ion-chip::before {
+  content: "#\00a0";
+  color: #374151;
+  font-weight: 700;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="15"] ion-chip {
+  --background: #f3f4f6 !important;
+  --color: #374151 !important;
+  border: 0 !important;
+  padding: 4px 10px !important;
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  border-radius: 6px !important;
+}
+
+/* Author row: avatar | name+verified | menu */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="0"] {
+  grid-area: avatar;
+  width: 44px;
+  height: 44px;
+  align-self: center;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="0"] ion-avatar {
+  width: 44px;
+  height: 44px;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="1"] {
+  grid-area: name;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #111827;
+  align-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="23"] {
+  grid-area: verify;
+  align-self: end;
+  display: inline-flex;
+  align-items: center;
+  padding-bottom: 2px;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="23"] ion-icon {
+  color: #1d4ed8;
+  font-size: 16px;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="4"] {
+  grid-area: menu;
+  align-self: center;
+  justify-self: end;
+  padding-right: 14px;
+}
+
+/* Byline: time + " · " + space name (small gray) */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="2"] {
+  grid-column: name-start / verify-end;
+  grid-row: 3;
+  font-size: 0.75rem;
+  color: #6b7280;
+  align-self: start;
+  display: inline;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="3"] {
+  grid-column: name-start / menu-end;
+  grid-row: 3;
+  font-size: 0.75rem;
+  color: #6b7280;
+  padding-left: 32px;
+  align-self: start;
+}
+
 /* Title + body */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="5"]  { order: 8; font-weight: 700; font-size: 1.05rem; padding-top: 8px; padding-bottom: 4px; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="6"]  { order: 9; color: #374151; font-size: 0.9rem; line-height: 1.4; padding-bottom: 8px; }
-/* Featured image */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="16"] { order: 10; padding: 0; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="5"] {
+  grid-area: title;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #111827;
+  padding-top: 10px;
+  padding-bottom: 4px;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="6"] {
+  grid-area: body;
+  color: #4b5563;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  padding-bottom: 10px;
+}
+
+/* Featured image (full-bleed) */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="16"] {
+  grid-area: image;
+  padding: 0;
+  background: #e5e7eb;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+}
 .appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="16"] img,
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="16"] ion-img { width: 100%; display: block; }
-/* Reaction row (like/comment/bookmark icons + likes/comments summary) */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="10"] { order: 11; display: inline-flex; padding: 12px 6px 12px 14px; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="11"] { order: 12; display: inline-flex; padding: 12px 6px; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="12"] { order: 13; display: inline-flex; padding: 12px 6px; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="13"] { order: 14; align-self: center; font-size: 0.8rem; color: #6b7280; padding: 12px 4px 12px 12px; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="14"] { order: 15; align-self: center; font-size: 0.8rem; color: #6b7280; padding: 12px 14px 12px 4px; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="17"] { order: 16; align-self: center; font-size: 0.8rem; color: #6b7280; padding: 12px 14px 12px 4px; }
-/* Inline first-comment block */
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="18"] { order: 17; background: #f9fafb; margin-top: 8px; padding-top: 12px; padding-bottom: 4px; width: 40px; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="19"] { order: 18; background: #f9fafb; padding-top: 12px; padding-bottom: 2px; font-weight: 600; font-size: 0.9rem; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="20"] { order: 19; background: #f9fafb; padding-bottom: 4px; font-size: 0.75rem; color: #6b7280; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="21"] { order: 20; background: #f9fafb; padding-bottom: 8px; font-size: 0.88rem; color: #374151; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="24"] { order: 21; background: #f9fafb; padding-bottom: 8px; font-size: 0.78rem; color: #374151; display: inline-flex; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="25"] { order: 22; background: #f9fafb; padding-bottom: 8px; display: inline-flex; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="25"] ion-button { --color: #1d4ed8 !important; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="26"] { order: 23; background: #f9fafb; padding-bottom: 8px; font-size: 0.78rem; color: #6b7280; display: inline-flex; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="27"] { order: 24; background: #f9fafb; padding-bottom: 12px; font-size: 0.78rem; color: #6b7280; text-align: right; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="22"] { order: 25; padding: 10px 14px 14px 14px; font-size: 0.85rem; color: #6b7280; text-decoration: underline; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="16"] ion-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Reaction row: build a horizontal strip via display:contents parent
+   with sub-grid on a wrapper div. Since children[10..14,17] are direct
+   grandchildren of the card, use grid subgrid via a wrapper isn't
+   possible — instead, place each on grid-row 7 with explicit columns. */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="10"],
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="11"],
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="12"],
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="13"],
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="14"],
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="17"] {
+  grid-row: 7;
+  align-self: center;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="10"] { grid-column: 2 / 3; justify-self: start; padding-left: 4px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="11"] { grid-column: 3 / 4; justify-self: start; padding-left: 4px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="12"] { grid-column: 3 / 4; justify-self: start; padding-left: 48px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="13"] { padding-left: 90px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="10"] ion-button,
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="11"] ion-button,
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="12"] ion-button {
+  --border-color: transparent !important;
+  --background: transparent !important;
+  --box-shadow: none !important;
+  --padding-start: 4px !important;
+  --padding-end: 4px !important;
+  min-height: 28px !important;
+  height: 28px !important;
+  margin: 0 !important;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="13"] {
+  grid-column: 3 / 5;
+  justify-self: end;
+  font-size: 0.78rem;
+  color: #6b7280;
+  padding-right: 6px;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="14"] {
+  grid-column: 5 / 6;
+  justify-self: end;
+  font-size: 0.78rem;
+  color: #6b7280;
+  padding-right: 14px;
+  white-space: nowrap;
+}
+/* child[17] is a redundant likes-count number ("24"); the "N likes"
+   summary already appears in child[13]. Hide it to avoid overlap. */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="17"] {
+  display: none !important;
+}
+
+/* Inline comment block: each row of the block lives on its own grid-row
+   with a shared background. Left/right insets are faked with box-shadow
+   so a single continuous gray box appears across rows without gaps.   */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="18"],
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="19"],
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="20"],
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="21"],
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="24"],
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="25"],
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="26"],
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="27"] {
+  background: #f3f4f6;
+}
+/* Header row: avatar left, name right of it. The avatar sits in a
+   col-1/-1 full-width bg strip; the name overlays it via z-index and
+   left padding. Same for time and body rows below.                   */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="18"] {
+  grid-row: 8;
+  grid-column: 1 / -1;
+  padding: 12px 0 0 20px;
+  margin-top: 8px;
+  border-radius: 8px 8px 0 0;
+  margin-left: 14px;
+  margin-right: 14px;
+  height: 44px;
+  box-sizing: border-box;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="18"] ion-avatar,
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="18"] img {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="19"] {
+  grid-row: 8;
+  grid-column: 1 / -1;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #111827;
+  padding: 14px 20px 4px 66px;
+  margin-left: 14px;
+  margin-right: 14px;
+  align-self: start;
+  z-index: 1;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="20"] {
+  grid-row: 9;
+  grid-column: 1 / -1;
+  font-size: 0.72rem;
+  color: #6b7280;
+  padding: 0 20px 6px 66px;
+  margin-left: 14px;
+  margin-right: 14px;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="21"] {
+  grid-row: 10;
+  grid-column: 1 / -1;
+  font-size: 0.85rem;
+  color: #374151;
+  padding: 0 20px 8px 66px;
+  margin-left: 14px;
+  margin-right: 14px;
+  line-height: 1.4;
+}
+/* Strip any stray <p> wrapper margins */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="21"] p {
+  margin: 0;
+}
+/* Comment footer row: Reply | blue heart+(1) on left, "1 Reply" right */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="24"] {
+  grid-row: 11;
+  grid-column: 1 / 4;
+  font-size: 0.78rem;
+  color: #374151;
+  padding: 4px 0 12px 34px;
+  margin-left: 14px;
+  align-self: center;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="25"] {
+  grid-row: 11;
+  grid-column: 1 / 4;
+  padding: 4px 0 12px 90px;
+  margin-left: 14px;
+  align-self: center;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="25"] ion-button {
+  --color: #1d4ed8 !important;
+  --border-color: transparent !important;
+  --background: transparent !important;
+  --box-shadow: none !important;
+  --padding-start: 2px !important;
+  --padding-end: 2px !important;
+  min-height: 24px !important;
+  height: 24px !important;
+  margin: 0 !important;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="26"] {
+  grid-row: 11;
+  grid-column: 1 / 4;
+  font-size: 0.78rem;
+  color: #1d4ed8;
+  padding: 4px 0 12px 128px;
+  margin-left: 14px;
+  align-self: center;
+  justify-self: start;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="27"] {
+  grid-row: 11;
+  grid-column: 4 / -1;
+  font-size: 0.78rem;
+  color: #6b7280;
+  padding: 4px 20px 12px 0;
+  margin-right: 14px;
+  align-self: center;
+  justify-self: end;
+  text-align: right;
+  border-radius: 0 0 8px 0;
+}
+/* Add " Reply" suffix so raw count reads like "1 Reply" */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="27"]::after {
+  content: " Reply";
+  color: #6b7280;
+}
+/* Bottom-left rounded corner on the last-row of comment box */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="24"] {
+  border-radius: 0 0 0 8px;
+}
+
+/* View more comments link */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="22"] {
+  grid-area: viewmore;
+  padding: 10px 0 14px 0;
+  font-size: 0.82rem;
+  color: #6b7280;
+  text-decoration: underline;
+}
