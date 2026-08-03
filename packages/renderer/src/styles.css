@@ -3004,10 +3004,22 @@
   padding-top: 10px;
   padding-bottom: 10px;
 }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="10"] { grid-column: 2 / 3; justify-self: start; padding-left: 4px; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="11"] { grid-column: 3 / 4; justify-self: start; padding-left: 4px; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="12"] { grid-column: 3 / 4; justify-self: start; padding-left: 48px; }
-.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="13"] { padding-left: 90px; }
+/* Three icon buttons (heart, comment, bookmark) sit LEFT as a tight cluster
+   in cols 2-3. Summary text ("N likes", "N Comments") sits RIGHT in cols
+   4-5 on a single line each. Reset the feed-variant `margin-left` values
+   from lines 1363-1364 that would otherwise push 11/12 off the grid.    */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="10"],
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="11"],
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="12"] {
+  grid-row: 7;
+  grid-column: 2 / 4;
+  justify-self: start;
+  margin: 0 !important;
+  padding: 0;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="10"] { padding-left: 4px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="11"] { padding-left: 44px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="12"] { padding-left: 84px; }
 .appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="10"] ion-button,
 .appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="11"] ion-button,
 .appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="12"] ion-button {
@@ -3021,19 +3033,30 @@
   margin: 0 !important;
 }
 .appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="13"] {
-  grid-column: 3 / 5;
+  grid-row: 7;
+  grid-column: 4 / 5;
   justify-self: end;
+  align-self: center;
   font-size: 0.78rem;
   color: #6b7280;
-  padding-right: 6px;
+  padding: 0 8px 0 0;
+  margin: 0 !important;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
 }
 .appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="14"] {
+  grid-row: 7;
   grid-column: 5 / 6;
   justify-self: end;
+  align-self: center;
   font-size: 0.78rem;
   color: #6b7280;
-  padding-right: 14px;
+  padding: 0 14px 0 0;
+  margin: 0 !important;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
 }
 /* child[17] is a redundant likes-count number ("24"); the "N likes"
    summary already appears in child[13]. Hide it to avoid overlap. */

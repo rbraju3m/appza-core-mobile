@@ -1419,7 +1419,15 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
             // (not just route params) — placement visible_when + a few
             // future actions read it there.
             if (typeof routeBag.slug === 'string' && targetSlug === 'space-detail') {
-              setSpaceDetailControls({ space_slug: routeBag.slug });
+              // Always land on POSTS + no topic filter when opening a
+              // (possibly different) space. Otherwise stale localStorage
+              // from a prior visit — e.g. user last tapped CHAT — leaves
+              // POSTS content hidden and shows "Coming soon" instead.
+              setSpaceDetailControls({
+                space_slug: routeBag.slug,
+                active_subtab: 'posts',
+                topic_slug: '',
+              });
             }
           }
         }
