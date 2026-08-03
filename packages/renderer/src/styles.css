@@ -2598,34 +2598,53 @@
 
 /* fc-space-subtabs: POSTS / MEMBERS / DOCUMENTS / CHAT with underlined
    active tab. Active tab match uses data-value === the wrapper's
-   data-space-detail-active-subtab. */
+   data-space-detail-active-subtab. Horizontal single-row layout — if
+   the four tabs overflow the phone width, the strip scrolls rather
+   than wraps (mock has all four in one row). Match BOTH `-list` and
+   `-appzet` wrapper classes: SSes with a data_source use the list
+   wrapper, DS-less SSes (subtabs uses static default_props.tabs) use
+   the plain appzet wrapper. */
+.appza-renderer-appzet-list[data-slug="fc-space-subtabs"],
+.appza-renderer-appzet[data-slug="fc-space-subtabs"] {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+.appza-renderer-appzet-list[data-slug="fc-space-subtabs"]::-webkit-scrollbar,
+.appza-renderer-appzet[data-slug="fc-space-subtabs"]::-webkit-scrollbar { display: none; }
 .appza-renderer-ss[data-slug="fc-space-subtabs"] {
   display: flex;
   flex-direction: row;
-  gap: 20px;
-  padding: 8px 16px 0 16px;
+  flex-wrap: nowrap;
+  gap: 14px;
+  padding: 8px 12px 0 12px;
   background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
+  min-width: max-content;
 }
 .appza-renderer-ss[data-slug="fc-space-subtabs"] .appza-renderer-ss-child {
   position: relative;
   padding-bottom: 8px;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 .appza-renderer-ss[data-slug="fc-space-subtabs"] ion-button {
   --background: transparent !important;
   --background-hover: transparent !important;
   --color: #6b7280 !important;
   --border-width: 0 !important;
-  --padding-start: 0 !important;
-  --padding-end: 0 !important;
+  --padding-start: 4px !important;
+  --padding-end: 4px !important;
   --box-shadow: none !important;
   height: 32px !important;
   min-height: 32px !important;
   margin: 0 !important;
   text-transform: uppercase !important;
   font-weight: 600 !important;
-  font-size: 0.78rem !important;
-  letter-spacing: 0.5px !important;
+  font-size: 0.76rem !important;
+  letter-spacing: 0.3px !important;
+  white-space: nowrap !important;
 }
 .appza-renderer-ss[data-slug="fc-space-subtabs"] ion-button::part(native) {
   background: transparent !important;

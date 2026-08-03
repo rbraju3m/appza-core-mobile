@@ -430,6 +430,20 @@ export function PlacementRenderer({
   const hiddenIndices = computeHiddenIndices(ss, appzet);
   const childLayoutStyles = computeChildLayoutStyles(appzet, ss, customizations);
 
+  // When `children_from_prop` is active AND actually expanded from a
+  // resolved DS (via _data_prop_mirror), the DS's items array is
+  // ALREADY being consumed as per-child data — replicated once per
+  // entry inside `expanded.children`. In that case the outer
+  // `items.map` loop below would render the whole strip once per DS
+  // item, producing the "each chip appears N times" duplication seen
+  // on fc-space-switcher. Detect this and force the static single-
+  // wrapper branch below by treating the AppZet as data-source-less.
+  const cfpProp = (ss as unknown as { children_from_prop?: unknown }).children_from_prop;
+  const isVariadicFromDs =
+    typeof cfpProp === 'string' &&
+    cfpProp.length > 0 &&
+    Object.keys(expanded.entryOverrides).length > 0;
+
   // Pull spacing override (Properties-panel-edited values) and apply
   // as inline style on the AppZet wrapper.
   const overrides = (appzet.default_props_override ?? null) as Record<string, unknown> | null;
@@ -580,7 +594,19 @@ export function PlacementRenderer({
     });
   }
 
-  const items = filteredItems.length > 0 ? filteredItems : [{}];
+  // When children_from_prop consumed the DS items directly (via
+  // _data_prop_mirror expanding one child per row), the SS template
+  // has ALREADY been replicated once per space/topic/tab inside
+  // `expanded.children`. If we ALSO map the items array here we'd
+  // render the whole strip once per row (fc-space-switcher showed
+  // each chip twice → NxN duplication). Collapse to a single virtual
+  // item so the list wrapper stays (keeping the -list CSS selectors +
+  // data-* attributes) but the strip renders exactly once.
+  const items = isVariadicFromDs
+    ? [{}]
+    : filteredItems.length > 0
+    ? filteredItems
+    : [{}];
   const ssChildren = expanded.children;
 
   return (
