@@ -3,12 +3,13 @@ import { IonInfiniteScroll, IonInfiniteScrollContent } from '@ionic/react';
 import type { AppZet, LayoutStyle, PropertiesSchemaEntry, Superstructure } from '@appza/schemas';
 import type { CatalogIndex } from './catalogIndex';
 import { PrimitiveRenderer } from './PrimitiveRenderer';
-import { readDataPath, useDataSource, useDataSourcePaged } from './dataFetch';
+import { readDataPath, resolveQueryParams, useDataSource, useDataSourcePaged } from './dataFetch';
 import { isRecord, readOverride, resolveOverridableColumn } from './resolveOverride';
 import { layoutStyleToCss } from './layoutStyle';
 import { useActionDispatch, type ActionInvocation } from './actionContext';
 import { useFeedControls } from './feedControls';
 import { useSpacesControls } from './spacesControls';
+import { useSpaceDetailControls } from './spaceDetailControls';
 import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
 
 /**
@@ -33,6 +34,17 @@ type PlacementRendererProps = {
   customizations?: unknown;
   selectedAppzetSlug?: string | null;
   onSelectAppzet?: (slug: string | null) => void;
+  /**
+   * Placement-level `props_override` from the TemplateScreen placement row.
+   * Highest-priority source for a few knobs the placement wants to steer
+   * without editing the shared AppZet:
+   *   - `data_source_slug` — swap the resolved DataSource for this render
+   *     only. Wins over both the AppZet's `default_data_source_id` AND its
+   *     `data_source_by_state`. Used by the space-detail placement of
+   *     fc-post-card to point it at fc-space-feeds without cloning the
+   *     AppZet.
+   */
+  propsOverride?: Record<string, unknown> | null;
 };
 
 type SpacingOverride = {
@@ -90,6 +102,7 @@ export function PlacementRenderer({
   customizations,
   selectedAppzetSlug,
   onSelectAppzet,
+  propsOverride,
 }: PlacementRendererProps) {
   // Read view mode + sort up here so we can swap the appzet BEFORE
   // resolving baseAppzet's SS / data source / props overrides — otherwise
@@ -101,6 +114,17 @@ export function PlacementRenderer({
   // hook order stays stable; only applied below when the current AppZet's
   // data source is spaces-scoped.
   const { tab: spacesTab, search: spacesSearch, sort: spacesSort } = useSpacesControls();
+  // spaceDetailControls drives the Space Detail screen (active sub-tab,
+  // topic filter, sort). Read unconditionally to keep hook order stable —
+  // fc-space-feeds' query_params bind against these values, and per-child
+  // state.space_detail_controls.* visible_when clauses read them via
+  // localStateBag below.
+  const {
+    active_subtab: spaceDetailActiveSubtab,
+    topic_slug: spaceDetailTopicSlug,
+    sort: spaceDetailSort,
+    space_slug: spaceDetailSpaceSlug,
+  } = useSpaceDetailControls();
   const requestedAppzet = catalogIndex.appzetBySlug.get(appzetSlug);
   const variantSlug =
     requestedAppzet && VIEW_MODE_VARIANTS[requestedAppzet.slug]
@@ -227,6 +251,12 @@ export function PlacementRenderer({
     'state.spaces_sort': spacesSort,
     'state.feed_sort': feedSort,
     'state.feed_view_mode': feedViewMode,
+    // Nested slice.key form — matches the seeder's bindings on
+    // fc-space-feeds query_params + space-detail placement visible_when.
+    'state.space_detail_controls.active_subtab': spaceDetailActiveSubtab,
+    'state.space_detail_controls.topic_slug': spaceDetailTopicSlug,
+    'state.space_detail_controls.sort': spaceDetailSort,
+    'state.space_detail_controls.space_slug': spaceDetailSpaceSlug,
   };
   const dataSourceByState = (appzet as unknown as {
     data_source_by_state?: {
@@ -251,7 +281,20 @@ export function PlacementRenderer({
       stateResolvedDs = catalogIndex.dataSourceBySlug.get(dsSlug);
     }
   }
+  // Placement-level props_override.data_source_slug wins over EVERYTHING
+  // else (state-scoped map + AppZet default). Lets a single placement
+  // rebind the shared AppZet's DS without cloning the AppZet — e.g. the
+  // space-detail screen places fc-post-card against fc-space-feeds while
+  // the community-page placement keeps fc-feed.
+  const placementDsSlug =
+    propsOverride && typeof propsOverride['data_source_slug'] === 'string'
+      ? (propsOverride['data_source_slug'] as string)
+      : null;
+  const placementResolvedDs = placementDsSlug
+    ? catalogIndex.dataSourceBySlug.get(placementDsSlug)
+    : undefined;
   const dataSource =
+    placementResolvedDs ??
     stateResolvedDs ??
     (appzet?.default_data_source_id
       ? catalogIndex.dataSourceById.get(appzet.default_data_source_id)
@@ -265,18 +308,29 @@ export function PlacementRenderer({
   // the non-paginated hook. Never gate a hook behind an `if`.
   const isPaginated = !!dataSource && PAGINATED_DATA_SOURCES.has(dataSource.slug);
   const pagedSlug = isPaginated ? dataSource!.slug : undefined;
-  // fc-feed reads sort from the shared feedControls store (see feedSort
-  // above) — the fc-feed-toolbar's on_change dispatcher writes it, we
-  // forward as order_by_type (FC's native query param, see FC's
-  // Feed::scopeCustomOrderBy). Changing sort bumps useDataSourcePaged's
-  // extraKey → reset to page 1 + refetch.
-  const pagedExtraParams = pagedSlug === 'fc-feed' ? { order_by_type: feedSort } : undefined;
+  // Resolve declarative DS.query_params (state / route_param sources) at
+  // render time. State hooks read above already trigger re-render on
+  // change → the resulting stringified params bumps the hooks' extraKey
+  // → paged: reset to page 1 + refetch, static: refetch. No explicit
+  // refresh-event round-trip needed for state-driven param changes.
+  //
+  // fc-feed retains the hardcoded order_by_type: feedSort fallback for
+  // pre-space-detail callers that never registered query_params on the
+  // fc-feed DS row. Explicit query_params on the DS wins if present.
+  const resolvedParams = dataSource ? resolveQueryParams(dataSource.query_params) : {};
+  const pagedExtraParams =
+    pagedSlug === 'fc-feed' && !dataSource?.query_params
+      ? { order_by_type: feedSort }
+      : Object.keys(resolvedParams).length > 0
+        ? resolvedParams
+        : undefined;
   const pagedState = useDataSourcePaged(pagedSlug, {
     perPage: pagedSlug ? PAGE_SIZE_BY_SLUG[pagedSlug] ?? 10 : 10,
     params: pagedExtraParams,
   });
   const staticSlug = isPaginated ? undefined : dataSource?.slug;
-  const staticState = useDataSource(staticSlug);
+  const staticParams = Object.keys(resolvedParams).length > 0 ? resolvedParams : undefined;
+  const staticState = useDataSource(staticSlug, staticParams);
   const dataState = isPaginated
     ? { items: pagedState.items, loading: pagedState.loading, error: pagedState.error }
     : staticState;
@@ -982,10 +1036,23 @@ function readExpandedChildren(
   }
   const template = staticChildren[0];
   if (!template) return { children: staticChildren, entryOverrides: {} };
+  // `prepend_all: true` + `all_label: '<label>'` synthesizes an entry at
+  // index 0 representing the un-filtered choice — e.g. the "All" chip on
+  // fc-space-topics that clears the topic filter. Uses value='' so the DS
+  // query_params resolver (which omits empty-string params) drops the
+  // filter cleanly instead of sending `?topic_slug=`.
+  const prependAll = overrides && overrides['prepend_all'] === true;
+  const allLabel =
+    overrides && typeof overrides['all_label'] === 'string'
+      ? (overrides['all_label'] as string)
+      : 'All';
+  const workingEntries: unknown[] = prependAll
+    ? [{ value: '', label: allLabel }, ...rawEntries]
+    : rawEntries;
   const children: SSChild[] = [];
   const entryOverrides: Record<number, Record<string, unknown>> = {};
-  for (let i = 0; i < rawEntries.length; i++) {
-    const entry = rawEntries[i];
+  for (let i = 0; i < workingEntries.length; i++) {
+    const entry = workingEntries[i];
     if (!isRecord(entry)) continue;
     // Skip explicit `hidden: true` entries — the customer can hide a tab
     // from the admin without removing it from the config.

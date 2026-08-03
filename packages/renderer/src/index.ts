@@ -9,7 +9,14 @@ export {
   isRecord,
 } from './resolveOverride';
 export { tokensToCssVars } from './tokens';
-export { useDataSource, useDataSourcePaged, readDataPath } from './dataFetch';
+export {
+  useDataSource,
+  useDataSourcePaged,
+  readDataPath,
+  resolveQueryParams,
+  getRouteParams,
+  setRouteParams,
+} from './dataFetch';
 export { layoutStyleToCss, hasLayoutStyle } from './layoutStyle';
 export { ActionProvider, useActionDispatch, type ActionDispatch, type ActionInvocation } from './actionContext';
 export {
@@ -27,6 +34,12 @@ export {
   type SpacesTab,
   type SpacesSort,
 } from './spacesControls';
+export {
+  getSpaceDetailControls,
+  setSpaceDetailControls,
+  useSpaceDetailControls,
+  type SpaceDetailControls,
+} from './spaceDetailControls';
 export { ViewModePopover, openViewModePopover, type ViewModeOption } from './ViewModePopover';
 export { PostOptionsPopover, openPostOptionsPopover, setCatalogGlobal, type PostMenuItem } from './PostOptionsPopover';
 export { tryHandlePostMenuAction, type PostMenuDeps, type StoredAuthLike } from './postMenuHandlers';

@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { getSpacesControls } from './spacesControls';
+import { getSpaceDetailControls } from './spaceDetailControls';
+import { getFeedControls } from './feedControls';
 
 /**
  * useDataSource(slug, params) — fetch a list payload for an AppZet's
@@ -43,6 +46,120 @@ import '@appza/schemas';
  * bypasses its 5-min transient read and returns fresh upstream data.
  */
 export const APPZA_REFRESH_EVENT = 'appza:refresh-data';
+
+/**
+ * Per-screen route params (e.g. { slug: 'appza' } for /space/:slug). The
+ * shell (App.tsx) writes into this bag whenever it activates a screen via
+ * nav.push — carrying `pass_item_as_context` items' identifying fields
+ * (slug, id) so DS query_params with `source: 'route_param'` can read
+ * them at fetch time. Kept as a plain window global (mirroring the
+ * __appzaAuthHeader pattern) so the renderer stays free of shell imports.
+ */
+export function setRouteParams(next: Record<string, unknown> | null | undefined): void {
+  if (typeof window === 'undefined') return;
+  const g = window as unknown as { __appzaRouteParams?: Record<string, unknown> };
+  g.__appzaRouteParams = next && typeof next === 'object' ? { ...next } : {};
+}
+
+export function getRouteParams(): Record<string, unknown> {
+  if (typeof window === 'undefined') return {};
+  const g = window as unknown as { __appzaRouteParams?: Record<string, unknown> };
+  return g.__appzaRouteParams ?? {};
+}
+
+/**
+ * Lookup table for state-slice getters. A DS `query_params` entry with
+ * `source: 'state'` + `binding: 'state.<slice>.<key>'` reads via the
+ * matching getter here. Flat legacy form `state.<key>` (spacesControls'
+ * shape) falls through to a scan across all slices — first match wins,
+ * ties broken by insertion order below. Adding a new state slice = one
+ * entry here + a getter in that slice's controls file.
+ */
+const STATE_SLICE_GETTERS: Record<string, () => Record<string, unknown>> = {
+  spaces_controls: () => getSpacesControls() as unknown as Record<string, unknown>,
+  space_detail_controls: () => getSpaceDetailControls() as unknown as Record<string, unknown>,
+  feed_controls: () => getFeedControls() as unknown as Record<string, unknown>,
+};
+
+/** Legacy flat-key bindings kept for spacesControls callers pre-arc. */
+const LEGACY_FLAT_STATE_BAG: Record<string, () => unknown> = {
+  spaces_tab: () => getSpacesControls().tab,
+  spaces_search: () => getSpacesControls().search,
+  spaces_sort: () => getSpacesControls().sort,
+  feed_sort: () => getFeedControls().sort,
+  feed_view_mode: () => getFeedControls().viewMode,
+};
+
+function readStateBinding(binding: string): unknown {
+  if (!binding.startsWith('state.')) return undefined;
+  const path = binding.slice(6);
+  if (path.length === 0) return undefined;
+  const dot = path.indexOf('.');
+  if (dot > 0) {
+    const slice = path.slice(0, dot);
+    const key = path.slice(dot + 1);
+    const getter = STATE_SLICE_GETTERS[slice];
+    if (!getter) return undefined;
+    const bag = getter();
+    return bag ? bag[key] : undefined;
+  }
+  // Flat form: state.<key>. Try legacy bag first, then scan slices.
+  const flat = LEGACY_FLAT_STATE_BAG[path];
+  if (flat) return flat();
+  for (const getter of Object.values(STATE_SLICE_GETTERS)) {
+    const bag = getter();
+    if (bag && path in bag) return bag[path];
+  }
+  return undefined;
+}
+
+/**
+ * Resolves a DataSource.query_params config into a concrete params object
+ * for `useDataSource` / `useDataSourcePaged`. Supports two source kinds:
+ *
+ *   - `source: 'state'`    with `binding: 'state.<slice>.<key>'` (or the
+ *     legacy flat `state.<key>` for spacesControls).
+ *   - `source: 'route_param'` with `binding: 'route.<param>'`, reading
+ *     from `getRouteParams()` (shell writes on nav.push).
+ *
+ * Empty string / undefined resolutions OMIT the param — sending `?topic_slug=`
+ * to FC would filter to a nonexistent topic instead of "All". Entries with
+ * an explicit `default` fall back to the default when the resolution is
+ * undefined (but empty-string still omits — that's how "All" travels).
+ *
+ * The config may also be a legacy plain `{ key: value }` map; those pass
+ * through unchanged.
+ */
+export function resolveQueryParams(
+  config: unknown,
+): Record<string, unknown> {
+  if (!config || typeof config !== 'object') return {};
+  const out: Record<string, unknown> = {};
+  const routeParams = getRouteParams();
+  for (const [key, raw] of Object.entries(config as Record<string, unknown>)) {
+    if (raw && typeof raw === 'object' && !Array.isArray(raw) && 'source' in raw) {
+      const spec = raw as Record<string, unknown>;
+      const source = typeof spec.source === 'string' ? spec.source : '';
+      const binding = typeof spec.binding === 'string' ? spec.binding : '';
+      const fallback = 'default' in spec ? spec.default : undefined;
+      let resolved: unknown = undefined;
+      if (source === 'state') {
+        resolved = readStateBinding(binding);
+      } else if (source === 'route_param' && binding.startsWith('route.')) {
+        resolved = routeParams[binding.slice(6)];
+      }
+      if (resolved === undefined) resolved = fallback;
+      // Empty string OR undefined → omit. Sending an empty topic_slug would
+      // filter to a nonexistent topic instead of the intended "All".
+      if (resolved === undefined || resolved === '') continue;
+      out[key] = resolved;
+    } else if (raw !== undefined) {
+      // Legacy pass-through — plain `{ key: value }` map.
+      out[key] = raw;
+    }
+  }
+  return out;
+}
 
 function buildProxyUrl(
   slug: string,

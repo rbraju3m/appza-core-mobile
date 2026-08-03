@@ -20,6 +20,16 @@ export type DataSourceRow = {
   slug: string;
   endpoint?: string;
   http_method?: string;
+  /**
+   * Declarative query-param config. Two shapes:
+   *   - legacy plain map:      `{ foo: 'bar' }` — sent verbatim
+   *   - source-tagged entries: `{ topic_slug: { source: 'state',
+   *     binding: 'state.space_detail_controls.topic_slug', default: '' } }`
+   *   - route param entries:   `{ slug: { source: 'route_param',
+   *     binding: 'route.slug' } }`
+   * Resolved at render time by `resolveQueryParams` in dataFetch.
+   */
+  query_params?: Record<string, unknown> | null;
 };
 
 export type CatalogIndex = {

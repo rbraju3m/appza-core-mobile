@@ -14,6 +14,7 @@ import { PlacementRenderer } from './PlacementRenderer';
 import { resolveOverridableColumn } from './resolveOverride';
 import { tokensToCssVars } from './tokens';
 import { useSpacesControls } from './spacesControls';
+import { useSpaceDetailControls } from './spaceDetailControls';
 
 type ScreenRendererProps = {
   screen: TemplateScreen;
@@ -81,17 +82,38 @@ export function ScreenRenderer({
   // Adding a slice here is enough — the evaluator looks up state.<key>
   // out of the assembled `stateBag` at match time.
   const spacesControls = useSpacesControls();
+  const spaceDetailControls = useSpaceDetailControls();
+  // Placement-level visible_when reads out of this bag via
+  // `binding.slice(6)` (i.e. `state.<key>` → `<key>`). Register nested
+  // paths as flat keys so `state.space_detail_controls.active_subtab`
+  // resolves without a dot-walk helper.
   const stateBag: Record<string, unknown> = useMemo(
     () => ({
       spaces_tab: spacesControls.tab,
       spaces_search: spacesControls.search,
       spaces_sort: spacesControls.sort,
+      'space_detail_controls.active_subtab': spaceDetailControls.active_subtab,
+      'space_detail_controls.topic_slug': spaceDetailControls.topic_slug,
+      'space_detail_controls.sort': spaceDetailControls.sort,
+      'space_detail_controls.space_slug': spaceDetailControls.space_slug,
     }),
-    [spacesControls.tab, spacesControls.search, spacesControls.sort],
+    [
+      spacesControls.tab,
+      spacesControls.search,
+      spacesControls.sort,
+      spaceDetailControls.active_subtab,
+      spaceDetailControls.topic_slug,
+      spaceDetailControls.sort,
+      spaceDetailControls.space_slug,
+    ],
   );
 
   const placements = screen.placements ?? [];
-  const bySlot = new Map<SlotKey, Array<{ appzet_slug: string }>>();
+  type PlacementEntry = {
+    appzet_slug: string;
+    props_override: Record<string, unknown> | null;
+  };
+  const bySlot = new Map<SlotKey, PlacementEntry[]>();
   for (const p of placements) {
     const rawSlot = typeof p['slot'] === 'string' ? (p['slot'] as string) : 'other';
     const slot = normalizeSlot(rawSlot);
@@ -101,8 +123,16 @@ export function ScreenRenderer({
     // Failing-open on unparseable shapes keeps a stale catalog from silently
     // dropping placements the renderer doesn't recognize yet.
     if (!evaluatePlacementVisibleWhen(p as Record<string, unknown>, stateBag)) continue;
+    // Placement-level props_override rides along with the placement; the
+    // renderer inspects `data_source_slug` on it to steer DS resolution
+    // for THIS placement only.
+    const rawPropsOverride = p['props_override'];
+    const props_override =
+      rawPropsOverride && typeof rawPropsOverride === 'object' && !Array.isArray(rawPropsOverride)
+        ? (rawPropsOverride as Record<string, unknown>)
+        : null;
     const list = bySlot.get(slot) ?? [];
-    list.push({ appzet_slug });
+    list.push({ appzet_slug, props_override });
     bySlot.set(slot, list);
   }
 
@@ -177,6 +207,7 @@ export function ScreenRenderer({
                       customizations={customizations}
                       selectedAppzetSlug={selectedAppzetSlug}
                       onSelectAppzet={onSelectAppzet}
+                      propsOverride={p.props_override}
                     />
                   ))}
                 </section>
@@ -191,6 +222,7 @@ export function ScreenRenderer({
                       customizations={customizations}
                       selectedAppzetSlug={selectedAppzetSlug}
                       onSelectAppzet={onSelectAppzet}
+                      propsOverride={p.props_override}
                     />
                   ))}
                 </section>
@@ -205,6 +237,7 @@ export function ScreenRenderer({
                       customizations={customizations}
                       selectedAppzetSlug={selectedAppzetSlug}
                       onSelectAppzet={onSelectAppzet}
+                      propsOverride={p.props_override}
                     />
                   ))}
                 </section>
