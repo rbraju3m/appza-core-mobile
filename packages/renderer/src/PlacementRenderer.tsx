@@ -484,6 +484,9 @@ export function PlacementRenderer({
           className={wrapperClass}
           data-slug={appzet.slug}
           data-spaces-active-tab={appzet.slug === 'fc-spaces-tabs' ? spacesTab : undefined}
+          data-space-detail-active-subtab={appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab : undefined}
+          data-space-detail-active-topic={appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug : undefined}
+          data-space-detail-active-space={appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug : undefined}
           style={spacingStyle(spacing)}
           onClick={handleClick}
         >
@@ -589,6 +592,9 @@ export function PlacementRenderer({
         data-view-mode={variantSlug ? feedViewMode : undefined}
         data-appza-swap-from={variantSlug ? appzetSlug : undefined}
         data-spaces-active-tab={appzet.slug === 'fc-spaces-tabs' ? spacesTab : undefined}
+        data-space-detail-active-subtab={appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab : undefined}
+        data-space-detail-active-topic={appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug : undefined}
+        data-space-detail-active-space={appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug : undefined}
       >
       {items.map((item, idx) => {
         // Enrich the raw item with computed viewer-scoped fields (e.g.
@@ -943,6 +949,10 @@ function SuperstructureRenderer({
             data-appza-appzet-slug={isTopLevel ? appzetSlugForPath : undefined}
             data-appza-inline-click={action ? 'true' : undefined}
             data-appza-action={child.on_click_action}
+            data-value={(() => {
+              const v = childOverrides?.[idx]?.value;
+              return typeof v === 'string' || typeof v === 'number' ? String(v) : undefined;
+            })()}
             style={childLayoutStyle ? layoutStyleToCss(childLayoutStyle) : undefined}
             onClick={wrapperAction
               ? (e) => {
@@ -1030,6 +1040,18 @@ type SSChild = {
    * (navigation, HTTP, etc.) — the renderer stays presentation-only.
    */
   on_click_action?: string;
+  /**
+   * Template-only. On the SS template child of a `children_from_prop` SS
+   * (i.e. `ss.children[0]` unless `template_index` overrides), declares
+   * explicit per-entry prop stamping. Shape: `{ <prop>: 'entry.<path>' }`.
+   * For each expanded entry, the renderer looks up the entry path and
+   * stamps the value into the expanded child's override bucket at the
+   * mapped key. Applied AFTER the naive-stamp fallback so explicit
+   * mappings win — this lets DS-shaped entries (`{title, slug, ...}`) map
+   * `title -> text` without needing the entries to be pre-shaped.
+   * Non-`entry.` values are ignored (reserved for future literals).
+   */
+  field_mapping?: Record<string, string>;
 };
 
 function readChildren(ss: Superstructure): SSChild[] {
@@ -1057,6 +1079,13 @@ function readChildren(ss: Superstructure): SSChild[] {
       }
       if (typeof rec.on_click_action === 'string') {
         out.on_click_action = rec.on_click_action;
+      }
+      if (rec.field_mapping && typeof rec.field_mapping === 'object' && !Array.isArray(rec.field_mapping)) {
+        const fm: Record<string, string> = {};
+        for (const [k, v] of Object.entries(rec.field_mapping as Record<string, unknown>)) {
+          if (typeof v === 'string') fm[k] = v;
+        }
+        if (Object.keys(fm).length > 0) out.field_mapping = fm;
       }
       return out;
     })
@@ -1087,8 +1116,25 @@ function readExpandedChildren(
   if (!Array.isArray(rawEntries) || rawEntries.length === 0) {
     return { children: staticChildren, entryOverrides: {} };
   }
-  const template = staticChildren[0];
+  // The template child is the shape cloned per entry. Look for a child
+  // with `template: true` first — this lets a variadic SS keep static
+  // children BEFORE the template (used for section headers like "Choose
+  // topic" prepended above the topic chip strip). No `template: true`
+  // marker → children[0] is the template (back-compat).
+  // Children before the template_index render as-is (no field_mapping,
+  // no data stamping).
+  const rawChildren = (ss as unknown as { children?: unknown[] }).children ?? [];
+  let templateIndex = 0;
+  for (let i = 0; i < rawChildren.length; i++) {
+    const rc = rawChildren[i];
+    if (rc && typeof rc === 'object' && (rc as Record<string, unknown>).template === true) {
+      templateIndex = i;
+      break;
+    }
+  }
+  const template = staticChildren[templateIndex];
   if (!template) return { children: staticChildren, entryOverrides: {} };
+  const staticPrefix = staticChildren.slice(0, templateIndex);
   // `prepend_all: true` + `all_label: '<label>'` synthesizes an entry at
   // index 0 representing the un-filtered choice — e.g. the "All" chip on
   // fc-space-topics that clears the topic filter. Uses value='' so the DS
@@ -1099,11 +1145,15 @@ function readExpandedChildren(
     overrides && typeof overrides['all_label'] === 'string'
       ? (overrides['all_label'] as string)
       : 'All';
+  // Synthesize the "All" entry using BOTH `label` (naive-stamp path) and
+  // `title` (field_mapping path) so it works whichever convention the
+  // template child uses. `slug` = '' for parity with DS-shaped entries.
   const workingEntries: unknown[] = prependAll
-    ? [{ value: '', label: allLabel }, ...rawEntries]
+    ? [{ value: '', slug: '', label: allLabel, title: allLabel }, ...rawEntries]
     : rawEntries;
-  const children: SSChild[] = [];
+  const children: SSChild[] = [...staticPrefix];
   const entryOverrides: Record<number, Record<string, unknown>> = {};
+  const fieldMapping = template.field_mapping;
   for (let i = 0; i < workingEntries.length; i++) {
     const entry = workingEntries[i];
     if (!isRecord(entry)) continue;
@@ -1133,6 +1183,25 @@ function readExpandedChildren(
         bucket.text = v;
       } else {
         bucket[k] = v;
+      }
+    }
+    // Explicit field_mapping wins over the naive-stamp above. Values
+    // must be of the form `entry.<path>` — anything else is ignored.
+    // DS-shaped entries (`{title, slug, cover_photo, ...}`) can then map
+    // `text -> entry.title`, `value -> entry.slug` without pre-shaping.
+    if (fieldMapping) {
+      for (const [k, spec] of Object.entries(fieldMapping)) {
+        if (typeof spec !== 'string') continue;
+        if (!spec.startsWith('entry.')) continue;
+        // Simple dot-path walker on the entry object. Reuses the
+        // readDataPath grammar for indexed segments (`entries[0].label`)
+        // but scoped to the entry — hence the `data.` prefix trick to
+        // reuse the shared parser: we prepend `data.` and pass `entry`
+        // as the root so `data.title` resolves to `entry.title`.
+        const resolved = readDataPath(entry, 'data.' + spec.slice('entry.'.length));
+        if (resolved !== undefined && resolved !== null) {
+          bucket[k] = resolved;
+        }
       }
     }
     entryOverrides[children.length - 1] = bucket;

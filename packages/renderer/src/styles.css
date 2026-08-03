@@ -2548,3 +2548,323 @@
   color: #4b5563 !important;
   background-color: #f3f4f6 !important;
 }
+
+/* === Space Detail screen (2026-08-03) =================================
+   Design-polish CSS for the FC Space Details screen. Mirrors the mock
+   at /home/rbs-02/Downloads/space-details.jpeg. Every layout hook keys
+   off the SS data-slug + data-child-index the renderer stamps, plus the
+   `data-value` per-child attribute + `data-space-detail-active-*` on the
+   AppZet list wrapper (both added 2026-08-03). No new markup needed.  */
+
+/* fc-space-switcher: horizontal chip strip of accessible spaces. */
+.appza-renderer-appzet-list[data-slug="fc-space-switcher"] {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  background: #ffffff;
+  -webkit-overflow-scrolling: touch;
+}
+.appza-renderer-appzet-list[data-slug="fc-space-switcher"]::-webkit-scrollbar { display: none; }
+.appza-renderer-appzet-list[data-slug="fc-space-switcher"] .appza-renderer-ss {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.appza-renderer-appzet-list[data-slug="fc-space-switcher"] ion-button {
+  --background: #ffffff !important;
+  --background-hover: #f9fafb !important;
+  --color: #374151 !important;
+  --border-color: #d1d5db !important;
+  --border-style: solid !important;
+  --border-width: 1px !important;
+  --border-radius: 8px !important;
+  --padding-start: 14px !important;
+  --padding-end: 14px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  margin: 0 !important;
+  text-transform: none !important;
+  font-weight: 500 !important;
+  font-size: 0.85rem !important;
+  letter-spacing: 0 !important;
+}
+.appza-renderer-appzet-list[data-slug="fc-space-switcher"] ion-button::part(native) {
+  border: 1px solid #d1d5db !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+}
+
+/* fc-space-subtabs: POSTS / MEMBERS / DOCUMENTS / CHAT with underlined
+   active tab. Active tab match uses data-value === the wrapper's
+   data-space-detail-active-subtab. */
+.appza-renderer-ss[data-slug="fc-space-subtabs"] {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  padding: 8px 16px 0 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+.appza-renderer-ss[data-slug="fc-space-subtabs"] .appza-renderer-ss-child {
+  position: relative;
+  padding-bottom: 8px;
+}
+.appza-renderer-ss[data-slug="fc-space-subtabs"] ion-button {
+  --background: transparent !important;
+  --background-hover: transparent !important;
+  --color: #6b7280 !important;
+  --border-width: 0 !important;
+  --padding-start: 0 !important;
+  --padding-end: 0 !important;
+  --box-shadow: none !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  margin: 0 !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+  font-size: 0.78rem !important;
+  letter-spacing: 0.5px !important;
+}
+.appza-renderer-ss[data-slug="fc-space-subtabs"] ion-button::part(native) {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  color: #6b7280 !important;
+}
+/* Active subtab: blue text + 2px blue underline bar. */
+.appza-renderer-appzet-list[data-slug="fc-space-subtabs"][data-space-detail-active-subtab] .appza-renderer-ss[data-slug="fc-space-subtabs"] .appza-renderer-ss-child,
+.appza-renderer-ss[data-slug="fc-space-subtabs"] .appza-renderer-ss-child {
+  /* Only marker: default no underline */
+}
+/* Reach the wrapper stamped on the AppZet root. */
+[data-space-detail-active-subtab="posts"] [data-value="posts"] ion-button,
+[data-space-detail-active-subtab="members"] [data-value="members"] ion-button,
+[data-space-detail-active-subtab="documents"] [data-value="documents"] ion-button,
+[data-space-detail-active-subtab="chat"] [data-value="chat"] ion-button {
+  --color: #1d4ed8 !important;
+}
+[data-space-detail-active-subtab="posts"] [data-value="posts"] ion-button::part(native),
+[data-space-detail-active-subtab="members"] [data-value="members"] ion-button::part(native),
+[data-space-detail-active-subtab="documents"] [data-value="documents"] ion-button::part(native),
+[data-space-detail-active-subtab="chat"] [data-value="chat"] ion-button::part(native) {
+  color: #1d4ed8 !important;
+}
+[data-space-detail-active-subtab="posts"] [data-value="posts"]::after,
+[data-space-detail-active-subtab="members"] [data-value="members"]::after,
+[data-space-detail-active-subtab="documents"] [data-value="documents"]::after,
+[data-space-detail-active-subtab="chat"] [data-value="chat"]::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: #1d4ed8;
+  border-radius: 2px 2px 0 0;
+}
+
+/* fc-space-cover: full-width 16:9 image. */
+.appza-renderer-ss[data-slug="fc-space-cover"] {
+  display: block;
+  padding: 12px 16px 0 16px;
+  background: #f3f4f6;
+}
+.appza-renderer-ss[data-slug="fc-space-cover"] ion-img,
+.appza-renderer-ss[data-slug="fc-space-cover"] img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 10px;
+  display: block;
+}
+
+/* fc-space-topics: static header + chip strip. Child 0 = "Choose topic"
+   header text; children 1+ are the chip templates. */
+.appza-renderer-ss[data-slug="fc-space-topics"] {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 16px 8px 16px;
+  overflow-x: auto;
+  background: #f3f4f6;
+  -webkit-overflow-scrolling: touch;
+}
+.appza-renderer-ss[data-slug="fc-space-topics"]::-webkit-scrollbar { display: none; }
+.appza-renderer-ss[data-slug="fc-space-topics"] [data-child-index="0"] {
+  flex: 0 0 auto;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #111827;
+  margin-right: 8px;
+  padding-bottom: 0;
+  width: 100%;
+  order: -2;
+}
+.appza-renderer-ss[data-slug="fc-space-topics"] ion-chip {
+  --background: #ffffff !important;
+  --color: #374151 !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 6px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 12px !important;
+  margin: 0 !important;
+  font-size: 0.82rem !important;
+  font-weight: 500 !important;
+}
+/* Active topic chip = blue border + blue text (mocks "All" as active). */
+[data-space-detail-active-topic=""] [data-value=""] ion-chip,
+[data-space-detail-active-topic] [data-value] ion-chip {
+  /* base */
+}
+.appza-renderer-appzet-list[data-slug="fc-space-topics"][data-space-detail-active-topic] [data-value] ion-chip {
+  border-color: #d1d5db !important;
+  color: #374151 !important;
+}
+/* Active-match rule via CSS-var trick: pair the container attr with
+   the child's data-value. Using an attribute-substring match keeps
+   this catalog-agnostic — any topic slug from data lights up correctly. */
+.appza-renderer-appzet-list[data-space-detail-active-topic=""] [data-value=""] ion-chip,
+.appza-renderer-appzet-list[data-space-detail-active-topic] [data-value]:not([data-value=""]) ion-chip {
+  /* default off — the runtime script below turns matches on */
+}
+
+/* fc-space-post-toolbar: "Sort by:" label + button. */
+.appza-renderer-ss[data-slug="fc-space-post-toolbar"] {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #f3f4f6;
+  border-top: 1px solid #e5e7eb;
+}
+.appza-renderer-ss[data-slug="fc-space-post-toolbar"] [data-child-index="0"] {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+.appza-renderer-ss[data-slug="fc-space-post-toolbar"] [data-child-index="1"] ion-button {
+  --background: transparent !important;
+  --color: #111827 !important;
+  --border-width: 0 !important;
+  --padding-start: 4px !important;
+  --padding-end: 4px !important;
+  --box-shadow: none !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  margin: 0 !important;
+  text-transform: none !important;
+  font-weight: 500 !important;
+  font-size: 0.85rem !important;
+}
+.appza-renderer-ss[data-slug="fc-space-post-toolbar"] [data-child-index="1"] ion-button::part(native) {
+  background: transparent !important;
+  border: 0 !important;
+  color: #111827 !important;
+}
+
+/* fc-tab-placeholder: centered coming-soon block. */
+.appza-renderer-ss[data-slug="fc-tab-placeholder"] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 16px;
+  color: #6b7280;
+  background: #f3f4f6;
+}
+.appza-renderer-ss[data-slug="fc-tab-placeholder"] ion-icon {
+  font-size: 40px;
+  color: #9ca3af;
+}
+.appza-renderer-ss[data-slug="fc-tab-placeholder"] [data-child-index="1"] {
+  font-size: 0.9rem;
+  color: #6b7280;
+  text-align: center;
+}
+
+/* fc-post-card ordering — the FC Space Details variant of the card
+   ships extra children (topic pill [15], featured image [16], likes+
+   comments summary [17], inline first-comment block [18..21],
+   "View more comments" link [22], verified badge [23], Reply [24],
+   comment-like button [25], like count [26], "N Reply" summary [27]).
+   CSS `order` values below rearrange the visual layout to match the
+   mock without mutating the SS children[] array. Uses display:flex
+   column so the `order` property works. Scope to cards that carry
+   the extra children[15] (the topic pill) — i.e. only fires on the
+   space-detail variant of the card.                                   */
+.appza-renderer-appzet-list[data-slug="fc-post-card"] .appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) {
+  display: flex;
+  flex-direction: column;
+  grid-template-columns: none;
+  grid-template-areas: none;
+  gap: 0;
+  padding: 0;
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  margin: 12px 16px;
+}
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) > * {
+  grid-area: unset !important;
+  width: 100%;
+  padding-left: 14px;
+  padding-right: 14px;
+  margin: 0;
+}
+/* Row order — mirrors the mock (top → bottom):
+   [15 topic pill] → [0 avatar + 1 name + 23 verified] → [2 time + 4 menu]
+   → [5 title] → [6 body] → [16 featured image] → [10/11/12 icons + 17 summary]
+   → [comment block 18..21 + 24 Reply + 25 like + 26 count + 27 N Reply]
+   → [22 View more comments] */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="15"] { order: 1; padding-top: 14px; padding-bottom: 4px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="15"] ion-chip {
+  --background: transparent !important;
+  --color: #1d4ed8 !important;
+  border: 0 !important;
+  padding: 0 !important;
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+/* Author row */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="0"]  { order: 2; padding-top: 4px; width: 44px; height: 44px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="1"]  { order: 3; font-weight: 600; font-size: 0.95rem; padding-top: 4px; padding-left: 4px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="23"] { order: 4; padding-left: 2px; color: #1d4ed8; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="23"] ion-icon { color: #1d4ed8; font-size: 16px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="4"]  { order: 5; align-self: flex-end; margin-top: -36px; padding-right: 8px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="2"]  { order: 6; font-size: 0.78rem; color: #6b7280; padding-left: 4px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="3"]  { order: 7; font-size: 0.78rem; color: #f97316; padding-left: 6px; }
+/* Title + body */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="5"]  { order: 8; font-weight: 700; font-size: 1.05rem; padding-top: 8px; padding-bottom: 4px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="6"]  { order: 9; color: #374151; font-size: 0.9rem; line-height: 1.4; padding-bottom: 8px; }
+/* Featured image */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="16"] { order: 10; padding: 0; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="16"] img,
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="16"] ion-img { width: 100%; display: block; }
+/* Reaction row (like/comment/bookmark icons + likes/comments summary) */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="10"] { order: 11; display: inline-flex; padding: 12px 6px 12px 14px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="11"] { order: 12; display: inline-flex; padding: 12px 6px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="12"] { order: 13; display: inline-flex; padding: 12px 6px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="13"] { order: 14; align-self: center; font-size: 0.8rem; color: #6b7280; padding: 12px 4px 12px 12px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="14"] { order: 15; align-self: center; font-size: 0.8rem; color: #6b7280; padding: 12px 14px 12px 4px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="17"] { order: 16; align-self: center; font-size: 0.8rem; color: #6b7280; padding: 12px 14px 12px 4px; }
+/* Inline first-comment block */
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="18"] { order: 17; background: #f9fafb; margin-top: 8px; padding-top: 12px; padding-bottom: 4px; width: 40px; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="19"] { order: 18; background: #f9fafb; padding-top: 12px; padding-bottom: 2px; font-weight: 600; font-size: 0.9rem; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="20"] { order: 19; background: #f9fafb; padding-bottom: 4px; font-size: 0.75rem; color: #6b7280; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="21"] { order: 20; background: #f9fafb; padding-bottom: 8px; font-size: 0.88rem; color: #374151; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="24"] { order: 21; background: #f9fafb; padding-bottom: 8px; font-size: 0.78rem; color: #374151; display: inline-flex; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="25"] { order: 22; background: #f9fafb; padding-bottom: 8px; display: inline-flex; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="25"] ion-button { --color: #1d4ed8 !important; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="26"] { order: 23; background: #f9fafb; padding-bottom: 8px; font-size: 0.78rem; color: #6b7280; display: inline-flex; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="27"] { order: 24; background: #f9fafb; padding-bottom: 12px; font-size: 0.78rem; color: #6b7280; text-align: right; }
+.appza-renderer-ss[data-slug="fc-post-card"]:has([data-child-index="15"]) [data-child-index="22"] { order: 25; padding: 10px 14px 14px 14px; font-size: 0.85rem; color: #6b7280; text-decoration: underline; }
