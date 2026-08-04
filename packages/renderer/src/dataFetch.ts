@@ -240,7 +240,38 @@ export function useDataSource(slug: string | undefined, params?: Record<string, 
       })
       .then((json) => {
         if (cancelled) return;
-        const items = Array.isArray(json) ? json : Array.isArray(json?.items) ? json.items : [];
+        // Response shape flexibility. Most endpoints return either a bare
+        // array or `{items: [...]}`. Some single-object endpoints
+        // (e.g. fcom-mobile /spaces/by/slug) return `{space: {...}}` — a
+        // one-key wrapper object — after the plugin's preview-proxy
+        // unwraps its outer envelope. Recognize that shape and produce a
+        // single-item array so field_mappings like `data.topics` /
+        // `data.cover_photo` resolve through items[0] the same way list
+        // DSes do. Same for the pre-unwrap `{items: {space: {...}}}` shape.
+        const unwrapSingleKeyObject = (obj: unknown): unknown | null => {
+          if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+          const rec = obj as Record<string, unknown>;
+          const keys = Object.keys(rec);
+          const firstKey = keys[0];
+          if (keys.length === 1 && firstKey && rec[firstKey] && typeof rec[firstKey] === 'object') {
+            return rec[firstKey];
+          }
+          return null;
+        };
+        let items: unknown[];
+        if (Array.isArray(json)) {
+          items = json;
+        } else if (Array.isArray(json?.items)) {
+          items = json.items;
+        } else if (json?.items && typeof json.items === 'object') {
+          const inner = unwrapSingleKeyObject(json.items);
+          items = [inner ?? json.items];
+        } else if (json && typeof json === 'object') {
+          const inner = unwrapSingleKeyObject(json);
+          items = inner ? [inner] : [];
+        } else {
+          items = [];
+        }
         setState({ items, loading: false, error: null });
       })
       .catch((err) => {

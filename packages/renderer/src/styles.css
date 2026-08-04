@@ -6,6 +6,7 @@
    Capacitor mobile app) provide only the outer bezel / window.
 */
 
+
 .appza-renderer-app {
   --ion-background-color: #ffffff;
   --ion-text-color: #111827;
@@ -706,22 +707,27 @@
 .appza-renderer-ss[data-slug="drawer-shell"] [data-child-index="2"] { grid-area: list; }
 
 /* fc-post-card: feed post layout
-   header row:  [0 avatar] [1 name + 2 time + 3 mood] [4 menu]
+   topic row:   [15 topic-pill]                                                (visible_when data.terms[0])
+   header row:  [0 avatar] [1 name + 23 verified + 2 time + 3 mood] [4 menu]
    body:        [5 title] then [6 content]
    media:       [7 image] or [8 video-thumb] (mutually exclusive via visible_when)
    poll:        [9 poll_display] (visible_when content_type=survey)
-   reactions:   [10 like] [11 comment] [12 bookmark] [13 likes] [14 comments]   */
+   reactions:   [10 like] [11 comment] [12 bookmark] [13 likes] [14 comments]
+   Children [16..22, 24..27] are Space-Detail-only extras (featured image, inline
+   first comment, "View more comments", Reply, comment-like) — hidden on Feed.   */
 .appza-renderer-ss[data-slug="fc-post-card"] {
   display: grid;
-  grid-template-columns: 40px 1fr auto;
+  grid-template-columns: 40px auto auto 1fr auto;
   grid-template-areas:
-    'avatar header menu'
-    'title  title  title'
-    'body   body   body'
-    'media  media  media'
-    'poll   poll   poll'
-    'actions actions actions';
-  gap: 8px 10px;
+    'topic  topic  topic  topic  topic'
+    'avatar name   verify .      menu'
+    'avatar byline byline byline byline'
+    'title  title  title  title  title'
+    'body   body   body   body   body'
+    'media  media  media  media  media'
+    'poll   poll   poll   poll   poll'
+    'actions actions actions actions actions';
+  gap: 4px 10px;
   padding: 14px;
   margin: 8px 0;
   background: #ffffff;
@@ -729,23 +735,50 @@
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="0"] { grid-area: avatar; }
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="1"] { grid-area: header; align-self: start; font-weight: 600; font-size: 0.95rem; }
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="2"] {
-  grid-area: header;
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="1"] {
+  grid-area: name;
   align-self: end;
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="2"] {
+  grid-area: byline;
+  align-self: start;
+  justify-self: start;
   font-size: 0.75rem;
   color: #6b7280;
-  margin-top: 18px;
+  display: inline;
 }
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="3"] {
-  grid-area: header;
-  align-self: end;
+  grid-area: byline;
+  align-self: start;
+  justify-self: start;
   font-size: 0.75rem;
   color: #f97316;
-  margin-top: 18px;
-  margin-left: 60px;
+  display: inline;
+  padding-left: 30px;
 }
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="4"] { grid-area: menu; align-self: start; }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="4"] {
+  grid-area: menu;
+  align-self: start;
+  justify-self: end;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="4"] ion-button {
+  --padding-start: 4px !important;
+  --padding-end: 4px !important;
+  --color: #6b7280 !important;
+  --background: transparent !important;
+  --box-shadow: none !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  margin: 0 !important;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="4"] ion-button ion-icon {
+  color: #6b7280 !important;
+  font-size: 22px !important;
+}
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="5"] {
   grid-area: title;
   font-weight: 600;
@@ -762,6 +795,102 @@
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="8"] {
   grid-area: media;
   margin-top: 4px;
+}
+
+/* Feed variant: topic pill [15] at top of card, verified badge [23] inline
+   with author name. Both are gated by SS-level visible_when so they only
+   render when the post has terms / author is verified. Space-Detail already
+   has its own tuned block below (line 2826+) — these unscoped rules keep the
+   two visuals available on Feed too. Extras [16..22, 24..27] are hidden on
+   Feed since they only make sense inside the Space-Detail comment strip. */
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] {
+  grid-area: topic;
+  align-self: start;
+  justify-self: start;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] ion-chip {
+  --background: #f3f4f6;
+  --color: #374151;
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+  border: 0 !important;
+  padding: 4px 10px !important;
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  min-height: 0 !important;
+  height: auto !important;
+  border-radius: 6px !important;
+  margin: 0 !important;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] ion-chip::before {
+  content: "#\00a0";
+  color: #374151;
+  font-weight: 700;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="23"] {
+  grid-area: verify;
+  align-self: end;
+  display: inline-flex;
+  align-items: center;
+  color: #1d4ed8 !important;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="23"] ion-icon {
+  color: #1d4ed8 !important;
+  font-size: 16px !important;
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  min-height: 16px !important;
+}
+/* Hide Space-Detail-only children on every screen EXCEPT space-detail
+   (feed, home, post-detail, etc.): featured image, redundant likes
+   summary, inline first-comment block + reply row. The Space-Detail
+   scoped rules at line 2826+ position them back in with their own
+   grid-areas via a higher-specificity screen-scoped selector.
+   Uses :not() so any legacy screen alias (e.g. `home`) is covered
+   without needing a per-screen allowlist.                             */
+:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="16"],
+:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="17"],
+:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"],
+:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="19"],
+:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="20"],
+:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="21"],
+:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="22"],
+:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="24"],
+:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"],
+:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="26"],
+:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"] {
+  display: none !important;
+}
+/* Belt-and-suspenders: also hide by default using the fc-post-card
+   inherent class (works even when the screen slug is missing). The
+   space-detail rules that assign `grid-area` override this via higher
+   specificity (attribute selector on ancestor).                        */
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="16"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="17"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="19"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="20"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="21"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="22"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="24"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="26"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"] {
+  display: none;
+}
+/* Space-detail re-shows them with explicit display (grid child). */
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="16"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="19"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="20"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="21"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="22"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="24"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="26"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"] {
+  display: block;
 }
 
 /* fc-feed-banner: hero card at the top of the feed. Two-column flex-wrap.
@@ -1348,25 +1477,93 @@
   border-radius: 999px;
   pointer-events: none;
 }
+/* Actions row on Feed / Home: 3 icons cluster LEFT (heart/comment/bookmark)
+   at fixed 36px width each so their transparent hitboxes can't stretch
+   across the grid cell and let the "N likes" text overlay them. Two
+   summary texts (children[13,14]) live on the RIGHT edge — [14] near
+   the right, [13] to its left with a fixed offset.                    */
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"],
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"],
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"],
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="13"],
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="14"] {
   grid-area: actions;
-  display: inline-flex;
   align-items: center;
   font-size: 0.8rem;
   color: #6b7280;
 }
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"] { justify-self: start; }
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] { margin-left: 36px; }
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] { margin-left: 72px; }
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="13"] { justify-self: end; }
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="14"] {
-  justify-self: end;
-  margin-right: 80px;
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] {
+  display: inline-flex;
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  justify-self: start;
 }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"] ion-button,
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] ion-button,
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] ion-button {
+  width: 36px !important;
+  min-width: 36px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  --padding-start: 0 !important;
+  --padding-end: 0 !important;
+  --padding-top: 0 !important;
+  --padding-bottom: 0 !important;
+  --border-radius: 6px !important;
+  margin: 0 !important;
+  font-size: 20px !important;
+  --box-shadow: none !important;
+  display: inline-flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+/* Ionic renders ion-button as a shadow-root button. The inner .button-native
+   uses `align-items:center` but its child (ion-icon slot) is placed via the
+   button's own flex layout. Force the native shell to center-align so the
+   icon-only slot lands in the middle of the 36px box instead of hugging
+   the left edge (user-reported "icon in right side of box" — actually
+   left-flushed when padding is 0).                                       */
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"] ion-button::part(native),
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] ion-button::part(native),
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] ion-button::part(native) {
+  padding: 0 !important;
+  min-width: 36px !important;
+  width: 36px !important;
+  height: 32px !important;
+  display: inline-flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"] ion-button ion-icon,
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] ion-button ion-icon,
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] ion-button ion-icon {
+  font-size: 20px !important;
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"] ion-button::part(native),
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] ion-button::part(native),
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] ion-button::part(native) {
+  padding: 0 !important;
+  min-width: 36px !important;
+  width: 36px !important;
+  height: 32px !important;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] { margin-left: 44px; }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] { margin-left: 88px; }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="13"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="14"] {
+  display: inline-flex;
+  justify-self: end;
+  white-space: nowrap;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="13"] { margin-right: 14px; }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="14"] { margin-right: 60px; }
 /* Linked child wrapper: keep the anchor invisible; only cursor changes so
    users know the tile is tappable. `on_click_open_url` grammar (V1). */
 .appza-renderer-open-url {
@@ -2618,8 +2815,8 @@
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  gap: 14px;
-  padding: 8px 12px 0 12px;
+  gap: 6px;
+  padding: 8px 8px 0 8px;
   background: #ffffff;
   min-width: max-content;
 }
@@ -2634,16 +2831,16 @@
   --background-hover: transparent !important;
   --color: #6b7280 !important;
   --border-width: 0 !important;
-  --padding-start: 4px !important;
-  --padding-end: 4px !important;
+  --padding-start: 2px !important;
+  --padding-end: 2px !important;
   --box-shadow: none !important;
   height: 32px !important;
   min-height: 32px !important;
   margin: 0 !important;
   text-transform: uppercase !important;
   font-weight: 600 !important;
-  font-size: 0.76rem !important;
-  letter-spacing: 0.3px !important;
+  font-size: 0.72rem !important;
+  letter-spacing: 0.15px !important;
   white-space: nowrap !important;
 }
 .appza-renderer-ss[data-slug="fc-space-subtabs"] ion-button::part(native) {
@@ -2684,7 +2881,9 @@
   border-radius: 2px 2px 0 0;
 }
 
-/* fc-space-cover: full-width 16:9 image. */
+/* fc-space-cover: full-width 16:9 image.
+   Collapses entirely when data.cover_photo is empty so the space above the
+   composer doesn't show an "Image" alt-text placeholder box.               */
 .appza-renderer-ss[data-slug="fc-space-cover"] {
   display: block;
   padding: 12px 16px 0 16px;
@@ -2698,29 +2897,36 @@
   border-radius: 10px;
   display: block;
 }
+.appza-renderer-ss[data-slug="fc-space-cover"] ion-img:not([src]),
+.appza-renderer-ss[data-slug="fc-space-cover"] ion-img[src=""] {
+  display: none;
+}
+.appza-renderer-appzet[data-slug="fc-space-cover"]:not(:has(ion-img[src]:not([src=""]))),
+.appza-renderer-appzet-list[data-slug="fc-space-cover"]:not(:has(ion-img[src]:not([src=""]))) {
+  display: none;
+}
 
 /* fc-space-topics: static header + chip strip. Child 0 = "Choose topic"
-   header text; children 1+ are the chip templates. */
+   header text on its own row; children 1+ are the chip templates on the
+   row below. Uses flex-wrap so the width:100% header doesn't push the
+   chips off the visible area (that was the "topics not showing" bug —
+   nowrap + child[0] width:100% clipped every chip out of view).      */
 .appza-renderer-ss[data-slug="fc-space-topics"] {
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  padding: 4px 16px 8px 16px;
-  overflow-x: auto;
+  padding: 8px 16px 12px 16px;
   background: #f3f4f6;
-  -webkit-overflow-scrolling: touch;
 }
-.appza-renderer-ss[data-slug="fc-space-topics"]::-webkit-scrollbar { display: none; }
 .appza-renderer-ss[data-slug="fc-space-topics"] [data-child-index="0"] {
-  flex: 0 0 auto;
+  flex: 0 0 100%;
   font-size: 0.85rem;
   font-weight: 600;
   color: #111827;
-  margin-right: 8px;
+  margin-bottom: 4px;
   padding-bottom: 0;
-  width: 100%;
   order: -2;
 }
 .appza-renderer-ss[data-slug="fc-space-topics"] ion-chip {
@@ -2735,21 +2941,30 @@
   font-size: 0.82rem !important;
   font-weight: 500 !important;
 }
-/* Active topic chip = blue border + blue text (mocks "All" as active). */
-[data-space-detail-active-topic=""] [data-value=""] ion-chip,
-[data-space-detail-active-topic] [data-value] ion-chip {
-  /* base */
+/* Active topic chip = blue border + blue text. The renderer stamps
+   `data-active="true"` on the child wrapper whose data-value matches
+   the current spaceDetailControls.topic_slug (empty string = "All"
+   synthesized chip). CSS just keys off that attribute — catalog-
+   agnostic across any topic slug the API returns.                */
+.appza-renderer-ss[data-slug="fc-space-topics"] [data-active="true"] ion-chip {
+  border-color: #1d4ed8 !important;
+  color: #1d4ed8 !important;
+  --color: #1d4ed8 !important;
+  font-weight: 600 !important;
 }
-.appza-renderer-appzet-list[data-slug="fc-space-topics"][data-space-detail-active-topic] [data-value] ion-chip {
-  border-color: #d1d5db !important;
-  color: #374151 !important;
+.appza-renderer-ss[data-slug="fc-space-subtabs"] [data-active="true"] ion-button {
+  --color: #1d4ed8 !important;
 }
-/* Active-match rule via CSS-var trick: pair the container attr with
-   the child's data-value. Using an attribute-substring match keeps
-   this catalog-agnostic — any topic slug from data lights up correctly. */
-.appza-renderer-appzet-list[data-space-detail-active-topic=""] [data-value=""] ion-chip,
-.appza-renderer-appzet-list[data-space-detail-active-topic] [data-value]:not([data-value=""]) ion-chip {
-  /* default off — the runtime script below turns matches on */
+.appza-renderer-ss[data-slug="fc-space-subtabs"] [data-active="true"] ion-button::part(native) {
+  color: #1d4ed8 !important;
+}
+.appza-renderer-ss[data-slug="fc-space-subtabs"] [data-active="true"]::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 2px;
+  background: #1d4ed8;
+  border-radius: 2px 2px 0 0;
 }
 
 /* fc-space-post-toolbar: "Sort by:" label + button. */
@@ -2825,21 +3040,21 @@
    ordinary Feed cards keep the original grid.                          */
 [data-screen-slug="space-detail"] .appza-renderer-appzet-list[data-slug="fc-post-card"] .appza-renderer-ss[data-slug="fc-post-card"] {
   display: grid;
-  grid-template-columns: 14px 44px 1fr auto auto 14px;
+  grid-template-columns: 14px 40px auto auto 1fr auto 14px;
   grid-template-areas:
-    "pill    pill    pill    pill    pill    pill"
-    ".       avatar  name    verify  menu    ."
-    ".       .       byline  byline  byline  ."
-    ".       title   title   title   title   ."
-    ".       body    body    body    body    ."
-    "poll    poll    poll    poll    poll    poll"
-    "image   image   image   image   image   image"
-    ".       react   react   react   react   ."
-    "chdr    chdr    chdr    chdr    chdr    chdr"
-    "ctime   ctime   ctime   ctime   ctime   ctime"
-    "cbody   cbody   cbody   cbody   cbody   cbody"
-    "cfoot   cfoot   cfoot   cfoot   cfoot   cfoot"
-    ".       viewmore viewmore viewmore viewmore .";
+    "pill    pill    pill    pill    pill    pill    pill"
+    ".       avatar  name    verify  .       menu    ."
+    ".       avatar  byline  byline  byline  byline  ."
+    ".       title   title   title   title   title   ."
+    ".       body    body    body    body    body    ."
+    "poll    poll    poll    poll    poll    poll    poll"
+    "image   image   image   image   image   image   image"
+    ".       react   react   react   react   react   ."
+    "chdr    chdr    chdr    chdr    chdr    chdr    chdr"
+    "ctime   ctime   ctime   ctime   ctime   ctime   ctime"
+    "cbody   cbody   cbody   cbody   cbody   cbody   cbody"
+    "cfoot   cfoot   cfoot   cfoot   cfoot   cfoot   cfoot"
+    ".       viewmore viewmore viewmore viewmore viewmore .";
   grid-template-rows: auto auto auto auto auto auto auto auto auto auto auto auto auto;
   column-gap: 8px;
   row-gap: 0;
@@ -2848,12 +3063,30 @@
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
-  margin: 12px 16px;
+  margin: 8px 0;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] > * {
   grid-area: unset;
   margin: 0;
   min-width: 0;
+}
+/* Space-detail: give the media/video/poll children a proper grid area so
+   they render on the space-detail card the same way they do on Feed. The
+   original block only slotted the featured image (16); gallery [7], video
+   embed [8], and poll block [9] were left with implicit-row placement,
+   which pushed them into random grid tracks (they'd render but not where
+   the "image"/"poll" areas expect them).                                */
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="7"],
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="8"] {
+  grid-area: image;
+  padding: 0 14px;
+}
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="7"] ion-img,
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="7"] img,
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="8"] {
+  width: 100%;
+  border-radius: 8px;
+  display: block;
 }
 
 /* Topic pill row — style the ion-chip directly. Prepend "# " via chip
@@ -2900,50 +3133,58 @@
   border-radius: 6px !important;
 }
 
-/* Author row: avatar | name+verified | menu */
+/* Author row: avatar | name+verified | menu
+   Match the Feed card's alignment — avatar top aligns with name top
+   so avatar sits neatly next to the name row, byline below. Previously
+   avatar was 44×44 + align:center which pushed it above the name and
+   made the two look off — the user's #1 space-detail complaint.       */
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="0"] {
   grid-area: avatar;
-  width: 44px;
-  height: 44px;
-  align-self: center;
+  width: 40px;
+  height: 40px;
+  align-self: start;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="0"] ion-avatar {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="1"] {
   grid-area: name;
   font-weight: 700;
   font-size: 0.95rem;
   color: #111827;
-  align-self: end;
-  /* Use flex (not inline-flex) so the cell stretches to fill the 1fr
-     name column. min-width:0 + overflow-hidden allows the name to
-     truncate with ellipsis instead of wrapping to 2 lines when long.  */
-  display: flex;
+  align-self: start;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-width: 0;
-  overflow: hidden;
   white-space: nowrap;
-  text-overflow: ellipsis;
+  padding-top: 2px;
+  /* Undo the feed-side clipping so the name column can be sized by
+     its natural content on space-detail (grid col is `auto` here).  */
+  overflow: visible !important;
+  text-overflow: clip !important;
+  min-width: max-content !important;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="1"] > * {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  min-width: max-content !important;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="23"] {
   grid-area: verify;
-  align-self: end;
+  align-self: start;
   display: inline-flex;
   align-items: center;
-  padding-bottom: 2px;
+  padding-top: 4px;
+  min-width: 18px;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="23"] ion-icon {
   color: #1d4ed8;
   font-size: 16px;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="4"] {
   grid-area: menu;
@@ -3085,12 +3326,12 @@
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="13"] {
   grid-row: 8;
-  grid-column: 4 / 5;
+  grid-column: 5 / 7;
   justify-self: end;
   align-self: center;
   font-size: 0.78rem;
   color: #6b7280;
-  padding: 0 8px 0 0;
+  padding: 0 14px 0 0;
   margin: 0 !important;
   white-space: nowrap;
   display: inline-flex;
@@ -3098,12 +3339,12 @@
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="14"] {
   grid-row: 8;
-  grid-column: 5 / 6;
+  grid-column: 5 / 7;
   justify-self: end;
   align-self: center;
   font-size: 0.78rem;
   color: #6b7280;
-  padding: 0 14px 0 0;
+  padding: 0 60px 0 0;
   margin: 0 !important;
   white-space: nowrap;
   display: inline-flex;

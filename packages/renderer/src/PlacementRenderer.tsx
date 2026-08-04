@@ -475,14 +475,25 @@ export function PlacementRenderer({
   const optionFetchers =
     optionDsEntries.length > 0 ? (
       <>
-        {optionDsEntries.map(([propName, dsSlug]) => (
-          <OptionDataSourceFetcher
-            key={propName + ':' + dsSlug}
-            propName={propName}
-            dsSlug={dsSlug}
-            onLoaded={handleOptionLoaded}
-          />
-        ))}
+        {optionDsEntries.map(([propName, dsSlug]) => {
+          // Resolve the DS's own query_params for this fetch (route.slug
+          // for fc-space-detail, etc.) — without this, OptionDataSourceFetcher
+          // fetches with no params and returns [] for any route-param
+          // bound DS (topic dropdown stayed empty on create/edit post).
+          const optDs = catalogIndex.dataSourceBySlug.get(dsSlug);
+          const optParams = optDs
+            ? resolveQueryParams(optDs.query_params)
+            : undefined;
+          return (
+            <OptionDataSourceFetcher
+              key={propName + ':' + dsSlug}
+              propName={propName}
+              dsSlug={dsSlug}
+              params={optParams}
+              onLoaded={handleOptionLoaded}
+            />
+          );
+        })}
       </>
     ) : null;
 
@@ -513,6 +524,13 @@ export function PlacementRenderer({
             childLayoutStyles={childLayoutStyles}
             childActions={staticActions}
             appzetSlugForPath={appzet.slug}
+            activeChildValue={
+              appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab :
+              appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug :
+              appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug :
+              appzet.slug === 'fc-spaces-tabs' ? spacesTab :
+              undefined
+            }
             expandedChildren={expanded.children}
           />
         </div>
@@ -667,6 +685,13 @@ export function PlacementRenderer({
               childOpenUrls={childOpenUrls}
               childActions={childActions}
               appzetSlugForPath={appzet.slug}
+              activeChildValue={
+                appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab :
+                appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug :
+                appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug :
+                appzet.slug === 'fc-spaces-tabs' ? spacesTab :
+                undefined
+              }
               expandedChildren={expanded.children}
             />
           </div>
@@ -723,16 +748,30 @@ function AppzetSkeleton({ slug }: { slug: string }) {
 function OptionDataSourceFetcher({
   propName,
   dsSlug,
+  params,
   onLoaded,
 }: {
   propName: string;
   dsSlug: string;
+  params?: Record<string, unknown>;
   onLoaded: (propName: string, items: Array<{ value: string; label: string }>) => void;
 }) {
-  const { items, loading, error } = useDataSource(dsSlug);
+  const { items, loading, error } = useDataSource(dsSlug, params);
   useEffect(() => {
     if (loading || error) return;
-    const mapped = items
+    // Some option props (e.g. `topic_options` on fc-post-information)
+    // source from a DS whose payload is a single object with a nested
+    // array — fc-space-detail returns `{topics: [{slug,title,...}, ...]}`
+    // as its single item, and we want the topics list as the option
+    // set, not the wrapping space object. Detect by prop name so we
+    // don't reshape unrelated single-item responses. Extendable via a
+    // catalog-side items_path if a third case surfaces.
+    let source: unknown[] = items;
+    if (propName === 'topic_options' && items.length === 1 && isRecord(items[0])) {
+      const rec = items[0] as Record<string, unknown>;
+      if (Array.isArray(rec.topics)) source = rec.topics as unknown[];
+    }
+    const mapped = source
       .map((raw) => {
         if (!raw || typeof raw !== 'object') return null;
         const rec = raw as Record<string, unknown>;
@@ -904,6 +943,15 @@ type SuperstructureRendererProps = {
    */
   appzetSlugForPath?: string;
   /**
+   * When set, stamps `data-active="true"` onto the child wrapper whose
+   * `data-value` equals this string. Used by the space-detail topics chip
+   * strip / subtabs / switcher so per-chip active-state CSS rules
+   * (blue border on the active chip) can key off a plain attribute
+   * selector instead of trying to correlate two ancestor attributes.
+   * Passed only at depth 0; deeper children ignore it.
+   */
+  activeChildValue?: string;
+  /**
    * Pre-expanded child list. Used at depth 0 when the SS opts into
    * `children_from_prop` — the caller reads the AppZet's tabs array
    * and expands `ss.children[0]` as a template. When undefined we fall
@@ -924,6 +972,7 @@ function SuperstructureRenderer({
   childOpenUrls,
   childActions,
   appzetSlugForPath,
+  activeChildValue,
   expandedChildren,
 }: SuperstructureRendererProps) {
   const dispatch = useActionDispatch();
@@ -948,7 +997,16 @@ function SuperstructureRenderer({
         // Self-action primitives (ion-select) fire dispatch from their own
         // native event, not the wrapper's onClick — otherwise clicking to
         // open the dropdown would dispatch before the user picks a value.
-        const primitiveSelfHandles = SELF_ACTION_PRIMITIVES.has(child.slug);
+        //
+        // BUT: when the SS explicitly wires the child's `on_click_action`
+        // (i.e. the tap semantics ARE the whole event source, as with
+        // fc-post-composer-teaser's ion-input pill), the wrapper still
+        // needs the onClick. Otherwise the placeholder-only input pill
+        // swallows the tap and no navigation fires. `child.on_click_action`
+        // is the SS-level authoritative signal for "the whole wrapper is
+        // a tap target regardless of primitive class".
+        const primitiveSelfHandles =
+          SELF_ACTION_PRIMITIVES.has(child.slug) && !child.on_click_action;
         const wrapperAction = action && !primitiveSelfHandles ? action : undefined;
         const primitiveAction = action && primitiveSelfHandles ? action : undefined;
         const rendered = renderChild(
@@ -978,6 +1036,18 @@ function SuperstructureRenderer({
             data-value={(() => {
               const v = childOverrides?.[idx]?.value;
               return typeof v === 'string' || typeof v === 'number' ? String(v) : undefined;
+            })()}
+            data-active={(() => {
+              if (!isTopLevel || activeChildValue === undefined) return undefined;
+              // Only mark active when the child has an EXPLICIT `value`
+              // override — the empty-string "All" chip is fine, but the
+              // static "Choose topic" section header (no value key) must
+              // not falsely match activeChildValue=''.
+              const bucket = childOverrides?.[idx];
+              if (!bucket || !('value' in bucket)) return undefined;
+              const v = bucket.value;
+              const asStr = typeof v === 'string' || typeof v === 'number' ? String(v) : '';
+              return asStr === activeChildValue ? 'true' : undefined;
             })()}
             style={childLayoutStyle ? layoutStyleToCss(childLayoutStyle) : undefined}
             onClick={wrapperAction

@@ -16,6 +16,7 @@ import {
   openViewModePopover,
   prefillPostInformationFromContext,
   readDataPath,
+  resolveIcon,
   setCatalogGlobal,
   setFeedControls,
   setRouteParams,
@@ -507,6 +508,47 @@ export function App() {
     });
   }, [uiMode, currentScreen]);
 
+  // Seed a default route.slug when landing on space-detail directly (via
+  // the Screen dropdown) rather than via a nav.push from the Spaces list.
+  // Without this, DS query_params bound to route.slug (fc-space-detail,
+  // fc-space-feeds space_slug) resolve to undefined and the endpoints
+  // return empty — no cover, no topics, generic feed. Only fires when
+  // no route slug is already set (nav.push seeds one via the routeBag).
+  useEffect(() => {
+    if (!currentScreen) return;
+    const slug = currentScreen.app_map_screen_slug;
+    // Same seed-if-empty logic also applies to create-post-page and
+    // edit-post-page: fc-post-information's topic dropdown pulls from
+    // fc-space-detail (needs route.slug). Without a seeded slug the
+    // topic dropdown stays empty even when the current user's default
+    // space has real topics configured.
+    if (slug !== 'space-detail' && slug !== 'create-post-page' && slug !== 'edit-post-page') return;
+    const existing = (window as unknown as { __appzaRouteParams?: Record<string, unknown> })
+      .__appzaRouteParams?.slug;
+    if (existing) return;
+    // Fetch the first accessible space via the preview proxy and adopt it.
+    fetch('/wp-json/appza/v1/preview/data?ds=fc-spaces-discover&mode=real', {
+      credentials: 'include',
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        const items = Array.isArray(data) ? data : data?.items ?? [];
+        const first = Array.isArray(items) ? items[0] : null;
+        const firstSlug = first && typeof first === 'object' ? (first as Record<string, unknown>).slug : null;
+        if (typeof firstSlug !== 'string' || firstSlug.length === 0) return;
+        setRouteParams({ slug: firstSlug, space_slug: firstSlug });
+        setSpaceDetailControls({
+          space_slug: firstSlug,
+          active_subtab: 'posts',
+          topic_slug: '',
+        });
+        window.dispatchEvent(new Event('appza:refresh-data'));
+      })
+      .catch(() => {
+        /* silent — space-detail will just render without space context */
+      });
+  }, [currentScreen]);
+
   // Overlay pending panel edits onto the persisted customizations shape
   // ({ scope: { target_key: { column: value } } }). PlacementRenderer
   // reads through resolveOverridableColumn on this blob, so the preview
@@ -706,7 +748,7 @@ export function App() {
       });
     },
     [
-      catalog, selectedScreenId, auth, setAuth,
+      catalog, selectedScreenId, auth, setAuth, uiMode,
       openImagePicker, pendingImages, clearPendingImages,
       attachVideo, pendingVideo, clearPendingVideo,
       openPollModal, pendingPoll, clearPendingPoll,
@@ -1998,20 +2040,37 @@ function applyReactionOptimistic(feedId: number, reactType: string, on: boolean)
     if (btn) {
       const nextIcon = on ? cfg.iconOn : cfg.iconOff;
       const nextColor = on ? cfg.colorOn : 'medium';
+      // Use resolveIcon() so we pass the imported SVG data via `icon=`,
+      // not a bare kebab `name=`. Ionicons' built-in name registry does
+      // NOT include 'heart' / 'bookmark' unless addIcons() was called,
+      // which we don't do (we ship a static import registry instead).
+      // Fall back to the outline variant, then to the current icon so
+      // we NEVER blank an icon out (that would make the button look
+      // "hidden" after a tap — the user's #1 complaint).
+      const resolved =
+        resolveIcon(nextIcon) ||
+        resolveIcon(cfg.iconOff) ||
+        resolveIcon(cfg.iconOn);
+      if (!resolved) return; // no valid icon at all → leave DOM alone
       btn.querySelectorAll<HTMLElement>('ion-icon').forEach((ic) => {
-        ic.setAttribute('name', nextIcon);
+        ic.removeAttribute('name');
         ic.removeAttribute('src');
-        ic.removeAttribute('icon');
+        ic.setAttribute('icon', resolved);
       });
       btn.querySelectorAll<HTMLElement>('ion-button').forEach((b) => {
         b.setAttribute('color', nextColor);
       });
     }
-    // The SS renders the count text immediately after the reaction
-    // button (all three variants). Fall back to the timeline-only
-    // children[13] path if the sibling isn't a count wrapper.
-    let countWrap: HTMLElement | null = btn ? (btn.nextElementSibling as HTMLElement | null) : null;
-    if (!countWrap && cfg.countPathTimeline) {
+    // Locate the count-text wrapper via the explicit primitive-path
+    // declared in REACTION_UI. `countPathTimeline: null` means the
+    // reaction has no visible count (bookmark), so skip entirely —
+    // the previous nextElementSibling fallback wrongly targeted
+    // children[13] "N likes" when tapping bookmark, causing the like
+    // count to shift on every bookmark click (user-reported bug).
+    // For like on the timeline card, `countPathTimeline` is
+    // 'children[13]'; do NOT use sibling (which is the comment button).
+    let countWrap: HTMLElement | null = null;
+    if (cfg.countPathTimeline) {
       countWrap = wrapper.querySelector<HTMLElement>(
         `[data-appza-primitive-path="${cfg.countPathTimeline}"]`,
       );
@@ -2824,12 +2883,39 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             )
           : null;
       const reactKey = `${feedId}:${reactType}`;
+      // Debounce rapid taps: if a previous request for the SAME feed +
+      // reaction is still in flight, ignore the new tap. Prevents
+      // double / triple clicks from queuing multiple toggles that all
+      // race the server (each increments count optimistically, giving
+      // counts like 3 / 4 / 5 for a single-user like).
+      const inflightKey = `react:${reactKey}`;
+      const g = window as unknown as { __appzaInflightReactions?: Set<string> };
+      if (!g.__appzaInflightReactions) g.__appzaInflightReactions = new Set();
+      if (g.__appzaInflightReactions.has(inflightKey)) {
+        return; // ignore extra click while previous is pending
+      }
+      g.__appzaInflightReactions.add(inflightKey);
       const alreadyOn = myReactions
         ? myReactions.includes(reactType)
         : reactedSet.has(reactKey);
       const nextOn = !alreadyOn;
       // Optimistic UI first — before the network call.
       applyReactionOptimistic(feedId, reactType, nextOn);
+      // Also update the state IMMEDIATELY (not just after the network
+      // returns) so a rapid second tap that slips past the inflight
+      // guard would still read the correct alreadyOn. Reverted on failure.
+      if (nextOn) reactedSet.add(reactKey);
+      else reactedSet.delete(reactKey);
+      if (itemRec) {
+        const rec = itemRec as Record<string, unknown>;
+        const cur = Array.isArray(rec.my_reactions) ? [...(rec.my_reactions as string[])] : [];
+        if (nextOn && !cur.includes(reactType)) cur.push(reactType);
+        if (!nextOn) {
+          const idx = cur.indexOf(reactType);
+          if (idx >= 0) cur.splice(idx, 1);
+        }
+        rec.my_reactions = cur;
+      }
       const body: Record<string, unknown> = {
         [bodyKey]: feedId,
         react_type: reactType,
@@ -2854,34 +2940,32 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           const httpOk = res.ok;
           const bodyOk = !status || status.status === 200;
           if (!httpOk || !bodyOk) {
-            // Revert the optimistic UI on failure.
+            // Revert both optimistic UI and the pre-updated state.
             applyReactionOptimistic(feedId, reactType, alreadyOn);
+            if (alreadyOn) reactedSet.add(reactKey);
+            else reactedSet.delete(reactKey);
+            if (itemRec) {
+              const rec = itemRec as Record<string, unknown>;
+              const cur = Array.isArray(rec.my_reactions) ? [...(rec.my_reactions as string[])] : [];
+              if (alreadyOn && !cur.includes(reactType)) cur.push(reactType);
+              if (!alreadyOn) {
+                const idx = cur.indexOf(reactType);
+                if (idx >= 0) cur.splice(idx, 1);
+              }
+              rec.my_reactions = cur;
+            }
             const msg =
               (status && typeof status.message === 'string' && status.message) ||
               `Reaction failed (HTTP ${res.status})`;
             onLoginError(msg);
-            return;
-          }
-          // Mirror the new state into the session Set so a subsequent
-          // tap on the same card (whose in-memory item shape may still
-          // carry the pre-tap my_reactions) toggles the correct way.
-          if (nextOn) reactedSet.add(reactKey);
-          else reactedSet.delete(reactKey);
-          // Also patch the tapped item's my_reactions in place so the
-          // next dispatch reads the fresh state without a data refetch.
-          if (itemRec) {
-            const rec = itemRec as Record<string, unknown>;
-            const cur = Array.isArray(rec.my_reactions) ? [...(rec.my_reactions as string[])] : [];
-            if (nextOn && !cur.includes(reactType)) cur.push(reactType);
-            if (!nextOn) {
-              const idx = cur.indexOf(reactType);
-              if (idx >= 0) cur.splice(idx, 1);
-            }
-            rec.my_reactions = cur;
           }
         } catch (err) {
           applyReactionOptimistic(feedId, reactType, alreadyOn);
+          if (alreadyOn) reactedSet.add(reactKey);
+          else reactedSet.delete(reactKey);
           onLoginError(err instanceof Error ? err.message : String(err));
+        } finally {
+          g.__appzaInflightReactions?.delete(inflightKey);
         }
       })();
       return;
