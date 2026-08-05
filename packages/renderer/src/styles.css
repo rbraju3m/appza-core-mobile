@@ -638,6 +638,45 @@
   --border-color-checked: #6366f1;
   --checkmark-color: #ffffff;
 }
+/* Row 6: topic picker. Same "label + borderless select ▼" pattern as
+   Row 1 (space picker), but rendered from a single primitive via the
+   PrimitiveRenderer's leading-label path — appza-select-with-label wraps
+   both the grey label span and the native select. Full-width row on
+   its own line so it doesn't share the checkbox row. */
+.appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="10"] {
+  flex: 1 0 100%;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="10"] .appza-select-with-label > span:first-child {
+  color: #64748b !important;
+  font-size: 0.9rem !important;
+  font-weight: 400 !important;
+  white-space: nowrap;
+}
+.appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="10"] select.appza-native-select {
+  border: 0 !important;
+  background: transparent !important;
+  padding: 2px 20px 2px 0 !important;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+  min-height: 24px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%230f172a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 2px center !important;
+  box-shadow: none !important;
+}
+.appza-renderer-ss[data-slug="fc-post-information"] [data-child-index="10"] select.appza-native-select:focus {
+  outline: none;
+  box-shadow: none !important;
+}
 
 /* bottom-tab-nav: 5 evenly distributed tabs.
    Icon-forward layout — icons render 24px, optional label sits below at

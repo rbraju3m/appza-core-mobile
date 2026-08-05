@@ -119,6 +119,13 @@ function pickString(rec: Record<string, unknown> | null | undefined, keys: strin
   return null;
 }
 
+// In-flight guard for reaction toggles. Keyed by `${feedId}:${reactType}`.
+// Rapid taps on the same button before the network round-trip completes
+// would otherwise re-read stale `my_reactions` (still empty until success)
+// and treat every tap as another "add", stacking DOM increments and firing
+// duplicate POSTs. Any tap while the previous is pending is dropped.
+const reactionInFlight = new Set<string>();
+
 // Ionicon + Ionic-theme-color pairs for reaction toggle states. Mirrors
 // Reaction visual config. childPath / countPath are hardcoded for
 // the timeline layout (fc-post-card). Card + list variants have the
@@ -181,12 +188,14 @@ function applyReactionOptimistic(feedId: number, reactType: string, on: boolean)
         b.setAttribute('color', nextColor);
       });
     }
-    // Count text — the SS puts a count immediately after each reaction
-    // button, so we look up the button's next sibling (same-level ss-child
-    // wrapper). That's true for all three variants. Fallback to the
-    // timeline-only children[13] path if the sibling isn't a count.
-    let countWrap: HTMLElement | null = btn ? (btn.nextElementSibling as HTMLElement | null) : null;
-    if (!countWrap && cfg.countPathTimeline) {
+    // Locate the count-text wrapper via the explicit primitive-path
+    // declared in REACTION_UI. `countPathTimeline: null` means the
+    // reaction has no visible count (bookmark), so skip entirely — the
+    // previous nextElementSibling strategy wrongly targeted children[11]
+    // (comment button) on like taps and children[13] (like count) on
+    // bookmark taps, wiping the comment icon and shifting the like count.
+    let countWrap: HTMLElement | null = null;
+    if (cfg.countPathTimeline) {
       countWrap = wrapper.querySelector<HTMLElement>(
         `[data-appza-primitive-path="${cfg.countPathTimeline}"]`,
       );
@@ -275,6 +284,25 @@ function collectParams(
     out[name] = v ?? '';
   }
   return out;
+}
+
+// FC's /feeds/create + /feeds/update expect topic_ids as an array of
+// ints. The param_map's children[10].selectedValue reads a single
+// dropdown value as a string — wrap it, drop if empty (no topic
+// selected → don't send the key at all so FC's "topic_required" spaces
+// still validate against absence rather than an empty array).
+function coerceTopicIds(body: Record<string, unknown>): void {
+  const raw = body.topic_ids;
+  if (typeof raw !== 'string' || raw.trim() === '') {
+    delete body.topic_ids;
+    return;
+  }
+  const n = Number(raw);
+  if (!Number.isFinite(n)) {
+    delete body.topic_ids;
+    return;
+  }
+  body.topic_ids = [n];
 }
 
 /**
@@ -598,6 +626,52 @@ export function App() {
       setPoll: setPendingPoll,
     });
   }, [screen]);
+
+  // Seed a default route.slug when landing on create-post-page or
+  // edit-post-page without one. fc-post-information's topic dropdown
+  // pulls from fc-space-detail, which needs route.slug to resolve to a
+  // space — otherwise the DS returns nothing and the dropdown stays
+  // empty. When the user opens create-post directly from the home feed
+  // (no per-space context), we fall back to the first accessible space
+  // from fc-spaces-discover. Mirrors plugin-admin's seed effect.
+  useEffect(() => {
+    if (!screen) return;
+    const slug = screen.app_map_screen_slug;
+    if (slug !== 'create-post-page' && slug !== 'edit-post-page') return;
+    const existing = (window as unknown as { __appzaRouteParams?: Record<string, unknown> })
+      .__appzaRouteParams?.slug;
+    if (typeof existing === 'string' && existing) return;
+    if (!auth) return;
+    const url = `${SITE_URL}/wp-json/appza/v1/preview/data?ds=fc-spaces-discover&mode=real`;
+    void fetch(url, {
+      headers: {
+        Accept: 'application/json',
+        Authorization: basicAuthHeader(auth),
+      },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        const items = Array.isArray(data) ? data : data?.items ?? [];
+        const first = Array.isArray(items) ? items[0] : null;
+        const firstSlug = first && typeof first === 'object'
+          ? (first as Record<string, unknown>).slug
+          : null;
+        if (typeof firstSlug !== 'string' || firstSlug.length === 0) return;
+        setRouteParams({ slug: firstSlug, space_slug: firstSlug });
+        // PlacementRenderer subscribes to spaceDetailControls (useHook) but
+        // reads routeParams from a plain window global — mutating the
+        // global alone won't re-render, so the topic dropdown's option
+        // fetcher stays stuck on its initial empty params. Poke the
+        // controls slice so subscribers re-render and re-resolve
+        // resolveQueryParams against the fresh route.slug. Matches the
+        // plugin-admin seed effect for the same reason.
+        setSpaceDetailControls({ space_slug: firstSlug });
+        window.dispatchEvent(new Event('appza:refresh-data'));
+      })
+      .catch(() => {
+        /* silent — composer will render without space context */
+      });
+  }, [screen, auth]);
 
   // Overlay the live `now_label` on fc-user-avatar via the customizations
   // blob's appzet.<slug>.default_props_override. Matches plugin-admin's
@@ -1406,12 +1480,29 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         if (isRecord(effectiveItem)) {
           const ctx = effectiveItem as Record<string, unknown>;
           const routeBag: Record<string, unknown> = {};
-          if (typeof ctx.slug === 'string' && ctx.slug) routeBag.slug = ctx.slug;
+          // Nested space slug on a post item wins for route.slug —
+          // edit-post-page's topic dropdown DS is fc-space-detail, which
+          // needs the SPACE slug, not the post slug. Without this the
+          // post's own slug clobbers route.slug and the topic list is
+          // empty. Carry the post slug separately as post_slug.
+          const spaceCtx = isRecord(ctx.space) ? (ctx.space as Record<string, unknown>) : null;
+          const nestedSpaceSlug =
+            spaceCtx && typeof spaceCtx.slug === 'string' && spaceCtx.slug ? spaceCtx.slug : null;
+          if (nestedSpaceSlug) {
+            routeBag.slug = nestedSpaceSlug;
+            routeBag.space_slug = nestedSpaceSlug;
+          } else if (typeof ctx.slug === 'string' && ctx.slug) {
+            routeBag.slug = ctx.slug;
+          }
           if (typeof ctx.space_slug === 'string' && ctx.space_slug) {
             routeBag.space_slug = ctx.space_slug;
             if (!routeBag.slug) routeBag.slug = ctx.space_slug;
           }
-          if (typeof ctx.post_slug === 'string' && ctx.post_slug) routeBag.post_slug = ctx.post_slug;
+          if (typeof ctx.post_slug === 'string' && ctx.post_slug) {
+            routeBag.post_slug = ctx.post_slug;
+          } else if (nestedSpaceSlug && typeof ctx.slug === 'string' && ctx.slug) {
+            routeBag.post_slug = ctx.slug;
+          }
           if (typeof ctx.id === 'number' || typeof ctx.id === 'string') routeBag.id = ctx.id;
           if (Object.keys(routeBag).length > 0) {
             setRouteParams(routeBag);
@@ -1596,10 +1687,12 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
             )
           : null;
       const reactKey = `${feedId}:${reactType}`;
+      if (reactionInFlight.has(reactKey)) return;
       const alreadyOn = myReactions
         ? myReactions.includes(reactType)
         : reactedSet.has(reactKey);
       const nextOn = !alreadyOn;
+      reactionInFlight.add(reactKey);
       applyReactionOptimistic(feedId, reactType, nextOn);
       const body: Record<string, unknown> = {
         [bodyKey]: feedId,
@@ -1658,6 +1751,8 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         } catch (err) {
           applyReactionOptimistic(feedId, reactType, alreadyOn);
           onError(err instanceof Error ? err.message : String(err));
+        } finally {
+          reactionInFlight.delete(reactKey);
         }
       })();
       return;
@@ -1855,6 +1950,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         onError('Write something to post.');
         return;
       }
+      coerceTopicIds(body);
       // Attachments — FC's server materializes meta.media_items /
       // meta.media_preview / meta.survey_config on the returned feed based
       // on which shape wins. content_type ordering matches plugin-admin:
@@ -2057,6 +2153,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         onError('Write something to post.');
         return;
       }
+      coerceTopicIds(body);
       body[bodyKey] = feedId;
       // Attach media the same way post.create does — otherwise Save on
       // a post that had images / video / poll would drop them because

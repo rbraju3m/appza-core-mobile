@@ -2338,12 +2338,30 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         if (isRecord(effectiveItem)) {
           const ctx = effectiveItem as Record<string, unknown>;
           const routeBag: Record<string, unknown> = {};
-          if (typeof ctx.slug === 'string' && ctx.slug) routeBag.slug = ctx.slug;
+          // Nested space slug on a post item wins for route.slug —
+          // edit-post-page's topic dropdown DS is fc-space-detail, which
+          // needs the SPACE slug. Without this, ctx.slug (the post slug)
+          // clobbers route.slug and the topic dropdown's options DS
+          // returns nothing (observed: [appza-prefill] optionValues=[""]
+          // → topic prefill can't match). Carry post slug as post_slug.
+          const spaceCtx = isRecord(ctx.space) ? (ctx.space as Record<string, unknown>) : null;
+          const nestedSpaceSlug =
+            spaceCtx && typeof spaceCtx.slug === 'string' && spaceCtx.slug ? spaceCtx.slug : null;
+          if (nestedSpaceSlug) {
+            routeBag.slug = nestedSpaceSlug;
+            routeBag.space_slug = nestedSpaceSlug;
+          } else if (typeof ctx.slug === 'string' && ctx.slug) {
+            routeBag.slug = ctx.slug;
+          }
           if (typeof ctx.space_slug === 'string' && ctx.space_slug) {
             routeBag.space_slug = ctx.space_slug;
             if (!routeBag.slug) routeBag.slug = ctx.space_slug;
           }
-          if (typeof ctx.post_slug === 'string' && ctx.post_slug) routeBag.post_slug = ctx.post_slug;
+          if (typeof ctx.post_slug === 'string' && ctx.post_slug) {
+            routeBag.post_slug = ctx.post_slug;
+          } else if (nestedSpaceSlug && typeof ctx.slug === 'string' && ctx.slug) {
+            routeBag.post_slug = ctx.slug;
+          }
           if (typeof ctx.id === 'number' || typeof ctx.id === 'string') routeBag.id = ctx.id;
           if (Object.keys(routeBag).length > 0) {
             setRouteParams(routeBag);

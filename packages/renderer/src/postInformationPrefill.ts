@@ -15,9 +15,11 @@
  * children[0] (the label), which contains no editable inputs.
  *
  * Child indices track the fc-post-information SS layout:
- *   children[1] = space picker (native <select>, uncontrolled),
- *   children[2] = title (ion-input),
- *   children[3] = message (ion-textarea).
+ *   children[1]  = space picker (native <select>, uncontrolled),
+ *   children[2]  = title (ion-input),
+ *   children[3]  = message (ion-textarea),
+ *   children[10] = topic picker (ion-select). Value = topic id
+ *                  (as a string — the option-loader stringifies rec.id).
  *
  * Ionic web components are lazy-upgraded. We await `componentOnReady()`
  * before writing, otherwise the assignment lands on an unupgraded shell
@@ -85,12 +87,19 @@ export function prefillPostInformationFromContext(
       ? ((data.space as Record<string, unknown>).slug as string)
       : '';
 
+  // Topic id from data.terms[0].pivot.term_id. FC returns terms as an
+  // array (a post can carry multiple), and topic_options binds by id
+  // (the option-loader emits {value: String(rec.id)}). fc-post-information
+  // is single-select today, so pick the first term.
+  const topicId = extractFirstTopicId(data);
+
   const start = Date.now();
   const tick = () => {
     const titleWrap = findChild(2);
     const messageWrap = findChild(3);
     const spaceWrap = findChild(1);
-    if (!titleWrap && !messageWrap && !spaceWrap) {
+    const topicWrap = findChild(10);
+    if (!titleWrap && !messageWrap && !spaceWrap && !topicWrap) {
       if (Date.now() - start < MOUNT_TIMEOUT_MS) {
         window.setTimeout(tick, POLL_INTERVAL_MS);
       } else {
@@ -103,6 +112,7 @@ export function prefillPostInformationFromContext(
     if (titleWrap) void writeIonicValue(titleWrap, title);
     if (messageWrap) void writeIonicValue(messageWrap, message);
     if (spaceWrap && space) applySpaceWithRetry(spaceWrap, space);
+    if (topicWrap && topicId) applyTopicWithRetry(topicWrap, topicId);
   };
   window.setTimeout(tick, POLL_INTERVAL_MS);
 
@@ -207,6 +217,59 @@ function applySpaceWithRetry(wrap: Element, slug: string): void {
     } else {
       console.warn(
         `[appza-renderer] prefill: space "${slug}" not in options within timeout`,
+      );
+    }
+  };
+  window.setTimeout(tick, POLL_INTERVAL_MS);
+}
+
+function extractFirstTopicId(data: Record<string, unknown>): string {
+  const terms = Array.isArray(data.terms) ? data.terms : null;
+  if (!terms || terms.length === 0) return '';
+  const first = terms[0];
+  if (!isPlainObject(first)) return '';
+  // Preferred: pivot.term_id (FC's shape on read). Fallbacks handle
+  // occasional flat responses that expose id/term_id at the top level.
+  const pivot = isPlainObject(first.pivot) ? (first.pivot as Record<string, unknown>) : null;
+  const raw =
+    (pivot && (pivot.term_id ?? pivot.id)) ??
+    (first as Record<string, unknown>).term_id ??
+    (first as Record<string, unknown>).id;
+  if (raw == null) return '';
+  return String(raw);
+}
+
+function applyTopicWithRetry(wrap: Element, value: string): void {
+  const start = Date.now();
+  const attempt = (): boolean => {
+    const native = wrap.querySelector('select') as HTMLSelectElement | null;
+    if (native) {
+      const has = Array.from(native.options).some((o) => o.value === value);
+      if (!has) return false;
+      native.value = value;
+      native.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    }
+    const ionic = wrap.querySelector('ion-select') as IonicWebComponent | null;
+    if (ionic) {
+      const nested = wrap.querySelectorAll('ion-select-option');
+      if (nested.length === 0) return false;
+      const has = Array.from(nested).some((el) => (el as HTMLElement & { value?: unknown }).value === value);
+      if (!has) return false;
+      ionic.value = value;
+      ionic.dispatchEvent(new CustomEvent('ionChange', { bubbles: true, detail: { value } }));
+      return true;
+    }
+    return false;
+  };
+  if (attempt()) return;
+  const tick = () => {
+    if (attempt()) return;
+    if (Date.now() - start < SPACE_OPTION_TIMEOUT_MS) {
+      window.setTimeout(tick, POLL_INTERVAL_MS);
+    } else {
+      console.warn(
+        `[appza-renderer] prefill: topic "${value}" not in options within timeout`,
       );
     }
   };

@@ -775,7 +775,14 @@ function OptionDataSourceFetcher({
       .map((raw) => {
         if (!raw || typeof raw !== 'object') return null;
         const rec = raw as Record<string, unknown>;
-        const value = String(rec.slug ?? rec.id ?? '');
+        // FC's /feeds/create + /feeds/update expect topic_ids (array of
+        // ints), so for topic_options the option value must be the topic
+        // id, not the slug. Other option DSes (space_options etc.) keep
+        // the slug-first fallback since their endpoints key on slug.
+        const value =
+          propName === 'topic_options'
+            ? String(rec.id ?? rec.slug ?? '')
+            : String(rec.slug ?? rec.id ?? '');
         const label = String(rec.title ?? rec.name ?? rec.slug ?? rec.id ?? '');
         return value && label ? { value, label } : null;
       })
