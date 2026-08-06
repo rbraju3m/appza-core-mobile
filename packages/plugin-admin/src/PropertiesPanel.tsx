@@ -33,7 +33,13 @@ type Props = {
   onLivePreview: (mergedOverride: Record<string, unknown> | null) => void;
 };
 
-type OptionValue = boolean | number | string;
+// OptionValue widened from the original {bool|number|string} scalar set
+// to include array_of_objects rows (`Array<Record<string, unknown>>`) so
+// list-shaped props like fc-space-subtabs.tabs / sort_specs can round
+// trip through the panel. Downstream consumers still coerce to their
+// specific expected shape; anything unsupported by the editor is caught
+// at read time by isOptionValue.
+type OptionValue = boolean | number | string | Array<Record<string, unknown>>;
 type OptionValues = Record<string, OptionValue>;
 
 type TabKey = 'wrapper' | 'options' | 'action';
@@ -709,6 +715,12 @@ function OptionRow({
             unit={sizeUnit}
             onChange={onChange}
           />
+        ) : type === 'array_of_objects' ? (
+          <ArrayOfObjectsEditor
+            value={Array.isArray(effective) ? effective : undefined}
+            defaultRows={Array.isArray(prop.default) ? (prop.default as Array<Record<string, unknown>>) : undefined}
+            onChange={onChange}
+          />
         ) : iconFlavored ? (
           <IconPicker
             value={typeof effective === 'string' ? effective : undefined}
@@ -742,13 +754,195 @@ function OptionRow({
   );
 }
 
+/**
+ * Inline table editor for `array_of_objects`-typed props (tabs,
+ * sort_specs, header_links, ...). Row schema is inferred from the FIRST
+ * row of the current value (or of the default when no override yet) —
+ * one input per key. Types inferred per-column from the sample value:
+ *   boolean → checkbox
+ *   number  → number input
+ *   else    → text input
+ *
+ * Add/remove rows in-place; reorder via up/down buttons. All edits pipe
+ * through `onChange(nextArray)` — clearing every row emits an empty
+ * array (still a valid override; the outer × button clears entirely).
+ */
+function ArrayOfObjectsEditor({
+  value,
+  defaultRows,
+  onChange,
+}: {
+  value: Array<Record<string, unknown>> | undefined;
+  defaultRows: Array<Record<string, unknown>> | undefined;
+  onChange: (v: Array<Record<string, unknown>> | undefined) => void;
+}) {
+  // Effective rows: user override first, then default, then a single
+  // empty row shaped by the default's keys (so the user can start
+  // editing a brand-new list from a familiar template).
+  const rows = value ?? defaultRows ?? [];
+  const isDirty = value !== undefined;
+
+  // Column keys = union of every row's keys. Preserves default-row key
+  // order via first-appearance ordering; new columns from the default's
+  // second+ rows still land in the header.
+  const columns: string[] = (() => {
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    const sources = rows.length > 0 ? rows : defaultRows ?? [];
+    for (const r of sources) {
+      if (r && typeof r === 'object') {
+        for (const k of Object.keys(r)) {
+          if (!seen.has(k)) {
+            seen.add(k);
+            ordered.push(k);
+          }
+        }
+      }
+    }
+    return ordered;
+  })();
+
+  function inferColType(colKey: string): 'boolean' | 'number' | 'string' {
+    for (const r of rows.length > 0 ? rows : defaultRows ?? []) {
+      const v = r?.[colKey];
+      if (typeof v === 'boolean') return 'boolean';
+      if (typeof v === 'number') return 'number';
+      if (typeof v === 'string') return 'string';
+    }
+    return 'string';
+  }
+
+  function commit(next: Array<Record<string, unknown>>) {
+    onChange(next);
+  }
+
+  function setCell(rowIdx: number, colKey: string, cellValue: unknown) {
+    const next = rows.map((r, i) => (i === rowIdx ? { ...r, [colKey]: cellValue } : r));
+    commit(next);
+  }
+
+  function addRow() {
+    // New row: seed each existing column with an empty value of the
+    // inferred type so the input renders as-expected.
+    const seed: Record<string, unknown> = {};
+    for (const c of columns) {
+      const t = inferColType(c);
+      seed[c] = t === 'boolean' ? false : t === 'number' ? 0 : '';
+    }
+    commit([...rows, seed]);
+  }
+
+  function removeRow(idx: number) {
+    commit(rows.filter((_, i) => i !== idx));
+  }
+
+  function move(idx: number, delta: number) {
+    const target = idx + delta;
+    if (target < 0 || target >= rows.length) return;
+    const next = rows.slice();
+    const [row] = next.splice(idx, 1);
+    if (!row) return;
+    next.splice(target, 0, row);
+    commit(next);
+  }
+
+  return (
+    <div className="appza-props-panel-aoo">
+      {rows.length === 0 && columns.length === 0 ? (
+        <div className="appza-props-panel-aoo-empty">
+          <em>No row template — click + Add row to create a first entry.</em>
+        </div>
+      ) : (
+        <table className="appza-props-panel-aoo-table">
+          <thead>
+            <tr>
+              <th style={{ width: 20 }}></th>
+              {columns.map((c) => (
+                <th key={c}>{c}</th>
+              ))}
+              <th style={{ width: 80 }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, idx) => (
+              <tr key={idx}>
+                <td className="appza-props-panel-aoo-idx">{idx + 1}</td>
+                {columns.map((c) => {
+                  const t = inferColType(c);
+                  const cellV = row?.[c];
+                  if (t === 'boolean') {
+                    return (
+                      <td key={c}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(cellV)}
+                          onChange={(e) => setCell(idx, c, e.target.checked)}
+                        />
+                      </td>
+                    );
+                  }
+                  if (t === 'number') {
+                    return (
+                      <td key={c}>
+                        <input
+                          type="number"
+                          className="appza-props-panel-input"
+                          value={typeof cellV === 'number' ? cellV : ''}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            const n = raw === '' ? 0 : Number(raw);
+                            if (Number.isFinite(n)) setCell(idx, c, n);
+                          }}
+                        />
+                      </td>
+                    );
+                  }
+                  return (
+                    <td key={c}>
+                      <input
+                        type="text"
+                        className="appza-props-panel-input"
+                        value={typeof cellV === 'string' ? cellV : ''}
+                        onChange={(e) => setCell(idx, c, e.target.value)}
+                      />
+                    </td>
+                  );
+                })}
+                <td className="appza-props-panel-aoo-actions">
+                  <button type="button" title="Move up" onClick={() => move(idx, -1)} disabled={idx === 0}>▲</button>
+                  <button type="button" title="Move down" onClick={() => move(idx, 1)} disabled={idx === rows.length - 1}>▼</button>
+                  <button type="button" title="Remove row" onClick={() => removeRow(idx)}>✕</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <div className="appza-props-panel-aoo-toolbar">
+        <button type="button" className="appza-props-panel-aoo-add" onClick={addRow}>
+          + Add row
+        </button>
+        {!isDirty && rows.length > 0 && (
+          <span className="appza-props-panel-aoo-hint">Editing default (no override yet).</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function inferOptionType(
   prop: PropertiesSchemaEntry,
-): 'boolean' | 'number' | 'string' | 'color' | 'select' | 'size' {
+): 'boolean' | 'number' | 'string' | 'color' | 'select' | 'size' | 'array_of_objects' {
   const declared = typeof prop.type === 'string' ? prop.type.toLowerCase() : '';
   if (declared === 'boolean' || declared === 'bool') return 'boolean';
   if (declared === 'number' || declared === 'int' || declared === 'integer') return 'number';
   if (declared === 'color') return 'color';
+  // Catalog uses `array_of_objects` for list-shaped exposed props
+  // (tabs, sort_specs, header_links). Renderer picks up the inline
+  // table editor below.
+  if (declared === 'array_of_objects' || declared === 'array' || declared === 'list') {
+    return 'array_of_objects';
+  }
   if (declared === 'select' || declared === 'enum') return 'select';
   if (declared === 'size' || declared === 'length') return 'size';
   // Any prop with a preset ramp on the schema is a size regardless of
@@ -911,7 +1105,14 @@ function formatDefault(v: unknown): string | null {
 }
 
 function isOptionValue(v: unknown): v is OptionValue {
-  return typeof v === 'boolean' || typeof v === 'number' || typeof v === 'string';
+  if (typeof v === 'boolean' || typeof v === 'number' || typeof v === 'string') return true;
+  // array_of_objects — every entry is a plain object. Empty array counts
+  // (user cleared the list); non-object entries fall through and disable
+  // the editor for that prop.
+  if (Array.isArray(v)) {
+    return v.every((row) => row !== null && typeof row === 'object' && !Array.isArray(row));
+  }
+  return false;
 }
 
 /**

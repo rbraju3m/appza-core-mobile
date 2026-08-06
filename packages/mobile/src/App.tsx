@@ -2395,9 +2395,32 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       // inv.item.value (variadic child template stamps it) with an
       // args.value fallback for direct-fire callers. See
       // spaces.set_tab above for the same pattern.
+      //
+      // Per-space runtime config can declare a target_screen on a
+      // subtab entry — when present the tap is a deep-link nav.push
+      // instead of a local sub-tab switch. Enables e.g. a customer
+      // routing "MEMBERS" to a bespoke listing screen.
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
       const itemValue =
         itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      const targetScreen =
+        itemRec && typeof itemRec.target_screen === 'string' && itemRec.target_screen.length > 0
+          ? (itemRec.target_screen as string)
+          : null;
+      if (targetScreen && catalog) {
+        const target = catalog.template_screens?.find(
+          (s) => s.app_map_screen_slug === targetScreen,
+        );
+        if (target) {
+          if (currentScreenId != null) {
+            setScreenStack((prev) => [...prev, currentScreenId]);
+          }
+          setSelectedScreenId(target.id);
+        } else {
+          console.warn('[appza-mobile] set_subtab target_screen not found:', targetScreen);
+        }
+        return;
+      }
       const picked = runtimeValue ?? itemValue ?? '';
       if (picked) {
         setSpaceDetailControls({ active_subtab: picked });

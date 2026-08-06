@@ -2792,12 +2792,15 @@
    `data-value` per-child attribute + `data-space-detail-active-*` on the
    AppZet list wrapper (both added 2026-08-03). No new markup needed.  */
 
-/* fc-space-switcher: horizontal chip strip of accessible spaces. */
+/* fc-space-switcher: horizontal chip strip of accessible spaces.
+ * Per-space runtime `_style` overrides land as --appza-* CSS custom
+ * props on this wrapper — each hardcoded value below falls back to
+ * the customized var when present. See PlacementRenderer styleVars. */
 .appza-renderer-appzet-list[data-slug="fc-space-switcher"] {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  gap: 8px;
+  gap: var(--appza-gap, 8px);
   padding: 8px 12px;
   overflow-x: auto;
   background: #ffffff;
@@ -2809,13 +2812,13 @@
   flex: 0 0 auto;
 }
 .appza-renderer-appzet-list[data-slug="fc-space-switcher"] ion-button {
-  --background: #ffffff !important;
+  --background: var(--appza-chip-bg-color, #ffffff) !important;
   --background-hover: #f9fafb !important;
-  --color: #374151 !important;
+  --color: var(--appza-chip-text-color, #374151) !important;
   --border-color: #d1d5db !important;
   --border-style: solid !important;
   --border-width: 1px !important;
-  --border-radius: 8px !important;
+  --border-radius: var(--appza-chip-radius, 8px) !important;
   --padding-start: 14px !important;
   --padding-end: 14px !important;
   height: 34px !important;
@@ -2828,8 +2831,16 @@
 }
 .appza-renderer-appzet-list[data-slug="fc-space-switcher"] ion-button::part(native) {
   border: 1px solid #d1d5db !important;
-  border-radius: 8px !important;
-  background: #ffffff !important;
+  border-radius: var(--appza-chip-radius, 8px) !important;
+  background: var(--appza-chip-bg-color, #ffffff) !important;
+  color: var(--appza-chip-text-color, #374151) !important;
+}
+/* Active-space chip gets the active-* palette. Marker stamped by
+   PlacementRenderer when the child's data-value === current space slug. */
+.appza-renderer-appzet-list[data-slug="fc-space-switcher"] .appza-renderer-ss-child[data-active="true"] ion-button::part(native) {
+  background: var(--appza-active-bg-color, #2563eb) !important;
+  color: var(--appza-active-text-color, #ffffff) !important;
+  border-color: var(--appza-active-bg-color, #2563eb) !important;
 }
 
 /* fc-space-subtabs: POSTS / MEMBERS / DOCUMENTS / CHAT with underlined
@@ -2931,10 +2942,16 @@
 .appza-renderer-ss[data-slug="fc-space-cover"] ion-img,
 .appza-renderer-ss[data-slug="fc-space-cover"] img {
   width: 100%;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: var(--appza-aspect-ratio, 16 / 9);
   object-fit: cover;
   border-radius: 10px;
   display: block;
+  height: var(--appza-height, auto);
+}
+/* Explicit height override wins over aspect-ratio when set. */
+.appza-renderer-appzet-list[data-slug="fc-space-cover"][style*="--appza-height"] ion-img,
+.appza-renderer-appzet[data-slug="fc-space-cover"][style*="--appza-height"] ion-img {
+  aspect-ratio: auto;
 }
 .appza-renderer-ss[data-slug="fc-space-cover"] ion-img:not([src]),
 .appza-renderer-ss[data-slug="fc-space-cover"] ion-img[src=""] {
@@ -2955,14 +2972,14 @@
   flex-direction: row;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: var(--appza-gap, 6px);
   padding: 8px 16px 12px 16px;
   background: #f3f4f6;
 }
 .appza-renderer-ss[data-slug="fc-space-topics"] [data-child-index="0"] {
   flex: 0 0 100%;
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: var(--appza-font-weight, 600);
   color: #111827;
   margin-bottom: 4px;
   padding-bottom: 0;
@@ -2972,13 +2989,13 @@
   --background: #ffffff !important;
   --color: #374151 !important;
   border: 1px solid #d1d5db !important;
-  border-radius: 6px !important;
+  border-radius: var(--appza-chip-radius, 6px) !important;
   height: 30px !important;
   min-height: 30px !important;
   padding: 0 12px !important;
   margin: 0 !important;
   font-size: 0.82rem !important;
-  font-weight: 500 !important;
+  font-weight: var(--appza-font-weight, 500) !important;
 }
 /* Active topic chip = blue border + blue text. The renderer stamps
    `data-active="true"` on the child wrapper whose data-value matches
@@ -2986,23 +3003,23 @@
    synthesized chip). CSS just keys off that attribute — catalog-
    agnostic across any topic slug the API returns.                */
 .appza-renderer-ss[data-slug="fc-space-topics"] [data-active="true"] ion-chip {
-  border-color: #1d4ed8 !important;
-  color: #1d4ed8 !important;
-  --color: #1d4ed8 !important;
-  font-weight: 600 !important;
+  border-color: var(--appza-active-border-color, #1d4ed8) !important;
+  color: var(--appza-active-border-color, #1d4ed8) !important;
+  --color: var(--appza-active-border-color, #1d4ed8) !important;
+  font-weight: var(--appza-font-weight, 600) !important;
 }
 .appza-renderer-ss[data-slug="fc-space-subtabs"] [data-active="true"] ion-button {
-  --color: #1d4ed8 !important;
+  --color: var(--appza-active-color, #1d4ed8) !important;
 }
 .appza-renderer-ss[data-slug="fc-space-subtabs"] [data-active="true"] ion-button::part(native) {
-  color: #1d4ed8 !important;
+  color: var(--appza-active-color, #1d4ed8) !important;
 }
 .appza-renderer-ss[data-slug="fc-space-subtabs"] [data-active="true"]::after {
   content: '';
   position: absolute;
   left: 0; right: 0; bottom: 0;
   height: 2px;
-  background: #1d4ed8;
+  background: var(--appza-active-color, #1d4ed8);
   border-radius: 2px 2px 0 0;
 }
 

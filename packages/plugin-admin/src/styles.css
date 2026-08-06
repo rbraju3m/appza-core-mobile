@@ -2053,3 +2053,101 @@ body {
 .appza-build-copy-btn {
   margin-top: 6px;
 }
+
+/* ------- array_of_objects editor (props panel) ------- */
+.appza-props-panel-aoo {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.appza-props-panel-aoo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.appza-props-panel-aoo-table thead th {
+  background: #f6f7f7;
+  color: #50575e;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  padding: 4px 6px;
+  border-bottom: 1px solid #e0e0e0;
+  text-align: left;
+}
+.appza-props-panel-aoo-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid #f0f0f1;
+  vertical-align: middle;
+}
+.appza-props-panel-aoo-table tr:last-child td {
+  border-bottom: 0;
+}
+.appza-props-panel-aoo-table input[type="text"],
+.appza-props-panel-aoo-table input[type="number"] {
+  width: 100%;
+  min-width: 60px;
+  padding: 2px 4px;
+  font-size: 11px;
+}
+.appza-props-panel-aoo-idx {
+  color: #a7aaad;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  width: 20px;
+}
+.appza-props-panel-aoo-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+.appza-props-panel-aoo-actions button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: #50575e;
+  font-size: 11px;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+.appza-props-panel-aoo-actions button:hover:not(:disabled) {
+  background: #f0f0f1;
+  color: #1e1e1e;
+}
+.appza-props-panel-aoo-actions button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.appza-props-panel-aoo-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.appza-props-panel-aoo-add {
+  border: 1px dashed #c3c4c7;
+  background: transparent;
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 3px;
+  cursor: pointer;
+  color: #2271b1;
+}
+.appza-props-panel-aoo-add:hover {
+  background: #f0f6fc;
+  border-color: #2271b1;
+}
+.appza-props-panel-aoo-empty {
+  padding: 8px;
+  color: #a7aaad;
+  font-size: 11px;
+}
+.appza-props-panel-aoo-hint {
+  font-size: 10px;
+  color: #a7aaad;
+  font-style: italic;
+}

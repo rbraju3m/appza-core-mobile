@@ -126,8 +126,26 @@ export function PlacementRenderer({
     space_slug: spaceDetailSpaceSlug,
   } = useSpaceDetailControls();
   const requestedAppzet = catalogIndex.appzetBySlug.get(appzetSlug);
+  // Placement-level data_source_slug override wins when deciding whether
+  // the view-mode swap applies. The swap is governed by feedControls,
+  // which fc-feed-toolbar writes on the home/feed screens against the
+  // fc-feed DS. When a placement rebinds the AppZet to a different DS
+  // (e.g. space-detail's fc-post-card → fc-space-feeds), feedControls
+  // isn't the authoritative view-mode — skipping the swap keeps the
+  // AppZet on its default (timeline) layout instead of picking up a
+  // stale global card/list mode carried over from a prior /feed visit.
+  const placementDsForVariant =
+    propsOverride && typeof propsOverride['data_source_slug'] === 'string'
+      ? (propsOverride['data_source_slug'] as string)
+      : null;
+  const feedGovernedDs =
+    !placementDsForVariant ||
+    placementDsForVariant === 'fc-feed' ||
+    (requestedAppzet?.default_data_source_id != null &&
+      catalogIndex.dataSourceById.get(requestedAppzet.default_data_source_id)?.slug === 'fc-feed' &&
+      !placementDsForVariant);
   const variantSlug =
-    requestedAppzet && VIEW_MODE_VARIANTS[requestedAppzet.slug]
+    requestedAppzet && VIEW_MODE_VARIANTS[requestedAppzet.slug] && feedGovernedDs
       ? feedViewMode === 'card'
         ? VIEW_MODE_VARIANTS[requestedAppzet.slug]!.card
         : feedViewMode === 'list'
@@ -335,6 +353,35 @@ export function PlacementRenderer({
     ? { items: pagedState.items, loading: pagedState.loading, error: pagedState.error }
     : staticState;
 
+  // Sibling DS for _config_apply — some AppZets (fc-space-switcher,
+  // fc-space-subtabs) source their per-space overrides from a sibling DS
+  // (fc-space-detail) that's not their primary data source. Hook is called
+  // unconditionally to keep hook order stable across renders; slug is
+  // undefined when the AppZet either has no _config_apply meta or points
+  // at its own DS (in which case dataState above already has the payload).
+  const configApplyRaw = (appzet?.default_props_override as Record<string, unknown> | undefined)?.[
+    '_config_apply'
+  ];
+  const configApplySpec =
+    configApplyRaw && typeof configApplyRaw === 'object' && !Array.isArray(configApplyRaw)
+      ? (configApplyRaw as { data_source_slug?: unknown; data_path?: unknown; merge_into?: unknown })
+      : null;
+  const siblingConfigSlug =
+    configApplySpec && typeof configApplySpec.data_source_slug === 'string'
+      ? configApplySpec.data_source_slug
+      : undefined;
+  const siblingConfigParams = siblingConfigSlug
+    ? resolveQueryParams(
+        catalogIndex.dataSourceBySlug.get(siblingConfigSlug)?.query_params,
+      )
+    : undefined;
+  const siblingConfigState = useDataSource(
+    siblingConfigSlug,
+    siblingConfigParams && Object.keys(siblingConfigParams).length > 0
+      ? siblingConfigParams
+      : undefined,
+  );
+
   // IonInfiniteScroll requires the parent to call `complete()` on the
   // element ref once the load-more fetch has actually landed — otherwise
   // its spinner disappears before the new items render (jank) OR stays
@@ -409,6 +456,161 @@ export function PlacementRenderer({
           [propName]: mirrored,
         };
       }
+    }
+  }
+
+  // === _config_apply ===
+  // Per-space (or per-context) runtime overrides mirrored from a DS field
+  // onto this AppZet's default_props_override. Powers the per-space
+  // config knobs on the Space Detail screen (fc-space-switcher /
+  // fc-space-subtabs / fc-space-cover / fc-space-topics) without needing
+  // a per-space AppZet clone.
+  //
+  //   default_props_override._config_apply:
+  //     { data_source_slug?: 'fc-space-detail',   // optional; own DS if omitted
+  //       data_path: 'data.appza_config.subtabs',
+  //       merge_into: 'default_props' | 'prop:<name>' }
+  //
+  //   - merge_into='default_props': the config value at data_path must be
+  //     an object; its keys are merged onto default_props_override
+  //     (config wins). Use for scalar knobs like {section_header,
+  //     all_label, hidden, height, ...}.
+  //   - merge_into='prop:<name>': the config value at data_path replaces
+  //     the named prop wholesale. Use for array-shaped configs like
+  //     `subtabs` where the customer's list fully replaces the default.
+  //
+  // Runs after _data_prop_mirror so mirrored array is already in place
+  // before overrides are applied.
+  if (
+    configApplySpec &&
+    typeof configApplySpec.data_path === 'string' &&
+    configApplySpec.data_path.length > 0
+  ) {
+    const dataPath = configApplySpec.data_path;
+    const mergeIntoRaw =
+      typeof configApplySpec.merge_into === 'string' ? configApplySpec.merge_into : 'default_props';
+    // Pick the DS payload — sibling (fc-space-detail on switcher/subtabs)
+    // or own DS (topics reads its own fc-space-detail; cover ditto).
+    const sourceItems = siblingConfigSlug ? siblingConfigState.items : dataState.items;
+    if (sourceItems.length > 0) {
+      const configValue = readDataPath(sourceItems[0], dataPath);
+      if (configValue !== undefined && configValue !== null) {
+        if (mergeIntoRaw === 'default_props' && typeof configValue === 'object' && !Array.isArray(configValue)) {
+          (appzet as { default_props_override: Record<string, unknown> }).default_props_override = {
+            ...(appzet.default_props_override ?? {}),
+            ...(configValue as Record<string, unknown>),
+          };
+        } else if (mergeIntoRaw.startsWith('prop:')) {
+          const propName = mergeIntoRaw.slice('prop:'.length);
+          if (propName.length > 0) {
+            (appzet as { default_props_override: Record<string, unknown> }).default_props_override = {
+              ...(appzet.default_props_override ?? {}),
+              [propName]: configValue,
+            };
+          }
+        }
+      }
+    }
+  }
+
+  // === Directive post-processing ===
+  // After _config_apply has splattered scalar overrides onto
+  // default_props_override, apply the well-known DIRECTIVE keys that
+  // manipulate the mirrored data arrays rather than just replacing
+  // props verbatim. These keys are handled here because they need to
+  // read AND WRITE the same `spaces` / `topics` mirror; the plain
+  // splat can't express filter+reorder semantics.
+  //
+  // Skip-render directives (hidden) short-circuit the whole AppZet by
+  // returning early below — after we've built the wrapper skeleton so
+  // the placement slot still occupies the same order in the DOM tree
+  // (React key stability).
+  {
+    const dpo = (appzet.default_props_override ?? {}) as Record<string, unknown>;
+    // hidden = true → the whole strip disappears; renderer returns a
+    // zero-height sentinel so surrounding placements don't reflow around
+    // an absent node in a way that shifts layout mid-transition.
+    if (dpo['hidden'] === true) {
+      return <span data-appza-hidden-appzet={appzet.slug} style={{ display: 'none' }} />;
+    }
+    // spaces_whitelist (fc-space-switcher) — filter mirrored entries by
+    // slug, preserving whitelist order. Missing/empty whitelist = keep
+    // full list. Applied only when the AppZet has a mirrored `spaces`
+    // array; safe no-op otherwise.
+    const readSlug = (v: unknown): string | undefined => {
+      if (!isRecord(v)) return undefined;
+      const s = (v as Record<string, unknown>).slug;
+      return typeof s === 'string' ? s : undefined;
+    };
+    // Directive lists accept two shapes:
+    //   - array of strings (runtime config JSON)
+    //   - comma-separated string (right-panel string input)
+    // Empty string / empty array are treated equivalently as "no filter".
+    const parseSlugList = (raw: unknown): string[] => {
+      if (Array.isArray(raw)) {
+        return raw.filter((s): s is string => typeof s === 'string' && s.length > 0);
+      }
+      if (typeof raw === 'string' && raw.trim().length > 0) {
+        return raw
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+      }
+      return [];
+    };
+    const whitelist = parseSlugList(dpo['spaces_whitelist']);
+    if (whitelist.length > 0) {
+      const entries = Array.isArray(dpo['spaces']) ? (dpo['spaces'] as unknown[]) : null;
+      if (entries) {
+        const bySlug = new Map<string, unknown>();
+        for (const e of entries) {
+          const slug = readSlug(e);
+          if (slug !== undefined) bySlug.set(slug, e);
+        }
+        const filtered = whitelist.map((s) => bySlug.get(s)).filter((e): e is unknown => e != null);
+        (appzet as { default_props_override: Record<string, unknown> }).default_props_override = {
+          ...dpo,
+          spaces: filtered,
+        };
+      }
+    }
+    // topic_order + hidden_topics (fc-space-topics) — filter first, then
+    // reorder. Unlisted topics keep their post-mirror order after any
+    // explicitly-ordered entries.
+    const hiddenTopics = parseSlugList(dpo['hidden_topics']);
+    const topicOrder = parseSlugList(dpo['topic_order']);
+    if ((hiddenTopics.length > 0 || topicOrder.length > 0) && Array.isArray(dpo['topics'])) {
+      let topics = (dpo['topics'] as unknown[]).slice();
+      if (hiddenTopics.length > 0) {
+        topics = topics.filter((t) => {
+          const slug = readSlug(t);
+          return slug === undefined || !hiddenTopics.includes(slug);
+        });
+      }
+      if (topicOrder.length > 0) {
+        const bySlug = new Map<string, unknown>();
+        for (const t of topics) {
+          const slug = readSlug(t);
+          if (slug !== undefined) bySlug.set(slug, t);
+        }
+        const ordered: unknown[] = [];
+        for (const s of topicOrder) {
+          const t = bySlug.get(s);
+          if (t) {
+            ordered.push(t);
+            bySlug.delete(s);
+          }
+        }
+        for (const t of topics) {
+          const slug = readSlug(t);
+          if (slug !== undefined && bySlug.has(slug)) ordered.push(t);
+        }
+        topics = ordered;
+      }
+      (appzet as { default_props_override: Record<string, unknown> }).default_props_override = {
+        ...(appzet.default_props_override ?? {}),
+        topics,
+      };
     }
   }
 
@@ -497,6 +699,62 @@ export function PlacementRenderer({
       </>
     ) : null;
 
+  // Style-variable stamping. Two sources feed into --appza-* CSS
+  // custom props on the AppZet wrapper:
+  //   1. `_style` bag (used by the per-space runtime config, where a
+  //      nested object keeps knobs grouped)
+  //   2. FLAT root keys on default_props_override whose name matches a
+  //      known style knob — this is the shape the right-panel
+  //      Properties editor writes (each schema entry is flat).
+  // Flat keys win over _style bag when both present (right-panel edit
+  // is the authoritative author intent).
+  const STYLE_KNOBS = new Set<string>([
+    'gap',
+    'chip_radius',
+    'chip_bg_color',
+    'chip_text_color',
+    'active_bg_color',
+    'active_text_color',
+    'active_border_color',
+    'active_color',
+    'font_weight',
+    'height',
+    'aspect_ratio',
+    'overlay_gradient',
+  ]);
+  // Aliases: some knobs also drive Ionic's own CSS custom properties
+  // directly. Custom props inherit through shadow DOM (unlike `background`
+  // set via `::part(native)` which has cascade quirks), so stamping the
+  // Ionic-native var name on the wrapper is the reliable path to live
+  // Ionic-component updates.
+  //   chip_bg_color   → --background          (ion-button surface)
+  //   chip_text_color → --color               (ion-button label)
+  //   chip_radius     → --border-radius       (ion-button + ion-chip)
+  const IONIC_ALIASES: Record<string, string[]> = {
+    chip_bg_color:   ['--background'],
+    chip_text_color: ['--color'],
+    chip_radius:     ['--border-radius'],
+  };
+  const dpoForStyle = (appzet.default_props_override ?? {}) as Record<string, unknown>;
+  const styleBag = dpoForStyle['_style'];
+  const styleVars: Record<string, string> = {};
+  const stampVar = (k: string, v: unknown) => {
+    if (typeof v !== 'string' && typeof v !== 'number') return;
+    const s = String(v);
+    if (s === '') return;
+    styleVars['--appza-' + k.replace(/_/g, '-')] = s;
+    const aliases = IONIC_ALIASES[k];
+    if (aliases) {
+      for (const alias of aliases) styleVars[alias] = s;
+    }
+  };
+  if (styleBag && typeof styleBag === 'object' && !Array.isArray(styleBag)) {
+    for (const [k, v] of Object.entries(styleBag as Record<string, unknown>)) stampVar(k, v);
+  }
+  for (const k of STYLE_KNOBS) {
+    if (k in dpoForStyle) stampVar(k, dpoForStyle[k]);
+  }
+
   // No data source: render once with static overrides. Child actions still
   // apply (login button, create-post button, etc. — anything that doesn't
   // need per-item data context) so we compute them with a null item.
@@ -512,7 +770,7 @@ export function PlacementRenderer({
           data-space-detail-active-subtab={appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab : undefined}
           data-space-detail-active-topic={appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug : undefined}
           data-space-detail-active-space={appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug : undefined}
-          style={spacingStyle(spacing)}
+          style={{ ...spacingStyle(spacing), ...styleVars } as React.CSSProperties}
           onClick={handleClick}
         >
           <SuperstructureRenderer
@@ -639,6 +897,7 @@ export function PlacementRenderer({
         data-space-detail-active-subtab={appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab : undefined}
         data-space-detail-active-topic={appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug : undefined}
         data-space-detail-active-space={appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug : undefined}
+        style={Object.keys(styleVars).length > 0 ? (styleVars as React.CSSProperties) : undefined}
       >
       {items.map((item, idx) => {
         // Enrich the raw item with computed viewer-scoped fields (e.g.
@@ -1060,16 +1319,22 @@ function SuperstructureRenderer({
             onClick={wrapperAction
               ? (e) => {
                   e.stopPropagation();
-                  // Stamp the child's declared `value` (from binds_to
-                  // 'children[<i>].value' in the SS properties_schema)
-                  // onto action.item so tab/segmented dispatchers can
-                  // read the picked value the same way ion-select does.
-                  // Segmented tabs (fc-spaces-tabs) declare per-child
-                  // value = 'all' | 'my'; without this stamp the click
-                  // dispatch lands with item=undefined.
-                  const childValue = childOverrides?.[idx]?.value;
+                  // Stamp the child's declared `value` onto action.item so
+                  // tab/segmented dispatchers can read the picked value the
+                  // same way ion-select does. Also carry the entry's
+                  // identifying keys (slug, id, space, ...) — variadic
+                  // children (fc-space-switcher, fc-space-topics) fire
+                  // actions like nav.push{pass_item_as_context} which read
+                  // ctx.slug, not ctx.value. `text` is presentation only
+                  // and stays out of the item payload.
+                  const bucket = (childOverrides?.[idx] ?? {}) as Record<string, unknown>;
+                  const entryPayload: Record<string, unknown> = {};
+                  for (const [k, v] of Object.entries(bucket)) {
+                    if (k === 'text') continue;
+                    entryPayload[k] = v;
+                  }
                   const dispatched =
-                    childValue != null
+                    Object.keys(entryPayload).length > 0
                       ? {
                           ...wrapperAction,
                           item: {
@@ -1077,7 +1342,7 @@ function SuperstructureRenderer({
                               | Record<string, unknown>
                               | null
                               | undefined) ?? {}),
-                            value: childValue,
+                            ...entryPayload,
                           },
                         }
                       : wrapperAction;
