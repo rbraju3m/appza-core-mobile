@@ -721,6 +721,7 @@ export function PlacementRenderer({
     'height',
     'aspect_ratio',
     'overlay_gradient',
+    'overlay_text_color',
   ]);
   // Aliases: some knobs also drive Ionic's own CSS custom properties
   // directly. Custom props inherit through shadow DOM (unlike `background`

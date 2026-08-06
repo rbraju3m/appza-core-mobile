@@ -2939,6 +2939,14 @@
   padding: 12px 16px 0 16px;
   background: #f3f4f6;
 }
+/* Image + overlay stack inside a positioned wrapper. children[0] is the
+   image; children[1] is the overlay title. A ::after paints the gradient
+   over the image so overlay_gradient (via --appza-overlay-gradient) can
+   compose behind the title without needing a third DOM child.           */
+.appza-renderer-ss[data-slug="fc-space-cover"] [data-child-index="0"] {
+  position: relative;
+  display: block;
+}
 .appza-renderer-ss[data-slug="fc-space-cover"] ion-img,
 .appza-renderer-ss[data-slug="fc-space-cover"] img {
   width: 100%;
@@ -2952,6 +2960,48 @@
 .appza-renderer-appzet-list[data-slug="fc-space-cover"][style*="--appza-height"] ion-img,
 .appza-renderer-appzet[data-slug="fc-space-cover"][style*="--appza-height"] ion-img {
   aspect-ratio: auto;
+}
+/* Overlay title — children[1] is ion-text positioned absolute over the
+   image. Hidden when text is empty (fall-through: :empty selector on the
+   inner span; also gated when overlay_title is unset via
+   controls_visibility_of if we add it later). White text with a subtle
+   shadow so it reads against most cover photos even without a gradient. */
+.appza-renderer-ss[data-slug="fc-space-cover"] {
+  position: relative;
+}
+.appza-renderer-ss[data-slug="fc-space-cover"] [data-child-index="1"] {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 12px;
+  padding: 0;
+  z-index: 2;
+  pointer-events: none;
+  color: var(--appza-overlay-text-color, #ffffff);
+  font-weight: 600;
+  font-size: 1.25rem;
+  line-height: 1.2;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.appza-renderer-ss[data-slug="fc-space-cover"] [data-child-index="1"] ion-text:empty,
+.appza-renderer-ss[data-slug="fc-space-cover"] [data-child-index="1"]:has(ion-text:empty) {
+  display: none;
+}
+/* Gradient overlay — CSS ::after on the SS container, painting on top of
+   children[0]. Only visible when --appza-overlay-gradient is set (the
+   `linear-gradient(...)` string from the panel). Rounded to match the
+   image's border-radius. */
+.appza-renderer-ss[data-slug="fc-space-cover"]::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 12px;
+  bottom: 0;
+  border-radius: 10px;
+  pointer-events: none;
+  background: var(--appza-overlay-gradient, none);
+  z-index: 1;
 }
 .appza-renderer-ss[data-slug="fc-space-cover"] ion-img:not([src]),
 .appza-renderer-ss[data-slug="fc-space-cover"] ion-img[src=""] {
