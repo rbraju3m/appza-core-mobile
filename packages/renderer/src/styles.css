@@ -3604,3 +3604,299 @@
   color: #6b7280;
   text-decoration: underline;
 }
+
+/* ==========================================================
+ * fc-space-links — per-space custom-links chip strip.
+ * Horizontal scroll (no wrap) — chips like the top row of
+ * the Space Detail design ("LazyTasks | Appza | ...").
+ * ========================================================== */
+.appza-renderer-appzet-list[data-slug="fc-space-links"],
+.appza-renderer-appzet[data-slug="fc-space-links"] {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 12px;
+  background: #ffffff;
+  border-bottom: 1px solid #eef1f4;
+}
+.appza-renderer-appzet-list[data-slug="fc-space-links"]::-webkit-scrollbar,
+.appza-renderer-appzet[data-slug="fc-space-links"]::-webkit-scrollbar { display: none; }
+.appza-renderer-ss[data-slug="fc-space-links"] {
+  display: inline-flex;
+  gap: var(--appza-gap, 8px);
+  flex-wrap: nowrap;
+}
+.appza-renderer-ss[data-slug="fc-space-links"] .appza-renderer-ss-child {
+  flex: 0 0 auto;
+}
+.appza-renderer-ss[data-slug="fc-space-links"] ion-button {
+  --background: var(--appza-chip-bg-color, #ffffff);
+  --color: var(--appza-chip-text-color, #111827);
+  --border-radius: var(--appza-chip-radius, 6px);
+  --box-shadow: none;
+  --padding-start: 14px;
+  --padding-end: 14px;
+  height: 34px;
+  font-size: 0.85rem;
+  font-weight: var(--appza-font-weight, 500);
+  text-transform: none;
+  margin: 0;
+  border: 1px solid var(--appza-chip-border-color, #d1d5db);
+  border-radius: var(--appza-chip-radius, 6px);
+}
+.appza-renderer-ss[data-slug="fc-space-links"] ion-button::part(native) {
+  background: var(--appza-chip-bg-color, #ffffff);
+  color: var(--appza-chip-text-color, #111827);
+  border-radius: var(--appza-chip-radius, 6px);
+}
+
+/* ==========================================================
+ * fc-space-members-actions — INVITE USER + ADD MEMBER row.
+ * Sits above the member card grid on the MEMBERS sub-tab.
+ * ========================================================== */
+.appza-renderer-appzet[data-slug="fc-space-members-actions"] {
+  padding: var(--appza-row-padding, 14px 12px 4px 12px);
+  background: #f8fafb;
+}
+.appza-renderer-ss[data-slug="fc-space-members-actions"] {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--appza-gap, 12px);
+}
+.appza-renderer-ss[data-slug="fc-space-members-actions"] .appza-renderer-ss-child {
+  width: 100%;
+  min-width: 0;
+}
+/* Invite (outlined blue) — children[0] */
+.appza-renderer-ss[data-slug="fc-space-members-actions"] [data-child-index="0"] ion-button,
+.appza-renderer-ss[data-slug="fc-space-members-actions"] [data-child-index="1"] ion-button {
+  --box-shadow: none;
+  --padding-start: 4px;
+  --padding-end: 4px;
+  height: 42px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  width: 100%;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.appza-renderer-ss[data-slug="fc-space-members-actions"] [data-child-index="0"] ion-button {
+  --background: var(--appza-invite-bg-color, transparent);
+  --color: var(--appza-invite-text-color, #2b7cff);
+  --border-color: var(--appza-invite-border-color, #2b7cff);
+  --border-width: 1px;
+  --border-style: solid;
+  --border-radius: var(--appza-invite-radius, 6px);
+}
+.appza-renderer-ss[data-slug="fc-space-members-actions"] [data-child-index="0"] ion-button::part(native) {
+  background: var(--appza-invite-bg-color, transparent);
+  color: var(--appza-invite-text-color, #2b7cff);
+  border: 1px solid var(--appza-invite-border-color, #2b7cff);
+  border-radius: var(--appza-invite-radius, 6px);
+  padding-inline: 6px;
+}
+/* Add (filled blue) — children[1] */
+.appza-renderer-ss[data-slug="fc-space-members-actions"] [data-child-index="1"] ion-button {
+  --background: var(--appza-add-bg-color, #2b7cff);
+  --color: var(--appza-add-text-color, #ffffff);
+  --border-radius: var(--appza-add-radius, 6px);
+}
+.appza-renderer-ss[data-slug="fc-space-members-actions"] [data-child-index="1"] ion-button::part(native) {
+  background: var(--appza-add-bg-color, #2b7cff);
+  color: var(--appza-add-text-color, #ffffff);
+  border-radius: var(--appza-add-radius, 6px);
+  padding-inline: 6px;
+}
+
+/* ==========================================================
+ * fc-member-card — grid of member entity cards on the
+ * MEMBERS sub-tab. 2-column grid by default; controlled by
+ * --appza-grid-columns from the AppZet default_props.
+ * ========================================================== */
+.appza-renderer-appzet-list[data-slug="fc-member-card"] {
+  display: grid;
+  grid-template-columns: repeat(var(--appza-grid-columns, 2), minmax(0, 1fr));
+  gap: var(--appza-card-gap, 12px);
+  padding: 12px;
+  background: #f8fafb;
+  align-items: stretch;
+}
+@media (max-width: 320px) {
+  .appza-renderer-appzet-list[data-slug="fc-member-card"] {
+    grid-template-columns: 1fr;
+  }
+}
+.appza-renderer-appzet-list[data-slug="fc-member-card"] .appza-renderer-appzet {
+  height: 100%;
+  margin: 0;
+  display: flex;
+}
+.appza-renderer-ss[data-slug="fc-member-card"] {
+  flex: 1 1 auto;
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "avatar   avatar"
+    "name     name"
+    "handle   count"
+    "role     role"
+    "joined   joined"
+    "active   active";
+  justify-items: center;
+  align-content: start;
+  row-gap: 2px;
+  column-gap: 4px;
+  background: var(--appza-card-bg-color, #ffffff);
+  border-radius: var(--appza-card-radius, 8px);
+  padding: var(--appza-card-padding, 18px 10px 14px 10px);
+  box-shadow: var(--appza-card-shadow, 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04));
+  text-align: center;
+  min-width: 0;
+  overflow: hidden;
+}
+/* Avatar — centered top of card */
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="0"] {
+  grid-area: avatar;
+  padding: 4px 0 10px 0;
+}
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="0"] ion-avatar {
+  width: var(--appza-avatar-size, 62px);
+  height: var(--appza-avatar-size, 62px);
+}
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="0"] .appza-renderer-avatar-fallback {
+  background: var(--appza-avatar-bg-color, #d1d5db);
+  color: var(--appza-avatar-text-color, #374151);
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background-image: none;
+}
+/* Menu (⋮) — absolute top-right of card */
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="1"] {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+}
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="1"] ion-button {
+  --background: transparent;
+  --color: #9ca3af;
+  --box-shadow: none;
+  --padding-start: 0;
+  --padding-end: 0;
+  height: 28px;
+  min-width: 28px;
+  width: 28px;
+  margin: 0;
+}
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="1"] ion-button::part(native) {
+  background: transparent;
+  padding: 0;
+  min-height: 28px;
+}
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="1"] ion-button ion-icon {
+  font-size: 1.15rem;
+  color: #9ca3af;
+}
+/* Display name */
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="2"] {
+  grid-area: name;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--appza-name-color, #111827);
+  line-height: 1.2;
+  width: 100%;
+  min-width: 0;
+  padding: 2px 4px 0 4px;
+}
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="2"] p,
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="2"] ion-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+/* Username + count on the same grid row (columns 1 + 2). Both are
+ * center-aligned in the card, so together they visually cluster in
+ * the middle. */
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="3"] {
+  grid-area: handle;
+  justify-self: end;
+  color: var(--appza-username-color, #6b7280);
+  font-size: 0.8rem;
+  min-width: 0;
+  overflow: hidden;
+  line-height: 1.4;
+}
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="3"] p,
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="3"] ion-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="4"] {
+  grid-area: count;
+  justify-self: start;
+  align-self: center;
+}
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="4"] ion-chip {
+  --background: var(--appza-points-badge-bg-color, #e5e7eb);
+  --color: var(--appza-points-badge-text-color, #374151);
+  height: 16px;
+  min-height: 16px;
+  padding: 0 6px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  margin: 0;
+  border-radius: 9999px;
+}
+/* Role (Mod) chip — below the handle row */
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="5"] {
+  grid-area: role;
+  margin-top: 4px;
+}
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="5"] ion-chip {
+  --background: var(--appza-role-badge-bg-color, #dbeafe);
+  --color: var(--appza-role-badge-text-color, #2b7cff);
+  height: 18px;
+  min-height: 18px;
+  padding: 0 8px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  margin: 0;
+  border-radius: 4px;
+  text-transform: none;
+}
+/* Meta rows: Joined + Active */
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="6"],
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="7"] {
+  color: var(--appza-meta-color, #6b7280);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="6"] p,
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="6"] ion-text,
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="7"] p,
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="7"] ion-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="6"] { grid-area: joined; padding-top: 8px; }
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="7"] { grid-area: active; }
+/* Hide empty text nodes (renderer sets text='' when field missing so
+ * the ion-text primitive doesn't paint its "Text" default label). */
+.appza-renderer-ss[data-slug="fc-member-card"] ion-text:empty {
+  display: none;
+}
+

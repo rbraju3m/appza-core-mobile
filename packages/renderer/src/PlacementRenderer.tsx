@@ -722,6 +722,31 @@ export function PlacementRenderer({
     'aspect_ratio',
     'overlay_gradient',
     'overlay_text_color',
+    // Member card + members-actions knobs (2026-08-06).
+    'grid_columns',
+    'card_gap',
+    'card_bg_color',
+    'card_radius',
+    'card_shadow',
+    'card_padding',
+    'avatar_size',
+    'avatar_bg_color',
+    'avatar_text_color',
+    'name_color',
+    'username_color',
+    'meta_color',
+    'points_badge_bg_color',
+    'points_badge_text_color',
+    'role_badge_bg_color',
+    'role_badge_text_color',
+    'row_padding',
+    'invite_bg_color',
+    'invite_text_color',
+    'invite_border_color',
+    'invite_radius',
+    'add_bg_color',
+    'add_text_color',
+    'add_radius',
   ]);
   // Aliases: some knobs also drive Ionic's own CSS custom properties
   // directly. Custom props inherit through shadow DOM (unlike `background`
@@ -906,7 +931,16 @@ export function PlacementRenderer({
         // so field_mappings can bind icon + color straight off the data
         // without renderer needing to know about reactions.
         const enrichedItem = enrichItemWithMyReactions(item);
-        const itemOverrides = mergeFieldMappingsOntoOverrides(baseChildOverrides, appzet, enrichedItem);
+        let itemOverrides = mergeFieldMappingsOntoOverrides(baseChildOverrides, appzet, enrichedItem);
+        // Member-card special: prepend prefixes to username / joined /
+        // active + format joined/active as relative time + stamp initials
+        // fallback for the avatar. Kept out of the generic mapping path
+        // so other cards don't pick up date formatting they didn't
+        // opt in to. All three prefixes are AppZet default_props so the
+        // admin can toggle @ off or relocalize the labels.
+        if (appzet.slug === 'fc-member-card') {
+          itemOverrides = applyMemberCardTransforms(itemOverrides, appzet, enrichedItem);
+        }
         const dataHidden = computeDataHiddenIndices(ssChildren, enrichedItem);
         const effectiveHidden =
           dataHidden.size === 0
@@ -1175,6 +1209,137 @@ function mergeFieldMappingsOntoOverrides(
     result[parsed.index] = bucket;
   }
   return result;
+}
+
+/**
+ * Post-processes fc-member-card per-item overrides:
+ *   - children[0].initials  ← 2-letter initials from display_name (for
+ *                             the avatar's initials-fallback badge)
+ *   - children[0].alt       ← display_name (accessibility)
+ *   - children[3].text      ← username_prefix + username (default '@')
+ *   - children[6].text      ← joined_prefix + relativeTime(created_at)
+ *   - children[7].text      ← active_prefix + relativeTime(last_activity)
+ * Prefixes come off the AppZet's default_props_override so all three
+ * are editable from the right panel.
+ */
+function applyMemberCardTransforms(
+  base: ChildOverrides,
+  appzet: AppZet,
+  item: unknown,
+): ChildOverrides {
+  const dpo = (appzet.default_props_override ?? {}) as Record<string, unknown>;
+  const usernamePrefix = typeof dpo.username_prefix === 'string' ? dpo.username_prefix : '@';
+  const joinedPrefix   = typeof dpo.joined_prefix === 'string'   ? dpo.joined_prefix   : 'Joined ';
+  const activePrefix   = typeof dpo.active_prefix === 'string'   ? dpo.active_prefix   : 'Active ';
+  const avatarMode     = typeof dpo.avatar_mode === 'string'     ? dpo.avatar_mode     : 'photo';
+
+  const result: ChildOverrides = {};
+  for (const [k, v] of Object.entries(base)) result[Number(k)] = { ...v };
+
+  const displayName = readDataPath(item, 'data.xprofile.display_name');
+  const username = readDataPath(item, 'data.xprofile.username');
+  const createdAt = readDataPath(item, 'data.created_at');
+  const lastActivity = readDataPath(item, 'data.xprofile.last_activity');
+
+  // children[0] avatar — initials fallback. When avatar_mode=initials
+  // we drop the src so the primitive's fallback branch renders the
+  // colored initials badge unconditionally (matches the mock design).
+  if (typeof displayName === 'string') {
+    const bucket0 = result[0] ?? {};
+    bucket0.initials = computeInitials(displayName);
+    bucket0.alt = displayName;
+    if (avatarMode === 'initials') {
+      bucket0.src = '';
+    }
+    result[0] = bucket0;
+  }
+  // children[1] menu button — always force empty text so the button
+  // renders icon-only. Without this, the fallback primitive.name
+  // ("Button") paints under the icon (visible as "Bu" / "TT"-like
+  // artifacts clipped by the button's small width).
+  const bucket1 = result[1] ?? {};
+  bucket1.text = '';
+  result[1] = bucket1;
+  // children[3] @username
+  if (typeof username === 'string' && username !== '') {
+    const bucket3 = result[3] ?? {};
+    bucket3.text = usernamePrefix + username;
+    result[3] = bucket3;
+  } else {
+    // Hide bucket when username missing so we don't render an empty '@'
+    const bucket3 = result[3] ?? {};
+    bucket3.text = '';
+    result[3] = bucket3;
+  }
+  // children[6] joined date
+  if (typeof createdAt === 'string' && createdAt !== '') {
+    const bucket6 = result[6] ?? {};
+    bucket6.text = joinedPrefix + formatRelativeTime(createdAt);
+    result[6] = bucket6;
+  }
+  // children[7] active date
+  if (typeof lastActivity === 'string' && lastActivity !== '') {
+    const bucket7 = result[7] ?? {};
+    bucket7.text = activePrefix + formatRelativeTime(lastActivity);
+    result[7] = bucket7;
+  } else {
+    const bucket7 = result[7] ?? {};
+    bucket7.text = '';
+    result[7] = bucket7;
+  }
+  return result;
+}
+
+/**
+ * Extracts up to 2-letter uppercase initials from a display name.
+ * "Rashedul Raju" → "RR"; "raju" → "R"; "Test User1" → "TU".
+ */
+function computeInitials(name: string): string {
+  const trimmed = name.trim();
+  if (trimmed === '') return '';
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '';
+  if (parts.length === 1) {
+    return (parts[0] ?? '').charAt(0).toUpperCase();
+  }
+  const first = (parts[0] ?? '').charAt(0);
+  const last = (parts[parts.length - 1] ?? '').charAt(0);
+  return (first + last).toUpperCase();
+}
+
+/**
+ * Compact relative-time formatter. Accepts either:
+ *   - ISO / mysql datetime — parses + computes diff from now
+ *   - Already-relative form ("1mo", "3d", "2w") — appends " ago"
+ * The preview-proxy pre-normalizes `created_at` on some payloads
+ * (fc-feeds, fc-space-members) but leaves `xprofile.last_activity`
+ * raw, so we need to accept both shapes.
+ */
+function formatRelativeTime(input: string): string {
+  const trimmed = input.trim();
+  if (trimmed === '') return '';
+  // Already-relative (e.g. "1mo", "2w", "23h") — append " ago".
+  if (/^\d+\s*(s|m|min|h|hr|d|w|mo|y|yr)$/i.test(trimmed)) {
+    return trimmed + ' ago';
+  }
+  const iso = trimmed.replace(' ', 'T');
+  const withZone = iso.includes('T') && !iso.includes('+') && !iso.endsWith('Z') ? iso + 'Z' : iso;
+  const t = Date.parse(withZone);
+  if (!Number.isFinite(t)) return trimmed;
+  const diffSec = Math.max(0, Math.round((Date.now() - t) / 1000));
+  if (diffSec < 60) return 'just now';
+  const min = Math.round(diffSec / 60);
+  if (min < 60) return min + 'm ago';
+  const hr = Math.round(min / 60);
+  if (hr < 24) return hr + 'h ago';
+  const day = Math.round(hr / 24);
+  if (day < 7) return day + 'd ago';
+  const wk = Math.round(day / 7);
+  if (wk < 4) return wk + 'w ago';
+  const mo = Math.round(day / 30);
+  if (mo < 12) return mo + 'mo ago';
+  const yr = Math.round(day / 365);
+  return yr + 'y ago';
 }
 
 type SuperstructureRendererProps = {
@@ -1530,13 +1695,21 @@ function readExpandedChildren(
     // from the admin without removing it from the config.
     if (entry.hidden === true) continue;
     // Clone the template shape; per-entry `on_click_action` overrides win.
+    // For `on_click_open_url` starting with `entry.<path>`, resolve at
+    // expansion time so each expanded child carries its own literal URL
+    // (computeChildOpenUrls only understands `data.` bindings + literals).
+    let openUrlSpec = template.on_click_open_url;
+    if (typeof openUrlSpec === 'string' && openUrlSpec.startsWith('entry.')) {
+      const resolved = readDataPath(entry, 'data.' + openUrlSpec.slice('entry.'.length));
+      openUrlSpec = typeof resolved === 'string' && resolved !== '' ? resolved : undefined;
+    }
     const child: SSChild = {
       slug: template.slug,
       on_click_action:
         typeof entry.on_click_action === 'string'
           ? entry.on_click_action
           : template.on_click_action,
-      on_click_open_url: template.on_click_open_url,
+      on_click_open_url: openUrlSpec,
     };
     children.push(child);
     // Stamp the entry's leaf values as this child's overrides. `text`
@@ -1649,6 +1822,12 @@ function computeChildOpenUrls(children: SSChild[], item: unknown): Record<number
   for (let i = 0; i < children.length; i++) {
     const spec = children[i]?.on_click_open_url;
     if (!spec) continue;
+    // Literal URL — used by variadic expansion which pre-resolves
+    // `entry.*` bindings against each entry at children_from_prop time.
+    if (/^https?:\/\//i.test(spec)) {
+      out[i] = spec;
+      continue;
+    }
     const resolved = readDataPath(item, spec);
     if (typeof resolved === 'string' && resolved !== '') {
       out[i] = resolved;

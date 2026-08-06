@@ -422,12 +422,15 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
 
     case 'IonAvatar': {
       const src = readString(overrides, 'src');
+      const initials = readString(overrides, 'initials');
+      const alt = readString(overrides, 'alt') ?? '';
+      const fallbackText = initials ?? 'A';
       return (
         <IonAvatar style={{ width: 40, height: 40 }}>
           {src ? (
-            <img src={src} alt="" className="appza-renderer-avatar-img" />
+            <img src={src} alt={alt} className="appza-renderer-avatar-img" />
           ) : (
-            <div className="appza-renderer-avatar-fallback">A</div>
+            <div className="appza-renderer-avatar-fallback">{fallbackText}</div>
           )}
         </IonAvatar>
       );
@@ -532,11 +535,13 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
       const size = readString(overrides, 'size');
       const weight = readString(overrides, 'weight');
       const align = readString(overrides, 'align');
-      // Ionic's `color=` only accepts theme names (primary/secondary/
-      // dark/etc.). A hex like `#ff0000` passed to `color=` is silently
-      // dropped. Route arbitrary CSS colors through inline `style.color`
-      // and reserve `color=` for real theme names, so the builder's
-      // color picker actually changes the title.
+      // Explicit empty string means "field is missing at runtime, hide me"
+      // — used by field_mappings that resolve to '' when the upstream
+      // value is null (e.g. fc-member-card sets username='' when
+      // xprofile.username is null). Without this bail-out the primitive
+      // falls back to its name ("Text") and paints a placeholder.
+      const rawText = overrides ? overrides['text'] : undefined;
+      if (rawText === '') return null;
       const themeColor = color && isIonicThemeColor(color) ? color : undefined;
       const inlineColor = color && !themeColor ? color : undefined;
       return (
