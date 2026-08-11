@@ -96,7 +96,7 @@ function readPath(root: unknown, path: string): unknown {
  * unavailable or the action isn't listed. The dispatcher shells that use
  * this popover set the global via `setCatalogGlobal()` below.
  */
-function readActionDefaultsFromCatalog(
+export function readActionDefaultsFromCatalog(
   actionSlug: string,
 ): Record<string, unknown> | null {
   if (typeof window === 'undefined') return null;

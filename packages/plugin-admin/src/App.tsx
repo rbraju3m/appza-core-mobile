@@ -18,10 +18,21 @@ import {
   readDataPath,
   resolveIcon,
   setCatalogGlobal,
+  setFcRuntimeSettings,
   setFeedControls,
   setRouteParams,
   setSpaceDetailControls,
   setSpacesControls,
+  getSpaceDetailControls,
+  MemberOptionsSheet,
+  MemberRemoveConfirm,
+  MemberRoleSheet,
+  closeMemberRemoveConfirm,
+  openMemberOptionsSheet,
+  openMemberRemoveConfirm,
+  openMemberRoleSheet,
+  type MemberMenuItem,
+  type MemberRoleOption,
   tryHandlePostMenuAction,
   type ActionDispatch,
   type ActionInvocation,
@@ -451,6 +462,7 @@ export function App() {
           ),
         },
       };
+      applyFcRuntimeSettings(gated);
       setState({ kind: 'ok', envelope: gated });
       // Auto-select first screen on successful load.
       const firstScreen = gated.catalog.template_screens?.[0];
@@ -1682,6 +1694,9 @@ export function App() {
                   ViewModePopover to be ready. */}
               <ViewModePopover />
               <PostOptionsPopover />
+              <MemberOptionsSheet />
+              <MemberRoleSheet />
+              <MemberRemoveConfirm />
             </ActionProvider>
           )}
         </main>
@@ -1835,6 +1850,19 @@ function renderThemes(templateTokens: unknown, screenTokens: unknown) {
       </div>
     </>
   );
+}
+
+// Pipe FluentCommunity portal customization settings from the bootstrap
+// envelope into the renderer's fcRuntimeSettings store. Mirrors the mobile
+// shell path so the simulator previews fc-member-card in whatever layout
+// (list vs grid) the site admin picked in Settings → Customization.
+function applyFcRuntimeSettings(envelope: BootstrapEnvelope): void {
+  const cfg = (envelope.runtime_config ?? null) as Record<string, unknown> | null;
+  const fc = cfg && isRecord(cfg.fluent_community) ? (cfg.fluent_community as Record<string, unknown>) : null;
+  const layout = fc && typeof fc.member_list_layout === 'string' ? fc.member_list_layout : null;
+  if (layout === 'classic' || layout === 'grid') {
+    setFcRuntimeSettings({ member_list_layout: layout });
+  }
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -3453,6 +3481,191 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       }
       console.info('[appza-admin/app-mode] space.leave dispatched (sim: no HTTP):', argRec);
       window.dispatchEvent(new CustomEvent('appza:refresh-data'));
+      return;
+    }
+
+    // ── Member 3-dot overflow flow ────────────────────────────────────
+    // Mirrors the mobile shell. The UI-opening actions really do open
+    // their sheets/dialogs so admins can preview the flow; the two
+    // write actions (member.set_role, member.remove) are simulated —
+    // no real HTTP fires from the plugin-admin simulator.
+    case 'member.options': {
+      const rawItems = Array.isArray(argRec.items) ? argRec.items : [];
+      const items = rawItems
+        .filter((i): i is Record<string, unknown> => isRecord(i))
+        .map((i) => i as unknown as MemberMenuItem)
+        .filter((i) => typeof i.action_slug === 'string' && i.action_slug);
+      if (items.length === 0) return;
+      const subjectPath =
+        typeof argRec.subject_path === 'string' ? argRec.subject_path : 'data.xprofile.display_name';
+      const rawSubject = readDataPath(effectiveItem, subjectPath);
+      const subject = typeof rawSubject === 'string' && rawSubject ? rawSubject : 'Member';
+      openMemberOptionsSheet({ subject, items, item: effectiveItem });
+      return;
+    }
+
+    case 'member.change_role': {
+      const rawRoles = Array.isArray(argRec.roles) ? argRec.roles : [];
+      const roles = rawRoles
+        .filter((r): r is Record<string, unknown> => isRecord(r))
+        .map((r) => r as unknown as MemberRoleOption)
+        .filter((r) => typeof r.value === 'string' && typeof r.label === 'string');
+      if (roles.length === 0) return;
+      const subjectPath =
+        typeof argRec.subject_path === 'string' ? argRec.subject_path : 'data.xprofile.display_name';
+      const currentRolePath =
+        typeof argRec.current_role_path === 'string' ? argRec.current_role_path : 'data.role';
+      const rawSubject = readDataPath(effectiveItem, subjectPath);
+      const rawRole = readDataPath(effectiveItem, currentRolePath);
+      const subject = typeof rawSubject === 'string' && rawSubject ? rawSubject : 'Member';
+      const currentRole = typeof rawRole === 'string' && rawRole ? rawRole : 'member';
+      openMemberRoleSheet({ subject, currentRole, roles, item: effectiveItem });
+      return;
+    }
+
+    case 'member.set_role': {
+      // Real HTTP against the fcom-mobile add-member endpoint (doubles as
+      // role updater when the target user is already a member). Uses the
+      // WP admin's Basic auth like every other write — plugin-admin runs
+      // at the WP origin, so relative endpoints from the catalog resolve
+      // fine here without absolutization.
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+      const userIdPath =
+        typeof argRec.user_id_path === 'string' ? argRec.user_id_path : 'data.user_id';
+      const role = typeof argRec.role === 'string' ? argRec.role : null;
+      const spaceSlug = getSpaceDetailControls().space_slug;
+      const rawUserId = readDataPath(effectiveItem, userIdPath);
+      const userId =
+        typeof rawUserId === 'number'
+          ? rawUserId
+          : typeof rawUserId === 'string' && rawUserId !== '' && !Number.isNaN(Number(rawUserId))
+            ? Number(rawUserId)
+            : null;
+      if (!endpoint || !role || userId === null || !spaceSlug) {
+        onLoginError('Could not update membership — missing endpoint, role, user, or space.');
+        return;
+      }
+      if (!auth) {
+        onLoginError('Please sign in to change memberships.');
+        return;
+      }
+      void (async () => {
+        try {
+          const res = await fetch(endpoint, {
+            method,
+            credentials: 'omit',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              Authorization: basicAuthHeader(auth),
+            },
+            body: JSON.stringify({ space_slug: spaceSlug, user_id: userId, role }),
+          });
+          const json = await res.json().catch(() => null);
+          const inner =
+            json && typeof json === 'object' && 'response' in json
+              ? ((json as Record<string, unknown>).response as
+                  | Record<string, unknown>
+                  | undefined)
+              : undefined;
+          const innerStatus =
+            inner && typeof inner.status === 'number' ? inner.status : null;
+          const ok = innerStatus !== null ? innerStatus === 200 : res.ok;
+          if (!ok) {
+            const msg =
+              (inner && typeof inner.message === 'string' && inner.message) ||
+              `HTTP ${res.status}`;
+            onLoginError(msg);
+            return;
+          }
+          if (isRecord(effectiveItem)) {
+            (effectiveItem as Record<string, unknown>).role = role;
+          }
+          window.dispatchEvent(new CustomEvent('appza:refresh-data'));
+        } catch (err) {
+          onLoginError(err instanceof Error ? err.message : String(err));
+        }
+      })();
+      return;
+    }
+
+    case 'member.remove_confirm': {
+      const subjectPath =
+        typeof argRec.subject_path === 'string' ? argRec.subject_path : 'data.xprofile.display_name';
+      const rawSubject = readDataPath(effectiveItem, subjectPath);
+      const subject = typeof rawSubject === 'string' && rawSubject ? rawSubject : 'Member';
+      openMemberRemoveConfirm({
+        subject,
+        message: typeof argRec.message === 'string' ? argRec.message : undefined,
+        cancelLabel: typeof argRec.cancel_label === 'string' ? argRec.cancel_label : undefined,
+        confirmLabel: typeof argRec.confirm_label === 'string' ? argRec.confirm_label : undefined,
+        item: effectiveItem,
+        removeActionSlug:
+          typeof argRec.remove_action_slug === 'string' ? argRec.remove_action_slug : 'member.remove',
+      });
+      return;
+    }
+
+    case 'member.remove': {
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+      const userIdPath =
+        typeof argRec.user_id_path === 'string' ? argRec.user_id_path : 'data.user_id';
+      const spaceSlug = getSpaceDetailControls().space_slug;
+      const rawUserId = readDataPath(effectiveItem, userIdPath);
+      const userId =
+        typeof rawUserId === 'number'
+          ? rawUserId
+          : typeof rawUserId === 'string' && rawUserId !== '' && !Number.isNaN(Number(rawUserId))
+            ? Number(rawUserId)
+            : null;
+      if (!endpoint || userId === null || !spaceSlug) {
+        onLoginError('Could not remove member — missing endpoint, user, or space.');
+        closeMemberRemoveConfirm();
+        return;
+      }
+      if (!auth) {
+        onLoginError('Please sign in to remove members.');
+        closeMemberRemoveConfirm();
+        return;
+      }
+      void (async () => {
+        try {
+          const res = await fetch(endpoint, {
+            method,
+            credentials: 'omit',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              Authorization: basicAuthHeader(auth),
+            },
+            body: JSON.stringify({ space_slug: spaceSlug, user_id: userId }),
+          });
+          const json = await res.json().catch(() => null);
+          const inner =
+            json && typeof json === 'object' && 'response' in json
+              ? ((json as Record<string, unknown>).response as
+                  | Record<string, unknown>
+                  | undefined)
+              : undefined;
+          const innerStatus =
+            inner && typeof inner.status === 'number' ? inner.status : null;
+          const ok = innerStatus !== null ? innerStatus === 200 : res.ok;
+          if (!ok) {
+            const msg =
+              (inner && typeof inner.message === 'string' && inner.message) ||
+              `HTTP ${res.status}`;
+            onLoginError(msg);
+            return;
+          }
+          window.dispatchEvent(new CustomEvent('appza:refresh-data'));
+        } catch (err) {
+          onLoginError(err instanceof Error ? err.message : String(err));
+        } finally {
+          closeMemberRemoveConfirm();
+        }
+      })();
       return;
     }
 

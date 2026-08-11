@@ -3900,3 +3900,327 @@
   display: none;
 }
 
+/* ==========================================================
+ * fc-member-card — LIST layout (data-fc-member-layout="list")
+ *
+ * Wrapper flips to a single-column stack; each card becomes a
+ * horizontal row: avatar left · name + @handle + meta stack
+ * (left-aligned) · overflow menu right. Rows are separated by a
+ * subtle divider inside one outer rounded container so the whole
+ * list reads as a single "card of members" — matches the portal's
+ * "classic" layout + the mock the customer approved.
+ *
+ * Uses attribute-scoped selectors so the existing grid rules stay
+ * authoritative when data-fc-member-layout="grid".
+ * ========================================================== */
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] {
+  display: block;
+  grid-template-columns: none;
+  gap: 0;
+  padding: 12px;
+  background: #f8fafb;
+}
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-appzet {
+  height: auto;
+  display: block;
+  margin: 0;
+}
+/* Outer rounded container: apply the card chrome to the LIST wrapper,
+ * not to each row, then style rows as bordered dividers. */
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] {
+  background: #f8fafb;
+}
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] > .appza-renderer-appzet:first-child .appza-renderer-ss[data-slug="fc-member-card"] {
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] > .appza-renderer-appzet:last-child .appza-renderer-ss[data-slug="fc-member-card"] {
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  border-bottom: 0;
+}
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] {
+  position: relative;
+  display: grid;
+  /* 4 cols: avatar · main content (name/handle/joined) · side col (role/count/active) · menu.
+   * Main col is 1fr so long names truncate before the side col shifts. */
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "avatar name    role   menu"
+    "avatar handle  count  menu"
+    "avatar joined  active menu";
+  justify-items: start;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 2px;
+  text-align: left;
+  background: var(--appza-card-bg-color, #ffffff);
+  border-radius: 0;
+  box-shadow: none;
+  border-bottom: 1px solid #eef1f4;
+  padding: var(--appza-card-padding, 12px 12px);
+  min-width: 0;
+  overflow: hidden;
+}
+/* Give the avatar a distinct 12px gap between it and the text stack. */
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="0"] {
+  margin-right: 4px;
+}
+/* Avatar — left column, spans all three rows */
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="0"] {
+  grid-area: avatar;
+  padding: 0;
+  align-self: center;
+  justify-self: start;
+}
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="0"] ion-avatar {
+  width: var(--appza-avatar-size, 44px);
+  height: var(--appza-avatar-size, 44px);
+}
+/* Menu (⋮) — right column, spans all rows, no absolute-position */
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="1"] {
+  position: static;
+  grid-area: menu;
+  align-self: center;
+  justify-self: end;
+}
+/* Name — left-aligned bold, truncates when long. Sits in row 1 col 2. */
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="2"] {
+  grid-area: name;
+  justify-self: start;
+  padding: 0;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  width: 100%;
+  min-width: 0;
+}
+/* @handle — sits below name in row 2 col 2 */
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="3"] {
+  grid-area: handle;
+  justify-self: start;
+  align-self: start;
+  padding: 0;
+  line-height: 1.35;
+}
+/* Points chip — row 2 col 3 (side column), sits next to handle */
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="4"] {
+  grid-area: count;
+  justify-self: start;
+  align-self: center;
+  margin-left: 0;
+}
+/* Role chip — row 1 col 3 (side column). "Liam Walker  Admin" reads
+ * left-to-right; role chip stays right of the name without overlapping
+ * long names because the main column is min-width:0 fr and truncates. */
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="5"] {
+  grid-area: role;
+  justify-self: start;
+  align-self: center;
+  margin-top: 0;
+}
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="5"] ion-chip {
+  --background: var(--appza-role-badge-bg-color, #eef2ff);
+  --color: var(--appza-role-badge-text-color, #4f46e5);
+  border-radius: 6px;
+  padding: 0 8px;
+  height: 20px;
+  min-height: 20px;
+  font-size: 0.66rem;
+  font-weight: 600;
+}
+/* Meta rows: "Joined 10mo ago" (column joined) + "Active 3w ago"
+ * (column active) share one grid row. The 6px column-gap sits between
+ * them so long joined values push the Active label right without
+ * overlap. Both text-muted, same size. */
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="6"] {
+  grid-area: joined;
+  justify-self: start;
+  padding: 0;
+  font-size: 0.72rem;
+  color: var(--appza-meta-color, #6b7280);
+  line-height: 1.4;
+}
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="7"] {
+  grid-area: active;
+  justify-self: start;
+  padding: 0;
+  font-size: 0.72rem;
+  color: var(--appza-meta-color, #6b7280);
+  line-height: 1.4;
+}
+/* Reset the shared-p/ion-text ellipsis rules for the joined/active line
+ * so both stay visible; the outer grid-column widths keep them within
+ * their column. */
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="6"] p,
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="6"] ion-text,
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="7"] p,
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="7"] ion-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+/* ==========================================================
+ * Member overflow bottom-sheets + destructive confirm dialog.
+ * Consumed by MemberOptionsSheet, MemberRoleSheet and
+ * MemberRemoveConfirm.
+ * ========================================================== */
+.appza-member-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 65;
+  animation: appza-member-fade-in 120ms ease-out;
+}
+.appza-member-sheet {
+  width: 100%;
+  max-width: 640px;
+  background: #ffffff;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  padding: 8px 20px 24px 20px;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.12);
+  animation: appza-member-slide-up 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.appza-member-sheet-handle {
+  width: 44px;
+  height: 4px;
+  background: #cbd5e1;
+  border-radius: 999px;
+  margin: 6px auto 14px auto;
+}
+.appza-member-sheet-subject {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #6b7280;
+  letter-spacing: 0.06em;
+  margin: 0 4px 6px 4px;
+}
+.appza-member-sheet-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 4px 10px 4px;
+}
+.appza-member-sheet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.appza-member-sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 8px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: #111827;
+  font-size: 0.95rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.appza-member-sheet-row:hover,
+.appza-member-sheet-row:active {
+  background: #f3f4f6;
+}
+.appza-member-sheet-icon {
+  font-size: 1.1rem;
+  color: #4b5563;
+  flex-shrink: 0;
+}
+/* Role picker rows: highlight the current selection with a soft
+ * indigo tint + accent icon + trailing checkmark. */
+.appza-member-role-row {
+  padding: 12px 12px;
+}
+.appza-member-role-row.is-current {
+  background: #eef2ff;
+  color: #1d4ed8;
+}
+.appza-member-role-row.is-current .appza-member-sheet-icon {
+  color: #1d4ed8;
+}
+.appza-member-role-label {
+  flex: 1 1 auto;
+}
+.appza-member-role-check {
+  font-size: 1.15rem;
+  color: #1d4ed8;
+}
+
+/* Center confirm dialog for member removal — iOS alert style with
+ * stacked full-width buttons separated by a divider. */
+.appza-member-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  place-items: center;
+  z-index: 68;
+  animation: appza-member-fade-in 120ms ease-out;
+}
+.appza-member-confirm {
+  width: min(320px, 88%);
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+}
+.appza-member-confirm-body {
+  padding: 18px 16px 14px 16px;
+  text-align: center;
+}
+.appza-member-confirm-title {
+  margin: 0 0 6px 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111827;
+}
+.appza-member-confirm-message {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #4b5563;
+  line-height: 1.4;
+}
+.appza-member-confirm-actions {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid #e5e7eb;
+}
+.appza-member-confirm-btn {
+  padding: 12px 8px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+  color: #2b7cff;
+  font-weight: 500;
+}
+.appza-member-confirm-btn + .appza-member-confirm-btn {
+  border-top: 1px solid #e5e7eb;
+}
+.appza-member-confirm-btn.is-destructive {
+  color: #dc2626;
+  font-weight: 700;
+}
+.appza-member-confirm-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@keyframes appza-member-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes appza-member-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+

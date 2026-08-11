@@ -1,15 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionProvider,
+  MemberOptionsSheet,
+  MemberRemoveConfirm,
+  MemberRoleSheet,
   PostOptionsPopover,
   ScreenRenderer,
   ViewModePopover,
+  closeMemberRemoveConfirm,
   filterScreensBySurface,
+  getSpaceDetailControls,
+  openMemberOptionsSheet,
+  openMemberRemoveConfirm,
+  openMemberRoleSheet,
   openPostOptionsPopover,
   openViewModePopover,
   prefillPostInformationFromContext,
   readDataPath,
   setCatalogGlobal,
+  setFcRuntimeSettings,
   setFeedControls,
   setRouteParams,
   setSpaceDetailControls,
@@ -17,6 +26,8 @@ import {
   tryHandlePostMenuAction,
   type ActionDispatch,
   type ActionInvocation,
+  type MemberMenuItem,
+  type MemberRoleOption,
   type PostMenuItem,
   type ViewModeOption,
 } from '@appza/renderer';
@@ -217,6 +228,33 @@ function applyReactionOptimistic(feedId: number, reactType: string, on: boolean)
       target.textContent = suffix ? `${next} ${suffix}` : String(next);
     }
   });
+}
+
+// Pipe FluentCommunity portal customization settings from the bootstrap
+// envelope into the renderer's fcRuntimeSettings store. Runs after every
+// bootstrap load (first render + pull-to-refresh) so the mobile follows
+// whatever the site admin picked in Settings → Customization →
+// "Members List Layout" (classic = list, grid = tiles).
+function applyFcRuntimeSettings(envelope: BootstrapEnvelope): void {
+  const cfg = (envelope.runtime_config ?? null) as Record<string, unknown> | null;
+  const fc = cfg && isRecord(cfg.fluent_community) ? (cfg.fluent_community as Record<string, unknown>) : null;
+  const layout = fc && typeof fc.member_list_layout === 'string' ? fc.member_list_layout : null;
+  if (layout === 'classic' || layout === 'grid') {
+    setFcRuntimeSettings({ member_list_layout: layout });
+  }
+}
+
+// Absolutize an endpoint against the tunnel/SITE_URL. Catalog actions
+// carry relative endpoints (/wp-json/...) which work fine in the WP
+// simulator (SPA served from the WP origin) but fail on the packaged
+// APK — the Capacitor WebView origin is http://localhost, so relative
+// fetches never reach the WP site. Any endpoint already starting with
+// http(s):// is returned untouched.
+function absolutizeEndpoint(endpoint: string): string {
+  if (/^https?:\/\//i.test(endpoint)) return endpoint;
+  const base = SITE_URL.replace(/\/+$/, '');
+  const path = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
+  return base + path;
 }
 
 function triggerFeedRefresh() {
@@ -456,7 +494,26 @@ export function App() {
   // re-writing when currentScreen's memo re-computes; nav.push clears
   // the flag for a fresh Edit tap.
   const screenPrefilledRef = useRef<Record<string, true>>({});
-  const [auth, setAuthState] = useState<StoredAuth | null>(() => readStoredAuth());
+  // Read stored auth AND publish it on window during the lazy initializer so
+  // __appzaAuthHeader is set BEFORE any child useEffect fires (React runs
+  // child effects first). Without this, useDataSourcePaged's initial fetch
+  // in nested PlacementRenderers goes out unauthenticated — the fcom-mobile
+  // endpoints return errors, the preview proxy falls back to fixtures, and
+  // the members list on mobile shows the demo fixture instead of the real
+  // 51 members from the space. Plugin-admin doesn't hit this because it
+  // relies on the WP admin session cookie for auth, not a window global.
+  const [auth, setAuthState] = useState<StoredAuth | null>(() => {
+    const stored = readStoredAuth();
+    if (stored && typeof window !== 'undefined') {
+      const g = window as unknown as {
+        __appzaAuthHeader?: string;
+        __appzaCurrentUserId?: number;
+      };
+      g.__appzaAuthHeader = basicAuthHeader(stored);
+      if (typeof stored.user_id === 'number') g.__appzaCurrentUserId = stored.user_id;
+    }
+    return stored;
+  });
   const [errorToast, setErrorToast] = useState<string | null>(null);
   // Success/info toast — green, auto-clears after 2s. Used by the new post-menu
   // action cases (copy_link, pin_top, pin_sidebar, disable_comments, report,
@@ -579,6 +636,7 @@ export function App() {
         const first = catalog.template_screens?.[0];
         const target = !storedAuth && login ? login : first;
         setSelectedScreenId(target ? target.id : null);
+        applyFcRuntimeSettings(gated);
         setState({ kind: 'ok', envelope: gated });
       })
       .catch((err) => {
@@ -903,6 +961,7 @@ export function App() {
           ),
         },
       };
+      applyFcRuntimeSettings(gated);
       setState({ kind: 'ok', envelope: gated });
       triggerFeedRefresh();
     } catch (err) {
@@ -1112,6 +1171,15 @@ export function App() {
         */}
         <ViewModePopover />
         <PostOptionsPopover />
+        {/* Member overflow flow: 3-dot bottom sheet → role picker sheet
+         * (Change Membership) or center confirm alert (Remove from space).
+         * All three components sit inside ActionProvider so their tap
+         * handlers can dispatch through the shared context — the actual
+         * API calls (member.set_role, member.remove) live in
+         * dispatchAction alongside every other action handler. */}
+        <MemberOptionsSheet />
+        <MemberRoleSheet />
+        <MemberRemoveConfirm />
       </ActionProvider>
 
       {errorToast && (
@@ -1585,7 +1653,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       const body = collectParams(owningAppzet, paramMap);
       void (async () => {
         try {
-          const res = await fetch(endpoint, {
+          const res = await fetch(absolutizeEndpoint(endpoint), {
             method,
             headers: {
               'Content-Type': 'application/json',
@@ -1701,7 +1769,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       if (alreadyOn) body.remove = 1;
       void (async () => {
         try {
-          const res = await fetch(endpoint, {
+          const res = await fetch(absolutizeEndpoint(endpoint), {
             method,
             credentials: 'omit',
             headers: {
@@ -1870,7 +1938,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       };
       void (async () => {
         try {
-          const res = await fetch(endpoint, {
+          const res = await fetch(absolutizeEndpoint(endpoint), {
             method,
             credentials: 'omit',
             headers: {
@@ -1977,7 +2045,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       }
       void (async () => {
         try {
-          const res = await fetch(endpoint, {
+          const res = await fetch(absolutizeEndpoint(endpoint), {
             method,
             credentials: 'omit',
             headers: {
@@ -2184,7 +2252,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       }
       void (async () => {
         try {
-          const res = await fetch(endpoint, {
+          const res = await fetch(absolutizeEndpoint(endpoint), {
             method,
             credentials: 'omit',
             headers: {
@@ -2568,7 +2636,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       };
       const authHeader = (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader;
       if (authHeader) headers.Authorization = authHeader;
-      fetch(endpoint, { method, headers, credentials: 'omit' })
+      fetch(absolutizeEndpoint(endpoint), { method, headers, credentials: 'omit' })
         .then(async (res) => {
           if (!res.ok) {
             const t = await res.text().catch(() => '');
@@ -2580,6 +2648,218 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         })
         .catch((err) => {
           onError(err instanceof Error ? err.message : String(err));
+        });
+      return;
+    }
+
+    // ── Member 3-dot overflow flow ────────────────────────────────────
+    // Three UI actions (open sheet / open role picker / open confirm) +
+    // two write actions (set role / remove) share this block. The UI
+    // actions just surface the corresponding component via its imperative
+    // opener; the write actions POST to the fcom-mobile add-member and
+    // remove-member endpoints against the currently-viewed space slug
+    // (read from space_detail_controls, not the effectiveItem).
+    case 'member.options': {
+      const rawItems = Array.isArray(argRec.items) ? argRec.items : [];
+      const items = rawItems
+        .filter((i): i is Record<string, unknown> => isRecord(i))
+        .map((i) => i as unknown as MemberMenuItem)
+        .filter((i) => typeof i.action_slug === 'string' && i.action_slug);
+      if (items.length === 0) {
+        onError('The member options menu has no entries wired.');
+        return;
+      }
+      const subjectPath =
+        typeof argRec.subject_path === 'string' ? argRec.subject_path : 'data.xprofile.display_name';
+      const rawSubject = readDataPath(effectiveItem, subjectPath);
+      const subject = typeof rawSubject === 'string' && rawSubject ? rawSubject : 'Member';
+      openMemberOptionsSheet({ subject, items, item: effectiveItem });
+      return;
+    }
+
+    case 'member.change_role': {
+      const rawRoles = Array.isArray(argRec.roles) ? argRec.roles : [];
+      const roles = rawRoles
+        .filter((r): r is Record<string, unknown> => isRecord(r))
+        .map((r) => r as unknown as MemberRoleOption)
+        .filter((r) => typeof r.value === 'string' && typeof r.label === 'string');
+      if (roles.length === 0) {
+        onError('No membership roles configured.');
+        return;
+      }
+      const subjectPath =
+        typeof argRec.subject_path === 'string' ? argRec.subject_path : 'data.xprofile.display_name';
+      const currentRolePath =
+        typeof argRec.current_role_path === 'string' ? argRec.current_role_path : 'data.role';
+      const rawSubject = readDataPath(effectiveItem, subjectPath);
+      const rawRole = readDataPath(effectiveItem, currentRolePath);
+      const subject = typeof rawSubject === 'string' && rawSubject ? rawSubject : 'Member';
+      const currentRole = typeof rawRole === 'string' && rawRole ? rawRole : 'member';
+      openMemberRoleSheet({ subject, currentRole, roles, item: effectiveItem });
+      return;
+    }
+
+    case 'member.set_role': {
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+      const userIdPath =
+        typeof argRec.user_id_path === 'string' ? argRec.user_id_path : 'data.user_id';
+      const role = typeof argRec.role === 'string' ? argRec.role : null;
+      const spaceSlug = getSpaceDetailControls().space_slug;
+      const refetchDs =
+        typeof argRec.refetch_data_source === 'string' ? argRec.refetch_data_source : null;
+      const toastMsg =
+        typeof argRec.toast_message === 'string' ? argRec.toast_message : 'Membership updated';
+      const rawUserId = readDataPath(effectiveItem, userIdPath);
+      const userId =
+        typeof rawUserId === 'number'
+          ? rawUserId
+          : typeof rawUserId === 'string' && rawUserId !== '' && !Number.isNaN(Number(rawUserId))
+            ? Number(rawUserId)
+            : null;
+      if (!endpoint || !role || userId === null || !spaceSlug) {
+        onError('Could not update membership — missing endpoint, role, user, or space.');
+        return;
+      }
+      if (!auth) {
+        onError('Please sign in to change memberships.');
+        return;
+      }
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      };
+      const authHeader = (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader;
+      if (authHeader) headers.Authorization = authHeader;
+      fetch(absolutizeEndpoint(endpoint), {
+        method,
+        headers,
+        body: JSON.stringify({ space_slug: spaceSlug, user_id: userId, role }),
+        credentials: 'omit',
+      })
+        .then(async (res) => {
+          const json = await res.json().catch(() => null);
+          // fcom-mobile returns HTTP 200 with a nested `response.status`
+          // that carries the real status (400 for validation errors etc.).
+          // Trust the nested status when present, otherwise fall back to
+          // res.ok.
+          const inner =
+            json && typeof json === 'object' && 'response' in json
+              ? ((json as Record<string, unknown>).response as
+                  | Record<string, unknown>
+                  | undefined)
+              : undefined;
+          const innerStatus =
+            inner && typeof inner.status === 'number' ? inner.status : null;
+          const ok = innerStatus !== null ? innerStatus === 200 : res.ok;
+          if (!ok) {
+            const msg =
+              (inner && typeof inner.message === 'string' && inner.message) ||
+              `HTTP ${res.status}`;
+            throw new Error(msg);
+          }
+          onInfo(toastMsg);
+          const g = window as unknown as { __appzaForceRefreshUntil?: number };
+          g.__appzaForceRefreshUntil = Date.now() + 3000;
+          window.dispatchEvent(
+            new CustomEvent('appza:refresh-data', { detail: { data_source: refetchDs } }),
+          );
+        })
+        .catch((err) => {
+          onError(err instanceof Error ? err.message : String(err));
+        });
+      return;
+    }
+
+    case 'member.remove_confirm': {
+      const subjectPath =
+        typeof argRec.subject_path === 'string' ? argRec.subject_path : 'data.xprofile.display_name';
+      const rawSubject = readDataPath(effectiveItem, subjectPath);
+      const subject = typeof rawSubject === 'string' && rawSubject ? rawSubject : 'Member';
+      const message = typeof argRec.message === 'string' ? argRec.message : undefined;
+      const cancelLabel = typeof argRec.cancel_label === 'string' ? argRec.cancel_label : undefined;
+      const confirmLabel = typeof argRec.confirm_label === 'string' ? argRec.confirm_label : undefined;
+      const removeActionSlug =
+        typeof argRec.remove_action_slug === 'string' ? argRec.remove_action_slug : 'member.remove';
+      openMemberRemoveConfirm({
+        subject,
+        message,
+        cancelLabel,
+        confirmLabel,
+        item: effectiveItem,
+        removeActionSlug,
+      });
+      return;
+    }
+
+    case 'member.remove': {
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+      const userIdPath =
+        typeof argRec.user_id_path === 'string' ? argRec.user_id_path : 'data.user_id';
+      const spaceSlug = getSpaceDetailControls().space_slug;
+      const refetchDs =
+        typeof argRec.refetch_data_source === 'string' ? argRec.refetch_data_source : null;
+      const toastMsg =
+        typeof argRec.toast_message === 'string' ? argRec.toast_message : 'Member removed';
+      const rawUserId = readDataPath(effectiveItem, userIdPath);
+      const userId =
+        typeof rawUserId === 'number'
+          ? rawUserId
+          : typeof rawUserId === 'string' && rawUserId !== '' && !Number.isNaN(Number(rawUserId))
+            ? Number(rawUserId)
+            : null;
+      if (!endpoint || userId === null || !spaceSlug) {
+        onError('Could not remove member — missing endpoint, user, or space.');
+        closeMemberRemoveConfirm();
+        return;
+      }
+      if (!auth) {
+        onError('Please sign in to remove members.');
+        closeMemberRemoveConfirm();
+        return;
+      }
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      };
+      const authHeader = (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader;
+      if (authHeader) headers.Authorization = authHeader;
+      fetch(absolutizeEndpoint(endpoint), {
+        method,
+        headers,
+        body: JSON.stringify({ space_slug: spaceSlug, user_id: userId }),
+        credentials: 'omit',
+      })
+        .then(async (res) => {
+          const json = await res.json().catch(() => null);
+          const inner =
+            json && typeof json === 'object' && 'response' in json
+              ? ((json as Record<string, unknown>).response as
+                  | Record<string, unknown>
+                  | undefined)
+              : undefined;
+          const innerStatus =
+            inner && typeof inner.status === 'number' ? inner.status : null;
+          const ok = innerStatus !== null ? innerStatus === 200 : res.ok;
+          if (!ok) {
+            const msg =
+              (inner && typeof inner.message === 'string' && inner.message) ||
+              `HTTP ${res.status}`;
+            throw new Error(msg);
+          }
+          onInfo(toastMsg);
+          const g = window as unknown as { __appzaForceRefreshUntil?: number };
+          g.__appzaForceRefreshUntil = Date.now() + 3000;
+          window.dispatchEvent(
+            new CustomEvent('appza:refresh-data', { detail: { data_source: refetchDs } }),
+          );
+        })
+        .catch((err) => {
+          onError(err instanceof Error ? err.message : String(err));
+        })
+        .finally(() => {
+          closeMemberRemoveConfirm();
         });
       return;
     }
@@ -3033,7 +3313,7 @@ function CommentPanel({
         [messageKey]: trimmed,
       };
       if (replyingTo) body.parent_id = replyingTo.id;
-      const res = await fetch(endpoint, {
+      const res = await fetch(absolutizeEndpoint(endpoint), {
         method,
         credentials: 'omit',
         headers: {

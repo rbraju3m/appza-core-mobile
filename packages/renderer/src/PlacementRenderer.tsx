@@ -10,6 +10,7 @@ import { useActionDispatch, type ActionInvocation } from './actionContext';
 import { useFeedControls } from './feedControls';
 import { useSpacesControls } from './spacesControls';
 import { useSpaceDetailControls } from './spaceDetailControls';
+import { useFcRuntimeSettings } from './fcRuntimeSettings';
 import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
 
 /**
@@ -23,9 +24,15 @@ import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
  * changes rarely; when a new paginated data source lands, add its slug
  * here + wire a matching per_page default in PAGE_SIZE_BY_SLUG.
  */
-const PAGINATED_DATA_SOURCES = new Set<string>(['fc-feed']);
+const PAGINATED_DATA_SOURCES = new Set<string>(['fc-feed', 'fc-space-members']);
 const PAGE_SIZE_BY_SLUG: Record<string, number> = {
   'fc-feed': 10,
+  // Members page size matches the FC portal's own paginate() default so
+  // one "page" of the mobile list roughly matches what admins see on the
+  // web. Larger spaces (100s of members) trigger IonInfiniteScroll to
+  // fetch subsequent pages; the fcom-mobile /members endpoint accepts
+  // `page` + `per_page` and short-page terminates the load.
+  'fc-space-members': 20,
 };
 
 type PlacementRendererProps = {
@@ -125,6 +132,13 @@ export function PlacementRenderer({
     sort: spaceDetailSort,
     space_slug: spaceDetailSpaceSlug,
   } = useSpaceDetailControls();
+  // FluentCommunity portal customization: mirrors Settings → Customization
+  // → "Members List Layout". Read here so the fc-member-card wrapper can
+  // stamp a data-fc-member-layout attribute for the CSS to swap between
+  // the 2-column grid and the horizontal list layout. Read unconditionally
+  // for stable hook order (subscribes to a small store; no cost when
+  // unused by non-member AppZets).
+  const { member_list_layout: fcMemberListLayout } = useFcRuntimeSettings();
   const requestedAppzet = catalogIndex.appzetBySlug.get(appzetSlug);
   // Placement-level data_source_slug override wins when deciding whether
   // the view-mode swap applies. The swap is governed by feedControls,
@@ -923,6 +937,11 @@ export function PlacementRenderer({
         data-space-detail-active-subtab={appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab : undefined}
         data-space-detail-active-topic={appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug : undefined}
         data-space-detail-active-space={appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug : undefined}
+        data-fc-member-layout={
+          appzet.slug === 'fc-member-card'
+            ? (fcMemberListLayout === 'grid' ? 'grid' : 'list')
+            : undefined
+        }
         style={Object.keys(styleVars).length > 0 ? (styleVars as React.CSSProperties) : undefined}
       >
       {items.map((item, idx) => {
@@ -1000,7 +1019,9 @@ export function PlacementRenderer({
         >
           <IonInfiniteScrollContent
             loadingSpinner="bubbles"
-            loadingText="Loading more posts…"
+            loadingText={
+              appzet.slug === 'fc-member-card' ? 'Loading more members…' : 'Loading more posts…'
+            }
           />
         </IonInfiniteScroll>
       )}
