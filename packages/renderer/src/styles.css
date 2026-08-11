@@ -4224,3 +4224,299 @@
   to { transform: translateY(0); }
 }
 
+/* Add Member modal — centered card with header/close, search+list OR
+ * selected-user chip, role dropdown, filled submit. Style mirrors the
+ * design mock (rounded card, blue accents on submit + selected role,
+ * light-grey inline dropdown). */
+.appza-add-member-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  place-items: center;
+  z-index: 70;
+  animation: appza-member-fade-in 120ms ease-out;
+  padding: 16px;
+}
+.appza-add-member-modal {
+  width: min(360px, 100%);
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  overflow: hidden;
+}
+.appza-add-member-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.appza-add-member-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111827;
+}
+.appza-add-member-close {
+  border: none;
+  background: transparent;
+  padding: 4px;
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 1.2rem;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+}
+.appza-add-member-close:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+.appza-add-member-close:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.appza-add-member-body {
+  padding: 14px 20px 4px 20px;
+  overflow-y: auto;
+}
+.appza-add-member-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #1f2937;
+  margin: 6px 0 8px 0;
+}
+.appza-add-member-label--role {
+  margin-top: 16px;
+}
+.appza-add-member-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 0 10px;
+}
+.appza-add-member-search-icon {
+  color: #9ca3af;
+  font-size: 1rem;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+.appza-add-member-search-input {
+  flex: 1 1 auto;
+  border: none;
+  background: transparent;
+  padding: 10px 0;
+  font: inherit;
+  font-size: 0.9rem;
+  color: #111827;
+  outline: none;
+}
+.appza-add-member-search-input::placeholder {
+  color: #9ca3af;
+}
+.appza-add-member-list {
+  margin-top: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.appza-add-member-empty,
+.appza-add-member-error {
+  padding: 12px 10px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+.appza-add-member-error {
+  color: #b91c1c;
+}
+.appza-add-member-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  font: inherit;
+}
+.appza-add-member-row:hover,
+.appza-add-member-row:active {
+  background: #f3f4f6;
+}
+.appza-add-member-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.appza-add-member-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.appza-add-member-initials {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #6b7280;
+  letter-spacing: 0.02em;
+}
+.appza-add-member-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.appza-add-member-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-add-member-email {
+  font-size: 0.75rem;
+  color: #6b7280;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-add-member-chip-row {
+  display: flex;
+}
+.appza-add-member-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.appza-add-member-chip-label {
+  flex: 1 1 auto;
+  font-size: 0.9rem;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-add-member-chip-clear {
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 2px;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+.appza-add-member-chip-clear:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+.appza-add-member-role {
+  display: flex;
+  flex-direction: column;
+}
+.appza-add-member-role-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f3f4f6;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: #111827;
+  cursor: pointer;
+}
+.appza-add-member-role-trigger.is-open {
+  border-color: #2b7cff;
+}
+.appza-add-member-role-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.appza-add-member-role-value.is-placeholder {
+  color: #6b7280;
+}
+.appza-add-member-role-caret {
+  color: #2b7cff;
+  font-size: 0.9rem;
+  margin-left: 8px;
+}
+/* In-flow expansion (not absolute) so the modal body's overflow-y:auto
+ * doesn't clip the options. Pushes the submit button down when open. */
+.appza-add-member-role-menu {
+  margin-top: 4px;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e5e7eb;
+  padding: 4px;
+}
+.appza-add-member-role-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: #111827;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.appza-add-member-role-option:hover {
+  background: #f3f4f6;
+}
+.appza-add-member-role-option.is-current {
+  background: #eef2ff;
+  color: #1d4ed8;
+  font-weight: 500;
+}
+.appza-add-member-footer {
+  padding: 12px 20px 18px 20px;
+}
+.appza-add-member-submit {
+  width: 100%;
+  border: none;
+  background: #2b7cff;
+  color: #ffffff;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.appza-add-member-submit:hover:not(.is-disabled):not(:disabled) {
+  background: #1d63d9;
+}
+.appza-add-member-submit.is-disabled,
+.appza-add-member-submit:disabled {
+  background: #9dbcff;
+  color: #ffffff;
+  cursor: not-allowed;
+}
+

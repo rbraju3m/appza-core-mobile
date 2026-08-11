@@ -64,6 +64,13 @@ export {
   openMemberRemoveConfirm,
   closeMemberRemoveConfirm,
 } from './MemberRemoveConfirm';
+export {
+  AddMemberModal,
+  openAddMemberModal,
+  closeAddMemberModal,
+  type AddMemberRoleOption,
+  type AddMemberUser,
+} from './AddMemberModal';
 export { ViewModePopover, openViewModePopover, type ViewModeOption } from './ViewModePopover';
 export { PostOptionsPopover, openPostOptionsPopover, setCatalogGlobal, type PostMenuItem } from './PostOptionsPopover';
 export { tryHandlePostMenuAction, type PostMenuDeps, type StoredAuthLike } from './postMenuHandlers';

@@ -24,13 +24,17 @@ import {
   setSpaceDetailControls,
   setSpacesControls,
   getSpaceDetailControls,
+  AddMemberModal,
   MemberOptionsSheet,
   MemberRemoveConfirm,
   MemberRoleSheet,
+  closeAddMemberModal,
   closeMemberRemoveConfirm,
+  openAddMemberModal,
   openMemberOptionsSheet,
   openMemberRemoveConfirm,
   openMemberRoleSheet,
+  type AddMemberRoleOption,
   type MemberMenuItem,
   type MemberRoleOption,
   tryHandlePostMenuAction,
@@ -1697,6 +1701,7 @@ export function App() {
               <MemberOptionsSheet />
               <MemberRoleSheet />
               <MemberRemoveConfirm />
+              <AddMemberModal />
             </ActionProvider>
           )}
         </main>
@@ -3582,6 +3587,155 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           if (isRecord(effectiveItem)) {
             (effectiveItem as Record<string, unknown>).role = role;
           }
+          window.dispatchEvent(new CustomEvent('appza:refresh-data'));
+        } catch (err) {
+          onLoginError(err instanceof Error ? err.message : String(err));
+        }
+      })();
+      return;
+    }
+
+    // member.add is dual-mode on the same slug (mirrors the two-phase
+    // add-member flow):
+    //   - opener: fires from fc-space-members-actions Add Member button.
+    //     No user_id + role in args → open the AddMemberModal.
+    //   - submit: fires from inside the modal after a user + role are
+    //     picked. user_id + role present in args → real HTTP POST.
+    case 'member.add': {
+      const hasUser = argRec.user_id !== undefined && argRec.user_id !== null;
+      const hasRole = typeof argRec.role === 'string' && argRec.role !== '';
+
+      if (!hasUser || !hasRole) {
+        // Open path — pull labels + role_options off the referenced modal
+        // AppZet's default_props_override so builder edits flow through.
+        const formSlug =
+          typeof argRec.form_appzet_slug === 'string'
+            ? argRec.form_appzet_slug
+            : 'fc-add-member-modal';
+        const cat = (window as unknown as {
+          __appzaCatalog?: { appzets?: unknown[] };
+        }).__appzaCatalog;
+        const appzets = Array.isArray(cat?.appzets) ? cat!.appzets! : [];
+        const modalAppzet = appzets.find(
+          (a): a is Record<string, unknown> =>
+            isRecord(a) && (a as Record<string, unknown>).slug === formSlug,
+        );
+        const props =
+          modalAppzet && isRecord(modalAppzet.default_props_override)
+            ? (modalAppzet.default_props_override as Record<string, unknown>)
+            : {};
+        const rawRoles = Array.isArray(props.role_options)
+          ? (props.role_options as unknown[])
+          : [];
+        const roles: AddMemberRoleOption[] = rawRoles
+          .filter((r): r is Record<string, unknown> => isRecord(r))
+          .filter(
+            (r) => typeof r.value === 'string' && typeof r.label === 'string',
+          )
+          .map((r) => ({
+            value: r.value as string,
+            label: r.label as string,
+            icon: typeof r.icon === 'string' ? (r.icon as string) : undefined,
+          }));
+        if (roles.length === 0) {
+          // Sensible default if the catalog is somehow bare — matches
+          // the seeded fc-add-member-modal defaults.
+          roles.push(
+            { value: 'member', label: 'Member' },
+            { value: 'moderator', label: 'Moderator' },
+            { value: 'admin', label: 'Admin' },
+          );
+        }
+        const usersEndpoint =
+          typeof argRec.users_endpoint === 'string'
+            ? argRec.users_endpoint
+            : '/wp-json/fcom-mobile/api/v1/users/search';
+        const spaceSlug = getSpaceDetailControls().space_slug;
+        openAddMemberModal({
+          title: typeof props.modal_title === 'string' ? (props.modal_title as string) : 'Add Member',
+          searchLabel:
+            typeof props.search_label === 'string' ? (props.search_label as string) : undefined,
+          searchPlaceholder:
+            typeof props.search_placeholder === 'string' ? (props.search_placeholder as string) : undefined,
+          roleLabel:
+            typeof props.role_label === 'string' ? (props.role_label as string) : undefined,
+          rolePlaceholder:
+            typeof props.role_placeholder === 'string' ? (props.role_placeholder as string) : undefined,
+          submitLabelEmpty:
+            typeof props.submit_label_empty === 'string' ? (props.submit_label_empty as string) : undefined,
+          submitLabelTemplate:
+            typeof props.submit_label_template === 'string' ? (props.submit_label_template as string) : undefined,
+          roles,
+          usersEndpoint,
+          spaceSlug: spaceSlug ?? undefined,
+          authHeader: auth ? basicAuthHeader(auth) : undefined,
+          restNonce: window.appzaCoreConfig?.restNonce,
+          submitActionSlug: 'member.add',
+          submitArgs: {
+            // Carry any wire-time overrides through to the submit
+            // invocation so the shell POST uses the same endpoint /
+            // method the opener resolved.
+            endpoint: typeof argRec.endpoint === 'string' ? argRec.endpoint : undefined,
+            method: typeof argRec.method === 'string' ? argRec.method : undefined,
+          },
+        });
+        return;
+      }
+
+      // Submit path — real HTTP POST /wp-json/fcom-mobile/api/v1/spaces/add-member
+      // with {space_slug, user_id, role}. Same shape as member.set_role.
+      const endpoint =
+        typeof argRec.endpoint === 'string'
+          ? argRec.endpoint
+          : '/wp-json/fcom-mobile/api/v1/spaces/add-member';
+      const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+      const role = typeof argRec.role === 'string' ? argRec.role : null;
+      const spaceSlug = getSpaceDetailControls().space_slug;
+      const rawUserId = argRec.user_id;
+      const userId =
+        typeof rawUserId === 'number'
+          ? rawUserId
+          : typeof rawUserId === 'string' && rawUserId !== '' && !Number.isNaN(Number(rawUserId))
+            ? Number(rawUserId)
+            : null;
+      if (!endpoint || !role || userId === null || !spaceSlug) {
+        onLoginError('Could not add member — missing endpoint, role, user, or space.');
+        return;
+      }
+      if (!auth) {
+        onLoginError('Please sign in to add members.');
+        return;
+      }
+      void (async () => {
+        try {
+          const res = await fetch(endpoint, {
+            method,
+            credentials: 'omit',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              Authorization: basicAuthHeader(auth),
+            },
+            body: JSON.stringify({ space_slug: spaceSlug, user_id: userId, role }),
+          });
+          const json = await res.json().catch(() => null);
+          const inner =
+            json && typeof json === 'object' && 'response' in json
+              ? ((json as Record<string, unknown>).response as
+                  | Record<string, unknown>
+                  | undefined)
+              : undefined;
+          const innerStatus =
+            inner && typeof inner.status === 'number' ? inner.status : null;
+          const ok = innerStatus !== null ? innerStatus === 200 : res.ok;
+          if (!ok) {
+            const msg =
+              (inner && typeof inner.message === 'string' && inner.message) ||
+              `HTTP ${res.status}`;
+            onLoginError(msg);
+            return;
+          }
+          closeAddMemberModal();
           window.dispatchEvent(new CustomEvent('appza:refresh-data'));
         } catch (err) {
           onLoginError(err instanceof Error ? err.message : String(err));
