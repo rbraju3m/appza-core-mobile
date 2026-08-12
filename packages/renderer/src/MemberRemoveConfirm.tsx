@@ -18,6 +18,11 @@ type OpenDetail = {
   message?: string;
   cancelLabel?: string;
   confirmLabel?: string;
+  /**
+   * In-flight caption. Defaults to the member-removal wording; the
+   * invitation-delete flow reuses this same alert and passes its own.
+   */
+  busyLabel?: string;
   item: unknown;
   removeActionSlug?: string;
   removeArgs?: Record<string, unknown>;
@@ -117,7 +122,7 @@ export function MemberRemoveConfirm() {
             onClick={confirm}
             disabled={inFlight}
           >
-            {inFlight ? 'Removing…' : confirmLabel}
+            {inFlight ? (detail.busyLabel ?? 'Removing…') : confirmLabel}
           </button>
         </div>
       </div>

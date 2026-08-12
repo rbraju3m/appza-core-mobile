@@ -71,6 +71,14 @@ export {
   type AddMemberRoleOption,
   type AddMemberUser,
 } from './AddMemberModal';
+export {
+  InviteUserModal,
+  openInviteUserModal,
+  closeInviteUserModal,
+  type InviteRoleOption,
+  type InvitationRow,
+  type InviteChipPalette,
+} from './InviteUserModal';
 export { ViewModePopover, openViewModePopover, type ViewModeOption } from './ViewModePopover';
 export { PostOptionsPopover, openPostOptionsPopover, setCatalogGlobal, type PostMenuItem } from './PostOptionsPopover';
 export { tryHandlePostMenuAction, type PostMenuDeps, type StoredAuthLike } from './postMenuHandlers';
