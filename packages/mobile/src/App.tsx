@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionProvider,
   AddMemberModal,
+  InviteUserModal,
   MemberOptionsSheet,
   MemberRemoveConfirm,
   MemberRoleSheet,
@@ -9,10 +10,12 @@ import {
   ScreenRenderer,
   ViewModePopover,
   closeAddMemberModal,
+  closeInviteUserModal,
   closeMemberRemoveConfirm,
   filterScreensBySurface,
   getSpaceDetailControls,
   openAddMemberModal,
+  openInviteUserModal,
   openMemberOptionsSheet,
   openMemberRemoveConfirm,
   openMemberRoleSheet,
@@ -30,6 +33,8 @@ import {
   type ActionDispatch,
   type ActionInvocation,
   type AddMemberRoleOption,
+  type InviteChipPalette,
+  type InviteRoleOption,
   type MemberMenuItem,
   type MemberRoleOption,
   type PostMenuItem,
@@ -1185,6 +1190,7 @@ export function App() {
         <MemberRoleSheet />
         <MemberRemoveConfirm />
         <AddMemberModal />
+        <InviteUserModal />
       </ActionProvider>
 
       {errorToast && (
@@ -3021,10 +3027,373 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       return;
     }
 
+    // Dual-mode on the same slug, exactly like member.add: no email in
+    // args opens the modal, an email present submits it.
+    case 'member.invite': {
+      const email = typeof argRec.email === 'string' ? argRec.email.trim() : '';
+
+      if (email === '') {
+        const formSlug =
+          typeof argRec.form_appzet_slug === 'string'
+            ? argRec.form_appzet_slug
+            : 'fc-invite-user-modal';
+        const props = readAppzetPropsFromCatalog(formSlug);
+
+        const rawRoles = Array.isArray(props.role_options)
+          ? (props.role_options as unknown[])
+          : [];
+        const roles: InviteRoleOption[] = rawRoles
+          .filter((r): r is Record<string, unknown> => isRecord(r))
+          .filter((r) => typeof r.value === 'string' && typeof r.label === 'string')
+          .map((r) => ({ value: r.value as string, label: r.label as string }));
+        if (roles.length === 0) {
+          roles.push(
+            { value: 'member', label: 'Member' },
+            { value: 'moderator', label: 'Moderator' },
+            { value: 'admin', label: 'Admin' },
+          );
+        }
+
+        const chipPalette: InviteChipPalette = {
+          success: {
+            bg: str(props.chip_success_bg_color),
+            text: str(props.chip_success_text_color),
+          },
+          warning: {
+            bg: str(props.chip_warning_bg_color),
+            text: str(props.chip_warning_text_color),
+          },
+          muted: {
+            bg: str(props.chip_muted_bg_color),
+            text: str(props.chip_muted_text_color),
+          },
+        };
+
+        const dsSlug =
+          typeof argRec.list_data_source === 'string'
+            ? argRec.list_data_source
+            : 'fc-space-invitations';
+        const listEndpoint =
+          readDataSourceEndpointFromCatalog(dsSlug) ??
+          '/wp-json/fcom-mobile/api/v1/spaces/invitations';
+        const authHeader = (window as unknown as { __appzaAuthHeader?: string })
+          .__appzaAuthHeader;
+
+        openInviteUserModal({
+          title: str(props.modal_title) ?? 'Invite user',
+          tabInvitationsLabel: str(props.tab_invitations_label),
+          tabInviteLabel: str(props.tab_invite_label),
+          showInvitationCount: props.show_invitation_count !== false,
+          defaultTab: props.default_tab === 'invite' ? 'invite' : 'invitations',
+          copyLinkLabel: str(props.copy_link_label),
+          copyLinkIcon: str(props.copy_link_icon),
+          resendLabel: str(props.resend_label),
+          deleteIcon: str(props.delete_icon),
+          invitedByPrefix: str(props.invited_by_prefix),
+          emptyLabel: str(props.empty_label),
+          deleteConfirmTitle: str(props.delete_confirm_title),
+          deleteConfirmMessage: str(props.delete_confirm_message),
+          deleteCancelLabel: str(props.delete_cancel_label),
+          deleteConfirmLabel: str(props.delete_confirm_label),
+          emailLabel: str(props.email_label),
+          emailPlaceholder: str(props.email_placeholder),
+          nameLabel: str(props.name_label),
+          namePlaceholder: str(props.name_placeholder),
+          roleLabel: str(props.role_label),
+          rolePlaceholder: str(props.role_placeholder),
+          roles,
+          helperText: str(props.helper_text),
+          submitLabelEmpty: str(props.submit_label_empty),
+          submitLabelTemplate: str(props.submit_label_template),
+          chipPalette,
+          copyLinkColor: str(props.copy_link_color),
+          deleteColor: str(props.delete_color),
+          submitBgColor: str(props.submit_bg_color),
+          submitTextColor: str(props.submit_text_color),
+          submitDisabledBgColor: str(props.submit_disabled_bg_color),
+          listMaxHeight: str(props.list_max_height),
+          // Absolute, per P60 — a Capacitor build has no origin to
+          // resolve a root-relative path against.
+          listEndpoint: absolutizeEndpoint(listEndpoint),
+          spaceSlug: getSpaceDetailControls().space_slug ?? undefined,
+          authHeader,
+          submitActionSlug: 'member.invite',
+          submitArgs: {
+            endpoint: typeof argRec.endpoint === 'string' ? argRec.endpoint : undefined,
+            method: typeof argRec.method === 'string' ? argRec.method : undefined,
+          },
+        });
+        return;
+      }
+
+      const endpoint =
+        typeof argRec.endpoint === 'string'
+          ? argRec.endpoint
+          : '/wp-json/fcom-mobile/api/v1/spaces/invitations';
+      const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+      const role = typeof argRec.role === 'string' ? argRec.role : 'member';
+      const inviteeName = typeof argRec.invitee_name === 'string' ? argRec.invitee_name : '';
+      const refetchDs =
+        typeof argRec.refetch_data_source === 'string' ? argRec.refetch_data_source : null;
+      const spaceSlug = getSpaceDetailControls().space_slug;
+      if (!spaceSlug) {
+        onError('Could not invite — no space in context.');
+        return;
+      }
+      if (!auth) {
+        onError('Please sign in to invite people.');
+        return;
+      }
+      {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        };
+        const authHeader = (window as unknown as { __appzaAuthHeader?: string })
+          .__appzaAuthHeader;
+        if (authHeader) headers.Authorization = authHeader;
+        fetch(absolutizeEndpoint(endpoint), {
+          method,
+          headers,
+          body: JSON.stringify({
+            space_slug: spaceSlug,
+            email,
+            invitee_name: inviteeName,
+            role,
+          }),
+          credentials: 'omit',
+        })
+          .then(async (res) => {
+            const outcome = await readInvitationOutcome(res);
+            if (!outcome.ok) throw new Error(outcome.message);
+            // Prefer the endpoint's message — it distinguishes
+            // "joined the space right away" from "invitation emailed".
+            onInfo(
+              outcome.message ||
+                (typeof argRec.toast_message === 'string'
+                  ? argRec.toast_message
+                  : 'Invitation sent'),
+            );
+            closeInviteUserModal();
+            const g = window as unknown as { __appzaForceRefreshUntil?: number };
+            g.__appzaForceRefreshUntil = Date.now() + 3000;
+            window.dispatchEvent(
+              new CustomEvent('appza:refresh-data', { detail: { data_source: refetchDs } }),
+            );
+          })
+          .catch((err) => {
+            onError(err instanceof Error ? err.message : String(err));
+          });
+      }
+      return;
+    }
+
+    case 'invitation.delete_confirm': {
+      openMemberRemoveConfirm({
+        subject: typeof argRec.subject === 'string' ? argRec.subject : 'Delete invitation',
+        message:
+          typeof argRec.message === 'string'
+            ? argRec.message
+            : 'This cannot be undone. The invitation link will stop working.',
+        cancelLabel: typeof argRec.cancel_label === 'string' ? argRec.cancel_label : 'Cancel',
+        confirmLabel: typeof argRec.confirm_label === 'string' ? argRec.confirm_label : 'Delete',
+        busyLabel: 'Deleting…',
+        // Cancel | Delete sit side by side in this dialog, unlike the
+        // member-removal one whose confirm label is far longer.
+        actionsLayout: 'row',
+        item: effectiveItem,
+        removeActionSlug:
+          typeof argRec.delete_action_slug === 'string'
+            ? argRec.delete_action_slug
+            : 'invitation.delete',
+      });
+      return;
+    }
+
+    case 'invitation.delete':
+    case 'invitation.resend': {
+      const isDelete = action_slug === 'invitation.delete';
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+      const idPath =
+        typeof argRec.invitation_id_path === 'string' ? argRec.invitation_id_path : 'data.id';
+      const refetchDs =
+        typeof argRec.refetch_data_source === 'string' ? argRec.refetch_data_source : null;
+      const rawId = readDataPath(effectiveItem, idPath);
+      const invitationId =
+        typeof rawId === 'number'
+          ? rawId
+          : typeof rawId === 'string' && rawId !== '' && !Number.isNaN(Number(rawId))
+            ? Number(rawId)
+            : null;
+      const spaceSlug = getSpaceDetailControls().space_slug;
+
+      if (!endpoint || invitationId === null) {
+        onError('Could not act on this invitation — missing endpoint or id.');
+        if (isDelete) closeMemberRemoveConfirm();
+        return;
+      }
+      if (!auth) {
+        onError('Please sign in to manage invitations.');
+        if (isDelete) closeMemberRemoveConfirm();
+        return;
+      }
+      {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        };
+        const authHeader = (window as unknown as { __appzaAuthHeader?: string })
+          .__appzaAuthHeader;
+        if (authHeader) headers.Authorization = authHeader;
+        fetch(absolutizeEndpoint(endpoint), {
+          method,
+          headers,
+          body: JSON.stringify({ space_slug: spaceSlug, invitation_id: invitationId }),
+          credentials: 'omit',
+        })
+          .then(async (res) => {
+            const outcome = await readInvitationOutcome(res);
+            if (!outcome.ok) throw new Error(outcome.message);
+            onInfo(
+              outcome.message ||
+                (typeof argRec.toast_message === 'string'
+                  ? argRec.toast_message
+                  : isDelete
+                    ? 'Invitation deleted'
+                    : 'Invitation resent'),
+            );
+            const g = window as unknown as { __appzaForceRefreshUntil?: number };
+            g.__appzaForceRefreshUntil = Date.now() + 3000;
+            // The open modal's list listens for this and repopulates.
+            window.dispatchEvent(
+              new CustomEvent('appza:refresh-data', { detail: { data_source: refetchDs } }),
+            );
+          })
+          .catch((err) => {
+            onError(err instanceof Error ? err.message : String(err));
+          })
+          .finally(() => {
+            if (isDelete) closeMemberRemoveConfirm();
+          });
+      }
+      return;
+    }
+
+    case 'invitation.copy_link': {
+      const urlPath = typeof argRec.url_path === 'string' ? argRec.url_path : 'data.access_url';
+      const raw = readDataPath(effectiveItem, urlPath);
+      const url = typeof raw === 'string' ? raw : '';
+      if (!url) {
+        onError('This invitation has no link to copy.');
+        return;
+      }
+      void copyToClipboard(url).then((copied) => {
+        if (copied) {
+          onInfo(
+            typeof argRec.toast_message === 'string'
+              ? argRec.toast_message
+              : 'Invitation link copied',
+          );
+        } else {
+          onError('Could not copy the link.');
+        }
+      });
+      return;
+    }
+
     default:
       console.info('[appza-mobile] action dispatched (no-op):', action_slug, argRec, {
         effectiveItem,
       });
+  }
+}
+
+/** Non-empty strings only — blank author fields fall back to defaults. */
+function str(v: unknown): string | undefined {
+  return typeof v === 'string' && v !== '' ? v : undefined;
+}
+
+/**
+ * A modal AppZet's authored props, read off the snapshot the shell
+ * already holds, so an action can open a modal without duplicating any
+ * of its copy into the opener's args (P66).
+ */
+function readAppzetPropsFromCatalog(slug: string): Record<string, unknown> {
+  const cat = (window as unknown as { __appzaCatalog?: { appzets?: unknown[] } })
+    .__appzaCatalog;
+  const appzets = Array.isArray(cat?.appzets) ? cat!.appzets! : [];
+  const found = appzets.find(
+    (a): a is Record<string, unknown> =>
+      isRecord(a) && (a as Record<string, unknown>).slug === slug,
+  );
+  return found && isRecord(found.default_props_override)
+    ? (found.default_props_override as Record<string, unknown>)
+    : {};
+}
+
+/** Endpoints always come from the catalog, never a literal in the shell. */
+function readDataSourceEndpointFromCatalog(slug: string): string | null {
+  const cat = (window as unknown as { __appzaCatalog?: { data_sources?: unknown[] } })
+    .__appzaCatalog;
+  const sources = Array.isArray(cat?.data_sources) ? cat!.data_sources! : [];
+  const found = sources.find(
+    (d): d is Record<string, unknown> =>
+      isRecord(d) && (d as Record<string, unknown>).slug === slug,
+  );
+  return found && typeof found.endpoint === 'string' && found.endpoint
+    ? (found.endpoint as string)
+    : null;
+}
+
+/**
+ * The invitation endpoints answer HTTP 200 and carry the real outcome
+ * in response.status, so the HTTP status alone would read a 403 as a
+ * success. Their message is worth surfacing verbatim.
+ */
+async function readInvitationOutcome(
+  res: Response,
+): Promise<{ ok: boolean; message: string }> {
+  const json = await res.json().catch(() => null);
+  const rec = json && typeof json === 'object' ? (json as Record<string, unknown>) : null;
+  const inner =
+    rec && 'response' in rec ? (rec.response as Record<string, unknown> | undefined) : undefined;
+  const innerStatus = inner && typeof inner.status === 'number' ? inner.status : null;
+  const ok = innerStatus !== null ? innerStatus === 200 : res.ok;
+  const message =
+    (inner && typeof inner.message === 'string' && inner.message) ||
+    (rec && typeof rec.message === 'string' ? (rec.message as string) : '') ||
+    (ok ? '' : `HTTP ${res.status}`);
+  return { ok, message };
+}
+
+/**
+ * The async Clipboard API only exists on secure origins; a WebView
+ * served over http has none, so fall back to execCommand rather than
+ * leaving Copy Link silently dead.
+ */
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // fall through to the legacy path
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
   }
 }
 

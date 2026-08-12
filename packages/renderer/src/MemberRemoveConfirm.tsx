@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useActionDispatch } from './actionContext';
 import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
+import { deviceViewportOverlayStyle, useDeviceViewportRect } from './useDeviceViewportRect';
 
 // iOS-style center alert opened by member.remove_confirm. Shows the
 // member's display name as the bold title + a short message. Two
@@ -23,6 +24,12 @@ type OpenDetail = {
    * invitation-delete flow reuses this same alert and passes its own.
    */
   busyLabel?: string;
+  /**
+   * 'row' puts Cancel and the destructive action side by side. Opt-in:
+   * the member-removal wording ("Remove from space") is too long to sit
+   * beside Cancel, so that flow keeps the stacked default.
+   */
+  actionsLayout?: 'row' | 'stacked';
   item: unknown;
   removeActionSlug?: string;
   removeArgs?: Record<string, unknown>;
@@ -43,6 +50,9 @@ export function MemberRemoveConfirm() {
   const [detail, setDetail] = useState<OpenDetail | null>(null);
   const [inFlight, setInFlight] = useState(false);
   const dispatch = useActionDispatch();
+  // Keeps the alert on the simulated phone screen in the plug-in admin;
+  // null (and so a plain full-window overlay) on mobile.
+  const hostRect = useDeviceViewportRect(open);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -98,6 +108,7 @@ export function MemberRemoveConfirm() {
       aria-modal="true"
       aria-label={detail.subject}
       className="appza-member-confirm-backdrop"
+      style={deviceViewportOverlayStyle(hostRect)}
       onClick={(e) => {
         if (e.target === e.currentTarget) cancel();
       }}
@@ -107,7 +118,12 @@ export function MemberRemoveConfirm() {
           <p className="appza-member-confirm-title">{detail.subject}</p>
           <p className="appza-member-confirm-message">{message}</p>
         </div>
-        <div className="appza-member-confirm-actions">
+        <div
+          className={
+            'appza-member-confirm-actions' +
+            (detail.actionsLayout === 'row' ? ' is-row' : '')
+          }
+        >
           <button
             type="button"
             className="appza-member-confirm-btn is-cancel"

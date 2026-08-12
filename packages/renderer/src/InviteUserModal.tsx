@@ -3,6 +3,7 @@ import { IonIcon } from '@ionic/react';
 import { useActionDispatch } from './actionContext';
 import { resolveIcon } from './PrimitiveRenderer';
 import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
+import { deviceViewportOverlayStyle, useDeviceViewportRect } from './useDeviceViewportRect';
 
 // Centered modal opened by member.invite. Two tabs in one shell:
 //
@@ -148,6 +149,9 @@ export function InviteUserModal() {
   const [roleOpen, setRoleOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const dispatch = useActionDispatch();
+  // Keeps the overlay on the simulated phone screen in the plug-in
+  // admin; null (and so a plain full-window overlay) on mobile.
+  const hostRect = useDeviceViewportRect(open);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -370,7 +374,8 @@ export function InviteUserModal() {
       role="dialog"
       aria-modal="true"
       aria-label={detail.title ?? 'Invite user'}
-      className="appza-invite-user-backdrop"
+      className={'appza-invite-user-backdrop' + (hostRect ? ' is-embedded' : '')}
+      style={deviceViewportOverlayStyle(hostRect)}
       onClick={(e) => {
         if (e.target === e.currentTarget) handleClose();
       }}

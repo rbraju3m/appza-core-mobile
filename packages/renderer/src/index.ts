@@ -87,3 +87,4 @@ export {
   type PrefillMediaSetters,
 } from './postInformationPrefill';
 export { filterScreensBySurface } from './surface';
+export { useDeviceViewportRect, deviceViewportOverlayStyle } from './useDeviceViewportRect';
