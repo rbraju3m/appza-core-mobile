@@ -13,6 +13,18 @@ type SidebarProps = {
   bottomTab: BottomTab;
   onSelectBottomTab: (tab: BottomTab) => void;
   bottomPanel: React.ReactNode;
+  /**
+   * Currently selected AppZet, so the list can mark it.
+   */
+  selectedAppzetSlug?: string | null;
+  /**
+   * Selecting from the list is the ONLY way to reach an AppZet that is
+   * never placed on a screen — every modal (add-member, invite-user)
+   * is opened imperatively by an action, so it can never be clicked in
+   * the device preview and would otherwise have no reachable
+   * Properties panel at all.
+   */
+  onSelectAppzet?: (slug: string) => void;
 };
 
 export function Sidebar({
@@ -24,6 +36,8 @@ export function Sidebar({
   bottomTab,
   onSelectBottomTab,
   bottomPanel,
+  selectedAppzetSlug,
+  onSelectAppzet,
 }: SidebarProps) {
   const screenAppZetSlugs = useMemo<Set<string>>(() => {
     if (!currentScreen) return new Set();
@@ -79,7 +93,25 @@ export function Sidebar({
               defaultOpen={group.items.length > 0 && group.items.length <= 8}
             >
               {group.items.map((item) => (
-                <div key={item.slug} className="appza-section-item">
+                <div
+                  key={item.slug}
+                  className="appza-section-item"
+                  data-selected={item.slug === selectedAppzetSlug ? 'true' : undefined}
+                  role={onSelectAppzet ? 'button' : undefined}
+                  tabIndex={onSelectAppzet ? 0 : undefined}
+                  aria-pressed={onSelectAppzet ? item.slug === selectedAppzetSlug : undefined}
+                  onClick={onSelectAppzet ? () => onSelectAppzet(item.slug) : undefined}
+                  onKeyDown={
+                    onSelectAppzet
+                      ? (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            onSelectAppzet(item.slug);
+                          }
+                        }
+                      : undefined
+                  }
+                >
                   {item.image_url ? (
                     <img
                       className="appza-section-item-icon"

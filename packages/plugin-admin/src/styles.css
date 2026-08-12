@@ -335,6 +335,12 @@ body {
   display: block;
 }
 
+/* Selecting a row opens its Properties panel — the only route to an
+ * AppZet that is never placed on a screen (i.e. every modal). */
+.appza-section-item[data-selected='true'] {
+  background: var(--appza-accent-soft, #fff1e6);
+  box-shadow: inset 2px 0 0 var(--appza-accent, #f97316);
+}
 .appza-section-item {
   padding: 6px 12px;
   font-size: 0.875rem;

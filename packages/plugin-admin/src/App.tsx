@@ -1459,6 +1459,15 @@ export function App() {
           bottomTab={bottomTab}
           onSelectBottomTab={setBottomTab}
           bottomPanel={bottomPanel}
+          selectedAppzetSlug={selectedAppzetSlug}
+          onSelectAppzet={(slug) => {
+            // Mirrors the device-preview selection, and is the only way
+            // in for an AppZet that no screen places — modals are opened
+            // by an action, never rendered inline, so they can't be
+            // clicked in the preview.
+            setSelectedAppzetSlug(slug);
+            setSelectedPrimitive(null);
+          }}
         />
 
         <main
