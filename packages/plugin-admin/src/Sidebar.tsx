@@ -39,14 +39,55 @@ export function Sidebar({
   selectedAppzetSlug,
   onSelectAppzet,
 }: SidebarProps) {
+  // Screen Components lists what a screen actually uses — which is more
+  // than what it places. A modal is opened by an action wiring
+  // (`form_appzet_slug`) and is never placed anywhere, so a
+  // placements-only list leaves it off the screen where its own button
+  // lives, and Global Components becomes the only way to find it.
+  //
+  // Same walk BootstrapSnapshotService does server-side to decide what
+  // ships in the bundle (P67): follow any depth of action args for keys
+  // ending in `appzet_slug`.
   const screenAppZetSlugs = useMemo<Set<string>>(() => {
     if (!currentScreen) return new Set();
-    return new Set(
-      (currentScreen.placements ?? [])
-        .map((p) => (typeof p['appzet_slug'] === 'string' ? p['appzet_slug'] : ''))
-        .filter(Boolean),
-    );
-  }, [currentScreen]);
+
+    const bySlug = new Map(appzets.map((a) => [a.slug, a]));
+    const collectRefs = (value: unknown, into: string[]): void => {
+      if (Array.isArray(value)) {
+        value.forEach((v) => collectRefs(v, into));
+        return;
+      }
+      if (!value || typeof value !== 'object') return;
+      for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
+        if (key.endsWith('appzet_slug') && typeof v === 'string' && v) into.push(v);
+        else collectRefs(v, into);
+      }
+    };
+
+    const seen = new Set<string>();
+    const queue = (currentScreen.placements ?? [])
+      .map((p) => (typeof p['appzet_slug'] === 'string' ? p['appzet_slug'] : ''))
+      .filter(Boolean);
+
+    // Cheap cycle guard: two AppZets referencing each other would
+    // otherwise spin here.
+    let guard = 0;
+    while (queue.length > 0 && guard < 500) {
+      guard += 1;
+      const slug = queue.shift() as string;
+      if (seen.has(slug)) continue;
+      seen.add(slug);
+
+      const appzet = bySlug.get(slug) as Record<string, unknown> | undefined;
+      if (!appzet) continue;
+      const refs: string[] = [];
+      collectRefs(appzet.actions, refs);
+      refs.forEach((r) => {
+        if (!seen.has(r)) queue.push(r);
+      });
+    }
+    return seen;
+  }, [currentScreen, appzets]);
 
   const visibleAppZets = useMemo<AppZet[]>(() => {
     if (sidebarTab === 'global') return appzets;
