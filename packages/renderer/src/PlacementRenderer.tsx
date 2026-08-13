@@ -660,6 +660,15 @@ export function PlacementRenderer({
     cfpProp.length > 0 &&
     Object.keys(expanded.entryOverrides).length > 0;
 
+  // Nested repeat: the SS wants variadic children but the AppZet holds
+  // no such array, so each DS row supplies its own (a document card
+  // expanding its files). Expansion then has to happen per item rather
+  // than once up here, and the outer row loop must NOT collapse — which
+  // it doesn't, because `expanded` came back static so isVariadicFromDs
+  // stayed false.
+  const isVariadicFromItem =
+    typeof cfpProp === 'string' && cfpProp.length > 0 && !isVariadicFromDs;
+
   // Pull spacing override (Properties-panel-edited values) and apply
   // as inline style on the AppZet wrapper.
   const overrides = (appzet.default_props_override ?? null) as Record<string, unknown> | null;
@@ -950,7 +959,26 @@ export function PlacementRenderer({
         // so field_mappings can bind icon + color straight off the data
         // without renderer needing to know about reactions.
         const enrichedItem = enrichItemWithMyReactions(item);
+        // Nested-repeat case: this row carries its own children array,
+        // so the template expands here instead of at AppZet level.
+        const itemExpanded = isVariadicFromItem
+          ? readExpandedChildren(ss, appzet, enrichedItem)
+          : null;
+        const effChildren = itemExpanded ? itemExpanded.children : ssChildren;
         let itemOverrides = mergeFieldMappingsOntoOverrides(baseChildOverrides, appzet, enrichedItem);
+        if (itemExpanded) {
+          // Copy before stamping per-index entries — the merge helper's
+          // result must not be shared across rows or one card's files
+          // would leak into the next.
+          itemOverrides = { ...itemOverrides };
+          for (const idxStr of Object.keys(itemExpanded.entryOverrides)) {
+            const i = Number(idxStr);
+            itemOverrides[i] = {
+              ...(itemOverrides[i] ?? {}),
+              ...itemExpanded.entryOverrides[i],
+            };
+          }
+        }
         // Member-card special: prepend prefixes to username / joined /
         // active + format joined/active as relative time + stamp initials
         // fallback for the avatar. Kept out of the generic mapping path
@@ -960,13 +988,13 @@ export function PlacementRenderer({
         if (appzet.slug === 'fc-member-card') {
           itemOverrides = applyMemberCardTransforms(itemOverrides, appzet, enrichedItem);
         }
-        const dataHidden = computeDataHiddenIndices(ssChildren, enrichedItem);
+        const dataHidden = computeDataHiddenIndices(effChildren, enrichedItem);
         const effectiveHidden =
           dataHidden.size === 0
             ? hiddenIndices
             : new Set<number>([...hiddenIndices, ...dataHidden]);
-        const childOpenUrls = computeChildOpenUrls(ssChildren, enrichedItem);
-        const childActions = computeChildActions(ssChildren, appzet, enrichedItem);
+        const childOpenUrls = computeChildOpenUrls(effChildren, enrichedItem);
+        const childActions = computeChildActions(effChildren, appzet, enrichedItem);
         // Stamp the item's identifier on the wrapper so the shell can
         // target one specific card imperatively (e.g. flip a reaction
         // icon after like/bookmark without a full data refetch). We
@@ -1005,7 +1033,7 @@ export function PlacementRenderer({
                 appzet.slug === 'fc-spaces-tabs' ? spacesTab :
                 undefined
               }
-              expandedChildren={expanded.children}
+              expandedChildren={effChildren}
             />
           </div>
         );
@@ -1660,6 +1688,7 @@ function readChildren(ss: Superstructure): SSChild[] {
 function readExpandedChildren(
   ss: Superstructure,
   appzet: AppZet,
+  item?: unknown,
 ): { children: SSChild[]; entryOverrides: Record<number, Record<string, unknown>> } {
   const propName = (ss as unknown as { children_from_prop?: unknown }).children_from_prop;
   const staticChildren = readChildren(ss);
@@ -1667,7 +1696,17 @@ function readExpandedChildren(
     return { children: staticChildren, entryOverrides: {} };
   }
   const overrides = appzet.default_props_override as Record<string, unknown> | null | undefined;
-  const rawEntries = overrides ? overrides[propName] : undefined;
+  // AppZet-level array first — the strip case (tabs / spaces / topics),
+  // where one AppZet renders the whole strip. When there isn't one, fall
+  // back to the same-named array on the DS row being rendered: the
+  // nested case, a card repeated per row that expands its OWN list (a
+  // document card's files, and any future list-inside-a-card).
+  // The caller decides which mode applies; passing no `item` keeps the
+  // historical AppZet-only behaviour untouched.
+  let rawEntries = overrides ? overrides[propName] : undefined;
+  if ((!Array.isArray(rawEntries) || rawEntries.length === 0) && isRecord(item)) {
+    rawEntries = (item as Record<string, unknown>)[propName];
+  }
   if (!Array.isArray(rawEntries) || rawEntries.length === 0) {
     return { children: staticChildren, entryOverrides: {} };
   }
