@@ -41,6 +41,7 @@ export type AddMemberUser = {
 
 const OPEN_EVENT = 'appza:open-add-member-modal';
 const CLOSE_EVENT = 'appza:close-add-member-modal';
+const PATCH_EVENT = 'appza:patch-add-member-modal';
 
 type OpenDetail = {
   title?: string;
@@ -74,6 +75,9 @@ type OpenDetail = {
   appzetSlug?: string;
 };
 
+/** Slug-addressed so a patch reaches only the modal it was authored for. */
+type PatchDetail = { appzetSlug: string; patch: Partial<OpenDetail> };
+
 export function openAddMemberModal(detail: OpenDetail): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent<OpenDetail>(OPEN_EVENT, { detail }));
@@ -82,6 +86,24 @@ export function openAddMemberModal(detail: OpenDetail): void {
 export function closeAddMemberModal(): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(CLOSE_EVENT));
+}
+
+/**
+ * Re-authors an already-open modal in place. The builder calls this when
+ * a prop changes while the modal is on screen — re-opening instead would
+ * throw away the search text and picked user, so editing a label would
+ * reset the form under the user.
+ *
+ * No-op when the modal is closed; the next open reads fresh props anyway.
+ */
+export function patchAddMemberModal(
+  appzetSlug: string,
+  patch: Partial<OpenDetail>,
+): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent<PatchDetail>(PATCH_EVENT, { detail: { appzetSlug, patch } }),
+  );
 }
 
 function initials(name: string | undefined | null): string {
@@ -140,11 +162,23 @@ export function AddMemberModal() {
       setOpen(false);
       setSubmitting(false);
     };
+    const onPatch = (e: Event) => {
+      const ce = e as CustomEvent<PatchDetail>;
+      if (!ce.detail) return;
+      const { appzetSlug, patch } = ce.detail;
+      setDetail((prev) => {
+        if (!prev) return prev;
+        const mine = prev.appzetSlug ?? DEFAULT_APPZET_SLUG;
+        return mine === appzetSlug ? { ...prev, ...patch } : prev;
+      });
+    };
     window.addEventListener(OPEN_EVENT, onOpen);
     window.addEventListener(CLOSE_EVENT, onClose);
+    window.addEventListener(PATCH_EVENT, onPatch);
     return () => {
       window.removeEventListener(OPEN_EVENT, onOpen);
       window.removeEventListener(CLOSE_EVENT, onClose);
+      window.removeEventListener(PATCH_EVENT, onPatch);
     };
   }, []);
 

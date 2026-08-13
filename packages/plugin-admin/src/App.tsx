@@ -17,6 +17,7 @@ import {
   prefillPostInformationFromContext,
   readDataPath,
   resolveIcon,
+  resolveOverridableColumn,
   setCatalogGlobal,
   setFcRuntimeSettings,
   setFeedControls,
@@ -32,6 +33,8 @@ import {
   closeAddMemberModal,
   closeInviteUserModal,
   closeMemberRemoveConfirm,
+  patchAddMemberModal,
+  patchInviteUserModal,
   openAddMemberModal,
   openInviteUserModal,
   openMemberOptionsSheet,
@@ -640,6 +643,25 @@ export function App() {
     }
     return out;
   }, [envelope, livePreview, livePrimitivePreview, uiMode, nowLabel]);
+
+  // Mirror the canvas's resolved customizations to the action handler,
+  // then re-author the open modal if the panel is editing one. Composed
+  // AppZets re-render off effectiveCustomizations by themselves; an
+  // overlay was opened imperatively with a snapshot of its props, so it
+  // has to be told. Without this, editing a modal's Options changed
+  // nothing you could see — the panel saved, the card didn't move.
+  //
+  // Patching rather than re-opening keeps modal-local state (active tab,
+  // picked user, half-typed email) intact while you edit. The patch is
+  // addressed by slug and ignored by a modal showing a different AppZet,
+  // so a customer's own variant is handled without naming it here.
+  useEffect(() => {
+    setCustomizationsForActions(effectiveCustomizations);
+    if (!selectedAppzetSlug) return;
+    const props = readAppzetPropsFromCatalog(selectedAppzetSlug);
+    patchAddMemberModal(selectedAppzetSlug, addMemberPresentation(props));
+    patchInviteUserModal(selectedAppzetSlug, invitePresentation(props));
+  }, [effectiveCustomizations, selectedAppzetSlug]);
 
   const openImagePicker = useCallback((target: { endpoint: string; method: string }) => {
     console.log('[appza/picker.image] openImagePicker called', {
@@ -1954,6 +1976,26 @@ function str(v: unknown): string | undefined {
  * already holds. Lets an action open a modal without duplicating any
  * of its copy into the opener's args (P66).
  */
+/**
+ * Customizations as the canvas currently sees them — saved overrides
+ * plus any unsaved live-preview edit from the Properties panel.
+ *
+ * Composed AppZets get this applied for free inside PlacementRenderer.
+ * Overlays are opened imperatively from here instead, well outside that
+ * render path, so without this mirror they'd render pure catalog
+ * defaults: a saved Options edit wouldn't show, and a live edit couldn't.
+ * Kept module-level because the action handler is module-level too.
+ */
+let currentCustomizations: unknown = null;
+
+function setCustomizationsForActions(customizations: unknown): void {
+  currentCustomizations = customizations;
+}
+
+/**
+ * An AppZet's props with overrides resolved — the same three layers the
+ * renderer applies (catalog default, customer override, live edit).
+ */
 function readAppzetPropsFromCatalog(slug: string): Record<string, unknown> {
   const cat = (window as unknown as { __appzaCatalog?: { appzets?: unknown[] } })
     .__appzaCatalog;
@@ -1962,9 +2004,138 @@ function readAppzetPropsFromCatalog(slug: string): Record<string, unknown> {
     (a): a is Record<string, unknown> =>
       isRecord(a) && (a as Record<string, unknown>).slug === slug,
   );
-  return found && isRecord(found.default_props_override)
+  const base = found && isRecord(found.default_props_override)
     ? (found.default_props_override as Record<string, unknown>)
     : {};
+  const resolved = resolveOverridableColumn(
+    currentCustomizations,
+    'appzet',
+    slug,
+    'default_props_override',
+    base,
+  );
+  return isRecord(resolved) ? resolved : base;
+}
+
+/**
+ * The purely presentational half of a modal's open payload — everything
+ * the Properties panel can author, and nothing about wiring (endpoints,
+ * auth, space context).
+ *
+ * Split out because it's needed twice: once when the modal opens, and
+ * again whenever the builder edits a prop while it's already open. The
+ * second path re-sends only this, so a colour tweak doesn't wipe the
+ * email the user has half-typed.
+ */
+function addMemberPresentation(props: Record<string, unknown>): {
+  title: string;
+  searchLabel?: string;
+  searchPlaceholder?: string;
+  roleLabel?: string;
+  rolePlaceholder?: string;
+  submitLabelEmpty?: string;
+  submitLabelTemplate?: string;
+  roles: AddMemberRoleOption[];
+} {
+  const rawRoles = Array.isArray(props.role_options) ? (props.role_options as unknown[]) : [];
+  const roles: AddMemberRoleOption[] = rawRoles
+    .filter((r): r is Record<string, unknown> => isRecord(r))
+    .filter((r) => typeof r.value === 'string' && typeof r.label === 'string')
+    .map((r) => ({
+      value: r.value as string,
+      label: r.label as string,
+      icon: typeof r.icon === 'string' ? (r.icon as string) : undefined,
+    }));
+  if (roles.length === 0) {
+    // Sensible default if the catalog is somehow bare — matches the
+    // seeded fc-add-member-modal defaults.
+    roles.push(
+      { value: 'member', label: 'Member' },
+      { value: 'moderator', label: 'Moderator' },
+      { value: 'admin', label: 'Admin' },
+    );
+  }
+  return {
+    title: str(props.modal_title) ?? 'Add Member',
+    searchLabel: str(props.search_label),
+    searchPlaceholder: str(props.search_placeholder),
+    roleLabel: str(props.role_label),
+    rolePlaceholder: str(props.role_placeholder),
+    submitLabelEmpty: str(props.submit_label_empty),
+    submitLabelTemplate: str(props.submit_label_template),
+    roles,
+  };
+}
+
+/** Presentational half of the invite modal's payload. See above. */
+function invitePresentation(props: Record<string, unknown>) {
+  const rawRoles = Array.isArray(props.role_options) ? (props.role_options as unknown[]) : [];
+  const roles: InviteRoleOption[] = rawRoles
+    .filter((r): r is Record<string, unknown> => isRecord(r))
+    .filter((r) => typeof r.value === 'string' && typeof r.label === 'string')
+    .map((r) => ({ value: r.value as string, label: r.label as string }));
+  if (roles.length === 0) {
+    roles.push(
+      { value: 'member', label: 'Member' },
+      { value: 'moderator', label: 'Moderator' },
+      { value: 'admin', label: 'Admin' },
+    );
+  }
+
+  // Colours stay on the AppZet keyed by the semantic tone the endpoint
+  // stamps per row, so a role chip and a status chip are themed
+  // independently without the endpoint knowing about colour at all.
+  const chipPalette: InviteChipPalette = {
+    success: {
+      bg: str(props.chip_success_bg_color),
+      text: str(props.chip_success_text_color),
+    },
+    warning: {
+      bg: str(props.chip_warning_bg_color),
+      text: str(props.chip_warning_text_color),
+    },
+    muted: {
+      bg: str(props.chip_muted_bg_color),
+      text: str(props.chip_muted_text_color),
+    },
+  };
+
+  return {
+    title: str(props.modal_title) ?? 'Invite user',
+    tabInvitationsLabel: str(props.tab_invitations_label),
+    tabInviteLabel: str(props.tab_invite_label),
+    showInvitationCount: props.show_invitation_count !== false,
+    defaultTab: (props.default_tab === 'invite' ? 'invite' : 'invitations') as
+      | 'invite'
+      | 'invitations',
+    copyLinkLabel: str(props.copy_link_label),
+    copyLinkIcon: str(props.copy_link_icon),
+    resendLabel: str(props.resend_label),
+    deleteIcon: str(props.delete_icon),
+    invitedByPrefix: str(props.invited_by_prefix),
+    emptyLabel: str(props.empty_label),
+    deleteConfirmTitle: str(props.delete_confirm_title),
+    deleteConfirmMessage: str(props.delete_confirm_message),
+    deleteCancelLabel: str(props.delete_cancel_label),
+    deleteConfirmLabel: str(props.delete_confirm_label),
+    emailLabel: str(props.email_label),
+    emailPlaceholder: str(props.email_placeholder),
+    nameLabel: str(props.name_label),
+    namePlaceholder: str(props.name_placeholder),
+    roleLabel: str(props.role_label),
+    rolePlaceholder: str(props.role_placeholder),
+    roles,
+    helperText: str(props.helper_text),
+    submitLabelEmpty: str(props.submit_label_empty),
+    submitLabelTemplate: str(props.submit_label_template),
+    chipPalette,
+    copyLinkColor: str(props.copy_link_color),
+    deleteColor: str(props.delete_color),
+    submitBgColor: str(props.submit_bg_color),
+    submitTextColor: str(props.submit_text_color),
+    submitDisabledBgColor: str(props.submit_disabled_bg_color),
+    listMaxHeight: str(props.list_max_height),
+  };
 }
 
 /**
@@ -3770,45 +3941,11 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
 
       if (!hasUser || !hasRole) {
         // Open path — pull labels + role_options off the referenced modal
-        // AppZet's default_props_override so builder edits flow through.
+        // AppZet's resolved props so builder edits flow through.
         const formSlug =
           typeof argRec.form_appzet_slug === 'string'
             ? argRec.form_appzet_slug
             : 'fc-add-member-modal';
-        const cat = (window as unknown as {
-          __appzaCatalog?: { appzets?: unknown[] };
-        }).__appzaCatalog;
-        const appzets = Array.isArray(cat?.appzets) ? cat!.appzets! : [];
-        const modalAppzet = appzets.find(
-          (a): a is Record<string, unknown> =>
-            isRecord(a) && (a as Record<string, unknown>).slug === formSlug,
-        );
-        const props =
-          modalAppzet && isRecord(modalAppzet.default_props_override)
-            ? (modalAppzet.default_props_override as Record<string, unknown>)
-            : {};
-        const rawRoles = Array.isArray(props.role_options)
-          ? (props.role_options as unknown[])
-          : [];
-        const roles: AddMemberRoleOption[] = rawRoles
-          .filter((r): r is Record<string, unknown> => isRecord(r))
-          .filter(
-            (r) => typeof r.value === 'string' && typeof r.label === 'string',
-          )
-          .map((r) => ({
-            value: r.value as string,
-            label: r.label as string,
-            icon: typeof r.icon === 'string' ? (r.icon as string) : undefined,
-          }));
-        if (roles.length === 0) {
-          // Sensible default if the catalog is somehow bare — matches
-          // the seeded fc-add-member-modal defaults.
-          roles.push(
-            { value: 'member', label: 'Member' },
-            { value: 'moderator', label: 'Moderator' },
-            { value: 'admin', label: 'Admin' },
-          );
-        }
         const usersEndpoint =
           typeof argRec.users_endpoint === 'string'
             ? argRec.users_endpoint
@@ -3816,20 +3953,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         const spaceSlug = getSpaceDetailControls().space_slug;
         openAddMemberModal({
           appzetSlug: formSlug,
-          title: typeof props.modal_title === 'string' ? (props.modal_title as string) : 'Add Member',
-          searchLabel:
-            typeof props.search_label === 'string' ? (props.search_label as string) : undefined,
-          searchPlaceholder:
-            typeof props.search_placeholder === 'string' ? (props.search_placeholder as string) : undefined,
-          roleLabel:
-            typeof props.role_label === 'string' ? (props.role_label as string) : undefined,
-          rolePlaceholder:
-            typeof props.role_placeholder === 'string' ? (props.role_placeholder as string) : undefined,
-          submitLabelEmpty:
-            typeof props.submit_label_empty === 'string' ? (props.submit_label_empty as string) : undefined,
-          submitLabelTemplate:
-            typeof props.submit_label_template === 'string' ? (props.submit_label_template as string) : undefined,
-          roles,
+          ...addMemberPresentation(readAppzetPropsFromCatalog(formSlug)),
           usersEndpoint,
           spaceSlug: spaceSlug ?? undefined,
           authHeader: auth ? basicAuthHeader(auth) : undefined,
@@ -4003,40 +4127,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             : 'fc-invite-user-modal';
         const props = readAppzetPropsFromCatalog(formSlug);
 
-        const rawRoles = Array.isArray(props.role_options)
-          ? (props.role_options as unknown[])
-          : [];
-        const roles: InviteRoleOption[] = rawRoles
-          .filter((r): r is Record<string, unknown> => isRecord(r))
-          .filter((r) => typeof r.value === 'string' && typeof r.label === 'string')
-          .map((r) => ({ value: r.value as string, label: r.label as string }));
-        if (roles.length === 0) {
-          roles.push(
-            { value: 'member', label: 'Member' },
-            { value: 'moderator', label: 'Moderator' },
-            { value: 'admin', label: 'Admin' },
-          );
-        }
-
-        // Colours stay on the AppZet keyed by the semantic tone the
-        // endpoint stamps per row, so a role chip and a status chip
-        // are themed independently without the endpoint knowing about
-        // colour at all.
-        const chipPalette: InviteChipPalette = {
-          success: {
-            bg: str(props.chip_success_bg_color),
-            text: str(props.chip_success_text_color),
-          },
-          warning: {
-            bg: str(props.chip_warning_bg_color),
-            text: str(props.chip_warning_text_color),
-          },
-          muted: {
-            bg: str(props.chip_muted_bg_color),
-            text: str(props.chip_muted_text_color),
-          },
-        };
-
         // Endpoint comes from the catalog's DataSource row, never a
         // literal in the shell.
         const dsSlug =
@@ -4049,38 +4139,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
 
         openInviteUserModal({
           appzetSlug: formSlug,
-          title: str(props.modal_title) ?? 'Invite user',
-          tabInvitationsLabel: str(props.tab_invitations_label),
-          tabInviteLabel: str(props.tab_invite_label),
-          showInvitationCount: props.show_invitation_count !== false,
-          defaultTab: props.default_tab === 'invite' ? 'invite' : 'invitations',
-          copyLinkLabel: str(props.copy_link_label),
-          copyLinkIcon: str(props.copy_link_icon),
-          resendLabel: str(props.resend_label),
-          deleteIcon: str(props.delete_icon),
-          invitedByPrefix: str(props.invited_by_prefix),
-          emptyLabel: str(props.empty_label),
-          deleteConfirmTitle: str(props.delete_confirm_title),
-          deleteConfirmMessage: str(props.delete_confirm_message),
-          deleteCancelLabel: str(props.delete_cancel_label),
-          deleteConfirmLabel: str(props.delete_confirm_label),
-          emailLabel: str(props.email_label),
-          emailPlaceholder: str(props.email_placeholder),
-          nameLabel: str(props.name_label),
-          namePlaceholder: str(props.name_placeholder),
-          roleLabel: str(props.role_label),
-          rolePlaceholder: str(props.role_placeholder),
-          roles,
-          helperText: str(props.helper_text),
-          submitLabelEmpty: str(props.submit_label_empty),
-          submitLabelTemplate: str(props.submit_label_template),
-          chipPalette,
-          copyLinkColor: str(props.copy_link_color),
-          deleteColor: str(props.delete_color),
-          submitBgColor: str(props.submit_bg_color),
-          submitTextColor: str(props.submit_text_color),
-          submitDisabledBgColor: str(props.submit_disabled_bg_color),
-          listMaxHeight: str(props.list_max_height),
+          ...invitePresentation(props),
           listEndpoint,
           spaceSlug: getSpaceDetailControls().space_slug ?? undefined,
           authHeader: auth ? basicAuthHeader(auth) : undefined,

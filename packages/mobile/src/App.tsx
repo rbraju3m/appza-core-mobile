@@ -23,6 +23,7 @@ import {
   openViewModePopover,
   prefillPostInformationFromContext,
   readDataPath,
+  resolveOverridableColumn,
   setCatalogGlobal,
   setFcRuntimeSettings,
   setFeedControls,
@@ -758,6 +759,13 @@ export function App() {
     base.appzet = scope;
     return base;
   }, [envelope, nowLabel]);
+
+  // Keep the action handler's view of the overrides in step with what the
+  // renderer is drawing, so an imperatively-opened overlay is authored
+  // from the same layers a composed AppZet renders from.
+  useEffect(() => {
+    setCustomizationsForActions(customizationsForRender);
+  }, [customizationsForRender]);
 
   const openDeleteConfirm = useCallback((p: PendingDelete) => setPendingDelete(p), []);
   const openCommentPanel = useCallback((p: CommentPanelState) => setCommentPanel(p), []);
@@ -2799,18 +2807,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
           typeof argRec.form_appzet_slug === 'string'
             ? argRec.form_appzet_slug
             : 'fc-add-member-modal';
-        const cat = (window as unknown as {
-          __appzaCatalog?: { appzets?: unknown[] };
-        }).__appzaCatalog;
-        const appzets = Array.isArray(cat?.appzets) ? cat!.appzets! : [];
-        const modalAppzet = appzets.find(
-          (a): a is Record<string, unknown> =>
-            isRecord(a) && (a as Record<string, unknown>).slug === formSlug,
-        );
-        const props =
-          modalAppzet && isRecord(modalAppzet.default_props_override)
-            ? (modalAppzet.default_props_override as Record<string, unknown>)
-            : {};
+        const props = readAppzetPropsFromCatalog(formSlug);
         const rawRoles = Array.isArray(props.role_options)
           ? (props.role_options as unknown[])
           : [];
@@ -2837,6 +2834,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         const authHeader = (window as unknown as { __appzaAuthHeader?: string })
           .__appzaAuthHeader;
         openAddMemberModal({
+          appzetSlug: formSlug,
           title: typeof props.modal_title === 'string' ? (props.modal_title as string) : 'Add Member',
           searchLabel:
             typeof props.search_label === 'string' ? (props.search_label as string) : undefined,
@@ -3080,6 +3078,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
           .__appzaAuthHeader;
 
         openInviteUserModal({
+          appzetSlug: formSlug,
           title: str(props.modal_title) ?? 'Invite user',
           tabInvitationsLabel: str(props.tab_invitations_label),
           tabInviteLabel: str(props.tab_invite_label),
@@ -3327,9 +3326,28 @@ function readAppzetPropsFromCatalog(slug: string): Record<string, unknown> {
     (a): a is Record<string, unknown> =>
       isRecord(a) && (a as Record<string, unknown>).slug === slug,
   );
-  return found && isRecord(found.default_props_override)
+  const base = found && isRecord(found.default_props_override)
     ? (found.default_props_override as Record<string, unknown>)
     : {};
+  // Overlays are opened imperatively from the action handler, outside
+  // PlacementRenderer — so unlike a composed AppZet they get no override
+  // resolution for free. Without this the site admin's saved Options
+  // edits on a modal would show in the builder and never reach the app.
+  const resolved = resolveOverridableColumn(
+    currentCustomizations,
+    'appzet',
+    slug,
+    'default_props_override',
+    base,
+  );
+  return isRecord(resolved) ? resolved : base;
+}
+
+/** The customizations the renderer is currently drawing with. */
+let currentCustomizations: unknown = null;
+
+function setCustomizationsForActions(customizations: unknown): void {
+  currentCustomizations = customizations;
 }
 
 /** Endpoints always come from the catalog, never a literal in the shell. */

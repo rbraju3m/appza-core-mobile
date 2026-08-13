@@ -47,6 +47,7 @@ export type InviteChipPalette = Record<string, { bg?: string; text?: string }>;
 
 const OPEN_EVENT = 'appza:open-invite-user-modal';
 const CLOSE_EVENT = 'appza:close-invite-user-modal';
+const PATCH_EVENT = 'appza:patch-invite-user-modal';
 const REFRESH_EVENT = 'appza:refresh-data';
 
 type InviteTab = 'invitations' | 'invite';
@@ -116,6 +117,9 @@ type OpenDetail = {
   appzetSlug?: string;
 };
 
+/** Slug-addressed so a patch reaches only the modal it was authored for. */
+type PatchDetail = { appzetSlug: string; patch: Partial<OpenDetail> };
+
 export function openInviteUserModal(detail: OpenDetail): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent<OpenDetail>(OPEN_EVENT, { detail }));
@@ -124,6 +128,24 @@ export function openInviteUserModal(detail: OpenDetail): void {
 export function closeInviteUserModal(): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(CLOSE_EVENT));
+}
+
+/**
+ * Re-authors an already-open modal in place. The builder calls this when
+ * a prop changes while the modal is on screen — re-opening instead would
+ * reset the active tab and any half-typed invite, so editing a label
+ * would yank the form out from under the user.
+ *
+ * No-op when the modal is closed; the next open reads fresh props anyway.
+ */
+export function patchInviteUserModal(
+  appzetSlug: string,
+  patch: Partial<OpenDetail>,
+): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent<PatchDetail>(PATCH_EVENT, { detail: { appzetSlug, patch } }),
+  );
 }
 
 function fillTemplate(tpl: string, role: InviteRoleOption | null): string {
@@ -190,11 +212,23 @@ export function InviteUserModal() {
       setOpen(false);
       setSubmitting(false);
     };
+    const onPatch = (e: Event) => {
+      const ce = e as CustomEvent<PatchDetail>;
+      if (!ce.detail) return;
+      const { appzetSlug, patch } = ce.detail;
+      setDetail((prev) => {
+        if (!prev) return prev;
+        const mine = prev.appzetSlug ?? DEFAULT_APPZET_SLUG;
+        return mine === appzetSlug ? { ...prev, ...patch } : prev;
+      });
+    };
     window.addEventListener(OPEN_EVENT, onOpen);
     window.addEventListener(CLOSE_EVENT, onClose);
+    window.addEventListener(PATCH_EVENT, onPatch);
     return () => {
       window.removeEventListener(OPEN_EVENT, onOpen);
       window.removeEventListener(CLOSE_EVENT, onClose);
+      window.removeEventListener(PATCH_EVENT, onPatch);
     };
   }, []);
 

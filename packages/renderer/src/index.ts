@@ -68,6 +68,7 @@ export {
   AddMemberModal,
   openAddMemberModal,
   closeAddMemberModal,
+  patchAddMemberModal,
   type AddMemberRoleOption,
   type AddMemberUser,
 } from './AddMemberModal';
@@ -75,6 +76,7 @@ export {
   InviteUserModal,
   openInviteUserModal,
   closeInviteUserModal,
+  patchInviteUserModal,
   type InviteRoleOption,
   type InvitationRow,
   type InviteChipPalette,
