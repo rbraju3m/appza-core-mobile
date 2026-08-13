@@ -1039,6 +1039,29 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bottomTab, envelope, catalog, currentScreen, templateSlug]);
 
+  // Overlays shared by both modes. They mount inside the DeviceFrame's
+  // overlaySlot — i.e. inside `.appza-device-viewport` — for two
+  // reasons. Visually, they pin to the simulated phone instead of the
+  // browser window. Structurally, that's the element whose click-capture
+  // handler drives design-time selection, so a modal tagged per
+  // designTimeAttrs.ts becomes selectable like anything else on screen.
+  //
+  // They must be mounted in Edit mode too: Edit-mode taps dispatch real
+  // actions (a child's action onClick stops propagation before
+  // AppZet-select runs), so the Add Member button opens its modal here
+  // exactly as it does in App mode.
+  const sharedOverlays = (
+    <>
+      <ViewModePopover />
+      <PostOptionsPopover />
+      <MemberOptionsSheet />
+      <MemberRoleSheet />
+      <MemberRemoveConfirm />
+      <AddMemberModal />
+      <InviteUserModal />
+    </>
+  );
+
   return (
     <div className="appza-shell">
       <TopBar
@@ -1461,12 +1484,20 @@ export function App() {
           bottomPanel={bottomPanel}
           selectedAppzetSlug={selectedAppzetSlug}
           onSelectAppzet={(slug) => {
-            // Mirrors the device-preview selection, and is the only way
-            // in for an AppZet that no screen places — modals are opened
-            // by an action, never rendered inline, so they can't be
-            // clicked in the preview.
+            // Mirrors the device-preview selection, and is the way in for
+            // an AppZet that no screen places — modals are opened by an
+            // action, so they're only on screen once something opens them.
             setSelectedAppzetSlug(slug);
             setSelectedPrimitive(null);
+            // Put an action-opened AppZet on the simulated screen, so
+            // editing it is visual rather than blind. Close whatever
+            // modal is already up first — two stacked cards would let
+            // the builder edit one while looking at the other.
+            const opener = findOpenerAction(slug);
+            if (!opener) return;
+            closeAddMemberModal();
+            closeInviteUserModal();
+            dispatchAction({ action_slug: opener.action_slug, args: opener.args });
           }}
         />
 
@@ -1474,7 +1505,16 @@ export function App() {
           className={`appza-center${uiMode === 'app' ? ' appza-center-app-mode' : ''}`}
           onClick={
             uiMode === 'edit'
-              ? () => {
+              ? (e) => {
+                  // Clicking the canvas background deselects. Overlays
+                  // are exempt: selection inside a modal deliberately
+                  // lets the click through (so the modal keeps working
+                  // while you edit it), and without this guard that same
+                  // click would arrive here and immediately undo the
+                  // selection it just made.
+                  if ((e.target as HTMLElement | null)?.closest('[data-appza-overlay]')) {
+                    return;
+                  }
                   setSelectedAppzetSlug(null);
                   setSelectedPrimitive(null);
                 }
@@ -1683,6 +1723,8 @@ export function App() {
                       {menuToast.message}
                     </div>
                   )}
+
+                  {sharedOverlays}
                   </>
                 }
               />
@@ -1704,19 +1746,9 @@ export function App() {
                     setSelectedPrimitive(sel);
                     if (sel) setSelectedAppzetSlug(null);
                   }}
+                  overlaySlot={sharedOverlays}
                 />
               )}
-              {/* Popovers must always be mounted (not just in App mode)
-                  because Edit-mode dispatches also open them — e.g.
-                  spaces.set_sort fires from a state-only tap and expects
-                  ViewModePopover to be ready. */}
-              <ViewModePopover />
-              <PostOptionsPopover />
-              <MemberOptionsSheet />
-              <MemberRoleSheet />
-              <MemberRemoveConfirm />
-              <AddMemberModal />
-              <InviteUserModal />
             </ActionProvider>
           )}
         </main>
@@ -1933,6 +1965,37 @@ function readAppzetPropsFromCatalog(slug: string): Record<string, unknown> {
   return found && isRecord(found.default_props_override)
     ? (found.default_props_override as Record<string, unknown>)
     : {};
+}
+
+/**
+ * Finds the action wiring that opens `slug`, so selecting an
+ * action-opened AppZet in the sidebar can put it on screen instead of
+ * leaving the builder editing something invisible.
+ *
+ * Read out of the catalog rather than hardcoded: any AppZet wiring that
+ * points at a form via a `*_appzet_slug` arg is an opener, so a customer
+ * variant (`acme-invite-modal`) works with no shell change. Self-
+ * references are skipped — fc-post-information names itself in its own
+ * picker wirings, and "opening" it would fire a poll/emoji picker.
+ */
+function findOpenerAction(
+  slug: string,
+): { action_slug: string; args: Record<string, unknown> } | null {
+  const cat = (window as unknown as { __appzaCatalog?: { appzets?: unknown[] } })
+    .__appzaCatalog;
+  const appzets = Array.isArray(cat?.appzets) ? cat!.appzets! : [];
+  for (const a of appzets) {
+    if (!isRecord(a) || a.slug === slug || !isRecord(a.actions)) continue;
+    for (const wiring of Object.values(a.actions)) {
+      if (!isRecord(wiring) || typeof wiring.action_slug !== 'string') continue;
+      const args = isRecord(wiring.args) ? wiring.args : {};
+      const opensThis = Object.entries(args).some(
+        ([k, v]) => k.endsWith('appzet_slug') && v === slug,
+      );
+      if (opensThis) return { action_slug: wiring.action_slug, args };
+    }
+  }
+  return null;
 }
 
 /** Endpoints always come from the catalog, never a literal in the shell. */
@@ -3752,6 +3815,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             : '/wp-json/fcom-mobile/api/v1/users/search';
         const spaceSlug = getSpaceDetailControls().space_slug;
         openAddMemberModal({
+          appzetSlug: formSlug,
           title: typeof props.modal_title === 'string' ? (props.modal_title as string) : 'Add Member',
           searchLabel:
             typeof props.search_label === 'string' ? (props.search_label as string) : undefined,
@@ -3984,6 +4048,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           '/wp-json/fcom-mobile/api/v1/spaces/invitations';
 
         openInviteUserModal({
+          appzetSlug: formSlug,
           title: str(props.modal_title) ?? 'Invite user',
           tabInvitationsLabel: str(props.tab_invitations_label),
           tabInviteLabel: str(props.tab_invite_label),

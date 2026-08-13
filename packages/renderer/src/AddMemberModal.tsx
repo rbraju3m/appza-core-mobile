@@ -3,6 +3,11 @@ import { IonIcon } from '@ionic/react';
 import { useActionDispatch } from './actionContext';
 import { resolveIcon } from './PrimitiveRenderer';
 import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
+import { appzetAttrs, childAttrs } from './designTimeAttrs';
+
+// Slug of the catalog AppZet this modal stands in for. Used only to
+// address the builder's Properties panel; the runtime never reads it.
+const DEFAULT_APPZET_SLUG = 'fc-add-member-modal';
 
 // Centered modal opened by member.add. Three visual states in one shell:
 //   1. no user picked  → search input + result list
@@ -60,6 +65,13 @@ type OpenDetail = {
   restNonce?: string;
   submitActionSlug?: string;
   submitArgs?: Record<string, unknown>;
+  /**
+   * Catalog slug of the AppZet whose props drove this open. Carried so
+   * the builder can select the right row when the modal is clicked in
+   * the simulator — the shell resolves it from the opener action's
+   * `form_appzet_slug`, which may point at a customer's own variant.
+   */
+  appzetSlug?: string;
 };
 
 export function openAddMemberModal(detail: OpenDetail): void {
@@ -291,6 +303,7 @@ export function AddMemberModal() {
     u.xprofile?.email ?? u.xprofile?.user_email ?? '';
 
   const selectedName = selectedUser ? displayName(selectedUser) : '';
+  const az = detail.appzetSlug ?? DEFAULT_APPZET_SLUG;
 
   return (
     <div
@@ -302,28 +315,31 @@ export function AddMemberModal() {
         if (e.target === e.currentTarget) handleClose();
       }}
     >
-      <div className="appza-add-member-modal">
+      <div className="appza-add-member-modal" {...appzetAttrs(az)}>
         <div className="appza-add-member-header">
-          <div className="appza-add-member-title">{detail.title ?? 'Add Member'}</div>
+          <div className="appza-add-member-title" {...childAttrs(az, 0, 'ion-text')}>
+            {detail.title ?? 'Add Member'}
+          </div>
           <button
             type="button"
             className="appza-add-member-close"
             aria-label="Close"
             onClick={handleClose}
             disabled={submitting}
+            {...childAttrs(az, 1, 'ion-button')}
           >
             {closeIcon && <IonIcon icon={closeIcon} />}
           </button>
         </div>
 
         <div className="appza-add-member-body">
-          <div className="appza-add-member-label">
+          <div className="appza-add-member-label" {...childAttrs(az, 2, 'ion-text')}>
             {detail.searchLabel ?? 'Search for an existing user'}
           </div>
 
           {!selectedUser && (
             <>
-              <div className="appza-add-member-search">
+              <div className="appza-add-member-search" {...childAttrs(az, 3, 'ion-input')}>
                 {searchIcon && (
                   <IonIcon icon={searchIcon} className="appza-add-member-search-icon" />
                 )}
@@ -336,7 +352,7 @@ export function AddMemberModal() {
                   onChange={(e) => setQuery(e.target.value)}
                 />
               </div>
-              <div className="appza-add-member-list">
+              <div className="appza-add-member-list" {...childAttrs(az, 4, 'ion-list')}>
                 {loading && (
                   <div className="appza-add-member-empty">Searching…</div>
                 )}
@@ -385,7 +401,7 @@ export function AddMemberModal() {
           )}
 
           {selectedUser && (
-            <div className="appza-add-member-chip-row">
+            <div className="appza-add-member-chip-row" {...childAttrs(az, 5, 'ion-chip')}>
               <div className="appza-add-member-chip">
                 <span className="appza-add-member-chip-label">
                   {selectedName || 'Selected user'}
@@ -403,11 +419,14 @@ export function AddMemberModal() {
             </div>
           )}
 
-          <div className="appza-add-member-label appza-add-member-label--role">
+          <div
+            className="appza-add-member-label appza-add-member-label--role"
+            {...childAttrs(az, 6, 'ion-text')}
+          >
             {detail.roleLabel ?? 'Membership Role'}
           </div>
 
-          <div className="appza-add-member-role">
+          <div className="appza-add-member-role" {...childAttrs(az, 7, 'ion-select')}>
             <button
               type="button"
               className={
@@ -461,6 +480,7 @@ export function AddMemberModal() {
             }
             onClick={handleSubmit}
             disabled={!canSubmit}
+            {...childAttrs(az, 8, 'ion-button')}
           >
             {submitting ? 'Adding…' : submitLabel}
           </button>

@@ -71,21 +71,42 @@ export function DeviceFrame({
   });
 
   function handleClickCapture(e: React.MouseEvent) {
-    if (!onSelectPrimitive) return;
+    if (!onSelectPrimitive && !onSelectAppzet) return;
     const target = e.target as HTMLElement | null;
     if (!target) return;
     // Interactive inner elements (video-embed play badge, future in-card
     // controls) opt out of DC#20 primitive-select by carrying this attr.
     // We yield the click back to the target's own onClick handler.
     if (target.closest('[data-appza-inline-click]')) return;
+    // Inside a live overlay (modal/sheet) the click must reach the
+    // control it landed on as well as select it — see appzetAttrs().
+    // Everywhere else, selecting consumes the click so a design-time tap
+    // can't fire a real action.
+    const inOverlay = Boolean(target.closest('[data-appza-overlay]'));
     const primitiveEl = target.closest('[data-appza-primitive-path]') as HTMLElement | null;
-    if (!primitiveEl) return;
-    const primitivePath = primitiveEl.getAttribute('data-appza-primitive-path');
-    const appzetSlug = primitiveEl.getAttribute('data-appza-appzet-slug');
-    const primitiveSlug = primitiveEl.getAttribute('data-child-slug');
-    if (!primitivePath || !appzetSlug || !primitiveSlug) return;
-    e.stopPropagation();
-    onSelectPrimitive({ appzetSlug, primitivePath, primitiveSlug });
+    if (primitiveEl && onSelectPrimitive) {
+      const primitivePath = primitiveEl.getAttribute('data-appza-primitive-path');
+      const appzetSlug = primitiveEl.getAttribute('data-appza-appzet-slug');
+      const primitiveSlug = primitiveEl.getAttribute('data-child-slug');
+      if (primitivePath && appzetSlug && primitiveSlug) {
+        if (!inOverlay) e.stopPropagation();
+        onSelectPrimitive({ appzetSlug, primitivePath, primitiveSlug });
+        return;
+      }
+    }
+    if (!onSelectAppzet) return;
+    // Fallback for hand-written overlays (modals, sheets) that tag their
+    // root card with `data-appza-appzet-slug` — see designTimeAttrs.ts.
+    // They aren't composed by PlacementRenderer, so they don't get its
+    // AppZet-level onClick; without this, clicking the card's padding
+    // reaches <main> and clears the selection instead of making one.
+    // Composed AppZets never fall through to here: their tagged nodes
+    // all carry a primitive path and are handled above.
+    const appzetEl = target.closest('[data-appza-appzet-slug]') as HTMLElement | null;
+    const slug = appzetEl?.getAttribute('data-appza-appzet-slug');
+    if (!slug) return;
+    if (!inOverlay) e.stopPropagation();
+    onSelectAppzet(slug);
   }
 
   return (

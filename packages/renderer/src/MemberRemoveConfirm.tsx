@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useActionDispatch } from './actionContext';
 import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
-import { deviceViewportOverlayStyle, useDeviceViewportRect } from './useDeviceViewportRect';
 
 // iOS-style center alert opened by member.remove_confirm. Shows the
 // member's display name as the bold title + a short message. Two
@@ -50,9 +49,6 @@ export function MemberRemoveConfirm() {
   const [detail, setDetail] = useState<OpenDetail | null>(null);
   const [inFlight, setInFlight] = useState(false);
   const dispatch = useActionDispatch();
-  // Keeps the alert on the simulated phone screen in the plug-in admin;
-  // null (and so a plain full-window overlay) on mobile.
-  const hostRect = useDeviceViewportRect(open);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -108,7 +104,6 @@ export function MemberRemoveConfirm() {
       aria-modal="true"
       aria-label={detail.subject}
       className="appza-member-confirm-backdrop"
-      style={deviceViewportOverlayStyle(hostRect)}
       onClick={(e) => {
         if (e.target === e.currentTarget) cancel();
       }}

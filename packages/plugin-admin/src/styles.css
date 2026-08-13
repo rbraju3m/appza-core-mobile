@@ -1459,6 +1459,23 @@ body {
   background: #f59e0b;
 }
 
+/* ------- overlays inside the simulated phone -------
+   Modals, sheets and confirms are position:fixed in the renderer, which
+   is right on Capacitor where the window IS the device screen. Here the
+   phone is a 375px slice of a desktop window, so a fixed overlay covers
+   the whole admin page and centres its card beside the frame. They now
+   mount inside .appza-device-viewport (which is also what makes them
+   selectable), so absolute pins them to the phone instead. Renderer CSS
+   stays untouched — the mobile build has no .appza-device-viewport
+   ancestor and keeps the fixed behaviour. */
+
+.appza-device-viewport .appza-add-member-backdrop,
+.appza-device-viewport .appza-invite-user-backdrop,
+.appza-device-viewport .appza-member-sheet-backdrop,
+.appza-device-viewport .appza-member-confirm-backdrop {
+  position: absolute;
+}
+
 /* ------- design-time primitive selection (DC#20) -------
    Painted on the SS-child wrapper the renderer emits at depth 0 with
    data-appza-primitive-path. Blue to distinguish from the AppZet-level

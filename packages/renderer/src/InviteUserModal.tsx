@@ -3,7 +3,12 @@ import { IonIcon } from '@ionic/react';
 import { useActionDispatch } from './actionContext';
 import { resolveIcon } from './PrimitiveRenderer';
 import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
-import { deviceViewportOverlayStyle, useDeviceViewportRect } from './useDeviceViewportRect';
+import { useInsideDeviceViewport } from './insideDeviceViewport';
+import { appzetAttrs, childAttrs } from './designTimeAttrs';
+
+// Slug of the catalog AppZet this modal stands in for. Used only to
+// address the builder's Properties panel; the runtime never reads it.
+const DEFAULT_APPZET_SLUG = 'fc-invite-user-modal';
 
 // Centered modal opened by member.invite. Two tabs in one shell:
 //
@@ -102,6 +107,13 @@ type OpenDetail = {
   copyActionSlug?: string;
   resendActionSlug?: string;
   deleteActionSlug?: string;
+  /**
+   * Catalog slug of the AppZet whose props drove this open. Carried so
+   * the builder can select the right row when the modal is clicked in
+   * the simulator — the shell resolves it from the opener action's
+   * `form_appzet_slug`, which may point at a customer's own variant.
+   */
+  appzetSlug?: string;
 };
 
 export function openInviteUserModal(detail: OpenDetail): void {
@@ -149,9 +161,9 @@ export function InviteUserModal() {
   const [roleOpen, setRoleOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const dispatch = useActionDispatch();
-  // Keeps the overlay on the simulated phone screen in the plug-in
-  // admin; null (and so a plain full-window overlay) on mobile.
-  const hostRect = useDeviceViewportRect(open);
+  // In the plug-in admin the card caps its height against the simulated
+  // phone screen; on mobile it sizes to the real one.
+  const embedded = useInsideDeviceViewport(open);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -362,6 +374,8 @@ export function InviteUserModal() {
     ? (detail.tabInvitationsLabel ?? 'Invitations')
     : `${detail.tabInvitationsLabel ?? 'Invitations'} ${total}`;
 
+  const az = detail.appzetSlug ?? DEFAULT_APPZET_SLUG;
+
   const submitStyle = {
     background: canSubmit
       ? detail.submitBgColor || undefined
@@ -374,21 +388,23 @@ export function InviteUserModal() {
       role="dialog"
       aria-modal="true"
       aria-label={detail.title ?? 'Invite user'}
-      className={'appza-invite-user-backdrop' + (hostRect ? ' is-embedded' : '')}
-      style={deviceViewportOverlayStyle(hostRect)}
+      className={'appza-invite-user-backdrop' + (embedded ? ' is-embedded' : '')}
       onClick={(e) => {
         if (e.target === e.currentTarget) handleClose();
       }}
     >
-      <div className="appza-invite-user-modal">
+      <div className="appza-invite-user-modal" {...appzetAttrs(az)}>
         <div className="appza-invite-user-header">
-          <div className="appza-invite-user-title">{detail.title ?? 'Invite user'}</div>
+          <div className="appza-invite-user-title" {...childAttrs(az, 0, 'ion-text')}>
+            {detail.title ?? 'Invite user'}
+          </div>
           <button
             type="button"
             className="appza-invite-user-close"
             aria-label="Close"
             onClick={handleClose}
             disabled={submitting}
+            {...childAttrs(az, 1, 'ion-button')}
           >
             {closeIcon && <IonIcon icon={closeIcon} />}
           </button>
@@ -403,6 +419,7 @@ export function InviteUserModal() {
               'appza-invite-user-tab' + (tab === 'invitations' ? ' is-active' : '')
             }
             onClick={() => setTab('invitations')}
+            {...childAttrs(az, 2, 'ion-button')}
           >
             {tabInvitationsLabel}
           </button>
@@ -412,6 +429,7 @@ export function InviteUserModal() {
             aria-selected={tab === 'invite'}
             className={'appza-invite-user-tab' + (tab === 'invite' ? ' is-active' : '')}
             onClick={() => setTab('invite')}
+            {...childAttrs(az, 3, 'ion-button')}
           >
             {detail.tabInviteLabel ?? 'Invite User'}
           </button>
@@ -421,6 +439,7 @@ export function InviteUserModal() {
           <div
             className="appza-invite-user-list"
             style={detail.listMaxHeight ? { maxHeight: detail.listMaxHeight } : undefined}
+            {...childAttrs(az, 4, 'ion-list')}
           >
             {loading && <div className="appza-invite-user-empty">Loading…</div>}
             {!loading && error && <div className="appza-invite-user-error">{error}</div>}
@@ -509,7 +528,11 @@ export function InviteUserModal() {
         ) : (
           <>
             <div className="appza-invite-user-form">
-              <label className="appza-invite-user-label" htmlFor="appza-invite-email">
+              <label
+                className="appza-invite-user-label"
+                htmlFor="appza-invite-email"
+                {...childAttrs(az, 5, 'ion-text')}
+              >
                 {detail.emailLabel ?? 'Email'}
               </label>
               <input
@@ -520,9 +543,14 @@ export function InviteUserModal() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={submitting}
+                {...childAttrs(az, 6, 'ion-input')}
               />
 
-              <label className="appza-invite-user-label" htmlFor="appza-invite-name">
+              <label
+                className="appza-invite-user-label"
+                htmlFor="appza-invite-name"
+                {...childAttrs(az, 7, 'ion-text')}
+              >
                 {detail.nameLabel ?? 'Invitee name (optional)'}
               </label>
               <input
@@ -533,15 +561,16 @@ export function InviteUserModal() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 disabled={submitting}
+                {...childAttrs(az, 8, 'ion-input')}
               />
 
-              <div className="appza-invite-user-label">
+              <div className="appza-invite-user-label" {...childAttrs(az, 9, 'ion-text')}>
                 {detail.roleLabel ?? 'Membership Role'}
               </div>
               {/* In-flow menu, not absolutely positioned: the modal
                   clips overflow, so an absolute menu would render off
                   screen and the trigger would read as a dead button. */}
-              <div className="appza-invite-user-role">
+              <div className="appza-invite-user-role" {...childAttrs(az, 10, 'ion-select')}>
                 <button
                   type="button"
                   className={
@@ -586,7 +615,9 @@ export function InviteUserModal() {
               </div>
 
               {detail.helperText && (
-                <p className="appza-invite-user-helper">{detail.helperText}</p>
+                <p className="appza-invite-user-helper" {...childAttrs(az, 11, 'ion-text')}>
+                  {detail.helperText}
+                </p>
               )}
             </div>
 
@@ -599,6 +630,7 @@ export function InviteUserModal() {
                 style={submitStyle}
                 onClick={handleSubmit}
                 disabled={!canSubmit}
+                {...childAttrs(az, 12, 'ion-button')}
               >
                 {submitting ? 'Sending…' : submitLabel}
               </button>
