@@ -4243,7 +4243,7 @@
 .appza-add-member-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--appza-am-backdrop, rgba(15, 23, 42, 0.45));
   display: grid;
   place-items: center;
   z-index: 70;
@@ -4251,9 +4251,9 @@
   padding: 16px;
 }
 .appza-add-member-modal {
-  width: min(360px, 100%);
-  background: #ffffff;
-  border-radius: 14px;
+  width: min(var(--appza-am-max-width, 360px), 100%);
+  background: var(--appza-am-bg, #ffffff);
+  border-radius: var(--appza-am-radius, 14px);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
@@ -4292,23 +4292,24 @@
   opacity: 0.55;
 }
 .appza-add-member-body {
-  padding: 14px 20px 4px 20px;
+  padding: var(--appza-am-padding, 14px 20px 4px 20px);
   overflow-y: auto;
 }
 .appza-add-member-label {
   font-size: 0.85rem;
   font-weight: 500;
   color: #1f2937;
-  margin: 6px 0 8px 0;
+  margin: var(--appza-am-gap, 6px) 0 8px 0;
 }
 .appza-add-member-label--role {
-  margin-top: 16px;
+  margin-top: var(--appza-am-gap, 16px);
 }
 .appza-add-member-search {
   position: relative;
   display: flex;
   align-items: center;
-  background: #f3f4f6;
+  background: var(--appza-am-search-bg, #f3f4f6);
+  border: 1px solid var(--appza-am-search-border, transparent);
   border-radius: 8px;
   padding: 0 10px;
 }
@@ -4325,7 +4326,7 @@
   padding: 10px 0;
   font: inherit;
   font-size: 0.9rem;
-  color: #111827;
+  color: var(--appza-am-search-text, #111827);
   outline: none;
 }
 .appza-add-member-search-input::placeholder {
@@ -4415,14 +4416,14 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  background: #f3f4f6;
+  background: var(--appza-am-chip-bg, #f3f4f6);
   border-radius: 8px;
   padding: 8px 10px;
 }
 .appza-add-member-chip-label {
   flex: 1 1 auto;
   font-size: 0.9rem;
-  color: #111827;
+  color: var(--appza-am-chip-text, #111827);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4451,13 +4452,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #f3f4f6;
-  border: 1px solid transparent;
+  background: var(--appza-am-role-bg, #f3f4f6);
+  border: 1px solid var(--appza-am-role-border, transparent);
   border-radius: 8px;
   padding: 10px 12px;
   font: inherit;
   font-size: 0.9rem;
-  color: #111827;
+  color: var(--appza-am-role-text, #111827);
   cursor: pointer;
 }
 .appza-add-member-role-trigger.is-open {
@@ -4512,10 +4513,10 @@
 .appza-add-member-submit {
   width: 100%;
   border: none;
-  background: #2b7cff;
-  color: #ffffff;
+  background: var(--appza-am-submit-bg, #2b7cff);
+  color: var(--appza-am-submit-text, #ffffff);
   padding: 12px 16px;
-  border-radius: 8px;
+  border-radius: var(--appza-am-submit-radius, 8px);
   font: inherit;
   font-weight: 700;
   font-size: 0.85rem;
@@ -4527,7 +4528,7 @@
 }
 .appza-add-member-submit.is-disabled,
 .appza-add-member-submit:disabled {
-  background: #9dbcff;
+  background: var(--appza-am-submit-disabled-bg, #9dbcff);
   color: #ffffff;
   cursor: not-allowed;
 }
@@ -4545,7 +4546,7 @@
 .appza-invite-user-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--appza-iu-backdrop, rgba(15, 23, 42, 0.45));
   display: grid;
   place-items: center;
   z-index: 71;
@@ -4553,9 +4554,9 @@
   padding: 16px;
 }
 .appza-invite-user-modal {
-  width: min(360px, 100%);
-  background: #ffffff;
-  border-radius: 14px;
+  width: min(var(--appza-iu-max-width, 360px), 100%);
+  background: var(--appza-iu-bg, #ffffff);
+  border-radius: var(--appza-iu-radius, 14px);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
@@ -4607,7 +4608,7 @@
   gap: 4px;
   margin: 12px 16px;
   padding: 3px;
-  background: #ececec;
+  background: var(--appza-iu-tab-bg, #ececec);
   border-radius: 8px;
   flex: 0 0 auto;
 }
@@ -4619,13 +4620,13 @@
   font: inherit;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #8b8b8b;
+  color: var(--appza-iu-tab-text, #8b8b8b);
   border-radius: 6px;
   cursor: pointer;
 }
 .appza-invite-user-tab.is-active {
-  background: #ffffff;
-  color: #111827;
+  background: var(--appza-iu-tab-active-bg, #ffffff);
+  color: var(--appza-iu-tab-active-text, #111827);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
@@ -4663,7 +4664,7 @@
 .appza-invite-user-row-title {
   font-size: 0.82rem;
   font-weight: 600;
-  color: #111827;
+  color: var(--appza-iu-row-title, #111827);
   line-height: 1.3;
   overflow-wrap: anywhere;
 }
@@ -4686,7 +4687,7 @@
 .appza-invite-user-row-meta {
   margin-top: 3px;
   font-size: 0.72rem;
-  color: #9a9a9a;
+  color: var(--appza-iu-row-meta, #9a9a9a);
   line-height: 1.35;
 }
 .appza-invite-user-row-side {
@@ -4752,11 +4753,11 @@
 .appza-invite-user-form {
   flex: 1 1 auto;
   overflow-y: auto;
-  padding: 4px 20px 8px 20px;
+  padding: var(--appza-iu-padding, 4px 20px 8px 20px);
 }
 .appza-invite-user-label {
   display: block;
-  margin: 14px 0 8px 0;
+  margin: var(--appza-iu-gap, 14px) 0 8px 0;
   font-size: 0.95rem;
   font-weight: 700;
   color: #111827;
@@ -4769,16 +4770,19 @@
   box-sizing: border-box;
   border: none;
   box-shadow: none;
-  background: #ececec;
-  border-radius: 6px;
+  background: var(--appza-iu-field-bg, #ececec);
+  border: 1px solid var(--appza-iu-field-border, transparent);
+  border-radius: var(--appza-iu-field-radius, 6px);
   padding: 12px 12px;
   font: inherit;
   font-size: 0.88rem;
-  color: #111827;
+  color: var(--appza-iu-field-text, #111827);
   outline: none;
 }
 .appza-invite-user-modal .appza-invite-user-input:focus {
-  border: none;
+  /* Keeps the authored field border instead of dropping to none, which
+     would make an author-set border blink away on focus. */
+  border: 1px solid var(--appza-iu-field-border, transparent);
   box-shadow: none;
   outline: 2px solid rgba(43, 124, 255, 0.35);
 }
@@ -4798,12 +4802,13 @@
   justify-content: flex-start;
   gap: 8px;
   border: none;
-  background: #ececec;
-  border-radius: 6px;
+  background: var(--appza-iu-field-bg, #ececec);
+  border: 1px solid var(--appza-iu-field-border, transparent);
+  border-radius: var(--appza-iu-field-radius, 6px);
   padding: 12px 12px;
   font: inherit;
   font-size: 0.88rem;
-  color: #111827;
+  color: var(--appza-iu-field-text, #111827);
   cursor: pointer;
   text-align: left;
 }
@@ -4851,7 +4856,7 @@
   margin: 8px 0 0 0;
   font-size: 0.64rem;
   line-height: 1.45;
-  color: #9a9a9a;
+  color: var(--appza-iu-helper-text, #9a9a9a);
 }
 .appza-invite-user-footer {
   flex: 0 0 auto;

@@ -18,6 +18,11 @@ import {
   readDataPath,
   resolveIcon,
   resolveOverridableColumn,
+  addMemberPresentation,
+  invitePresentation,
+  childStylesFromCustomizations,
+  ADD_MEMBER_CHILD_COUNT,
+  INVITE_USER_CHILD_COUNT,
   setCatalogGlobal,
   setFcRuntimeSettings,
   setFeedControls,
@@ -655,13 +660,33 @@ export function App() {
   // picked user, half-typed email) intact while you edit. The patch is
   // addressed by slug and ignored by a modal showing a different AppZet,
   // so a customer's own variant is handled without naming it here.
+  // Which AppZet the panel is editing. Options edits select the AppZet;
+  // Wrapper edits select one of its children and null the AppZet slug,
+  // so keying on `selectedAppzetSlug` alone would leave every width /
+  // height / gap change unpushed.
+  const editedAppzetSlug = selectedAppzetSlug ?? selectedPrimitive?.appzetSlug ?? null;
+
   useEffect(() => {
     setCustomizationsForActions(effectiveCustomizations);
-    if (!selectedAppzetSlug) return;
-    const props = readAppzetPropsFromCatalog(selectedAppzetSlug);
-    patchAddMemberModal(selectedAppzetSlug, addMemberPresentation(props));
-    patchInviteUserModal(selectedAppzetSlug, invitePresentation(props));
-  }, [effectiveCustomizations, selectedAppzetSlug]);
+    if (!editedAppzetSlug) return;
+    const props = readAppzetPropsFromCatalog(editedAppzetSlug);
+    patchAddMemberModal(editedAppzetSlug, {
+      ...addMemberPresentation(props),
+      childStyles: childStylesFromCustomizations(
+        editedAppzetSlug,
+        ADD_MEMBER_CHILD_COUNT,
+        effectiveCustomizations,
+      ),
+    });
+    patchInviteUserModal(editedAppzetSlug, {
+      ...invitePresentation(props),
+      childStyles: childStylesFromCustomizations(
+        editedAppzetSlug,
+        INVITE_USER_CHILD_COUNT,
+        effectiveCustomizations,
+      ),
+    });
+  }, [effectiveCustomizations, editedAppzetSlug]);
 
   const openImagePicker = useCallback((target: { endpoint: string; method: string }) => {
     console.log('[appza/picker.image] openImagePicker called', {
@@ -2017,126 +2042,6 @@ function readAppzetPropsFromCatalog(slug: string): Record<string, unknown> {
   return isRecord(resolved) ? resolved : base;
 }
 
-/**
- * The purely presentational half of a modal's open payload — everything
- * the Properties panel can author, and nothing about wiring (endpoints,
- * auth, space context).
- *
- * Split out because it's needed twice: once when the modal opens, and
- * again whenever the builder edits a prop while it's already open. The
- * second path re-sends only this, so a colour tweak doesn't wipe the
- * email the user has half-typed.
- */
-function addMemberPresentation(props: Record<string, unknown>): {
-  title: string;
-  searchLabel?: string;
-  searchPlaceholder?: string;
-  roleLabel?: string;
-  rolePlaceholder?: string;
-  submitLabelEmpty?: string;
-  submitLabelTemplate?: string;
-  roles: AddMemberRoleOption[];
-} {
-  const rawRoles = Array.isArray(props.role_options) ? (props.role_options as unknown[]) : [];
-  const roles: AddMemberRoleOption[] = rawRoles
-    .filter((r): r is Record<string, unknown> => isRecord(r))
-    .filter((r) => typeof r.value === 'string' && typeof r.label === 'string')
-    .map((r) => ({
-      value: r.value as string,
-      label: r.label as string,
-      icon: typeof r.icon === 'string' ? (r.icon as string) : undefined,
-    }));
-  if (roles.length === 0) {
-    // Sensible default if the catalog is somehow bare — matches the
-    // seeded fc-add-member-modal defaults.
-    roles.push(
-      { value: 'member', label: 'Member' },
-      { value: 'moderator', label: 'Moderator' },
-      { value: 'admin', label: 'Admin' },
-    );
-  }
-  return {
-    title: str(props.modal_title) ?? 'Add Member',
-    searchLabel: str(props.search_label),
-    searchPlaceholder: str(props.search_placeholder),
-    roleLabel: str(props.role_label),
-    rolePlaceholder: str(props.role_placeholder),
-    submitLabelEmpty: str(props.submit_label_empty),
-    submitLabelTemplate: str(props.submit_label_template),
-    roles,
-  };
-}
-
-/** Presentational half of the invite modal's payload. See above. */
-function invitePresentation(props: Record<string, unknown>) {
-  const rawRoles = Array.isArray(props.role_options) ? (props.role_options as unknown[]) : [];
-  const roles: InviteRoleOption[] = rawRoles
-    .filter((r): r is Record<string, unknown> => isRecord(r))
-    .filter((r) => typeof r.value === 'string' && typeof r.label === 'string')
-    .map((r) => ({ value: r.value as string, label: r.label as string }));
-  if (roles.length === 0) {
-    roles.push(
-      { value: 'member', label: 'Member' },
-      { value: 'moderator', label: 'Moderator' },
-      { value: 'admin', label: 'Admin' },
-    );
-  }
-
-  // Colours stay on the AppZet keyed by the semantic tone the endpoint
-  // stamps per row, so a role chip and a status chip are themed
-  // independently without the endpoint knowing about colour at all.
-  const chipPalette: InviteChipPalette = {
-    success: {
-      bg: str(props.chip_success_bg_color),
-      text: str(props.chip_success_text_color),
-    },
-    warning: {
-      bg: str(props.chip_warning_bg_color),
-      text: str(props.chip_warning_text_color),
-    },
-    muted: {
-      bg: str(props.chip_muted_bg_color),
-      text: str(props.chip_muted_text_color),
-    },
-  };
-
-  return {
-    title: str(props.modal_title) ?? 'Invite user',
-    tabInvitationsLabel: str(props.tab_invitations_label),
-    tabInviteLabel: str(props.tab_invite_label),
-    showInvitationCount: props.show_invitation_count !== false,
-    defaultTab: (props.default_tab === 'invite' ? 'invite' : 'invitations') as
-      | 'invite'
-      | 'invitations',
-    copyLinkLabel: str(props.copy_link_label),
-    copyLinkIcon: str(props.copy_link_icon),
-    resendLabel: str(props.resend_label),
-    deleteIcon: str(props.delete_icon),
-    invitedByPrefix: str(props.invited_by_prefix),
-    emptyLabel: str(props.empty_label),
-    deleteConfirmTitle: str(props.delete_confirm_title),
-    deleteConfirmMessage: str(props.delete_confirm_message),
-    deleteCancelLabel: str(props.delete_cancel_label),
-    deleteConfirmLabel: str(props.delete_confirm_label),
-    emailLabel: str(props.email_label),
-    emailPlaceholder: str(props.email_placeholder),
-    nameLabel: str(props.name_label),
-    namePlaceholder: str(props.name_placeholder),
-    roleLabel: str(props.role_label),
-    rolePlaceholder: str(props.role_placeholder),
-    roles,
-    helperText: str(props.helper_text),
-    submitLabelEmpty: str(props.submit_label_empty),
-    submitLabelTemplate: str(props.submit_label_template),
-    chipPalette,
-    copyLinkColor: str(props.copy_link_color),
-    deleteColor: str(props.delete_color),
-    submitBgColor: str(props.submit_bg_color),
-    submitTextColor: str(props.submit_text_color),
-    submitDisabledBgColor: str(props.submit_disabled_bg_color),
-    listMaxHeight: str(props.list_max_height),
-  };
-}
 
 /**
  * Finds the action wiring that opens `slug`, so selecting an
@@ -3954,6 +3859,11 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         openAddMemberModal({
           appzetSlug: formSlug,
           ...addMemberPresentation(readAppzetPropsFromCatalog(formSlug)),
+          childStyles: childStylesFromCustomizations(
+            formSlug,
+            ADD_MEMBER_CHILD_COUNT,
+            currentCustomizations,
+          ),
           usersEndpoint,
           spaceSlug: spaceSlug ?? undefined,
           authHeader: auth ? basicAuthHeader(auth) : undefined,
@@ -4140,6 +4050,11 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         openInviteUserModal({
           appzetSlug: formSlug,
           ...invitePresentation(props),
+          childStyles: childStylesFromCustomizations(
+            formSlug,
+            INVITE_USER_CHILD_COUNT,
+            currentCustomizations,
+          ),
           listEndpoint,
           spaceSlug: getSpaceDetailControls().space_slug ?? undefined,
           authHeader: auth ? basicAuthHeader(auth) : undefined,

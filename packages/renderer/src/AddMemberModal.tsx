@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { IonIcon } from '@ionic/react';
 import { useActionDispatch } from './actionContext';
 import { resolveIcon } from './PrimitiveRenderer';
@@ -73,6 +73,41 @@ type OpenDetail = {
    * `form_appzet_slug`, which may point at a customer's own variant.
    */
   appzetSlug?: string;
+
+  // --- Visibility ---
+  hidden?: boolean;
+  showClose?: boolean;
+
+  // --- Style. Every one of these lands on the root as a CSS custom
+  // property; styles.css reads them with the stock value as fallback, so
+  // an unset prop costs nothing and no branch is needed per knob. ---
+  closeIcon?: string;
+  searchIcon?: string;
+  modalMaxWidth?: string;
+  modalPadding?: string;
+  sectionGap?: string;
+  modalRadius?: string;
+  modalBgColor?: string;
+  backdropColor?: string;
+  searchBgColor?: string;
+  searchBorderColor?: string;
+  searchTextColor?: string;
+  roleBgColor?: string;
+  roleBorderColor?: string;
+  roleTextColor?: string;
+  chipBgColor?: string;
+  chipTextColor?: string;
+  submitBgColor?: string;
+  submitTextColor?: string;
+  submitRadius?: string;
+  submitDisabledBgColor?: string;
+
+  /**
+   * Per-child Wrapper overrides as inline CSS, by superstructure child
+   * index. Composed AppZets get the equivalent from PlacementRenderer;
+   * a bespoke overlay has to be handed it.
+   */
+  childStyles?: Record<number, CSSProperties>;
 };
 
 /** Slug-addressed so a patch reaches only the modal it was authored for. */
@@ -280,11 +315,41 @@ export function AddMemberModal() {
   }, [detail, selectedRole]);
 
   if (!open || !detail) return null;
+  // `hidden` is an author kill-switch for the whole overlay, same as on
+  // any other AppZet — honoured before anything else renders.
+  if (detail.hidden) return null;
 
-  const closeIcon = resolveIcon(detail.rolePlaceholder ? 'close' : 'close');
-  const searchIcon = resolveIcon('search');
+  const closeIcon = resolveIcon(detail.closeIcon ?? 'close');
+  const searchIcon = resolveIcon(detail.searchIcon ?? 'search');
   const caretIcon = roleOpen ? resolveIcon('chevron-up') : resolveIcon('chevron-down');
   const chipCloseIcon = resolveIcon('close');
+
+  // Authored style lands as custom properties on the backdrop; every
+  // rule in styles.css reads `var(--appza-am-*, <stock value>)`, so an
+  // unset prop is simply absent and the default survives.
+  const styleVars = {
+    '--appza-am-backdrop': detail.backdropColor,
+    '--appza-am-bg': detail.modalBgColor,
+    '--appza-am-radius': detail.modalRadius,
+    '--appza-am-max-width': detail.modalMaxWidth,
+    '--appza-am-padding': detail.modalPadding,
+    '--appza-am-gap': detail.sectionGap,
+    '--appza-am-search-bg': detail.searchBgColor,
+    '--appza-am-search-border': detail.searchBorderColor,
+    '--appza-am-search-text': detail.searchTextColor,
+    '--appza-am-role-bg': detail.roleBgColor,
+    '--appza-am-role-border': detail.roleBorderColor,
+    '--appza-am-role-text': detail.roleTextColor,
+    '--appza-am-chip-bg': detail.chipBgColor,
+    '--appza-am-chip-text': detail.chipTextColor,
+    '--appza-am-submit-bg': detail.submitBgColor,
+    '--appza-am-submit-text': detail.submitTextColor,
+    '--appza-am-submit-radius': detail.submitRadius,
+    '--appza-am-submit-disabled-bg': detail.submitDisabledBgColor,
+  } as CSSProperties;
+
+  const childStyle = (idx: number): CSSProperties | undefined =>
+    detail.childStyles?.[idx];
 
   const canSubmit = Boolean(selectedUser && selectedRole && !submitting);
 
@@ -345,35 +410,51 @@ export function AddMemberModal() {
       aria-modal="true"
       aria-label={detail.title ?? 'Add Member'}
       className="appza-add-member-backdrop"
+      style={styleVars}
       onClick={(e) => {
         if (e.target === e.currentTarget) handleClose();
       }}
     >
       <div className="appza-add-member-modal" {...appzetAttrs(az)}>
         <div className="appza-add-member-header">
-          <div className="appza-add-member-title" {...childAttrs(az, 0, 'ion-text')}>
+          <div
+            className="appza-add-member-title"
+            style={childStyle(0)}
+            {...childAttrs(az, 0, 'ion-text')}
+          >
             {detail.title ?? 'Add Member'}
           </div>
-          <button
-            type="button"
-            className="appza-add-member-close"
-            aria-label="Close"
-            onClick={handleClose}
-            disabled={submitting}
-            {...childAttrs(az, 1, 'ion-button')}
-          >
-            {closeIcon && <IonIcon icon={closeIcon} />}
-          </button>
+          {detail.showClose !== false && (
+            <button
+              type="button"
+              className="appza-add-member-close"
+              aria-label="Close"
+              onClick={handleClose}
+              disabled={submitting}
+              style={childStyle(1)}
+              {...childAttrs(az, 1, 'ion-button')}
+            >
+              {closeIcon && <IonIcon icon={closeIcon} />}
+            </button>
+          )}
         </div>
 
         <div className="appza-add-member-body">
-          <div className="appza-add-member-label" {...childAttrs(az, 2, 'ion-text')}>
+          <div
+            className="appza-add-member-label"
+            style={childStyle(2)}
+            {...childAttrs(az, 2, 'ion-text')}
+          >
             {detail.searchLabel ?? 'Search for an existing user'}
           </div>
 
           {!selectedUser && (
             <>
-              <div className="appza-add-member-search" {...childAttrs(az, 3, 'ion-input')}>
+              <div
+                className="appza-add-member-search"
+                style={childStyle(3)}
+                {...childAttrs(az, 3, 'ion-input')}
+              >
                 {searchIcon && (
                   <IonIcon icon={searchIcon} className="appza-add-member-search-icon" />
                 )}
@@ -386,7 +467,11 @@ export function AddMemberModal() {
                   onChange={(e) => setQuery(e.target.value)}
                 />
               </div>
-              <div className="appza-add-member-list" {...childAttrs(az, 4, 'ion-list')}>
+              <div
+                className="appza-add-member-list"
+                style={childStyle(4)}
+                {...childAttrs(az, 4, 'ion-list')}
+              >
                 {loading && (
                   <div className="appza-add-member-empty">Searching…</div>
                 )}
@@ -435,7 +520,11 @@ export function AddMemberModal() {
           )}
 
           {selectedUser && (
-            <div className="appza-add-member-chip-row" {...childAttrs(az, 5, 'ion-chip')}>
+            <div
+              className="appza-add-member-chip-row"
+              style={childStyle(5)}
+              {...childAttrs(az, 5, 'ion-chip')}
+            >
               <div className="appza-add-member-chip">
                 <span className="appza-add-member-chip-label">
                   {selectedName || 'Selected user'}
@@ -455,12 +544,17 @@ export function AddMemberModal() {
 
           <div
             className="appza-add-member-label appza-add-member-label--role"
+            style={childStyle(6)}
             {...childAttrs(az, 6, 'ion-text')}
           >
             {detail.roleLabel ?? 'Membership Role'}
           </div>
 
-          <div className="appza-add-member-role" {...childAttrs(az, 7, 'ion-select')}>
+          <div
+            className="appza-add-member-role"
+            style={childStyle(7)}
+            {...childAttrs(az, 7, 'ion-select')}
+          >
             <button
               type="button"
               className={
@@ -506,7 +600,17 @@ export function AddMemberModal() {
           </div>
         </div>
 
-        <div className="appza-add-member-footer">
+        {/* The design-time tag sits on the footer, not the button. The
+            submit is `disabled` until a user and role are picked, and
+            browsers fire no click at all on a disabled control — tagged
+            directly, this child could never be selected in the builder.
+            Tagging the wrapper also mirrors the composed path, where the
+            stamps live on the ss-child wrapper rather than the primitive. */}
+        <div
+          className="appza-add-member-footer"
+          style={childStyle(8)}
+          {...childAttrs(az, 8, 'ion-button')}
+        >
           <button
             type="button"
             className={
@@ -514,7 +618,6 @@ export function AddMemberModal() {
             }
             onClick={handleSubmit}
             disabled={!canSubmit}
-            {...childAttrs(az, 8, 'ion-button')}
           >
             {submitting ? 'Adding…' : submitLabel}
           </button>

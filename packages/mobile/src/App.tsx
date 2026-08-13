@@ -24,6 +24,11 @@ import {
   prefillPostInformationFromContext,
   readDataPath,
   resolveOverridableColumn,
+  addMemberPresentation,
+  invitePresentation,
+  childStylesFromCustomizations,
+  ADD_MEMBER_CHILD_COUNT,
+  INVITE_USER_CHILD_COUNT,
   setCatalogGlobal,
   setFcRuntimeSettings,
   setFeedControls,
@@ -2808,24 +2813,6 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
             ? argRec.form_appzet_slug
             : 'fc-add-member-modal';
         const props = readAppzetPropsFromCatalog(formSlug);
-        const rawRoles = Array.isArray(props.role_options)
-          ? (props.role_options as unknown[])
-          : [];
-        const roles: AddMemberRoleOption[] = rawRoles
-          .filter((r): r is Record<string, unknown> => isRecord(r))
-          .filter((r) => typeof r.value === 'string' && typeof r.label === 'string')
-          .map((r) => ({
-            value: r.value as string,
-            label: r.label as string,
-            icon: typeof r.icon === 'string' ? (r.icon as string) : undefined,
-          }));
-        if (roles.length === 0) {
-          roles.push(
-            { value: 'member', label: 'Member' },
-            { value: 'moderator', label: 'Moderator' },
-            { value: 'admin', label: 'Admin' },
-          );
-        }
         const usersEndpoint =
           typeof argRec.users_endpoint === 'string'
             ? argRec.users_endpoint
@@ -2835,20 +2822,14 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
           .__appzaAuthHeader;
         openAddMemberModal({
           appzetSlug: formSlug,
-          title: typeof props.modal_title === 'string' ? (props.modal_title as string) : 'Add Member',
-          searchLabel:
-            typeof props.search_label === 'string' ? (props.search_label as string) : undefined,
-          searchPlaceholder:
-            typeof props.search_placeholder === 'string' ? (props.search_placeholder as string) : undefined,
-          roleLabel:
-            typeof props.role_label === 'string' ? (props.role_label as string) : undefined,
-          rolePlaceholder:
-            typeof props.role_placeholder === 'string' ? (props.role_placeholder as string) : undefined,
-          submitLabelEmpty:
-            typeof props.submit_label_empty === 'string' ? (props.submit_label_empty as string) : undefined,
-          submitLabelTemplate:
-            typeof props.submit_label_template === 'string' ? (props.submit_label_template as string) : undefined,
-          roles,
+          // Shared with the plug-in admin so the two shells can't drift
+          // into reading different subsets of the authored props.
+          ...addMemberPresentation(props),
+          childStyles: childStylesFromCustomizations(
+            formSlug,
+            ADD_MEMBER_CHILD_COUNT,
+            currentCustomizations,
+          ),
           usersEndpoint: absolutizeEndpoint(usersEndpoint),
           spaceSlug: spaceSlug ?? undefined,
           authHeader,
@@ -3037,36 +3018,6 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
             : 'fc-invite-user-modal';
         const props = readAppzetPropsFromCatalog(formSlug);
 
-        const rawRoles = Array.isArray(props.role_options)
-          ? (props.role_options as unknown[])
-          : [];
-        const roles: InviteRoleOption[] = rawRoles
-          .filter((r): r is Record<string, unknown> => isRecord(r))
-          .filter((r) => typeof r.value === 'string' && typeof r.label === 'string')
-          .map((r) => ({ value: r.value as string, label: r.label as string }));
-        if (roles.length === 0) {
-          roles.push(
-            { value: 'member', label: 'Member' },
-            { value: 'moderator', label: 'Moderator' },
-            { value: 'admin', label: 'Admin' },
-          );
-        }
-
-        const chipPalette: InviteChipPalette = {
-          success: {
-            bg: str(props.chip_success_bg_color),
-            text: str(props.chip_success_text_color),
-          },
-          warning: {
-            bg: str(props.chip_warning_bg_color),
-            text: str(props.chip_warning_text_color),
-          },
-          muted: {
-            bg: str(props.chip_muted_bg_color),
-            text: str(props.chip_muted_text_color),
-          },
-        };
-
         const dsSlug =
           typeof argRec.list_data_source === 'string'
             ? argRec.list_data_source
@@ -3079,38 +3030,14 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
 
         openInviteUserModal({
           appzetSlug: formSlug,
-          title: str(props.modal_title) ?? 'Invite user',
-          tabInvitationsLabel: str(props.tab_invitations_label),
-          tabInviteLabel: str(props.tab_invite_label),
-          showInvitationCount: props.show_invitation_count !== false,
-          defaultTab: props.default_tab === 'invite' ? 'invite' : 'invitations',
-          copyLinkLabel: str(props.copy_link_label),
-          copyLinkIcon: str(props.copy_link_icon),
-          resendLabel: str(props.resend_label),
-          deleteIcon: str(props.delete_icon),
-          invitedByPrefix: str(props.invited_by_prefix),
-          emptyLabel: str(props.empty_label),
-          deleteConfirmTitle: str(props.delete_confirm_title),
-          deleteConfirmMessage: str(props.delete_confirm_message),
-          deleteCancelLabel: str(props.delete_cancel_label),
-          deleteConfirmLabel: str(props.delete_confirm_label),
-          emailLabel: str(props.email_label),
-          emailPlaceholder: str(props.email_placeholder),
-          nameLabel: str(props.name_label),
-          namePlaceholder: str(props.name_placeholder),
-          roleLabel: str(props.role_label),
-          rolePlaceholder: str(props.role_placeholder),
-          roles,
-          helperText: str(props.helper_text),
-          submitLabelEmpty: str(props.submit_label_empty),
-          submitLabelTemplate: str(props.submit_label_template),
-          chipPalette,
-          copyLinkColor: str(props.copy_link_color),
-          deleteColor: str(props.delete_color),
-          submitBgColor: str(props.submit_bg_color),
-          submitTextColor: str(props.submit_text_color),
-          submitDisabledBgColor: str(props.submit_disabled_bg_color),
-          listMaxHeight: str(props.list_max_height),
+          // Shared with the plug-in admin so the two shells can't drift
+          // into reading different subsets of the authored props.
+          ...invitePresentation(props),
+          childStyles: childStylesFromCustomizations(
+            formSlug,
+            INVITE_USER_CHILD_COUNT,
+            currentCustomizations,
+          ),
           // Absolute, per P60 — a Capacitor build has no origin to
           // resolve a root-relative path against.
           listEndpoint: absolutizeEndpoint(listEndpoint),

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { IonIcon } from '@ionic/react';
 import { useActionDispatch } from './actionContext';
 import { resolveIcon } from './PrimitiveRenderer';
@@ -115,6 +115,40 @@ type OpenDetail = {
    * `form_appzet_slug`, which may point at a customer's own variant.
    */
   appzetSlug?: string;
+
+  // --- Visibility ---
+  hidden?: boolean;
+  showClose?: boolean;
+
+  // --- Style. Each lands on the root as a CSS custom property and is
+  // read by styles.css with the stock value as fallback, so an unset
+  // prop costs nothing and needs no branch here. ---
+  closeIcon?: string;
+  modalMaxWidth?: string;
+  modalPadding?: string;
+  sectionGap?: string;
+  modalRadius?: string;
+  modalBgColor?: string;
+  backdropColor?: string;
+  tabBgColor?: string;
+  tabActiveBgColor?: string;
+  tabActiveTextColor?: string;
+  tabTextColor?: string;
+  rowTitleColor?: string;
+  rowMetaColor?: string;
+  fieldBgColor?: string;
+  fieldBorderColor?: string;
+  fieldTextColor?: string;
+  fieldRadius?: string;
+  helperTextColor?: string;
+  submitRadius?: string;
+
+  /**
+   * Per-child Wrapper overrides as inline CSS, by superstructure child
+   * index. Composed AppZets get the equivalent from PlacementRenderer;
+   * a bespoke overlay has to be handed it.
+   */
+  childStyles?: Record<number, CSSProperties>;
 };
 
 /** Slug-addressed so a patch reaches only the modal it was authored for. */
@@ -360,8 +394,11 @@ export function InviteUserModal() {
   }, [detail]);
 
   if (!open || !detail) return null;
+  // `hidden` is an author kill-switch for the whole overlay, same as on
+  // any other AppZet — honoured before anything else renders.
+  if (detail.hidden) return null;
 
-  const closeIcon = resolveIcon('close');
+  const closeIcon = resolveIcon(detail.closeIcon ?? 'close');
   const copyIcon = resolveIcon(detail.copyLinkIcon ?? 'copy-outline');
   const trashIcon = resolveIcon(detail.deleteIcon ?? 'trash-outline');
   const caretIcon = roleOpen ? resolveIcon('chevron-up') : resolveIcon('chevron-down');
@@ -415,7 +452,34 @@ export function InviteUserModal() {
       ? detail.submitBgColor || undefined
       : detail.submitDisabledBgColor || detail.submitBgColor || undefined,
     color: detail.submitTextColor || undefined,
+    borderRadius: detail.submitRadius || undefined,
   };
+
+  // Authored style lands as custom properties on the backdrop; every
+  // rule in styles.css reads `var(--appza-iu-*, <stock value>)`, so an
+  // unset prop is simply absent and the default survives.
+  const styleVars = {
+    '--appza-iu-backdrop': detail.backdropColor,
+    '--appza-iu-bg': detail.modalBgColor,
+    '--appza-iu-radius': detail.modalRadius,
+    '--appza-iu-max-width': detail.modalMaxWidth,
+    '--appza-iu-padding': detail.modalPadding,
+    '--appza-iu-gap': detail.sectionGap,
+    '--appza-iu-tab-bg': detail.tabBgColor,
+    '--appza-iu-tab-text': detail.tabTextColor,
+    '--appza-iu-tab-active-bg': detail.tabActiveBgColor,
+    '--appza-iu-tab-active-text': detail.tabActiveTextColor,
+    '--appza-iu-row-title': detail.rowTitleColor,
+    '--appza-iu-row-meta': detail.rowMetaColor,
+    '--appza-iu-field-bg': detail.fieldBgColor,
+    '--appza-iu-field-border': detail.fieldBorderColor,
+    '--appza-iu-field-text': detail.fieldTextColor,
+    '--appza-iu-field-radius': detail.fieldRadius,
+    '--appza-iu-helper-text': detail.helperTextColor,
+  } as CSSProperties;
+
+  const childStyle = (idx: number): CSSProperties | undefined =>
+    detail.childStyles?.[idx];
 
   return (
     <div
@@ -423,25 +487,33 @@ export function InviteUserModal() {
       aria-modal="true"
       aria-label={detail.title ?? 'Invite user'}
       className={'appza-invite-user-backdrop' + (embedded ? ' is-embedded' : '')}
+      style={styleVars}
       onClick={(e) => {
         if (e.target === e.currentTarget) handleClose();
       }}
     >
       <div className="appza-invite-user-modal" {...appzetAttrs(az)}>
         <div className="appza-invite-user-header">
-          <div className="appza-invite-user-title" {...childAttrs(az, 0, 'ion-text')}>
+          <div
+            className="appza-invite-user-title"
+            style={childStyle(0)}
+            {...childAttrs(az, 0, 'ion-text')}
+          >
             {detail.title ?? 'Invite user'}
           </div>
-          <button
-            type="button"
-            className="appza-invite-user-close"
-            aria-label="Close"
-            onClick={handleClose}
-            disabled={submitting}
-            {...childAttrs(az, 1, 'ion-button')}
-          >
-            {closeIcon && <IonIcon icon={closeIcon} />}
-          </button>
+          {detail.showClose !== false && (
+            <button
+              type="button"
+              className="appza-invite-user-close"
+              aria-label="Close"
+              onClick={handleClose}
+              disabled={submitting}
+              style={childStyle(1)}
+              {...childAttrs(az, 1, 'ion-button')}
+            >
+              {closeIcon && <IonIcon icon={closeIcon} />}
+            </button>
+          )}
         </div>
 
         <div className="appza-invite-user-tabs" role="tablist">
@@ -453,6 +525,7 @@ export function InviteUserModal() {
               'appza-invite-user-tab' + (tab === 'invitations' ? ' is-active' : '')
             }
             onClick={() => setTab('invitations')}
+            style={childStyle(2)}
             {...childAttrs(az, 2, 'ion-button')}
           >
             {tabInvitationsLabel}
@@ -463,6 +536,7 @@ export function InviteUserModal() {
             aria-selected={tab === 'invite'}
             className={'appza-invite-user-tab' + (tab === 'invite' ? ' is-active' : '')}
             onClick={() => setTab('invite')}
+            style={childStyle(3)}
             {...childAttrs(az, 3, 'ion-button')}
           >
             {detail.tabInviteLabel ?? 'Invite User'}
@@ -472,7 +546,10 @@ export function InviteUserModal() {
         {tab === 'invitations' ? (
           <div
             className="appza-invite-user-list"
-            style={detail.listMaxHeight ? { maxHeight: detail.listMaxHeight } : undefined}
+            style={{
+              ...(detail.listMaxHeight ? { maxHeight: detail.listMaxHeight } : {}),
+              ...childStyle(4),
+            }}
             {...childAttrs(az, 4, 'ion-list')}
           >
             {loading && <div className="appza-invite-user-empty">Loading…</div>}
@@ -565,6 +642,7 @@ export function InviteUserModal() {
               <label
                 className="appza-invite-user-label"
                 htmlFor="appza-invite-email"
+                style={childStyle(5)}
                 {...childAttrs(az, 5, 'ion-text')}
               >
                 {detail.emailLabel ?? 'Email'}
@@ -577,12 +655,14 @@ export function InviteUserModal() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={submitting}
+                style={childStyle(6)}
                 {...childAttrs(az, 6, 'ion-input')}
               />
 
               <label
                 className="appza-invite-user-label"
                 htmlFor="appza-invite-name"
+                style={childStyle(7)}
                 {...childAttrs(az, 7, 'ion-text')}
               >
                 {detail.nameLabel ?? 'Invitee name (optional)'}
@@ -595,16 +675,25 @@ export function InviteUserModal() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 disabled={submitting}
+                style={childStyle(8)}
                 {...childAttrs(az, 8, 'ion-input')}
               />
 
-              <div className="appza-invite-user-label" {...childAttrs(az, 9, 'ion-text')}>
+              <div
+                className="appza-invite-user-label"
+                style={childStyle(9)}
+                {...childAttrs(az, 9, 'ion-text')}
+              >
                 {detail.roleLabel ?? 'Membership Role'}
               </div>
               {/* In-flow menu, not absolutely positioned: the modal
                   clips overflow, so an absolute menu would render off
                   screen and the trigger would read as a dead button. */}
-              <div className="appza-invite-user-role" {...childAttrs(az, 10, 'ion-select')}>
+              <div
+                className="appza-invite-user-role"
+                style={childStyle(10)}
+                {...childAttrs(az, 10, 'ion-select')}
+              >
                 <button
                   type="button"
                   className={
@@ -649,13 +738,27 @@ export function InviteUserModal() {
               </div>
 
               {detail.helperText && (
-                <p className="appza-invite-user-helper" {...childAttrs(az, 11, 'ion-text')}>
+                <p
+                  className="appza-invite-user-helper"
+                  style={childStyle(11)}
+                  {...childAttrs(az, 11, 'ion-text')}
+                >
                   {detail.helperText}
                 </p>
               )}
             </div>
 
-            <div className="appza-invite-user-footer">
+            {/* Tag on the footer, not the button: the submit is
+                `disabled` until email + role are filled, and browsers
+                fire no click on a disabled control, so a tag on the
+                button itself would make this child unselectable. Also
+                mirrors the composed path, where the stamps live on the
+                ss-child wrapper rather than the primitive. */}
+            <div
+              className="appza-invite-user-footer"
+              style={childStyle(12)}
+              {...childAttrs(az, 12, 'ion-button')}
+            >
               <button
                 type="button"
                 className={
@@ -664,7 +767,6 @@ export function InviteUserModal() {
                 style={submitStyle}
                 onClick={handleSubmit}
                 disabled={!canSubmit}
-                {...childAttrs(az, 12, 'ion-button')}
               >
                 {submitting ? 'Sending…' : submitLabel}
               </button>
