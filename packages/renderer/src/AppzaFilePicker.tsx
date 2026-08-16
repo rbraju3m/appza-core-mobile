@@ -5,6 +5,7 @@ import {
   addDraftFiles,
   removeDraftFile,
   renameDraftFile,
+  replaceDraftFile,
   useDocumentDraft,
 } from './documentDraft';
 import { resolveIcon } from './PrimitiveRenderer';
@@ -63,6 +64,10 @@ function useDesignTime(): boolean {
 export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unknown> }) {
   const draft = useDocumentDraft();
   const inputRef = useRef<HTMLInputElement | null>(null);
+  // A second input for per-row replacement, plus which row asked for it.
+  // Separate from the add input so a replacement never appends.
+  const replaceRef = useRef<HTMLInputElement | null>(null);
+  const replaceKeyRef = useRef<string | null>(null);
   const [dragging, setDragging] = useState(false);
   // Which row is being renamed, and the text so far. Inline rather than
   // window.prompt(): a WebView routes prompts through the host app and
@@ -77,6 +82,8 @@ export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unkn
   const fileIcon = readString(overrides, 'file_icon') ?? 'document-outline';
   const imageIcon = readString(overrides, 'image_icon') ?? 'image-outline';
   const renameIcon = readString(overrides, 'rename_icon') ?? 'create-outline';
+  const replaceIcon = readString(overrides, 'replace_icon') ?? 'cloud-upload-outline';
+  const replaceLabel = readString(overrides, 'replace_label') ?? 'Replace file';
   const deleteIcon = readString(overrides, 'delete_icon') ?? 'trash-outline';
   const accept = readString(overrides, 'accept');
   const renamePrompt = readString(overrides, 'rename_prompt') ?? 'File name';
@@ -104,6 +111,15 @@ export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unkn
     inputRef.current?.click();
   };
 
+  const openReplacePicker = (key: string) => {
+    // Leave rename state BEFORE the chooser opens. Otherwise the field's
+    // blur commits its stale text over the name the replacement brings.
+    setRenamingKey(null);
+    setRenameValue('');
+    replaceKeyRef.current = key;
+    replaceRef.current?.click();
+  };
+
   if (requiresEditContext && draft.edit_feed_id === null && !designTime) return null;
 
   const commitRename = () => {
@@ -125,6 +141,20 @@ export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unkn
         onChange={(e) => {
           accept_files(e.target.files);
           // Reset so re-picking the same file fires change again.
+          e.target.value = '';
+        }}
+      />
+
+      <input
+        ref={replaceRef}
+        type="file"
+        accept={accept}
+        className="appza-file-picker-input"
+        onChange={(e) => {
+          const picked = e.target.files?.[0];
+          const key = replaceKeyRef.current;
+          if (picked && key) replaceDraftFile(key, picked);
+          replaceKeyRef.current = null;
           e.target.value = '';
         }}
       />
@@ -210,6 +240,24 @@ export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unkn
                 >
                   {resolveIcon(renameIcon) && <IonIcon icon={resolveIcon(renameIcon)} />}
                 </button>
+                {renamingKey === file.key && (
+                  <button
+                    type="button"
+                    className="appza-file-picker-action"
+                    aria-label={`${replaceLabel}: ${file.name}`}
+                    title={replaceLabel}
+                    disabled={file.status === 'uploading'}
+                    // Keep focus on the rename field: a blur would unmount
+                    // this button before its click could land.
+                    onPointerDown={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openReplacePicker(file.key);
+                    }}
+                  >
+                    {resolveIcon(replaceIcon) && <IonIcon icon={resolveIcon(replaceIcon)} />}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="appza-file-picker-action"

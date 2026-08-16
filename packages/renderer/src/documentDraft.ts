@@ -155,6 +155,39 @@ export function addDraftFiles(files: ArrayLike<File>): void {
   emit({ ...current, files: [...current.files, ...added], error: '' });
 }
 
+/**
+ * Swap the file behind a row, keeping its position in the list.
+ *
+ * For a row that was never committed this just exchanges the handle. For
+ * one already attached to a post it also drops `media`, which is what
+ * makes the replacement work: the submit path sends only what the list
+ * carries, and FluentCommunity's feed update detaches any media_key
+ * missing from it. So the old file leaves and the new one arrives in a
+ * single save, with no delete call.
+ */
+export function replaceDraftFile(key: string, file: File): void {
+  fileHandles.set(key, file);
+  emit({
+    ...current,
+    files: current.files.map((f) =>
+      f.key === key
+        ? {
+            ...f,
+            name: file.name,
+            original_name: file.name,
+            type: file.type,
+            kind: kindFor(file.type, file.name),
+            size: file.size,
+            status: 'pending',
+            error: undefined,
+            media: undefined,
+          }
+        : f,
+    ),
+    error: '',
+  });
+}
+
 export function removeDraftFile(key: string): void {
   fileHandles.delete(key);
   emit({ ...current, files: current.files.filter((f) => f.key !== key) });

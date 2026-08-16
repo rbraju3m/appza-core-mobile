@@ -105,6 +105,7 @@ export {
   addDraftFiles,
   removeDraftFile,
   renameDraftFile,
+  replaceDraftFile,
   patchDraftFile,
   toggleDraftTopic,
   seedDraftForEdit,

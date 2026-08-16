@@ -5718,3 +5718,9 @@
   background: var(--appza-dropzone-bg-color, #ffffff);
   border: 1px dashed var(--appza-dropzone-border-color, #c9d1dc);
 }
+
+/* The row's replace control only exists while the row is being edited,
+   so it reads as part of that mode rather than a permanent third icon. */
+.appza-file-picker-row .appza-file-picker-action[title] {
+  color: var(--appza-file-replace-color, var(--appza-file-action-color, #2b6cf6));
+}
