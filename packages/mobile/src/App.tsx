@@ -1550,9 +1550,18 @@ function seedEditDraftFromPost(item: unknown): void {
   const spaceSlug =
     (spaceRec && typeof spaceRec.slug === 'string' && spaceRec.slug) ||
     (typeof item.space_slug === 'string' ? item.space_slug : '');
-  const files = Array.isArray(item.files)
+  // `files` is added by the preview proxy. `meta.document_lists` is
+  // FluentCommunity's own snapshot and is always on a document post, so
+  // it is the fallback that keeps this from ever seeding empty — an
+  // empty seed would make Save look like "the user removed everything".
+  let files = Array.isArray(item.files)
     ? (item.files.filter((f) => isRecord(f)) as Array<Record<string, unknown>>)
     : [];
+  if (files.length === 0) {
+    const meta = isRecord(item.meta) ? item.meta : null;
+    const snapshot = meta && Array.isArray(meta.document_lists) ? meta.document_lists : [];
+    files = snapshot.filter((f) => isRecord(f)) as Array<Record<string, unknown>>;
+  }
   seedDraftForEdit(feedId, spaceSlug, files);
 }
 
@@ -1836,32 +1845,6 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       if (alreadyOn) body.remove = 1;
       void (async () => {
         try {
-          // Document post: commit the file edits first, then send the
-          // resulting list. FC's feed update detaches any media_key
-          // missing from it, so a removed row needs no call of its own —
-          // but a newly picked file has to be uploaded, and a renamed one
-          // updated, before the list can reference it.
-          const draft = getDocumentDraft();
-          if (draft.edit_feed_id === feedId) {
-            const uploadEndpoint =
-              typeof argRec.upload_endpoint === 'string' ? argRec.upload_endpoint : '';
-            const renameEndpoint =
-              typeof argRec.rename_endpoint === 'string' ? argRec.rename_endpoint : '';
-            if (!uploadEndpoint || !renameEndpoint) {
-              onError('The document endpoints are missing from the action.');
-              return;
-            }
-            const documents = await prepareDocumentEdit({
-              uploadEndpoint,
-              renameEndpoint,
-              authHeader: basicAuthHeader(auth),
-              absolutize: absolutizeEndpoint,
-            });
-            body.document_ids = documents;
-            // An empty list is meaningful: FC turns the post back into a
-            // plain text post, which is what removing every file means.
-            body.content_type = documents.length > 0 ? 'document' : 'text';
-          }
           const res = await fetch(absolutizeEndpoint(endpoint), {
             method,
             credentials: 'omit',
@@ -2345,6 +2328,41 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       }
       void (async () => {
         try {
+          // Document post: commit the file edits first, then send the
+          // resulting list. FC's feed update detaches any media_key
+          // missing from it, so a removed row needs no call of its own —
+          // but a newly picked file has to be uploaded, and a renamed one
+          // updated, before the list can reference it.
+          const draft = getDocumentDraft();
+          if (draft.edit_feed_id === feedId) {
+            const uploadEndpoint =
+              typeof argRec.upload_endpoint === 'string' ? argRec.upload_endpoint : '';
+            const renameEndpoint =
+              typeof argRec.rename_endpoint === 'string' ? argRec.rename_endpoint : '';
+            if (!uploadEndpoint || !renameEndpoint) {
+              onError('The document endpoints are missing from the action.');
+              return;
+            }
+            const documents = await prepareDocumentEdit({
+              uploadEndpoint,
+              renameEndpoint,
+              authHeader: basicAuthHeader(auth),
+              absolutize: absolutizeEndpoint,
+            });
+            // Only touch document_ids when we actually know what the
+            // post's files were. Sending an empty list DELETES them all —
+            // so if the seed came up empty (nothing to go on) and the user
+            // added nothing, leave the field out and let the documents be.
+            if (documents.length > 0) {
+              body.document_ids = documents;
+              body.content_type = 'document';
+            } else if (draft.seeded_file_count > 0) {
+              // Seeded with files, now none: the user removed every one.
+              // That legitimately turns the post back into a text post.
+              body.document_ids = [];
+              body.content_type = 'text';
+            }
+          }
           const res = await fetch(absolutizeEndpoint(endpoint), {
             method,
             credentials: 'omit',

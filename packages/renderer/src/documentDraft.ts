@@ -40,6 +40,17 @@ export type DocumentDraft = {
    * creating one.
    */
   edit_feed_id: number | null;
+  /**
+   * How many files the post had when the edit screen opened.
+   *
+   * This is a safety interlock, not bookkeeping. Sending an empty
+   * `document_ids` to FluentCommunity DELETES every file on the post and
+   * turns it back into a plain text post — so "the user removed them all"
+   * and "we never learned what the files were" must not look the same at
+   * submit time. Zero here means the latter, and the submit path leaves
+   * document_ids out entirely.
+   */
+  seeded_file_count: number;
   title: string;
   message: string;
   files: DraftFile[];
@@ -56,6 +67,7 @@ const EVENT = 'appza:document-draft-change';
 const EMPTY: DocumentDraft = {
   space_slug: '',
   edit_feed_id: null,
+  seeded_file_count: 0,
   title: '',
   message: '',
   files: [],
@@ -131,7 +143,13 @@ export function seedDraftForEdit(
       media: f,
     };
   });
-  emit({ ...EMPTY, space_slug: spaceSlug, edit_feed_id: feedId, files: seeded });
+  emit({
+    ...EMPTY,
+    space_slug: spaceSlug,
+    edit_feed_id: feedId,
+    seeded_file_count: seeded.length,
+    files: seeded,
+  });
 }
 
 export function addDraftFiles(files: ArrayLike<File>): void {
