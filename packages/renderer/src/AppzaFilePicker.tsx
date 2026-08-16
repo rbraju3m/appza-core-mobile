@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { IonIcon } from '@ionic/react';
 
 import {
@@ -43,10 +43,34 @@ function readString(o: Record<string, unknown> | undefined, k: string): string |
   return undefined;
 }
 
+/**
+ * True in the builder's Edit mode — inside the device frame, but not in
+ * the App-mode canvas. Design time has no post under edit, so a block
+ * gated on one would render nothing and be unselectable, which is how a
+ * control becomes invisible to the person meant to style it (P73).
+ */
+function useDesignTime(): boolean {
+  const [designTime, setDesignTime] = useState(false);
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const inFrame = Boolean(document.querySelector('.appza-device-viewport'));
+    const inApp = Boolean(document.querySelector('.appza-center-app-mode'));
+    setDesignTime(inFrame && !inApp);
+  }, []);
+  return designTime;
+}
+
 export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unknown> }) {
   const draft = useDocumentDraft();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [dragging, setDragging] = useState(false);
+  // Which row is being renamed, and the text so far. Inline rather than
+  // window.prompt(): a WebView routes prompts through the host app and
+  // Capacitor does not surface them, so on a device the pencil silently
+  // did nothing. An inline field also matches the portal.
+  const [renamingKey, setRenamingKey] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const designTime = useDesignTime();
 
   const dropzoneLabel = readString(overrides, 'dropzone_label') ?? 'Drop files here or click to upload';
   const dropzoneIcon = readString(overrides, 'dropzone_icon') ?? 'attach-outline';
@@ -80,7 +104,13 @@ export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unkn
     inputRef.current?.click();
   };
 
-  if (requiresEditContext && draft.edit_feed_id === null) return null;
+  if (requiresEditContext && draft.edit_feed_id === null && !designTime) return null;
+
+  const commitRename = () => {
+    if (renamingKey) renameDraftFile(renamingKey, renameValue);
+    setRenamingKey(null);
+    setRenameValue('');
+  };
 
   return (
     <div className="appza-file-picker">
@@ -90,6 +120,8 @@ export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unkn
         multiple
         accept={accept}
         className="appza-file-picker-input"
+        // Clipped rather than display:none — a WebView will refuse to open
+        // its file chooser for an input that isn't laid out.
         onChange={(e) => {
           accept_files(e.target.files);
           // Reset so re-picking the same file fires change again.
@@ -138,7 +170,29 @@ export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unkn
                 {resolveIcon(glyph) && (
                   <IonIcon className="appza-file-picker-row-icon" icon={resolveIcon(glyph)} />
                 )}
-                <span className="appza-file-picker-name">{file.name}</span>
+                {renamingKey === file.key ? (
+                  <input
+                    className="appza-file-picker-rename"
+                    value={renameValue}
+                    autoFocus
+                    aria-label={renamePrompt}
+                    placeholder={renamePrompt}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onBlur={commitRename}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        commitRename();
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        setRenamingKey(null);
+                        setRenameValue('');
+                      }
+                    }}
+                  />
+                ) : (
+                  <span className="appza-file-picker-name">{file.name}</span>
+                )}
                 <button
                   type="button"
                   className="appza-file-picker-action"
@@ -146,11 +200,12 @@ export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unkn
                   disabled={file.status === 'uploading'}
                   onClick={(e) => {
                     e.stopPropagation();
-                    // window.prompt keeps this to one primitive. A styled
-                    // rename sheet would be a second overlay to place,
-                    // select and theme — out of scope for the design.
-                    const next = window.prompt(renamePrompt, file.name);
-                    if (next !== null) renameDraftFile(file.key, next);
+                    if (renamingKey === file.key) {
+                      commitRename();
+                      return;
+                    }
+                    setRenamingKey(file.key);
+                    setRenameValue(file.name);
                   }}
                 >
                   {resolveIcon(renameIcon) && <IonIcon icon={resolveIcon(renameIcon)} />}

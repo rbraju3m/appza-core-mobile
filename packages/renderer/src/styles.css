@@ -5191,8 +5191,31 @@
 .appza-renderer-appzet[data-slug="fc-add-document-uploader"] {
   padding: var(--appza-row-padding, 14px 12px 0);
 }
+/* Clipped, not display:none. An Android WebView will not open its file
+   chooser for an input that has no layout box, so hiding it the usual way
+   makes the dropzone dead on a device while working fine in a browser. */
 .appza-file-picker-input {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* Inline rename field — replaces a window.prompt() the WebView swallowed. */
+.appza-file-picker-rename {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--appza-file-text-color, #1f2937);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--appza-file-action-color, #6b7280);
+  outline: none;
+  padding: 2px 0;
 }
 .appza-file-picker-dropzone {
   display: flex;

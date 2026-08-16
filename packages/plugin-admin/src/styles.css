@@ -2231,3 +2231,18 @@ body {
 .appza-device-viewport a.appza-file-list-download:visited {
   color: var(--appza-download-icon-color, #4b5563);
 }
+
+/* The inline rename field is a bare <input>, so wp-admin's forms.css
+   repaints it with a border, background and its own font (P79). Pin it
+   inside the phone frame. */
+.appza-device-viewport input.appza-file-picker-rename {
+  border: 0;
+  border-bottom: 1px solid var(--appza-file-action-color, #6b7280);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  min-height: 0;
+  padding: 2px 0;
+  margin: 0;
+  color: var(--appza-file-text-color, #1f2937);
+}
