@@ -2566,6 +2566,49 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       return;
     }
 
+    case 'documents.set_search': {
+      // fc-documents-search ion-input. onIonInput grafts the current text
+      // onto action.item.value, including when Ionic's ⨯ clears the field
+      // (it fires with ''), so one case covers set + clear. The refetch is
+      // automatic: fc-space-documents binds `search` to this state key.
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      setSpaceDetailControls({ documents_search: runtimeValue ?? itemValue ?? '' });
+      return;
+    }
+
+    case 'documents.open_add': {
+      // FAB on the documents tab. The add-document screen ships in chunk 2;
+      // until it's seeded this warns instead of blanking the screen.
+      const targetSlug =
+        typeof argRec.target_screen_slug === 'string'
+          ? argRec.target_screen_slug
+          : 'space-document-add';
+      const target = catalog?.template_screens?.find(
+        (s) => s.app_map_screen_slug === targetSlug,
+      );
+      if (!target) {
+        console.warn(`[appza-mobile] documents.open_add: ${targetSlug} not in catalog`);
+        return;
+      }
+      const spaceSlug =
+        typeof (window as unknown as { __appzaRouteParams?: Record<string, unknown> })
+          .__appzaRouteParams?.slug === 'string'
+          ? ((window as unknown as { __appzaRouteParams?: Record<string, unknown> })
+              .__appzaRouteParams!.slug as string)
+          : '';
+      if (spaceSlug) {
+        screenContextRef.current[targetSlug] = { slug: spaceSlug };
+        delete screenPrefilledRef.current[targetSlug];
+      }
+      if (currentScreenId != null) {
+        setScreenStack((prev) => [...prev, currentScreenId]);
+      }
+      setSelectedScreenId(target.id);
+      return;
+    }
+
     case 'space.compose_open': {
       // Nav.push variant that carries the current space (from screen
       // context OR effectiveItem) into create-post-page so

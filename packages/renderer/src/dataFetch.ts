@@ -137,7 +137,16 @@ export function resolveQueryParams(
   const out: Record<string, unknown> = {};
   const routeParams = getRouteParams();
   for (const [key, raw] of Object.entries(config as Record<string, unknown>)) {
-    if (raw && typeof raw === 'object' && !Array.isArray(raw) && 'source' in raw) {
+    if (
+      raw &&
+      typeof raw === 'object' &&
+      !Array.isArray(raw) &&
+      ('source' in raw || 'default' in raw)
+    ) {
+      // `'default' in raw` catches the constant-only spec `{ default: 20 }`
+      // (per_page on several DSs). Without it the whole spec OBJECT was sent
+      // as the param value — `?per_page={"default":20}` — which any route
+      // that type-checks its args rejects outright.
       const spec = raw as Record<string, unknown>;
       const source = typeof spec.source === 'string' ? spec.source : '';
       const binding = typeof spec.binding === 'string' ? spec.binding : '';

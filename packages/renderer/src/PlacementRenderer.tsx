@@ -9,7 +9,7 @@ import { layoutStyleToCss } from './layoutStyle';
 import { useActionDispatch, type ActionInvocation } from './actionContext';
 import { useFeedControls } from './feedControls';
 import { useSpacesControls } from './spacesControls';
-import { useSpaceDetailControls } from './spaceDetailControls';
+import { setSpaceDetailControls, useSpaceDetailControls } from './spaceDetailControls';
 import { useFcRuntimeSettings } from './fcRuntimeSettings';
 import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
 
@@ -131,6 +131,7 @@ export function PlacementRenderer({
     topic_slug: spaceDetailTopicSlug,
     sort: spaceDetailSort,
     space_slug: spaceDetailSpaceSlug,
+    documents_search: spaceDetailDocumentsSearch,
   } = useSpaceDetailControls();
   // FluentCommunity portal customization: mirrors Settings → Customization
   // → "Members List Layout". Read here so the fc-member-card wrapper can
@@ -416,6 +417,37 @@ export function PlacementRenderer({
       void infiniteScrollRef.current.complete();
     }
   }, [isPaginated, pagedState.loading]);
+
+  // DOCUMENTS sub-tab (2026-08-16). The tab has three designs — list,
+  // "No documents yet", "No matches" — and the search bar is absent from
+  // the first. None of that is decidable at placement level, which only
+  // sees state, so the AppZet bound to the documents DS publishes which
+  // design applies and the sibling placements gate on it.
+  //
+  // Scoped to this one DS deliberately: it's the same narrow special-case
+  // shape as the fc-spaces-all / fc-spaces-my search-and-sort branch below,
+  // and generalising it (every DS publishing a count into state) would put
+  // a write in every list AppZet's render path for one consumer.
+  const publishesDocumentsView = (dataSource?.slug ?? '') === 'fc-space-documents';
+  useEffect(() => {
+    if (!publishesDocumentsView) return;
+    // Hold the last resolved view while a refetch is in flight. Publishing
+    // 'loading' on every keystroke would unmount the search bar (which is
+    // gated on this value) mid-typing and throw away the field's text.
+    if (dataState.loading) return;
+    const view =
+      dataState.items.length > 0
+        ? 'list'
+        : spaceDetailDocumentsSearch.trim().length > 0
+          ? 'no-match'
+          : 'empty';
+    setSpaceDetailControls({ documents_view: view });
+  }, [
+    publishesDocumentsView,
+    dataState.loading,
+    dataState.items.length,
+    spaceDetailDocumentsSearch,
+  ]);
 
   if (!appzet) return <MissingNode label={`unknown appzet: ${appzetSlug}`} />;
   if (!ss) return <MissingNode label={`appzet ${appzet.slug} has no superstructure`} />;
@@ -770,6 +802,27 @@ export function PlacementRenderer({
     'add_bg_color',
     'add_text_color',
     'add_radius',
+    // Space Documents sub-tab knobs (2026-08-16).
+    'title_color',
+    'file_row_color',
+    'file_icon_color',
+    'download_icon_color',
+    'divider_color',
+    'search_bg_color',
+    'search_text_color',
+    'search_icon_color',
+    'search_radius',
+    'search_height',
+    'icon_circle_color',
+    'icon_color',
+    'title_size',
+    'message_color',
+    'message_size',
+    'fab_bg_color',
+    'fab_icon_color',
+    'fab_size',
+    'fab_offset_bottom',
+    'fab_offset_end',
   ]);
   // Aliases: some knobs also drive Ionic's own CSS custom properties
   // directly. Custom props inherit through shadow DOM (unlike `background`
@@ -890,6 +943,20 @@ export function PlacementRenderer({
     );
   }
 
+  // hide_when_empty — opt-in for AppZets whose empty state is rendered by a
+  // SIBLING placement rather than by this one (fc-document-card hands the
+  // empty + no-match designs to fc-documents-empty). Without it a
+  // non-paginated DS with zero rows falls through to the single-empty-card
+  // fallback below and paints a ghost card under the real empty state.
+  if (
+    (appzet.default_props_override as Record<string, unknown> | undefined)?.['hide_when_empty'] ===
+      true &&
+    !dataState.loading &&
+    dataState.items.length === 0
+  ) {
+    return <>{optionFetchers}</>;
+  }
+
   // Spaces list: apply client-side search + sort against spacesControls.
   // Scoped by data source slug (fc-spaces-all / fc-spaces-my) so other
   // AppZets sharing the list layout aren't affected. Search matches
@@ -971,9 +1038,17 @@ export function PlacementRenderer({
           // result must not be shared across rows or one card's files
           // would leak into the next.
           itemOverrides = { ...itemOverrides };
+          // Props bound to the TEMPLATE child (`binds_to:
+          // 'children[<template>].<prop>'`) describe every expanded copy,
+          // not just the first — the document card's download glyph is one
+          // such prop. computeChildOverrides only ever stamps the literal
+          // index, so seed each expanded row from the template's bucket and
+          // let the per-entry values win over it.
+          const templateBase = baseChildOverrides[itemExpanded.templateIndex];
           for (const idxStr of Object.keys(itemExpanded.entryOverrides)) {
             const i = Number(idxStr);
             itemOverrides[i] = {
+              ...(templateBase ?? {}),
               ...(itemOverrides[i] ?? {}),
               ...itemExpanded.entryOverrides[i],
             };
@@ -1489,7 +1564,14 @@ function SuperstructureRenderer({
         const primitiveSelfHandles =
           SELF_ACTION_PRIMITIVES.has(child.slug) && !child.on_click_action;
         const wrapperAction = action && !primitiveSelfHandles ? action : undefined;
-        const primitiveAction = action && primitiveSelfHandles ? action : undefined;
+        // A self-action primitive gets the action EVEN WHEN the SS also
+        // wires on_click_action: the two fire on different events (value
+        // change vs tap), so handing it to the wrapper alone left every
+        // search input inert — it only dispatched on click, with no value.
+        // The composer teaser, which wants the tap, is unaffected: it
+        // navigates away, so its ionInput never fires.
+        const primitiveAction =
+          action && SELF_ACTION_PRIMITIVES.has(child.slug) ? action : undefined;
         const rendered = renderChild(
           child.slug,
           catalogIndex,
@@ -1689,11 +1771,15 @@ function readExpandedChildren(
   ss: Superstructure,
   appzet: AppZet,
   item?: unknown,
-): { children: SSChild[]; entryOverrides: Record<number, Record<string, unknown>> } {
+): {
+  children: SSChild[];
+  entryOverrides: Record<number, Record<string, unknown>>;
+  templateIndex: number;
+} {
   const propName = (ss as unknown as { children_from_prop?: unknown }).children_from_prop;
   const staticChildren = readChildren(ss);
   if (typeof propName !== 'string' || propName.length === 0) {
-    return { children: staticChildren, entryOverrides: {} };
+    return { children: staticChildren, entryOverrides: {}, templateIndex: 0 };
   }
   const overrides = appzet.default_props_override as Record<string, unknown> | null | undefined;
   // AppZet-level array first — the strip case (tabs / spaces / topics),
@@ -1708,7 +1794,7 @@ function readExpandedChildren(
     rawEntries = (item as Record<string, unknown>)[propName];
   }
   if (!Array.isArray(rawEntries) || rawEntries.length === 0) {
-    return { children: staticChildren, entryOverrides: {} };
+    return { children: staticChildren, entryOverrides: {}, templateIndex: 0 };
   }
   // The template child is the shape cloned per entry. Look for a child
   // with `template: true` first — this lets a variadic SS keep static
@@ -1727,7 +1813,7 @@ function readExpandedChildren(
     }
   }
   const template = staticChildren[templateIndex];
-  if (!template) return { children: staticChildren, entryOverrides: {} };
+  if (!template) return { children: staticChildren, entryOverrides: {}, templateIndex };
   const staticPrefix = staticChildren.slice(0, templateIndex);
   // `prepend_all: true` + `all_label: '<label>'` synthesizes an entry at
   // index 0 representing the un-filtered choice — e.g. the "All" chip on
@@ -1806,9 +1892,51 @@ function readExpandedChildren(
         }
       }
     }
+    // `prop_map` — pick which AppZet prop supplies a child prop, based on a
+    // value on the entry. The document file row uses it for the leading
+    // glyph: `entry.kind` is 'image' or 'document', and each maps to its own
+    // builder-editable prop, so both glyphs stay right-panel controllable
+    // instead of being frozen into the API payload or the template child.
+    //
+    //   prop_map: { icon: { from: 'entry.kind',
+    //                       props: { image: 'image_icon', document: 'file_icon' } } }
+    // Read off the RAW child: readChildren() normalizes to a known key set
+    // and would drop prop_map, the same way it drops `template`.
+    const rawTemplate = rawChildren[templateIndex];
+    const propMap = isRecord(rawTemplate) ? rawTemplate.prop_map : undefined;
+    if (isRecord(propMap)) {
+      for (const [childProp, rawSpec] of Object.entries(propMap)) {
+        if (!isRecord(rawSpec)) continue;
+        const from = typeof rawSpec.from === 'string' ? rawSpec.from : '';
+        const cases = isRecord(rawSpec.props) ? rawSpec.props : null;
+        if (!from.startsWith('entry.') || !cases) continue;
+        const key = readDataPath(entry, 'data.' + from.slice('entry.'.length));
+        const propName = typeof key === 'string' ? cases[key] : undefined;
+        if (typeof propName !== 'string') continue;
+        const resolved = resolveAppzetProp(ss, appzet, propName);
+        if (resolved !== undefined) bucket[childProp] = resolved;
+      }
+    }
     entryOverrides[children.length - 1] = bucket;
   }
-  return { children, entryOverrides };
+  return { children, entryOverrides, templateIndex };
+}
+
+/**
+ * DC#16 precedence for a single named prop: AppZet `default_props_override`
+ * wins, else the SS `properties_schema` default, else undefined.
+ */
+function resolveAppzetProp(ss: Superstructure, appzet: AppZet, name: string): unknown {
+  const overrides = appzet.default_props_override as Record<string, unknown> | null | undefined;
+  if (overrides && overrides[name] !== undefined && overrides[name] !== '') {
+    return overrides[name];
+  }
+  const schema = (ss.properties_schema ?? null) as PropertiesSchemaEntry[] | null;
+  if (!Array.isArray(schema)) return undefined;
+  for (const entry of schema) {
+    if (entry && entry.name === name) return entry.default;
+  }
+  return undefined;
 }
 
 /**

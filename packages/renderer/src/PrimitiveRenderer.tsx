@@ -73,6 +73,11 @@ import {
   heartOutline,
   home,
   homeOutline,
+  document,
+  documentOutline,
+  documentTextOutline,
+  download,
+  downloadOutline,
   image,
   imageOutline,
   images,
@@ -284,6 +289,12 @@ const ICON_REGISTRY: Record<string, string> = {
   // Media
   camera,
   'camera-outline': cameraOutline,
+  // Files — the documents tab's row glyphs + download affordance.
+  document,
+  'document-outline': documentOutline,
+  'document-text-outline': documentTextOutline,
+  download,
+  'download-outline': downloadOutline,
   image,
   'image-outline': imageOutline,
   images,
@@ -383,6 +394,7 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
   switch (primitive.ionic_component) {
     case 'IonButton': {
       const iconName = readString(overrides, 'icon');
+      const iconEndName = readString(overrides, 'icon_end');
       const rawText = overrides ? overrides['text'] : undefined;
       const textExplicitlyEmpty = rawText === '';
       const iconOnly = !!iconName && (textExplicitlyEmpty || readString(overrides, 'text') === undefined);
@@ -415,6 +427,13 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
           {!iconOnly && buttonLabel}
           {iconName && resolveIcon(iconName) && iconSlot === 'end' && (
             <IonIcon icon={resolveIcon(iconName)} slot="end" />
+          )}
+          {/* icon_end — a SECOND glyph pinned after the label, independent of
+              icon_slot. The document file row needs a leading file-type glyph
+              AND a trailing download glyph on one tappable row; icon_slot can
+              only place the single `icon`. */}
+          {iconEndName && resolveIcon(iconEndName) && iconSlot !== 'end' && (
+            <IonIcon icon={resolveIcon(iconEndName)} slot="end" className="appza-icon-end" />
           )}
         </ThemedIonButton>
       );
@@ -509,6 +528,11 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
           type={inputType}
           placeholder={readString(overrides, 'placeholder') ?? label}
           fill={(fillProp as 'solid' | 'outline' | undefined) ?? 'outline'}
+          // Ionic's own clear affordance — shows the ⨯ only while the field
+          // has a value, which is exactly the documents-search design. It
+          // fires onIonInput with '' when tapped, so the wired action clears
+          // the state slice without a second child + action.
+          clearInput={readBoolean(overrides, 'clear_input')}
           onIonInput={handleInput}
         />
       );
@@ -876,6 +900,17 @@ function AppzaVideoEmbed({
       </button>
     </div>
   );
+}
+
+/**
+ * Boolean prop read. Accepts a real boolean (schema type `boolean` round-trips
+ * as one) or the string forms the right-panel text inputs produce.
+ */
+function readBoolean(overrides: PrimitiveOverrides | undefined, key: string): boolean {
+  if (!overrides) return false;
+  const v = overrides[key];
+  if (typeof v === 'boolean') return v;
+  return v === 'true' || v === '1' || v === 1;
 }
 
 function readString(overrides: PrimitiveOverrides | undefined, key: string): string | undefined {

@@ -96,6 +96,8 @@ export function ScreenRenderer({
       'space_detail_controls.topic_slug': spaceDetailControls.topic_slug,
       'space_detail_controls.sort': spaceDetailControls.sort,
       'space_detail_controls.space_slug': spaceDetailControls.space_slug,
+      'space_detail_controls.documents_search': spaceDetailControls.documents_search,
+      'space_detail_controls.documents_view': spaceDetailControls.documents_view,
     }),
     [
       spacesControls.tab,
@@ -105,6 +107,8 @@ export function ScreenRenderer({
       spaceDetailControls.topic_slug,
       spaceDetailControls.sort,
       spaceDetailControls.space_slug,
+      spaceDetailControls.documents_search,
+      spaceDetailControls.documents_view,
     ],
   );
 
