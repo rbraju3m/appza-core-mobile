@@ -765,6 +765,7 @@
     'body   body   body   body   body'
     'media  media  media  media  media'
     'poll   poll   poll   poll   poll'
+    'docs   docs   docs   docs   docs'
     'actions actions actions actions actions';
   gap: 4px 10px;
   padding: 14px;
@@ -3155,13 +3156,14 @@
     ".       body    body    body    body    body    ."
     "poll    poll    poll    poll    poll    poll    poll"
     "image   image   image   image   image   image   image"
+    ".       docs    docs    docs    docs    docs    ."
     ".       react   react   react   react   react   ."
     "chdr    chdr    chdr    chdr    chdr    chdr    chdr"
     "ctime   ctime   ctime   ctime   ctime   ctime   ctime"
     "cbody   cbody   cbody   cbody   cbody   cbody   cbody"
     "cfoot   cfoot   cfoot   cfoot   cfoot   cfoot   cfoot"
     ".       viewmore viewmore viewmore viewmore viewmore .";
-  grid-template-rows: auto auto auto auto auto auto auto auto auto auto auto auto auto;
+  grid-template-rows: auto auto auto auto auto auto auto auto auto auto auto auto auto auto;
   column-gap: 8px;
   row-gap: 0;
   padding: 0;
@@ -3377,7 +3379,7 @@
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="13"],
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="14"],
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="17"] {
-  grid-row: 8;
+  grid-row: 9;
   align-self: center;
   padding-top: 10px;
   padding-bottom: 10px;
@@ -3393,7 +3395,7 @@
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"],
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"],
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] {
-  grid-row: 8;
+  grid-row: 9;
   grid-column: 2 / 4;
   justify-self: start;
   align-self: center;
@@ -3431,7 +3433,7 @@
   margin: 0 !important;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="13"] {
-  grid-row: 8;
+  grid-row: 9;
   grid-column: 5 / 7;
   justify-self: end;
   align-self: center;
@@ -3444,7 +3446,7 @@
   align-items: center;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="14"] {
-  grid-row: 8;
+  grid-row: 9;
   grid-column: 5 / 7;
   justify-self: end;
   align-self: center;
@@ -3479,7 +3481,7 @@
    col-1/-1 full-width bg strip; the name overlays it via z-index and
    left padding. Same for time and body rows below.                   */
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"] {
-  grid-row: 9;
+  grid-row: 10;
   grid-column: 1 / -1;
   padding: 12px 0 0 20px;
   margin-top: 8px;
@@ -3496,7 +3498,7 @@
   border-radius: 999px;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="19"] {
-  grid-row: 9;
+  grid-row: 10;
   grid-column: 1 / -1;
   font-weight: 700;
   font-size: 0.9rem;
@@ -3508,7 +3510,7 @@
   z-index: 1;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="20"] {
-  grid-row: 10;
+  grid-row: 11;
   grid-column: 1 / -1;
   font-size: 0.72rem;
   color: #6b7280;
@@ -3517,7 +3519,7 @@
   margin-right: 14px;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="21"] {
-  grid-row: 11;
+  grid-row: 12;
   grid-column: 1 / -1;
   font-size: 0.85rem;
   color: #374151;
@@ -3532,7 +3534,7 @@
 }
 /* Comment footer row: Reply | blue heart+(1) on left, "1 Reply" right */
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="24"] {
-  grid-row: 12;
+  grid-row: 13;
   grid-column: 1 / 4;
   font-size: 0.78rem;
   color: #374151;
@@ -3544,7 +3546,7 @@
   align-items: center;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"] {
-  grid-row: 12;
+  grid-row: 13;
   grid-column: 1 / 4;
   padding: 4px 0 12px 90px;
   margin-left: 14px;
@@ -3565,7 +3567,7 @@
   margin: 0 !important;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="26"] {
-  grid-row: 12;
+  grid-row: 13;
   grid-column: 1 / 4;
   font-size: 0.78rem;
   color: #1d4ed8;
@@ -3575,7 +3577,7 @@
   justify-self: start;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"] {
-  grid-row: 12;
+  grid-row: 13;
   grid-column: 4 / -1;
   font-size: 0.78rem;
   color: #6b7280;
@@ -5612,4 +5614,66 @@
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
+}
+
+/* ---------- appza-file-list — attached files on a feed post ----------
+   Document posts published to the feed carry their files here. Same row
+   language as the DOCUMENTS tab so a file reads the same either way. */
+.appza-file-list {
+  list-style: none;
+  margin: 6px 0 2px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--appza-file-gap, 6px);
+}
+.appza-file-list-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px 0 12px;
+  height: var(--appza-file-row-height, 42px);
+  background: var(--appza-file-bg-color, #ffffff);
+  border: 1px solid var(--appza-file-border-color, #e6eaf0);
+  border-radius: var(--appza-file-radius, 6px);
+}
+.appza-file-list-icon {
+  flex: 0 0 auto;
+  font-size: 18px;
+  color: var(--appza-file-icon-color, #6b7280);
+}
+.appza-file-list-link,
+.appza-file-list-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  color: var(--appza-file-text-color, #1f2937);
+  text-decoration: none;
+}
+.appza-file-list-download {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--appza-download-icon-color, #4b5563);
+  font-size: 17px;
+  text-decoration: none;
+}
+
+/* children[28] — attached files on a document post. Sits between the
+   body/media block and the reaction strip in both card layouts, which is
+   where FluentCommunity's own portal puts them. */
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="28"] {
+  grid-area: docs;
+  min-width: 0;
+}
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="28"] {
+  grid-area: docs;
+  min-width: 0;
+  padding: 4px 0 10px;
 }

@@ -2216,3 +2216,18 @@ body {
   border: 0;
   border-radius: 0;
 }
+
+/* wp-admin restyles links on hover/focus (`a:hover { color: #183ad6 }`),
+   which turned an attached filename WordPress-blue as soon as the cursor
+   crossed it — another light-DOM leak, same family as the button border
+   above. Pin the colours the renderer already chose. */
+.appza-device-viewport a.appza-file-list-link:hover,
+.appza-device-viewport a.appza-file-list-link:focus,
+.appza-device-viewport a.appza-file-list-link:visited {
+  color: var(--appza-file-text-color, #1f2937);
+}
+.appza-device-viewport a.appza-file-list-download:hover,
+.appza-device-viewport a.appza-file-list-download:focus,
+.appza-device-viewport a.appza-file-list-download:visited {
+  color: var(--appza-download-icon-color, #4b5563);
+}

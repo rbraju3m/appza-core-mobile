@@ -159,6 +159,7 @@ import {
 } from 'ionicons/icons';
 import type { PrimitiveRow } from './catalogIndex';
 import { AppzaFilePicker } from './AppzaFilePicker';
+import { AppzaFileList } from './AppzaFileList';
 import { attach, attachOutline } from 'ionicons/icons';
 
 /**
@@ -639,6 +640,9 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
 
     case 'AppzaFilePicker':
       return <AppzaFilePicker overrides={overrides} />;
+
+    case 'AppzaFileList':
+      return <AppzaFileList overrides={overrides} />;
 
     case 'IonLabel':
       return <IonLabel>{label}</IonLabel>;
