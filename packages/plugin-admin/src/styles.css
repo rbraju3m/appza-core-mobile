@@ -2199,3 +2199,20 @@ body {
 .appza-device-viewport .appza-schedule-backdrop {
   position: absolute;
 }
+
+/* ------- wp-admin style leak into the phone preview -------
+   `.wp-core-ui .button { border: 1px solid var(--wp-admin-theme-color) }`
+   (wp-admin colors.css) matches every ion-button in the simulator:
+   Ionic puts a `button` class on the HOST element, which is light DOM,
+   and the whole admin page is `.wp-core-ui`. The result is a WordPress
+   blue box around every button, tab and nav icon — visible only here,
+   never in the real app, and enough to make the preview disagree with
+   the design it is being checked against.
+
+   Reset at the same weight as WP's rule (0,2,0) so it wins on load
+   order, and so a component that genuinely wants a border — the space
+   links chips, at (0,2,1) — still keeps it. */
+.appza-device-viewport .button {
+  border: 0;
+  border-radius: 0;
+}

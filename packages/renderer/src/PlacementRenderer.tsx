@@ -1707,6 +1707,15 @@ function SuperstructureRenderer({
                 href={openUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                download={
+                  child.download
+                    ? // Save under the name the row shows, not the
+                      // storage filename FC generated.
+                      (typeof childOverrides?.[idx]?.text === 'string'
+                        ? (childOverrides[idx].text as string)
+                        : '')
+                    : undefined
+                }
                 className="appza-renderer-open-url"
               >
                 {rendered}
@@ -1771,6 +1780,15 @@ type SSChild = {
    * Non-`entry.` values are ignored (reserved for future literals).
    */
   field_mapping?: Record<string, string>;
+  /**
+   * Marks an `on_click_open_url` child as a DOWNLOAD rather than a
+   * navigation. Adds the `download` attribute, which makes a same-origin
+   * file save instead of opening in a tab — what a row with a download
+   * glyph promises. Cross-origin (the packaged app talking to the site)
+   * the attribute is ignored by design and the platform's own download
+   * handling takes over.
+   */
+  download?: boolean;
 };
 
 function readChildren(ss: Superstructure): SSChild[] {
@@ -1795,6 +1813,9 @@ function readChildren(ss: Superstructure): SSChild[] {
       }
       if (typeof rec.on_click_open_url === 'string') {
         out.on_click_open_url = rec.on_click_open_url;
+      }
+      if (rec.download === true) {
+        out.download = true;
       }
       if (typeof rec.on_click_action === 'string') {
         out.on_click_action = rec.on_click_action;
@@ -1910,6 +1931,7 @@ function readExpandedChildren(
           ? entry.on_click_action
           : template.on_click_action,
       on_click_open_url: openUrlSpec,
+      download: template.download,
     };
     children.push(child);
     // Stamp the entry's leaf values as this child's overrides. `text`
