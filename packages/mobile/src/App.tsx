@@ -42,7 +42,9 @@ import {
   schedulePresentation,
   SCHEDULE_SHEET_APPZET_SLUG,
   toggleDraftTopic,
+  seedDraftForEdit,
   submitDocumentDraft,
+  prepareDocumentEdit,
   setSpacesControls,
   tryHandlePostMenuAction,
   type ActionDispatch,
@@ -1529,6 +1531,31 @@ export function App() {
   );
 }
 
+/**
+ * Load a post's attached files into the document draft when its edit
+ * screen opens. Non-document posts reset it, which is what keeps the
+ * file block off every other kind of post.
+ */
+function seedEditDraftFromPost(item: unknown): void {
+  if (!isRecord(item) || item.content_type !== 'document') {
+    resetDocumentDraft('');
+    return;
+  }
+  const feedId = typeof item.id === 'number' ? item.id : Number.parseInt(String(item.id), 10);
+  if (!Number.isFinite(feedId)) {
+    resetDocumentDraft('');
+    return;
+  }
+  const spaceRec = isRecord(item.space) ? item.space : null;
+  const spaceSlug =
+    (spaceRec && typeof spaceRec.slug === 'string' && spaceRec.slug) ||
+    (typeof item.space_slug === 'string' ? item.space_slug : '');
+  const files = Array.isArray(item.files)
+    ? (item.files.filter((f) => isRecord(f)) as Array<Record<string, unknown>>)
+    : [];
+  seedDraftForEdit(feedId, spaceSlug, files);
+}
+
 function handleAction(inv: ActionInvocation, deps: ActionDeps) {
   const {
     catalog,
@@ -1574,6 +1601,12 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       if (argRec.pass_item_as_context === true && effectiveItem != null) {
         screenContextRef.current[targetSlug] = effectiveItem;
         delete screenPrefilledRef.current[targetSlug];
+        // Editing a document post: seed the file editor from the post the
+        // menu passed us. Any other kind clears the draft, so the block
+        // stays hidden and Save doesn't carry stale document_ids.
+        if (targetSlug === 'edit-post-page') {
+          seedEditDraftFromPost(effectiveItem);
+        }
         // Populate route params from the passed item so DS query_params
         // with `source: 'route_param'` (e.g. fc-space-detail.slug,
         // fc-space-feeds.space_slug) resolve on the destination screen.
@@ -1803,6 +1836,32 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       if (alreadyOn) body.remove = 1;
       void (async () => {
         try {
+          // Document post: commit the file edits first, then send the
+          // resulting list. FC's feed update detaches any media_key
+          // missing from it, so a removed row needs no call of its own —
+          // but a newly picked file has to be uploaded, and a renamed one
+          // updated, before the list can reference it.
+          const draft = getDocumentDraft();
+          if (draft.edit_feed_id === feedId) {
+            const uploadEndpoint =
+              typeof argRec.upload_endpoint === 'string' ? argRec.upload_endpoint : '';
+            const renameEndpoint =
+              typeof argRec.rename_endpoint === 'string' ? argRec.rename_endpoint : '';
+            if (!uploadEndpoint || !renameEndpoint) {
+              onError('The document endpoints are missing from the action.');
+              return;
+            }
+            const documents = await prepareDocumentEdit({
+              uploadEndpoint,
+              renameEndpoint,
+              authHeader: basicAuthHeader(auth),
+              absolutize: absolutizeEndpoint,
+            });
+            body.document_ids = documents;
+            // An empty list is meaningful: FC turns the post back into a
+            // plain text post, which is what removing every file means.
+            body.content_type = documents.length > 0 ? 'document' : 'text';
+          }
           const res = await fetch(absolutizeEndpoint(endpoint), {
             method,
             credentials: 'omit',

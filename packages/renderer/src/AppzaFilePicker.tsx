@@ -56,6 +56,13 @@ export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unkn
   const deleteIcon = readString(overrides, 'delete_icon') ?? 'trash-outline';
   const accept = readString(overrides, 'accept');
   const renamePrompt = readString(overrides, 'rename_prompt') ?? 'File name';
+  // Edit-post use: the block belongs on the screen only when the post
+  // being edited is a document. Gating in the component rather than at
+  // placement level because placements can read state but not the item
+  // under edit.
+  const requiresEditContext =
+    overrides?.require_edit_context === true ||
+    readString(overrides, 'require_edit_context') === 'true';
   const maxRaw = readString(overrides, 'max_files');
   const maxFiles = maxRaw ? Number.parseInt(maxRaw, 10) : NaN;
 
@@ -72,6 +79,8 @@ export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unkn
     if (atLimit) return;
     inputRef.current?.click();
   };
+
+  if (requiresEditContext && draft.edit_feed_id === null) return null;
 
   return (
     <div className="appza-file-picker">

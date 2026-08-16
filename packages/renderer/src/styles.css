@@ -5677,3 +5677,21 @@
   min-width: 0;
   padding: 4px 0 10px;
 }
+
+/* ---------- fc-edit-document-files — file editor on edit-post ---------- */
+.appza-renderer-appzet[data-slug="fc-edit-document-files"] {
+  padding: var(--appza-row-padding, 4px 12px 14px);
+}
+.appza-renderer-ss[data-slug="fc-edit-document-files"] {
+  display: block;
+  width: 100%;
+}
+.appza-renderer-ss[data-slug="fc-edit-document-files"] .appza-renderer-ss-child {
+  width: 100%;
+}
+/* The portal's edit modal uses a dashed dropzone; the add screen's is a
+   filled block. Same component, different surface. */
+.appza-renderer-ss[data-slug="fc-edit-document-files"] .appza-file-picker-dropzone {
+  background: var(--appza-dropzone-bg-color, #ffffff);
+  border: 1px dashed var(--appza-dropzone-border-color, #c9d1dc);
+}

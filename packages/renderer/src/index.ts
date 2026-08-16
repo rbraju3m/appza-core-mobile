@@ -107,13 +107,19 @@ export {
   renameDraftFile,
   patchDraftFile,
   toggleDraftTopic,
+  seedDraftForEdit,
   getDraftFileHandle,
   useDocumentDraft,
   kindFor,
   type DocumentDraft,
   type DraftFile,
 } from './documentDraft';
-export { submitDocumentDraft, type DocumentSubmitDeps } from './documentSubmit';
+export {
+  submitDocumentDraft,
+  prepareDocumentEdit,
+  type DocumentSubmitDeps,
+  type DocumentEditDeps,
+} from './documentSubmit';
 export {
   ScheduleSheet,
   openScheduleSheet,

@@ -160,7 +160,7 @@ import {
 import type { PrimitiveRow } from './catalogIndex';
 import { AppzaFilePicker } from './AppzaFilePicker';
 import { AppzaFileList } from './AppzaFileList';
-import { attach, attachOutline } from 'ionicons/icons';
+import { attach, attachOutline, cloudUploadOutline } from 'ionicons/icons';
 
 /**
  * Explicit icon registry. Using `import * as icons from 'ionicons/icons'`
@@ -297,6 +297,7 @@ const ICON_REGISTRY: Record<string, string> = {
   // and the add-document dropzone's paperclip.
   attach,
   'attach-outline': attachOutline,
+  'cloud-upload-outline': cloudUploadOutline,
   document,
   'document-outline': documentOutline,
   'document-text-outline': documentTextOutline,

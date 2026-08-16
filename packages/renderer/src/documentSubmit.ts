@@ -163,3 +163,100 @@ export async function submitDocumentDraft(deps: DocumentSubmitDeps): Promise<voi
     deps.onError(message);
   }
 }
+
+
+export type DocumentEditDeps = {
+  /** From the action's args — never hardcoded in the shell. */
+  uploadEndpoint: string;
+  renameEndpoint: string;
+  authHeader: string;
+  absolutize?: (path: string) => string;
+};
+
+/**
+ * Prepares an edited document post's files and returns the final
+ * `document_ids` list for the feed update.
+ *
+ * Adding and removing need no endpoint of their own: FluentCommunity's
+ * feed update takes the whole desired list and works out the difference —
+ * media keys missing from it are detached, new ones (uploaded but not yet
+ * attached) are claimed. So the only calls here are the ones that list
+ * cannot express: uploading a newly picked file, and renaming one that is
+ * already attached (the title lives on the Media row, not in the list).
+ *
+ * Throws with a human message; the caller decides how to surface it.
+ */
+export async function prepareDocumentEdit(
+  deps: DocumentEditDeps,
+): Promise<Array<Record<string, unknown>>> {
+  const draft = getDocumentDraft();
+  const abs = deps.absolutize ?? ((p: string) => p);
+  const media: Array<Record<string, unknown>> = [];
+
+  for (const file of draft.files) {
+    // Already attached: keep it in the list, and push a rename through if
+    // the row was edited.
+    if (file.media) {
+      if (file.name !== file.original_name) {
+        const mediaId = file.media.id;
+        const res = await fetch(abs(deps.renameEndpoint), {
+          method: 'POST',
+          credentials: 'omit',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            Authorization: deps.authHeader,
+          },
+          body: JSON.stringify({ media_id: mediaId, title: file.name }),
+        });
+        const json = (await res.json().catch(() => null)) as Envelope | null;
+        if (!ok(res, json)) {
+          throw new Error(messageFrom(json, res.status, `Could not rename ${file.original_name}`));
+        }
+        patchDraftFile(file.key, {
+          original_name: file.name,
+          media: { ...file.media, title: file.name },
+        });
+        media.push({ ...file.media, title: file.name });
+        continue;
+      }
+      media.push(file.media);
+      continue;
+    }
+
+    // Newly picked: upload it, then include what came back.
+    const handle = getDraftFileHandle(file.key);
+    if (!handle) {
+      throw new Error(`${file.name} is no longer available. Remove it and pick it again.`);
+    }
+    patchDraftFile(file.key, { status: 'uploading', error: undefined });
+
+    const form = new FormData();
+    form.append('space_slug', draft.space_slug);
+    form.append('file', handle, file.name);
+    if (file.name !== file.original_name) form.append('title', file.name);
+
+    const res = await fetch(abs(deps.uploadEndpoint), {
+      method: 'POST',
+      credentials: 'omit',
+      headers: { Accept: 'application/json', Authorization: deps.authHeader },
+      body: form,
+    });
+    const json = (await res.json().catch(() => null)) as Envelope | null;
+    if (!ok(res, json)) {
+      const message = messageFrom(json, res.status, `Could not upload ${file.name}`);
+      patchDraftFile(file.key, { status: 'error', error: message });
+      throw new Error(message);
+    }
+    const uploaded = (json?.data ?? null) as Record<string, unknown> | null;
+    if (!uploaded || typeof uploaded.media_key !== 'string') {
+      const message = `Upload of ${file.name} returned no file.`;
+      patchDraftFile(file.key, { status: 'error', error: message });
+      throw new Error(message);
+    }
+    patchDraftFile(file.key, { status: 'done', media: uploaded });
+    media.push(uploaded);
+  }
+
+  return media;
+}

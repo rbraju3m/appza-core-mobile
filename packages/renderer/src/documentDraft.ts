@@ -33,6 +33,13 @@ export type DraftFile = {
 
 export type DocumentDraft = {
   space_slug: string;
+  /**
+   * Set when the draft is editing an EXISTING post's files rather than
+   * composing a new one. The edit screen's file block renders only when
+   * this is populated, and the submit path patches this feed instead of
+   * creating one.
+   */
+  edit_feed_id: number | null;
   title: string;
   message: string;
   files: DraftFile[];
@@ -48,6 +55,7 @@ const EVENT = 'appza:document-draft-change';
 
 const EMPTY: DocumentDraft = {
   space_slug: '',
+  edit_feed_id: null,
   title: '',
   message: '',
   files: [],
@@ -91,6 +99,39 @@ export function setDocumentDraft(patch: Partial<DocumentDraft>): void {
 export function resetDocumentDraft(spaceSlug: string): void {
   fileHandles.clear();
   emit({ ...EMPTY, space_slug: spaceSlug });
+}
+
+/**
+ * Load an existing post's files into the draft so the edit screen can
+ * show, rename and remove them.
+ *
+ * They arrive already committed — `media` set, status 'done' — so the
+ * submit path uploads nothing for them and simply keeps them in the
+ * `document_ids` list it sends. Dropping one from the list is what
+ * deletes it, which is exactly how FluentCommunity's own feed update
+ * works.
+ */
+export function seedDraftForEdit(
+  feedId: number,
+  spaceSlug: string,
+  files: Array<Record<string, unknown>>,
+): void {
+  fileHandles.clear();
+  const seeded: DraftFile[] = files.map((f, i) => {
+    const name = typeof f.title === 'string' ? f.title : `file-${i + 1}`;
+    const type = typeof f.type === 'string' ? f.type : '';
+    return {
+      key: `e${++keySeed}`,
+      name,
+      original_name: name,
+      type,
+      kind: typeof f.kind === 'string' ? f.kind : kindFor(type, name),
+      size: 0,
+      status: 'done',
+      media: f,
+    };
+  });
+  emit({ ...EMPTY, space_slug: spaceSlug, edit_feed_id: feedId, files: seeded });
 }
 
 export function addDraftFiles(files: ArrayLike<File>): void {
