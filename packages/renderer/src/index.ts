@@ -96,6 +96,8 @@ export {
   childStylesFromCustomizations,
   ADD_MEMBER_CHILD_COUNT,
   INVITE_USER_CHILD_COUNT,
+  SCHEDULE_SHEET_CHILD_COUNT,
+  schedulePresentation,
 } from './modalPresentation';export {
   getDocumentDraft,
   setDocumentDraft,
@@ -112,3 +114,11 @@ export {
   type DraftFile,
 } from './documentDraft';
 export { submitDocumentDraft, type DocumentSubmitDeps } from './documentSubmit';
+export {
+  ScheduleSheet,
+  openScheduleSheet,
+  closeScheduleSheet,
+  patchScheduleSheet,
+  SCHEDULE_SHEET_APPZET_SLUG,
+  type SchedulePresentation,
+} from './ScheduleSheet';

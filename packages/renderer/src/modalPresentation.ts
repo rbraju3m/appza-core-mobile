@@ -4,6 +4,7 @@ import { layoutStyleToCss } from './layoutStyle';
 import { readOverride } from './resolveOverride';
 import type { AddMemberRoleOption } from './AddMemberModal';
 import type { InviteChipPalette, InviteRoleOption } from './InviteUserModal';
+import type { SchedulePresentation } from './ScheduleSheet';
 
 // Maps an overlay AppZet's authored props (snake_case, as stored in
 // default_props_override) onto the camelCase payload its component
@@ -86,6 +87,68 @@ export function childStylesFromCustomizations(
 /** Superstructure child counts — the tagging in each modal must match. */
 export const ADD_MEMBER_CHILD_COUNT = 9;
 export const INVITE_USER_CHILD_COUNT = 13;
+export const SCHEDULE_SHEET_CHILD_COUNT = 10;
+
+/** Weekday initials, comma-separated in the catalog so they're editable. */
+function weekdayList(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    const out = raw.filter((d): d is string => typeof d === 'string');
+    if (out.length > 0) return out;
+  }
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    const out = raw.split(',').map((d) => d.trim()).filter(Boolean);
+    if (out.length > 0) return out;
+  }
+  return ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+}
+
+function num(v: unknown, fallback: number): number {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string' && v.trim() !== '') {
+    const parsed = Number.parseInt(v, 10);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+export function schedulePresentation(props: Record<string, unknown>): SchedulePresentation {
+  return {
+    eyebrow: str(props.eyebrow) ?? 'PUBLISH LATER',
+    title: str(props.title) ?? 'Schedule post',
+    timeLabel: str(props.time_label) ?? 'Time',
+    submitLabel: str(props.submit_label) ?? 'Schedule',
+    prevIcon: str(props.prev_icon) ?? 'chevron-back',
+    nextIcon: str(props.next_icon) ?? 'chevron-forward',
+    monthCaretIcon: str(props.month_caret_icon) ?? 'chevron-down',
+    weekdays: weekdayList(props.weekday_labels),
+    hidden: bool(props.hidden, false),
+    showEyebrow: bool(props.show_eyebrow, true),
+    showHandle: bool(props.show_handle, true),
+    // FC Pro rejects anything closer than 30 minutes; the catalog can
+    // raise it but not lower it past what the server will accept.
+    minLeadMinutes: num(props.min_lead_minutes, 30),
+    sheetBgColor: str(props.sheet_bg_color),
+    sheetRadius: size(props.sheet_radius),
+    backdropColor: str(props.backdrop_color),
+    eyebrowColor: str(props.eyebrow_color),
+    titleColor: str(props.title_color),
+    titleSize: size(props.title_size),
+    monthColor: str(props.month_color),
+    navIconColor: str(props.nav_icon_color),
+    weekdayColor: str(props.weekday_color),
+    dayColor: str(props.day_color),
+    dayMutedColor: str(props.day_muted_color),
+    selectedRingColor: str(props.selected_ring_color),
+    selectedTextColor: str(props.selected_text_color),
+    timeLabelColor: str(props.time_label_color),
+    timeBgColor: str(props.time_bg_color),
+    timeTextColor: str(props.time_text_color),
+    timeRadius: size(props.time_radius),
+    submitBgColor: str(props.submit_bg_color),
+    submitTextColor: str(props.submit_text_color),
+    submitRadius: size(props.submit_radius),
+  };
+}
 
 export function addMemberPresentation(props: Record<string, unknown>) {
   return {

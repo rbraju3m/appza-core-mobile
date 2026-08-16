@@ -5406,3 +5406,210 @@
   .appza-renderer-appzet[data-slug="fc-add-document-topics"] {
   padding: 0;
 }
+
+/* ==========================================================
+ * fc-schedule-sheet (2026-08-16, chunk 3) — date + time picker
+ * over the add-document screen. Fixed in the real app; the
+ * simulator pins it to the phone frame (plugin-admin CSS),
+ * same split as the modals.
+ * ========================================================== */
+.appza-schedule-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: var(--appza-ss-backdrop, rgba(17, 24, 39, 0.35));
+}
+.appza-schedule-sheet {
+  width: 100%;
+  max-height: 92%;
+  overflow-y: auto;
+  background: var(--appza-ss-bg, #ffffff);
+  border-radius: var(--appza-ss-radius, 18px) var(--appza-ss-radius, 18px) 0 0;
+  padding: 10px 20px 22px;
+  box-shadow: 0 -8px 28px rgba(15, 23, 42, 0.18);
+}
+.appza-schedule-handle {
+  width: 44px;
+  height: 4px;
+  margin: 2px auto 14px;
+  border-radius: 999px;
+  background: #cbd2dc;
+}
+.appza-schedule-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--appza-ss-eyebrow-color, #8b94a3);
+}
+.appza-schedule-title {
+  margin-top: 4px;
+  font-size: var(--appza-ss-title-size, 1.35rem);
+  font-weight: 700;
+  color: var(--appza-ss-title-color, #111827);
+}
+.appza-schedule-monthbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 18px 0 10px;
+}
+.appza-schedule-month {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 4px 2px;
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--appza-ss-month-color, #1f2937);
+  cursor: pointer;
+}
+.appza-schedule-caret {
+  font-size: 14px;
+}
+.appza-schedule-nav {
+  display: inline-flex;
+  gap: 6px;
+}
+.appza-schedule-navbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  background: transparent;
+  color: var(--appza-ss-nav-color, #6b7280);
+  font-size: 22px;
+  cursor: pointer;
+}
+/* Month + year jump, behind the caret. */
+.appza-schedule-monthpicker {
+  border: 1px solid #e6eaf0;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+.appza-schedule-yearrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--appza-ss-month-color, #1f2937);
+}
+.appza-schedule-yearrow button {
+  border: 0;
+  background: transparent;
+  color: var(--appza-ss-nav-color, #6b7280);
+  font-size: 18px;
+  cursor: pointer;
+}
+.appza-schedule-monthgrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.appza-schedule-monthgrid button {
+  border: 0;
+  background: #f3f5f9;
+  border-radius: 6px;
+  padding: 8px 0;
+  font-size: 0.82rem;
+  color: var(--appza-ss-day-color, #1f2937);
+  cursor: pointer;
+}
+.appza-schedule-monthgrid button.is-current {
+  background: var(--appza-ss-ring-color, #3b5bdb);
+  color: #ffffff;
+}
+.appza-schedule-weekdays,
+.appza-schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  justify-items: center;
+}
+.appza-schedule-weekdays {
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+  color: var(--appza-ss-weekday-color, #98a2b3);
+}
+.appza-schedule-grid {
+  row-gap: 6px;
+}
+.appza-schedule-day {
+  width: 40px;
+  height: 40px;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 0.98rem;
+  color: var(--appza-ss-day-color, #1f2937);
+  cursor: pointer;
+}
+/* Days before today can't be scheduled, so they read as unavailable
+   rather than simply not responding. */
+.appza-schedule-day.is-past {
+  color: var(--appza-ss-day-muted-color, #c2c8d2);
+  cursor: default;
+}
+.appza-schedule-day.is-selected {
+  border-color: var(--appza-ss-ring-color, #3b5bdb);
+  color: var(--appza-ss-selected-color, #3b5bdb);
+}
+.appza-schedule-timerow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18px;
+  gap: 12px;
+}
+.appza-schedule-timelabel {
+  font-size: 1.05rem;
+  color: var(--appza-ss-time-label-color, #4b5563);
+}
+/* Specificity is deliberate. This is a bare <input>, not an ion-* custom
+   element, so it is NOT inside a shadow root — in the WP-admin simulator
+   wp-admin's own `input[type=time]` rule outranks a single class and
+   repaints it white with a grey border. The real app has no such
+   stylesheet; the simulator is what needs the extra weight. */
+.appza-schedule-sheet input.appza-schedule-time {
+  /* Chromium paints its own border + inner spin/clock chrome on a time
+     input; without appearance:none the design's flat grey pill keeps a
+     UA outline around it. */
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  outline: none;
+  background: var(--appza-ss-time-bg, #eef1f6);
+  border-radius: var(--appza-ss-time-radius, 8px);
+  padding: 10px 14px;
+  font-size: 1rem;
+  color: var(--appza-ss-time-color, #1f2937);
+  font-family: inherit;
+}
+.appza-schedule-error {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: #b42318;
+}
+.appza-schedule-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+.appza-schedule-submit {
+  border: 0;
+  border-radius: var(--appza-ss-submit-radius, 8px);
+  background: var(--appza-ss-submit-bg, #a5b4f4);
+  color: var(--appza-ss-submit-color, #ffffff);
+  padding: 12px 26px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}

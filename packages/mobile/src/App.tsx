@@ -35,7 +35,12 @@ import {
   setRouteParams,
   setSpaceDetailControls,
   setDocumentDraft,
+  getDocumentDraft,
   resetDocumentDraft,
+  ScheduleSheet,
+  openScheduleSheet,
+  schedulePresentation,
+  SCHEDULE_SHEET_APPZET_SLUG,
   toggleDraftTopic,
   submitDocumentDraft,
   setSpacesControls,
@@ -1208,6 +1213,7 @@ export function App() {
         <MemberRemoveConfirm />
         <AddMemberModal />
         <InviteUserModal />
+        <ScheduleSheet />
       </ActionProvider>
 
       {errorToast && (
@@ -2621,8 +2627,16 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     }
 
     case 'documents.open_schedule': {
-      // The date + time sheet is chunk 3.
-      console.warn('[appza-mobile] documents.open_schedule: schedule sheet not built yet');
+      const sheetSlug =
+        typeof argRec.sheet_appzet_slug === 'string'
+          ? argRec.sheet_appzet_slug
+          : SCHEDULE_SHEET_APPZET_SLUG;
+      openScheduleSheet({
+        appzetSlug: sheetSlug,
+        value: getDocumentDraft().scheduled_at,
+        presentation: schedulePresentation(readAppzetPropsFromCatalog(sheetSlug)),
+        onConfirm: (value) => setDocumentDraft({ scheduled_at: value }),
+      });
       return;
     }
 

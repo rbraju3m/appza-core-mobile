@@ -29,7 +29,14 @@ import {
   setRouteParams,
   setSpaceDetailControls,
   setDocumentDraft,
+  getDocumentDraft,
   resetDocumentDraft,
+  ScheduleSheet,
+  openScheduleSheet,
+  patchScheduleSheet,
+  schedulePresentation,
+  SCHEDULE_SHEET_CHILD_COUNT,
+  SCHEDULE_SHEET_APPZET_SLUG,
   toggleDraftTopic,
   submitDocumentDraft,
   setSpacesControls,
@@ -690,6 +697,14 @@ export function App() {
         effectiveCustomizations,
       ),
     });
+    patchScheduleSheet(editedAppzetSlug, {
+      presentation: schedulePresentation(props),
+      childStyles: childStylesFromCustomizations(
+        editedAppzetSlug,
+        SCHEDULE_SHEET_CHILD_COUNT,
+        effectiveCustomizations,
+      ),
+    });
   }, [effectiveCustomizations, editedAppzetSlug]);
 
   const openImagePicker = useCallback((target: { endpoint: string; method: string }) => {
@@ -1110,6 +1125,7 @@ export function App() {
       <MemberRemoveConfirm />
       <AddMemberModal />
       <InviteUserModal />
+      <ScheduleSheet />
     </>
   );
 
@@ -3702,8 +3718,21 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'documents.open_schedule': {
-      // The date + time sheet is chunk 3.
-      console.warn('[appza-admin/app-mode] documents.open_schedule: schedule sheet not built yet');
+      const sheetSlug =
+        typeof argRec.sheet_appzet_slug === 'string'
+          ? argRec.sheet_appzet_slug
+          : SCHEDULE_SHEET_APPZET_SLUG;
+      openScheduleSheet({
+        appzetSlug: sheetSlug,
+        value: getDocumentDraft().scheduled_at,
+        presentation: schedulePresentation(readAppzetPropsFromCatalog(sheetSlug)),
+        childStyles: childStylesFromCustomizations(
+          sheetSlug,
+          SCHEDULE_SHEET_CHILD_COUNT,
+          currentCustomizations,
+        ),
+        onConfirm: (value) => setDocumentDraft({ scheduled_at: value }),
+      });
       return;
     }
 

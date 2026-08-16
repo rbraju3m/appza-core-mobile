@@ -2191,3 +2191,11 @@ body {
 .appza-device-viewport .appza-renderer-appzet[data-slug="fc-document-fab"] {
   position: absolute;
 }
+
+/* The schedule sheet is fixed in the renderer so it covers the phone
+   viewport in the real app; in the simulator the phone is a box on a
+   page, so absolute keeps it inside the frame. Same split as the modal
+   backdrops above. */
+.appza-device-viewport .appza-schedule-backdrop {
+  position: absolute;
+}
