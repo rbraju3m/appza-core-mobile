@@ -10,6 +10,7 @@ import { useActionDispatch, type ActionInvocation } from './actionContext';
 import { useFeedControls } from './feedControls';
 import { useSpacesControls } from './spacesControls';
 import { setSpaceDetailControls, useSpaceDetailControls } from './spaceDetailControls';
+import { useDocumentDraft } from './documentDraft';
 import { useFcRuntimeSettings } from './fcRuntimeSettings';
 import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
 
@@ -140,6 +141,13 @@ export function PlacementRenderer({
   // for stable hook order (subscribes to a small store; no cost when
   // unused by non-member AppZets).
   const { member_list_layout: fcMemberListLayout } = useFcRuntimeSettings();
+  // Add-document draft — read unconditionally for stable hook order. Only
+  // the topic chips consume it, to mark several chips active at once.
+  const documentDraft = useDocumentDraft();
+  const draftTopicValues = useMemo(
+    () => new Set(documentDraft.topic_ids.map((id) => String(id))),
+    [documentDraft.topic_ids],
+  );
   const requestedAppzet = catalogIndex.appzetBySlug.get(appzetSlug);
   // Placement-level data_source_slug override wins when deciding whether
   // the view-mode swap applies. The swap is governed by feedControls,
@@ -675,6 +683,24 @@ export function PlacementRenderer({
       ...expanded.entryOverrides[i],
     };
   }
+  // Add-document screen: two labels are stateful rather than static, so
+  // they are resolved here instead of being fixed catalog props. Both
+  // still READ their text from catalog props — this only chooses which
+  // prop applies, so nothing becomes uneditable.
+  if (appzet.slug === 'fc-add-document-appbar' && documentDraft.submitting) {
+    const busy = readAppzetProp(ss, appzet, 'submit_busy_label');
+    if (typeof busy === 'string' && busy !== '') {
+      baseChildOverrides[2] = { ...(baseChildOverrides[2] ?? {}), text: busy };
+    }
+  }
+  if (appzet.slug === 'fc-add-document-schedule' && documentDraft.scheduled_at) {
+    const prefix = readAppzetProp(ss, appzet, 'scheduled_prefix');
+    baseChildOverrides[1] = {
+      ...(baseChildOverrides[1] ?? {}),
+      text: `${typeof prefix === 'string' ? prefix : ''}${formatScheduledAt(documentDraft.scheduled_at)}`,
+    };
+  }
+
   const hiddenIndices = computeHiddenIndices(ss, appzet);
   const childLayoutStyles = computeChildLayoutStyles(appzet, ss, customizations);
 
@@ -868,6 +894,11 @@ export function PlacementRenderer({
         <div
           className={wrapperClass}
           data-slug={appzet.slug}
+          data-appza-can-submit={
+            appzet.slug === 'fc-add-document-appbar'
+              ? String(documentDraft.files.length > 0 && !documentDraft.submitting)
+              : undefined
+          }
           data-spaces-active-tab={appzet.slug === 'fc-spaces-tabs' ? spacesTab : undefined}
           data-space-detail-active-subtab={appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab : undefined}
           data-space-detail-active-topic={appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug : undefined}
@@ -890,6 +921,9 @@ export function PlacementRenderer({
               appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug :
               appzet.slug === 'fc-spaces-tabs' ? spacesTab :
               undefined
+            }
+            activeChildValues={
+              appzet.slug === 'fc-add-document-topics' ? draftTopicValues : undefined
             }
             expandedChildren={expanded.children}
           />
@@ -1107,6 +1141,9 @@ export function PlacementRenderer({
                 appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug :
                 appzet.slug === 'fc-spaces-tabs' ? spacesTab :
                 undefined
+              }
+              activeChildValues={
+                appzet.slug === 'fc-add-document-topics' ? draftTopicValues : undefined
               }
               expandedChildren={effChildren}
             />
@@ -1508,6 +1545,12 @@ type SuperstructureRendererProps = {
    */
   activeChildValue?: string;
   /**
+   * Multi-select variant. The add-document topic chips are not a filter
+   * strip — several can be on at once — so `data-active` also matches
+   * against this set when present.
+   */
+  activeChildValues?: ReadonlySet<string>;
+  /**
    * Pre-expanded child list. Used at depth 0 when the SS opts into
    * `children_from_prop` — the caller reads the AppZet's tabs array
    * and expands `ss.children[0]` as a template. When undefined we fall
@@ -1529,6 +1572,7 @@ function SuperstructureRenderer({
   childActions,
   appzetSlugForPath,
   activeChildValue,
+  activeChildValues,
   expandedChildren,
 }: SuperstructureRendererProps) {
   const dispatch = useActionDispatch();
@@ -1561,8 +1605,15 @@ function SuperstructureRenderer({
         // swallows the tap and no navigation fires. `child.on_click_action`
         // is the SS-level authoritative signal for "the whole wrapper is
         // a tap target regardless of primitive class".
+        // A self-action primitive normally keeps its action to itself. The
+        // exception is ion-input, which is also used as a tap-to-navigate
+        // pill (fc-post-composer-teaser) — there the wrapper tap IS the
+        // event. Nothing else has a meaningful "tap the row" reading: a
+        // stray wrapper click on a toggle would dispatch a change that
+        // never happened.
         const primitiveSelfHandles =
-          SELF_ACTION_PRIMITIVES.has(child.slug) && !child.on_click_action;
+          SELF_ACTION_PRIMITIVES.has(child.slug) &&
+          !(child.on_click_action && child.slug === 'ion-input');
         const wrapperAction = action && !primitiveSelfHandles ? action : undefined;
         // A self-action primitive gets the action EVEN WHEN the SS also
         // wires on_click_action: the two fire on different events (value
@@ -1601,7 +1652,9 @@ function SuperstructureRenderer({
               return typeof v === 'string' || typeof v === 'number' ? String(v) : undefined;
             })()}
             data-active={(() => {
-              if (!isTopLevel || activeChildValue === undefined) return undefined;
+              if (!isTopLevel || (activeChildValue === undefined && !activeChildValues)) {
+                return undefined;
+              }
               // Only mark active when the child has an EXPLICIT `value`
               // override — the empty-string "All" chip is fine, but the
               // static "Choose topic" section header (no value key) must
@@ -1610,6 +1663,7 @@ function SuperstructureRenderer({
               if (!bucket || !('value' in bucket)) return undefined;
               const v = bucket.value;
               const asStr = typeof v === 'string' || typeof v === 'number' ? String(v) : '';
+              if (activeChildValues) return activeChildValues.has(asStr) ? 'true' : undefined;
               return asStr === activeChildValue ? 'true' : undefined;
             })()}
             style={childLayoutStyle ? layoutStyleToCss(childLayoutStyle) : undefined}
@@ -1913,7 +1967,7 @@ function readExpandedChildren(
         const key = readDataPath(entry, 'data.' + from.slice('entry.'.length));
         const propName = typeof key === 'string' ? cases[key] : undefined;
         if (typeof propName !== 'string') continue;
-        const resolved = resolveAppzetProp(ss, appzet, propName);
+        const resolved = readAppzetProp(ss, appzet, propName);
         if (resolved !== undefined) bucket[childProp] = resolved;
       }
     }
@@ -1923,10 +1977,27 @@ function readExpandedChildren(
 }
 
 /**
+ * "Aug 21, 2026, 11:50 AM" — how the design prints a scheduled date.
+ * The draft stores 'YYYY-MM-DD HH:MM:SS'; anything unparseable is shown
+ * verbatim rather than swallowed.
+ */
+function formatScheduledAt(value: string): string {
+  const parsed = new Date(value.replace(' ', 'T'));
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+/**
  * DC#16 precedence for a single named prop: AppZet `default_props_override`
  * wins, else the SS `properties_schema` default, else undefined.
  */
-function resolveAppzetProp(ss: Superstructure, appzet: AppZet, name: string): unknown {
+function readAppzetProp(ss: Superstructure, appzet: AppZet, name: string): unknown {
   const overrides = appzet.default_props_override as Record<string, unknown> | null | undefined;
   if (overrides && overrides[name] !== undefined && overrides[name] !== '') {
     return overrides[name];

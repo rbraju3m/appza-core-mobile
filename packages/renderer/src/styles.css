@@ -5089,3 +5089,320 @@
   font-size: 26px;
   color: var(--appza-fab-icon-color, #ffffff);
 }
+
+/* ==========================================================
+ * Add-document screen (2026-08-16). Sits on the same #f5f7fa
+ * ground as the rest of space-detail; each block paints only
+ * its own surface.
+ * ========================================================== */
+
+/* ---------- fc-add-document-appbar — CANCEL / title / UPLOAD ---------- */
+.appza-renderer-ss[data-slug="add-document-appbar-shell"] {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+}
+.appza-renderer-ss[data-slug="add-document-appbar-shell"] ion-button {
+  border: 0;
+  --background: transparent;
+  --box-shadow: none;
+  --padding-start: 4px;
+  --padding-end: 4px;
+  margin: 0;
+  height: 34px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.appza-renderer-ss[data-slug="add-document-appbar-shell"] ion-button::part(native) {
+  border: 0;
+  background: transparent;
+}
+.appza-renderer-ss[data-slug="add-document-appbar-shell"] [data-child-index="0"] ion-button {
+  --color: var(--appza-cancel-color, #3c4657);
+  color: var(--appza-cancel-color, #3c4657);
+  justify-self: start;
+}
+.appza-renderer-ss[data-slug="add-document-appbar-shell"] [data-child-index="1"] {
+  text-align: center;
+}
+.appza-renderer-ss[data-slug="add-document-appbar-shell"] [data-child-index="1"] ion-text {
+  display: block;
+  font-size: var(--appza-title-size, 0.95rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--appza-title-color, #2b6cf6);
+}
+.appza-renderer-ss[data-slug="add-document-appbar-shell"] [data-child-index="2"] ion-button {
+  --color: var(--appza-submit-color, #2b6cf6);
+  color: var(--appza-submit-color, #2b6cf6);
+  justify-self: end;
+}
+/* Nothing picked yet — the design greys UPLOAD out rather than hiding it.
+   The flag is stamped on the AppZet wrapper, which is the element the
+   renderer owns; the SS div underneath is built by the shared renderer. */
+.appza-renderer-appzet[data-appza-can-submit="false"]
+  .appza-renderer-ss[data-slug="add-document-appbar-shell"]
+  [data-child-index="2"] ion-button {
+  --color: var(--appza-submit-disabled-color, #98a2b3);
+  color: var(--appza-submit-disabled-color, #98a2b3);
+}
+
+/* ---------- fc-add-document-fields — title + description ---------- */
+.appza-renderer-appzet[data-slug="fc-add-document-fields"] {
+  padding: var(--appza-row-padding, 14px 12px 0);
+}
+.appza-renderer-ss[data-slug="fc-add-document-fields"] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  gap: var(--appza-gap, 12px);
+}
+.appza-renderer-ss[data-slug="fc-add-document-fields"] ion-input,
+.appza-renderer-ss[data-slug="fc-add-document-fields"] ion-textarea {
+  --background: var(--appza-field-bg-color, #ffffff);
+  --color: var(--appza-field-text-color, #1f2937);
+  --placeholder-color: var(--appza-field-placeholder-color, #98a2b3);
+  --placeholder-opacity: 1;
+  --padding-start: 14px;
+  --padding-end: 14px;
+  --padding-top: 12px;
+  --padding-bottom: 12px;
+  --border-width: 0;
+  --highlight-height: 0;
+  background: var(--appza-field-bg-color, #ffffff);
+  border: 1px solid var(--appza-field-border-color, #d8dee9);
+  border-radius: var(--appza-field-radius, 8px);
+  font-size: 0.95rem;
+  margin: 0;
+}
+.appza-renderer-ss[data-slug="fc-add-document-fields"] ion-textarea {
+  min-height: var(--appza-description_height, 132px);
+}
+
+/* ---------- appza-file-picker — dropzone + picked rows ---------- */
+.appza-renderer-appzet[data-slug="fc-add-document-uploader"] {
+  padding: var(--appza-row-padding, 14px 12px 0);
+}
+.appza-file-picker-input {
+  display: none;
+}
+.appza-file-picker-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: var(--appza-dropzone-height, 84px);
+  padding: 18px 16px;
+  background: var(--appza-dropzone-bg-color, #e9ebef);
+  border-radius: var(--appza-dropzone-radius, 8px);
+  border: 1px solid var(--appza-dropzone-border-color, #dfe3e8);
+  cursor: pointer;
+  text-align: center;
+}
+.appza-file-picker-dropzone.is-dragging {
+  border-color: var(--appza-dropzone-active-color, #2b6cf6);
+  background: var(--appza-dropzone-active-bg-color, #e3ecff);
+}
+.appza-file-picker-dropzone.is-full {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.appza-file-picker-clip {
+  font-size: 22px;
+  color: var(--appza-dropzone-icon-color, #4b5563);
+}
+.appza-file-picker-label {
+  font-size: 0.95rem;
+  color: var(--appza-dropzone-text-color, #4b5563);
+}
+.appza-file-picker-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--appza-file-gap, 8px);
+}
+.appza-file-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px 0 12px;
+  height: var(--appza-file-row-height, 40px);
+  background: var(--appza-file-bg-color, #ffffff);
+  border: 1px solid var(--appza-file-border-color, #e6eaf0);
+  border-radius: var(--appza-file-radius, 6px);
+}
+.appza-file-picker-row.is-uploading {
+  opacity: 0.6;
+}
+.appza-file-picker-row.is-error {
+  border-color: var(--appza-file-error-color, #d92d20);
+}
+.appza-file-picker-row-icon {
+  font-size: 18px;
+  color: var(--appza-file-icon-color, #6b7280);
+  flex: 0 0 auto;
+}
+.appza-file-picker-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  color: var(--appza-file-text-color, #1f2937);
+}
+.appza-file-picker-action {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--appza-file-action-color, #6b7280);
+  cursor: pointer;
+  font-size: 16px;
+}
+.appza-file-picker-action:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ---------- fc-add-document-topics — multi-select chips ---------- */
+.appza-renderer-appzet[data-slug="fc-add-document-topics"],
+.appza-renderer-appzet-list[data-slug="fc-add-document-topics"] {
+  padding: var(--appza-row-padding, 12px 12px 0);
+}
+.appza-renderer-ss[data-slug="fc-add-document-topics"] {
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  gap: var(--appza-gap, 8px);
+  align-items: center;
+  justify-content: flex-start;
+}
+.appza-renderer-ss[data-slug="fc-add-document-topics"] ion-button {
+  border: 0;
+  --background: var(--appza-chip-bg-color, #e9ebef);
+  --color: var(--appza-chip-text-color, #4b5563);
+  --box-shadow: none;
+  --border-radius: var(--appza-chip-radius, 4px);
+  --padding-start: 10px;
+  --padding-end: 10px;
+  height: var(--appza-chip-height, 22px);
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.appza-renderer-ss[data-slug="fc-add-document-topics"] ion-button::part(native) {
+  border: 0;
+  background: var(--appza-chip-bg-color, #e9ebef);
+  color: var(--appza-chip-text-color, #4b5563);
+  border-radius: var(--appza-chip-radius, 4px);
+}
+/* Selected — several chips can carry this at once (multi-select). */
+.appza-renderer-ss[data-slug="fc-add-document-topics"] [data-active="true"] ion-button,
+.appza-renderer-ss[data-slug="fc-add-document-topics"] [data-active="true"] ion-button::part(native) {
+  background: var(--appza-active-bg-color, #dbe7ff);
+  color: var(--appza-active-text-color, #2b6cf6);
+}
+
+/* ---------- fc-add-document-publish — label + switch ---------- */
+.appza-renderer-appzet[data-slug="fc-add-document-publish"] {
+  padding: var(--appza-row-padding, 16px 12px 0);
+}
+.appza-renderer-ss[data-slug="fc-add-document-publish"] {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.appza-renderer-ss[data-slug="fc-add-document-publish"] [data-child-index="0"] ion-text {
+  display: block;
+  font-size: var(--appza-label-size, 1rem);
+  font-weight: 600;
+  color: var(--appza-label-color, #111827);
+}
+.appza-renderer-ss[data-slug="fc-add-document-publish"] ion-toggle {
+  --track-background: var(--appza-track-color, #d0d5dd);
+  --track-background-checked: var(--appza-track-checked-color, #2b6cf6);
+  --handle-background: #ffffff;
+  --handle-background-checked: #ffffff;
+  padding: 0;
+}
+
+/* ---------- fc-add-document-schedule — calendar row ---------- */
+.appza-renderer-appzet[data-slug="fc-add-document-schedule"] {
+  padding: var(--appza-row-padding, 12px 12px 0);
+}
+.appza-renderer-ss[data-slug="fc-add-document-schedule"] {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
+}
+.appza-renderer-ss[data-slug="fc-add-document-schedule"] ion-icon {
+  font-size: 20px;
+  color: var(--appza-icon-color, #2b6cf6);
+}
+.appza-renderer-ss[data-slug="fc-add-document-schedule"] ion-button {
+  border: 0;
+  --background: transparent;
+  --color: var(--appza-link-color, #2b6cf6);
+  --box-shadow: none;
+  --padding-start: 0;
+  --padding-end: 0;
+  margin: 0;
+  height: 24px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.appza-renderer-ss[data-slug="fc-add-document-schedule"] ion-button::part(native) {
+  border: 0;
+  background: transparent;
+  color: var(--appza-link-color, #2b6cf6);
+  padding: 0;
+}
+
+/* The uploader is a single bespoke primitive; the SS wrapper around it
+   still centres by default, which left the dropzone narrower than the
+   fields above it. */
+.appza-renderer-ss[data-slug="fc-add-document-uploader"] {
+  display: block;
+  width: 100%;
+}
+.appza-renderer-ss[data-slug="fc-add-document-uploader"] .appza-renderer-ss-child {
+  width: 100%;
+}
+
+/* No bottom tab bar on the add-document screen — it is a stack screen
+   with its own CANCEL / UPLOAD bar, and the design has nothing there.
+   Same screen-slug CSS route login-page already uses to drop chrome. */
+.appza-renderer-app[data-screen-slug="space-document-add"] .appza-renderer-footer {
+  display: none;
+}
+
+/* The topic strip has a data source, so the renderer wraps it twice
+   (-list outside, -appzet inside) and both matched the padding rule —
+   the chips ended up inset a further 12px from the fields above. */
+.appza-renderer-appzet-list[data-slug="fc-add-document-topics"]
+  .appza-renderer-appzet[data-slug="fc-add-document-topics"] {
+  padding: 0;
+}

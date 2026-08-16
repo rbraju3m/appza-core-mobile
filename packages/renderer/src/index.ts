@@ -96,4 +96,19 @@ export {
   childStylesFromCustomizations,
   ADD_MEMBER_CHILD_COUNT,
   INVITE_USER_CHILD_COUNT,
-} from './modalPresentation';
+} from './modalPresentation';export {
+  getDocumentDraft,
+  setDocumentDraft,
+  resetDocumentDraft,
+  addDraftFiles,
+  removeDraftFile,
+  renameDraftFile,
+  patchDraftFile,
+  toggleDraftTopic,
+  getDraftFileHandle,
+  useDocumentDraft,
+  kindFor,
+  type DocumentDraft,
+  type DraftFile,
+} from './documentDraft';
+export { submitDocumentDraft, type DocumentSubmitDeps } from './documentSubmit';

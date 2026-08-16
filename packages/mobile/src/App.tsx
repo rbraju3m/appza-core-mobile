@@ -34,6 +34,10 @@ import {
   setFeedControls,
   setRouteParams,
   setSpaceDetailControls,
+  setDocumentDraft,
+  resetDocumentDraft,
+  toggleDraftTopic,
+  submitDocumentDraft,
   setSpacesControls,
   tryHandlePostMenuAction,
   type ActionDispatch,
@@ -2578,6 +2582,86 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       return;
     }
 
+    case 'documents.set_draft': {
+      // One writer for every plain draft field; `field` names which.
+      // The switch reports a boolean and the text inputs a string, so
+      // both shapes are accepted rather than coerced to one.
+      const field = typeof argRec.field === 'string' ? argRec.field : '';
+      if (!field) {
+        console.warn('[appza-mobile] documents.set_draft: no field');
+        return;
+      }
+      const raw = argRec.value !== undefined ? argRec.value : itemRec?.value;
+      if (field === 'publish') {
+        setDocumentDraft({ publish: raw === true || raw === 'true' });
+      } else if (field === 'title' || field === 'message' || field === 'scheduled_at') {
+        setDocumentDraft({ [field]: typeof raw === 'string' ? raw : '' });
+      } else {
+        console.warn(`[appza-mobile] documents.set_draft: unknown field ${field}`);
+      }
+      return;
+    }
+
+    case 'documents.toggle_topic': {
+      const raw = argRec.value !== undefined ? argRec.value : itemRec?.value;
+      const id = Number.parseInt(String(raw ?? ''), 10);
+      if (Number.isFinite(id)) toggleDraftTopic(id);
+      return;
+    }
+
+    case 'documents.cancel_add': {
+      resetDocumentDraft('');
+      setScreenStack((prev) => {
+        if (prev.length === 0) return prev;
+        const rest = prev.slice(0, -1);
+        setSelectedScreenId(prev[prev.length - 1] ?? null);
+        return rest;
+      });
+      return;
+    }
+
+    case 'documents.open_schedule': {
+      // The date + time sheet is chunk 3.
+      console.warn('[appza-mobile] documents.open_schedule: schedule sheet not built yet');
+      return;
+    }
+
+    case 'documents.submit': {
+      const uploadEndpoint =
+        typeof argRec.upload_endpoint === 'string' ? argRec.upload_endpoint : '';
+      const createEndpoint =
+        typeof argRec.create_endpoint === 'string' ? argRec.create_endpoint : '';
+      if (!uploadEndpoint || !createEndpoint) {
+        console.warn('[appza-mobile] documents.submit: endpoints missing from the action');
+        return;
+      }
+      if (!auth) {
+        onError('Please sign in to upload documents.');
+        return;
+      }
+      void submitDocumentDraft({
+        uploadEndpoint,
+        createEndpoint,
+        authHeader: basicAuthHeader(auth),
+        absolutize: absolutizeEndpoint,
+        onError: (message) => onError(message),
+        onSuccess: () => {
+          resetDocumentDraft('');
+          setScreenStack((prev) => {
+            if (prev.length === 0) return prev;
+            const rest = prev.slice(0, -1);
+            setSelectedScreenId(prev[prev.length - 1] ?? null);
+            return rest;
+          });
+          const g = window as unknown as { __appzaForceRefreshUntil?: number };
+          g.__appzaForceRefreshUntil = Date.now() + 3000;
+          setTimeout(() => window.dispatchEvent(new Event('appza:refresh-data')), 150);
+          setTimeout(() => window.dispatchEvent(new Event('appza:refresh-data')), 600);
+        },
+      });
+      return;
+    }
+
     case 'documents.open_add': {
       // FAB on the documents tab. The add-document screen ships in chunk 2;
       // until it's seeded this warns instead of blanking the screen.
@@ -2602,6 +2686,9 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         screenContextRef.current[targetSlug] = { slug: spaceSlug };
         delete screenPrefilledRef.current[targetSlug];
       }
+      // Fresh form every time the screen is opened — the draft holds File
+      // handles and is deliberately not persisted.
+      resetDocumentDraft(spaceSlug);
       if (currentScreenId != null) {
         setScreenStack((prev) => [...prev, currentScreenId]);
       }

@@ -14,6 +14,7 @@ import {
   IonRadioGroup,
   IonText,
   IonTextarea,
+  IonToggle,
 } from '@ionic/react';
 import {
   add,
@@ -157,6 +158,8 @@ import {
   warningOutline,
 } from 'ionicons/icons';
 import type { PrimitiveRow } from './catalogIndex';
+import { AppzaFilePicker } from './AppzaFilePicker';
+import { attach, attachOutline } from 'ionicons/icons';
 
 /**
  * Explicit icon registry. Using `import * as icons from 'ionicons/icons'`
@@ -289,7 +292,10 @@ const ICON_REGISTRY: Record<string, string> = {
   // Media
   camera,
   'camera-outline': cameraOutline,
-  // Files — the documents tab's row glyphs + download affordance.
+  // Files — the documents tab's row glyphs + download affordance,
+  // and the add-document dropzone's paperclip.
+  attach,
+  'attach-outline': attachOutline,
   document,
   'document-outline': documentOutline,
   'document-text-outline': documentTextOutline,
@@ -371,7 +377,47 @@ type Props = {
  * these — otherwise the wrapper-click would fire dispatch when the user
  * just opens the select, before a value is chosen.
  */
-export const SELF_ACTION_PRIMITIVES: ReadonlySet<string> = new Set(['ion-select', 'appza-poll-block', 'ion-input']);
+/**
+ * ion-toggle seeded ONCE, then left alone.
+ *
+ * Passing `checked` as a React prop makes the switch permanently
+ * unflippable: Ionic sets the property on the custom element, the user's
+ * tap flips it, the next render (which the tap itself causes, via the
+ * store it writes) sets the same prop back, and the switch snaps to its
+ * old position. It reads as "the toggle does nothing".
+ *
+ * So the catalog's value is written to the element once, on mount, and
+ * after that the switch owns its own position and only reports changes.
+ */
+function SeededIonToggle({
+  initialChecked,
+  disabled,
+  onToggle,
+}: {
+  initialChecked: boolean;
+  disabled: boolean;
+  onToggle?: (e: CustomEvent) => void;
+}) {
+  const ref = useRef<HTMLIonToggleElement | null>(null);
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current || !ref.current) return;
+    seeded.current = true;
+    ref.current.checked = initialChecked;
+  }, [initialChecked]);
+  return <IonToggle ref={ref} disabled={disabled} onIonChange={onToggle} />;
+}
+
+export const SELF_ACTION_PRIMITIVES: ReadonlySet<string> = new Set([
+  'ion-select',
+  'appza-poll-block',
+  'ion-input',
+  // Both dispatch from their own value-change event, same as ion-input:
+  // a wrapper click carries no value and fires before the user has typed
+  // or flipped anything.
+  'ion-textarea',
+  'ion-toggle',
+]);
 
 /**
  * Maps a Primitive row's `ionic_component` value to the corresponding
@@ -542,14 +588,57 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
       const rowsStr = readString(overrides, 'rows');
       const rowsNum = rowsStr ? Number.parseInt(rowsStr, 10) : NaN;
       const fillProp = readString(overrides, 'fill');
+      // Same contract as IonInput: dispatch on every keystroke with the
+      // current text grafted onto action.item.value.
+      const handleInput = action
+        ? (e: CustomEvent) => {
+            const target = e.target as { value?: unknown } | null;
+            const value = typeof target?.value === 'string' ? target.value : '';
+            dispatch({
+              ...action,
+              item: {
+                ...((action.item as Record<string, unknown> | null | undefined) ?? {}),
+                value,
+              },
+            });
+          }
+        : undefined;
       return (
         <IonTextarea
           placeholder={readString(overrides, 'placeholder') ?? label}
           fill={(fillProp as 'solid' | 'outline' | undefined) ?? 'outline'}
           rows={Number.isFinite(rowsNum) ? rowsNum : 2}
+          autoGrow={readBoolean(overrides, 'auto_grow')}
+          onIonInput={handleInput}
         />
       );
     }
+
+    case 'IonToggle': {
+      const handleToggle = action
+        ? (e: CustomEvent) => {
+            const target = e.target as { checked?: unknown } | null;
+            const value = target?.checked === true;
+            dispatch({
+              ...action,
+              item: {
+                ...((action.item as Record<string, unknown> | null | undefined) ?? {}),
+                value,
+              },
+            });
+          }
+        : undefined;
+      return (
+        <SeededIonToggle
+          initialChecked={readBoolean(overrides, 'checked')}
+          disabled={readBoolean(overrides, 'disabled')}
+          onToggle={handleToggle}
+        />
+      );
+    }
+
+    case 'AppzaFilePicker':
+      return <AppzaFilePicker overrides={overrides} />;
 
     case 'IonLabel':
       return <IonLabel>{label}</IonLabel>;
