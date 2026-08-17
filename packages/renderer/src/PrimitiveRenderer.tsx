@@ -895,6 +895,33 @@ function isAllowedVideoHost(src: string): boolean {
   }
 }
 
+/** Extensions a browser can decode natively in <video> / <audio>. */
+const DIRECT_VIDEO_EXT = ['mp4', 'webm', 'ogv', 'mov', 'm4v'];
+const DIRECT_AUDIO_EXT = ['mp3', 'wav', 'ogg', 'oga', 'm4a', 'aac', 'flac'];
+
+/**
+ * Is `src` a media FILE rather than an embed page?
+ *
+ * FluentPlayer uploads arrive as a plain uploads URL ending in .mp4/.mp3,
+ * which is not an embeddable page and is not on the iframe allowlist —
+ * so before this it fell through to window.open and left the app.
+ * Decided on the path's extension, ignoring the query string, because
+ * that is what actually tells us a native element can decode it.
+ */
+function directMediaKind(src: string): 'video' | 'audio' | null {
+  let path = src;
+  try {
+    path = new URL(src, 'https://x.invalid').pathname;
+  } catch {
+    // Relative or malformed — fall back to the raw string, minus any query.
+    path = src.split('?')[0] ?? src;
+  }
+  const ext = (path.split('.').pop() ?? '').toLowerCase();
+  if (DIRECT_VIDEO_EXT.includes(ext)) return 'video';
+  if (DIRECT_AUDIO_EXT.includes(ext)) return 'audio';
+  return null;
+}
+
 /**
  * Poster thumbnail with a play badge. If `src` host is on the allowlist
  * (YouTube / Vimeo), clicking swaps to an inline iframe in the same card
@@ -981,6 +1008,30 @@ function AppzaVideoEmbed({
     setPlayingState(v);
   };
   const canEmbed = src ? isAllowedVideoHost(src) : false;
+  const direct = src ? directMediaKind(src) : null;
+
+  // A file we serve ourselves plays in a native element. This is NOT the
+  // allowlist being relaxed: the allowlist governs IFRAMES, where the
+  // third party gets script execution in our origin's frame tree. A
+  // <video>/<audio> element decodes bytes and can do nothing else, so a
+  // FluentPlayer upload is safe to play in place — and handing it to
+  // window.open instead (the old fallback) threw the user out of the app
+  // to a browser tab, which is what "video not play" looked like.
+  if (direct && src) {
+    return direct === 'audio' ? (
+      <audio className="appza-video-embed-native" src={src} controls preload="metadata" />
+    ) : (
+      <video
+        className="appza-video-embed-native"
+        src={src}
+        poster={poster || undefined}
+        controls
+        playsInline
+        preload="metadata"
+      />
+    );
+  }
+
   if (playing && src && canEmbed) {
     return (
       <div className="appza-video-embed-frame">

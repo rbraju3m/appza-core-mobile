@@ -6098,3 +6098,17 @@
   font-size: 1.1rem;
   color: var(--appza-mv-action-icon-color, var(--appza-mv-action-color, #111827));
 }
+
+/* Native player for a media FILE (a FluentPlayer upload), as opposed to
+   the poster→iframe path an embeddable host gets. Fills the card slot the
+   same way the iframe frame does. */
+.appza-video-embed-native {
+  display: block;
+  width: 100%;
+  border-radius: 8px;
+  background: #000;
+}
+audio.appza-video-embed-native {
+  background: transparent;
+  border-radius: 0;
+}
