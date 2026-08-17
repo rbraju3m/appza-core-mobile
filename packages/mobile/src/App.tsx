@@ -2841,12 +2841,46 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         console.warn('[appza-mobile] media.download: no url on the item', item);
         return;
       }
-      // Hand off to the system browser, which is what actually reaches the
-      // phone's Downloads folder. An <a download> is inert in a Capacitor
-      // WebView, and saving in-process would mean adding
-      // @capacitor/filesystem plus a native rebuild — Noor chose the
-      // handoff. The file is a plain public uploads URL (verified: 200,
-      // real bytes, no auth), so nothing of ours is in the path.
+      const namePath =
+        typeof argRec.filename_path === 'string' ? argRec.filename_path : 'title';
+      const rawName = itemRec ? readDataPath(itemRec, `data.${namePath}`) : undefined;
+      const filename = typeof rawName === 'string' && rawName !== '' ? rawName : undefined;
+
+      // On the phone this goes through our own AppzaDownload plugin, which
+      // hands the URL to Android's DownloadManager.
+      //
+      // The browser handoff below CANNOT work there, which is what "media
+      // photo not download in mobile apk" was: Capacitor 6's Android
+      // bridge sets no onCreateWindow, so window.open('_blank') has no
+      // window to open, returns null and silently does nothing. It works
+      // in the simulator because that is a real browser — which is exactly
+      // why this needed checking on the device build (P82).
+      const nativeDownload = (
+        window as unknown as {
+          Capacitor?: {
+            Plugins?: {
+              AppzaDownload?: {
+                download: (o: { url: string; filename?: string }) => Promise<unknown>;
+              };
+            };
+          };
+        }
+      ).Capacitor?.Plugins?.AppzaDownload;
+
+      if (nativeDownload?.download) {
+        void nativeDownload
+          .download({ url, filename })
+          .then(() => onInfo?.(filename ? `Saving ${filename}…` : 'Saving…'))
+          .catch((e: unknown) => {
+            console.warn('[appza-mobile] media.download failed', e);
+            onError('Could not save the file.');
+          });
+        return;
+      }
+
+      // Web + simulator: a real browser, so the plain handoff is right.
+      // The file is a public uploads URL (verified: 200, real bytes, no
+      // auth), so nothing of ours is in the path.
       window.open(url, '_blank', 'noopener,noreferrer');
       return;
     }
