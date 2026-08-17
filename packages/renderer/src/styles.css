@@ -6135,3 +6135,75 @@ audio.appza-video-embed-native {
 .appza-audio-list .appza-audio-row {
   background: var(--appza-row-bg-color, #f1f2f4);
 }
+
+/* ---------- fc-comment-row — the comment list on post-detail ----------
+   Avatar in a fixed column, name + time + body in a bubble beside it,
+   which is how the FluentCommunity portal reads at this depth. */
+.appza-renderer-appzet-list[data-slug="fc-comment-row"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--appza-row-gap, 10px);
+  padding: var(--appza-row-padding, 4px 14px 16px);
+  background: transparent;
+}
+.appza-renderer-ss[data-slug="fc-comment-row"] {
+  display: grid;
+  grid-template-columns: var(--appza-avatar-size, 32px) 1fr;
+  grid-template-areas:
+    'avatar bubble'
+    '.      time';
+  gap: 2px 10px;
+  align-items: start;
+}
+.appza-renderer-ss[data-slug="fc-comment-row"] [data-child-index="0"] {
+  grid-area: avatar;
+  width: var(--appza-avatar-size, 32px);
+  height: var(--appza-avatar-size, 32px);
+}
+.appza-renderer-ss[data-slug="fc-comment-row"] [data-child-index="0"] ion-avatar,
+.appza-renderer-ss[data-slug="fc-comment-row"] [data-child-index="0"] img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+/* Name and body share one bubble: the name is the first line inside it,
+   so the two read as a single block rather than two stacked rows. */
+.appza-renderer-ss[data-slug="fc-comment-row"] [data-child-index="1"] {
+  grid-area: bubble;
+  align-self: start;
+  background: var(--appza-bubble-bg-color, #f1f2f4);
+  border-radius: var(--appza-bubble-radius, 12px);
+  padding: 8px 12px 2px;
+  font-weight: 600;
+  font-size: var(--appza-name-size, 0.82rem);
+  color: var(--appza-name-color, #111827);
+  min-width: 0;
+}
+.appza-renderer-ss[data-slug="fc-comment-row"] [data-child-index="3"] {
+  grid-area: bubble;
+  align-self: start;
+  background: var(--appza-bubble-bg-color, #f1f2f4);
+  border-radius: var(--appza-bubble-radius, 12px);
+  padding: 26px 12px 8px;
+  font-size: var(--appza-body-size, 0.85rem);
+  color: var(--appza-body-color, #374151);
+  min-width: 0;
+}
+/* The body sits UNDER the name in the same grid cell, so the bubble grows
+   with the text while the name stays pinned to its top-left. */
+.appza-renderer-ss[data-slug="fc-comment-row"] [data-child-index="1"] {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  padding-bottom: 0;
+}
+.appza-renderer-ss[data-slug="fc-comment-row"] [data-child-index="2"] {
+  grid-area: time;
+  font-size: 0.7rem;
+  color: var(--appza-meta-color, #6b7280);
+  padding-left: 12px;
+}
+.appza-renderer-ss[data-slug="fc-comment-row"] .appza-rich-text p {
+  margin: 0;
+}
