@@ -111,10 +111,24 @@ import {
   menuOutline,
   mic,
   micOutline,
+  musicalNotes,
+  musicalNotesOutline,
   notifications,
   notificationsOutline,
+  pause,
+  pauseOutline,
   pauseCircle,
   pauseCircleOutline,
+  play,
+  playOutline,
+  playBack,
+  playBackOutline,
+  playForward,
+  playForwardOutline,
+  volumeHigh,
+  volumeHighOutline,
+  volumeMute,
+  volumeMuteOutline,
   people,
   peopleOutline,
   person,
@@ -160,6 +174,8 @@ import {
 import type { PrimitiveRow } from './catalogIndex';
 import { AppzaFilePicker } from './AppzaFilePicker';
 import { AppzaFileList } from './AppzaFileList';
+import { AppzaMediaTile } from './MediaTile';
+import { AppzaAudioPlayer } from './AudioPlayerRow';
 import { attach, attachOutline, cloudUploadOutline } from 'ionicons/icons';
 
 /**
@@ -313,6 +329,25 @@ const ICON_REGISTRY: Record<string, string> = {
   'pause-circle-outline': pauseCircleOutline,
   'play-circle': playCircle,
   'play-circle-outline': playCircleOutline,
+  // Transport glyphs for the MEDIA sub-tab (2026-08-17): the grid's play
+  // badge and the audio row's play / pause / ±10s / mute controls. The
+  // registry is an allowlist, so an icon that isn't here resolves to
+  // undefined and the control renders EMPTY rather than erroring — which
+  // is exactly how the play badge went missing on first run.
+  play,
+  'play-outline': playOutline,
+  pause,
+  'pause-outline': pauseOutline,
+  'play-back': playBack,
+  'play-back-outline': playBackOutline,
+  'play-forward': playForward,
+  'play-forward-outline': playForwardOutline,
+  'musical-notes': musicalNotes,
+  'musical-notes-outline': musicalNotesOutline,
+  'volume-high': volumeHigh,
+  'volume-high-outline': volumeHighOutline,
+  'volume-mute': volumeMute,
+  'volume-mute-outline': volumeMuteOutline,
   videocam,
   'videocam-outline': videocamOutline,
 
@@ -644,6 +679,12 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
 
     case 'AppzaFileList':
       return <AppzaFileList overrides={overrides} />;
+
+    case 'AppzaMediaTile':
+      return <AppzaMediaTile overrides={overrides} />;
+
+    case 'AppzaAudioPlayer':
+      return <AppzaAudioPlayer overrides={overrides} />;
 
     case 'IonLabel':
       return <IonLabel>{label}</IonLabel>;

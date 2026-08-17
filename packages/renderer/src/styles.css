@@ -2862,12 +2862,18 @@
 }
 .appza-renderer-appzet-list[data-slug="fc-space-subtabs"]::-webkit-scrollbar,
 .appza-renderer-appzet[data-slug="fc-space-subtabs"]::-webkit-scrollbar { display: none; }
+/* Spacing tightened 2026-08-17, when MEDIA made it five tabs and CHAT
+   fell off the edge. The strip gets 336px (the screen's own 12px padding
+   insets it from the 360px viewport), and the five tabs wanted 365.
+   Noor's design has all five on screen at once.
+   Type is deliberately untouched — the labels are the size he already
+   approved on the documents arc. Only the space around them moved. */
 .appza-renderer-ss[data-slug="fc-space-subtabs"] {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  gap: 6px;
-  padding: 8px 8px 0 8px;
+  gap: 4px;
+  padding: 8px 6px 0 6px;
   background: #ffffff;
   min-width: max-content;
 }
@@ -2882,9 +2888,16 @@
   --background-hover: transparent !important;
   --color: #6b7280 !important;
   --border-width: 0 !important;
-  --padding-start: 2px !important;
-  --padding-end: 2px !important;
+  --padding-start: 0 !important;
+  --padding-end: 0 !important;
   --box-shadow: none !important;
+  /* The width driver, and not the custom properties above: ion-button
+     carries 8px of padding on the HOST element, which --padding-start
+     (a shadow-part variable) never reaches. 16px per tab across five
+     tabs was most of the overflow. Real padding rather than more `gap`
+     because the active underline spans the padded box, and the design
+     has it a little wider than the label. */
+  padding-inline: 5px !important;
   height: 32px !important;
   min-height: 32px !important;
   margin: 0 !important;
@@ -2909,18 +2922,21 @@
 [data-space-detail-active-subtab="posts"] [data-value="posts"] ion-button,
 [data-space-detail-active-subtab="members"] [data-value="members"] ion-button,
 [data-space-detail-active-subtab="documents"] [data-value="documents"] ion-button,
+[data-space-detail-active-subtab="media"] [data-value="media"] ion-button,
 [data-space-detail-active-subtab="chat"] [data-value="chat"] ion-button {
   --color: #1d4ed8 !important;
 }
 [data-space-detail-active-subtab="posts"] [data-value="posts"] ion-button::part(native),
 [data-space-detail-active-subtab="members"] [data-value="members"] ion-button::part(native),
 [data-space-detail-active-subtab="documents"] [data-value="documents"] ion-button::part(native),
+[data-space-detail-active-subtab="media"] [data-value="media"] ion-button::part(native),
 [data-space-detail-active-subtab="chat"] [data-value="chat"] ion-button::part(native) {
   color: #1d4ed8 !important;
 }
 [data-space-detail-active-subtab="posts"] [data-value="posts"]::after,
 [data-space-detail-active-subtab="members"] [data-value="members"]::after,
 [data-space-detail-active-subtab="documents"] [data-value="documents"]::after,
+[data-space-detail-active-subtab="media"] [data-value="media"]::after,
 [data-space-detail-active-subtab="chat"] [data-value="chat"]::after {
   content: '';
   position: absolute;
@@ -5723,4 +5739,362 @@
    so it reads as part of that mode rather than a permanent third icon. */
 .appza-file-picker-row .appza-file-picker-action[title] {
   color: var(--appza-file-replace-color, var(--appza-file-action-color, #2b6cf6));
+}
+
+/* ==================================================================
+   MEDIA sub-tab (2026-08-17)
+   Photos / Videos grid, Audios player rows, and the fullscreen viewer.
+   Every colour and size reads a --appza-* custom property first, so the
+   right-panel knobs drive the design and these values are only the
+   stock look.
+   ================================================================== */
+
+/* --- fc-media-tabs: the Photos / Videos / Audios segmented pill ---
+   A grey track with a raised white pill on the active entry — visually
+   nothing like the sub-tab underline above it, though it rides the same
+   children_from_prop machinery. Match BOTH wrapper classes for the same
+   reason fc-space-subtabs does: this AppZet has no data source of its
+   own, so it renders under the plain `-appzet` wrapper.                */
+.appza-renderer-appzet-list[data-slug="fc-media-tabs"],
+.appza-renderer-appzet[data-slug="fc-media-tabs"] {
+  display: block;
+  background: #f3f4f6;
+  padding: var(--appza-row-padding, 12px 16px 4px 16px);
+}
+.appza-renderer-ss[data-slug="fc-media-tabs"] {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: var(--appza-gap, 4px);
+  background: var(--appza-track-bg-color, #e5e7eb);
+  border-radius: var(--appza-track-radius, 10px);
+  padding: var(--appza-track-padding, 4px);
+}
+.appza-renderer-ss[data-slug="fc-media-tabs"] .appza-renderer-ss-child {
+  /* Equal thirds regardless of label length — the design's pills are
+     the same width whether they read "Photos" or "Audios".            */
+  flex: 1 1 0;
+  min-width: 0;
+}
+.appza-renderer-ss[data-slug="fc-media-tabs"] ion-button {
+  --background: transparent !important;
+  --background-hover: transparent !important;
+  --background-activated: transparent !important;
+  --color: var(--appza-chip-text-color, #6b7280) !important;
+  --border-width: 0 !important;
+  --box-shadow: none !important;
+  --border-radius: var(--appza-chip-radius, 8px) !important;
+  --padding-start: 4px !important;
+  --padding-end: 4px !important;
+  width: 100%;
+  height: var(--appza-height, 34px) !important;
+  min-height: var(--appza-height, 34px) !important;
+  margin: 0 !important;
+  text-transform: none !important;
+  font-weight: var(--appza-font-weight, 600) !important;
+  font-size: 0.85rem !important;
+  letter-spacing: 0 !important;
+}
+/* P79: wp-admin paints a border on every .button host in the simulator,
+   so the host AND ::part(native) both have to be reset here.          */
+.appza-renderer-ss[data-slug="fc-media-tabs"] ion-button::part(native) {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: var(--appza-chip-text-color, #6b7280) !important;
+}
+/* Active pill. Enumerated per value like the sub-tab strip above —
+   adding a fourth media type means adding a line here.                */
+[data-media-active-type="photos"] [data-value="photos"] ion-button::part(native),
+[data-media-active-type="videos"] [data-value="videos"] ion-button::part(native),
+[data-media-active-type="audios"] [data-value="audios"] ion-button::part(native) {
+  background: var(--appza-active-bg-color, #ffffff) !important;
+  color: var(--appza-active-text-color, #111827) !important;
+  box-shadow: var(--appza-chip-shadow, 0 1px 2px rgba(16, 24, 40, 0.1)) !important;
+  border-radius: var(--appza-chip-radius, 8px) !important;
+}
+[data-media-active-type="photos"] [data-value="photos"] ion-button,
+[data-media-active-type="videos"] [data-value="videos"] ion-button,
+[data-media-active-type="audios"] [data-value="audios"] ion-button {
+  --color: var(--appza-active-text-color, #111827) !important;
+}
+
+/* --- fc-media-tile: the photo / video grid --- */
+.appza-renderer-appzet-list[data-slug="fc-media-tile"] {
+  display: grid;
+  grid-template-columns: repeat(var(--appza-grid-columns, 2), minmax(0, 1fr));
+  gap: var(--appza-tile-gap, 10px);
+  padding: var(--appza-row-padding, 12px 16px 16px 16px);
+  background: #f3f4f6;
+}
+.appza-renderer-appzet-list[data-slug="fc-media-tile"] .appza-renderer-appzet {
+  min-width: 0;
+}
+.appza-renderer-ss[data-slug="fc-media-tile"],
+.appza-renderer-ss[data-slug="fc-media-tile"] .appza-renderer-ss-child {
+  display: block;
+  width: 100%;
+}
+.appza-media-tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--appza-aspect-ratio, 1 / 1);
+  border-radius: var(--appza-tile-radius, 10px);
+  background: var(--appza-tile-bg-color, #e5e7eb);
+  overflow: hidden;
+  cursor: pointer;
+}
+.appza-media-tile-media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* A <video> thumbnail fills the tile the pre-object-fit way: centred and
+   over-sized, with the tile clipping it. Measured on this box, the video
+   element was a correct 147x147 with object-fit:cover computed and the
+   source fully decoded, and Chromium STILL painted it letterboxed — it
+   honours object-fit on <img> reliably but not on <video> in every
+   rendering path. Photos keep object-fit, which is universally supported
+   on <img>; only the video case needs the older technique. */
+.appza-media-tile[data-kind="video"] {
+  position: relative;
+}
+.appza-media-tile[data-kind="video"] video.appza-media-tile-media {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: auto;
+  height: auto;
+  min-width: 100%;
+  min-height: 100%;
+  max-width: none;
+}
+/* The play badge sits bottom-left, as in the design — not centred, so it
+   doesn't hide the middle of the frame.                                */
+.appza-media-tile-play {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--appza-play-badge-size, 28px);
+  height: var(--appza-play-badge-size, 28px);
+  border-radius: 50%;
+  background: var(--appza-play-badge-bg-color, rgba(17, 24, 39, 0.55));
+  color: var(--appza-play-badge-icon-color, #ffffff);
+  pointer-events: none;
+}
+.appza-media-tile-play ion-icon {
+  font-size: calc(var(--appza-play-badge-size, 28px) * 0.5);
+}
+
+/* --- fc-media-audio-row: the Audios list --- */
+.appza-renderer-appzet-list[data-slug="fc-media-audio-row"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--appza-row-gap, 10px);
+  padding: var(--appza-row-padding, 12px 16px 16px 16px);
+  background: #f3f4f6;
+}
+.appza-renderer-ss[data-slug="fc-media-audio-row"],
+.appza-renderer-ss[data-slug="fc-media-audio-row"] .appza-renderer-ss-child {
+  display: block;
+  width: 100%;
+}
+.appza-audio-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: var(--appza-row-padding-inner, 10px 12px 12px 12px);
+  border-radius: var(--appza-row-radius, 8px);
+  background: var(--appza-row-bg-color, #e6e7eb);
+}
+.appza-audio-row-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  cursor: pointer;
+}
+.appza-audio-row-title-icon {
+  flex: 0 0 auto;
+  font-size: 0.95rem;
+  color: var(--appza-title-color, #374151);
+}
+.appza-audio-row-title-text {
+  font-size: var(--appza-title-size, 0.82rem);
+  color: var(--appza-title-color, #374151);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-audio-row-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.appza-audio-row-play {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--appza-accent-color, #1d4ed8);
+  color: var(--appza-play-icon-color, #ffffff);
+  cursor: pointer;
+}
+.appza-audio-row-play ion-icon { font-size: 1rem; }
+.appza-audio-row-skip,
+.appza-audio-row-icon-btn,
+.appza-audio-row-speed {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--appza-control-color, #4b5563);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.appza-audio-row-skip ion-icon,
+.appza-audio-row-icon-btn ion-icon { font-size: 0.85rem; }
+.appza-audio-row-speed {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #ffffff;
+  font-weight: 600;
+}
+/* Pushed to the far right, as in the design, whatever the control set. */
+.appza-audio-row-time {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  color: var(--appza-time-color, #4b5563);
+  font-variant-numeric: tabular-nums;
+}
+/* Scrubber. A range input is the only control that is keyboard- and
+   screen-reader-operable for free; the track/thumb are restyled per
+   engine because there is no cross-browser shorthand.                 */
+.appza-audio-row-scrubber {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 3px;
+  margin: 0;
+  border-radius: 2px;
+  cursor: pointer;
+  background: linear-gradient(
+    to right,
+    var(--appza-progress-color, var(--appza-accent-color, #1d4ed8)) 0%,
+    var(--appza-progress-color, var(--appza-accent-color, #1d4ed8)) var(--appza-audio-progress, 0%),
+    var(--appza-progress-track-color, #c7cad1) var(--appza-audio-progress, 0%),
+    var(--appza-progress-track-color, #c7cad1) 100%
+  );
+}
+.appza-audio-row-scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--appza-accent-color, #1d4ed8);
+}
+.appza-audio-row-scrubber::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--appza-accent-color, #1d4ed8);
+}
+
+/* --- fc-media-viewer: the fullscreen photo viewer ---
+   Noor's design is a LIGHT surface, not the usual black lightbox.     */
+.appza-media-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  display: flex;
+  flex-direction: column;
+  background: var(--appza-mv-backdrop, #f3f4f6);
+}
+/* Inside the simulator the viewer must align with the phone frame
+   rather than the browser window — same trick the sheets use.         */
+.appza-media-viewer-embedded { position: absolute; }
+.appza-media-viewer-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 16px;
+  flex: 0 0 auto;
+}
+.appza-media-viewer-counter {
+  font-size: var(--appza-mv-counter-size, 0.9rem);
+  color: var(--appza-mv-counter-color, #111827);
+  font-variant-numeric: tabular-nums;
+}
+.appza-media-viewer-close {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--appza-mv-close-color, #111827);
+  cursor: pointer;
+}
+.appza-media-viewer-close ion-icon { font-size: 1.4rem; }
+.appza-media-viewer-body {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 0 4px;
+}
+/* contain, never cover: a photo in a viewer must not be cropped.      */
+.appza-media-viewer-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--appza-mv-image-radius, 4px);
+}
+.appza-media-viewer-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--appza-mv-action-gap, 40px);
+  padding: 20px 16px 32px 16px;
+}
+.appza-media-viewer-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--appza-mv-action-color, #111827);
+  font-size: var(--appza-mv-action-size, 0.88rem);
+  cursor: pointer;
+}
+.appza-media-viewer-action ion-icon {
+  font-size: 1.1rem;
+  color: var(--appza-mv-action-icon-color, var(--appza-mv-action-color, #111827));
 }

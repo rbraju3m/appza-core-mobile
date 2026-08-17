@@ -5,6 +5,7 @@ import { readOverride } from './resolveOverride';
 import type { AddMemberRoleOption } from './AddMemberModal';
 import type { InviteChipPalette, InviteRoleOption } from './InviteUserModal';
 import type { SchedulePresentation } from './ScheduleSheet';
+import type { MediaViewerPresentation } from './MediaViewer';
 
 // Maps an overlay AppZet's authored props (snake_case, as stored in
 // default_props_override) onto the camelCase payload its component
@@ -88,6 +89,7 @@ export function childStylesFromCustomizations(
 export const ADD_MEMBER_CHILD_COUNT = 9;
 export const INVITE_USER_CHILD_COUNT = 13;
 export const SCHEDULE_SHEET_CHILD_COUNT = 10;
+export const MEDIA_VIEWER_CHILD_COUNT = 5;
 
 /** Weekday initials, comma-separated in the catalog so they're editable. */
 function weekdayList(raw: unknown): string[] {
@@ -147,6 +149,33 @@ export function schedulePresentation(props: Record<string, unknown>): SchedulePr
     submitBgColor: str(props.submit_bg_color),
     submitTextColor: str(props.submit_text_color),
     submitRadius: size(props.submit_radius),
+  };
+}
+
+export function mediaViewerPresentation(
+  props: Record<string, unknown>,
+): MediaViewerPresentation {
+  return {
+    closeIcon: str(props.close_icon) ?? 'close',
+    downloadIcon: str(props.download_icon) ?? 'download-outline',
+    downloadLabel: str(props.download_label) ?? 'Download',
+    viewPostIcon: str(props.view_post_icon) ?? 'eye-outline',
+    viewPostLabel: str(props.view_post_label) ?? 'View post',
+    counterSeparator: str(props.counter_separator) ?? '/',
+    hidden: bool(props.hidden, false),
+    showCounter: bool(props.show_counter, true),
+    showClose: bool(props.show_close, true),
+    showDownload: bool(props.show_download, true),
+    showViewPost: bool(props.show_view_post, true),
+    backdropColor: str(props.backdrop_color),
+    counterColor: str(props.counter_color),
+    counterSize: size(props.counter_size),
+    closeIconColor: str(props.close_icon_color),
+    imageRadius: size(props.image_radius),
+    actionTextColor: str(props.action_text_color),
+    actionIconColor: str(props.action_icon_color),
+    actionTextSize: size(props.action_text_size),
+    actionGap: size(props.action_gap),
   };
 }
 

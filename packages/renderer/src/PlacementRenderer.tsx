@@ -133,6 +133,7 @@ export function PlacementRenderer({
     sort: spaceDetailSort,
     space_slug: spaceDetailSpaceSlug,
     documents_search: spaceDetailDocumentsSearch,
+    media_type: spaceDetailMediaType,
   } = useSpaceDetailControls();
   // FluentCommunity portal customization: mirrors Settings → Customization
   // → "Members List Layout". Read here so the fc-member-card wrapper can
@@ -457,6 +458,24 @@ export function PlacementRenderer({
     spaceDetailDocumentsSearch,
   ]);
 
+  // MEDIA sub-tab (2026-08-17). Same P75 shape as documents above, one
+  // design simpler: which of the two content shapes renders is decided by
+  // media_type, which the tab strip authors, so only the empty state needs
+  // a published verdict.
+  //
+  // BOTH content AppZets bind this DS, and only one of them is mounted at a
+  // time (the placements gate on media_type), so whichever is on screen is
+  // the one publishing. There is no "no-match" case — the media tabs have
+  // no search.
+  const publishesMediaView = (dataSource?.slug ?? '') === 'fc-space-media';
+  useEffect(() => {
+    if (!publishesMediaView) return;
+    // Hold the previous verdict across a refetch. Publishing 'loading' on a
+    // tab switch would flash the empty state between Photos and Videos.
+    if (dataState.loading) return;
+    setSpaceDetailControls({ media_view: dataState.items.length > 0 ? 'list' : 'empty' });
+  }, [publishesMediaView, dataState.loading, dataState.items.length]);
+
   if (!appzet) return <MissingNode label={`unknown appzet: ${appzetSlug}`} />;
   if (!ss) return <MissingNode label={`appzet ${appzet.slug} has no superstructure`} />;
 
@@ -674,7 +693,23 @@ export function PlacementRenderer({
   // array is empty. Per-entry leaf values (label→text, value, icon, ...)
   // land in `entryOverrides` which we merge into baseChildOverrides so
   // the tab labels + values render off the AppZet default_props.
-  const expanded = readExpandedChildren(ss, appzet);
+  // Permissions bag for `requires_permission` tab entries. Read from the
+  // same row _config_apply resolves — the sibling DS when one is declared
+  // (fc-space-subtabs / fc-media-tabs both point at fc-space-detail),
+  // otherwise the AppZet's own first row. Undefined until it lands, which
+  // the entry filter treats as "show the entry".
+  const permissionsSource = siblingConfigSlug ? siblingConfigState.items : dataState.items;
+  const entryPermissions = isRecord(permissionsSource[0])
+    ? ((permissionsSource[0] as Record<string, unknown>).permissions as
+        | Record<string, unknown>
+        | undefined)
+    : undefined;
+  const expanded = readExpandedChildren(
+    ss,
+    appzet,
+    undefined,
+    isRecord(entryPermissions) ? entryPermissions : undefined,
+  );
   const baseChildOverrides = computeChildOverrides(ss, appzet);
   for (const idxStr of Object.keys(expanded.entryOverrides)) {
     const i = Number(idxStr);
@@ -849,6 +884,30 @@ export function PlacementRenderer({
     'fab_size',
     'fab_offset_bottom',
     'fab_offset_end',
+    // Space Media sub-tab knobs (2026-08-17). grid_columns, aspect_ratio,
+    // row_padding, gap, height, font_weight, chip_text_color, chip_radius,
+    // active_bg_color, active_text_color and title_color/title_size are
+    // already above — the media AppZets reuse them by design so one CSS
+    // vocabulary covers the whole screen.
+    'track_bg_color',
+    'track_radius',
+    'track_padding',
+    'chip_shadow',
+    'tile_gap',
+    'tile_radius',
+    'tile_bg_color',
+    'play_badge_bg_color',
+    'play_badge_icon_color',
+    'play_badge_size',
+    'row_bg_color',
+    'row_radius',
+    'row_gap',
+    'accent_color',
+    'play_icon_color',
+    'control_color',
+    'time_color',
+    'progress_color',
+    'progress_track_color',
   ]);
   // Aliases: some knobs also drive Ionic's own CSS custom properties
   // directly. Custom props inherit through shadow DOM (unlike `background`
@@ -903,6 +962,7 @@ export function PlacementRenderer({
           data-space-detail-active-subtab={appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab : undefined}
           data-space-detail-active-topic={appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug : undefined}
           data-space-detail-active-space={appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug : undefined}
+          data-media-active-type={appzet.slug === 'fc-media-tabs' ? spaceDetailMediaType : undefined}
           style={{ ...spacingStyle(spacing), ...styleVars } as React.CSSProperties}
           onClick={handleClick}
         >
@@ -1047,6 +1107,7 @@ export function PlacementRenderer({
         data-space-detail-active-subtab={appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab : undefined}
         data-space-detail-active-topic={appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug : undefined}
         data-space-detail-active-space={appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug : undefined}
+        data-media-active-type={appzet.slug === 'fc-media-tabs' ? spaceDetailMediaType : undefined}
         data-fc-member-layout={
           appzet.slug === 'fc-member-card'
             ? (fcMemberListLayout === 'grid' ? 'grid' : 'list')
@@ -1103,7 +1164,10 @@ export function PlacementRenderer({
             ? hiddenIndices
             : new Set<number>([...hiddenIndices, ...dataHidden]);
         const childOpenUrls = computeChildOpenUrls(effChildren, enrichedItem);
-        const childActions = computeChildActions(effChildren, appzet, enrichedItem);
+        // `items` is the post-filter row set in render order, so an action
+        // that operates on the collection (the media viewer's paging) sees
+        // exactly what the user sees, at the index they tapped.
+        const childActions = computeChildActions(effChildren, appzet, enrichedItem, items, idx);
         // Stamp the item's identifier on the wrapper so the shell can
         // target one specific card imperatively (e.g. flip a reaction
         // icon after like/bookmark without a full data refetch). We
@@ -1318,6 +1382,8 @@ function computeChildActions(
   children: SSChild[],
   appzet: AppZet,
   item: unknown,
+  siblings?: unknown[],
+  siblingIndex?: number,
 ): Record<number, ActionInvocation> {
   const out: Record<number, ActionInvocation> = {};
   const wirings = (appzet.actions ?? null) as Record<string, unknown> | null;
@@ -1335,7 +1401,7 @@ function computeChildActions(
       ? (rec.args as Record<string, unknown>)
       : undefined;
     const binding_root = typeof rec.binding_root === 'string' ? rec.binding_root : undefined;
-    out[i] = { action_slug, args, binding_root, item };
+    out[i] = { action_slug, args, binding_root, item, siblings, siblingIndex };
   }
   return out;
 }
@@ -1846,6 +1912,7 @@ function readExpandedChildren(
   ss: Superstructure,
   appzet: AppZet,
   item?: unknown,
+  permissions?: Record<string, unknown>,
 ): {
   children: SSChild[];
   entryOverrides: Record<number, Record<string, unknown>>;
@@ -1915,6 +1982,22 @@ function readExpandedChildren(
     // Skip explicit `hidden: true` entries — the customer can hide a tab
     // from the admin without removing it from the config.
     if (entry.hidden === true) continue;
+    // `requires_permission: '<key>'` — drop the entry unless the resolved
+    // entity says the viewer has that permission. Used by the Space Detail
+    // sub-tabs (MEDIA needs can_view_media) and by the media type strip
+    // (Audios needs can_view_media_audio), both reading the permissions bag
+    // on the fc-space-detail row the AppZet already resolves for
+    // _config_apply — so the gate costs no extra request.
+    //
+    // Fails OPEN on purpose: an absent permissions bag (payload still in
+    // flight, or an endpoint that doesn't publish one) keeps the entry.
+    // A tab that shouldn't be there is a smaller failure than a tab that
+    // vanishes because a fetch was slow.
+    if (typeof entry.requires_permission === 'string' && entry.requires_permission !== '') {
+      if (permissions && entry.requires_permission in permissions) {
+        if (permissions[entry.requires_permission] !== true) continue;
+      }
+    }
     // Clone the template shape; per-entry `on_click_action` overrides win.
     // For `on_click_open_url` starting with `entry.<path>`, resolve at
     // expansion time so each expanded child carries its own literal URL
@@ -1940,7 +2023,9 @@ function readExpandedChildren(
     // don't need a renderer change.
     const bucket: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(entry)) {
-      if (k === 'hidden' || k === 'on_click_action') continue;
+      // Directive keys, not child props — stamping them would put
+      // requires_permission="can_view_media" on the rendered element.
+      if (k === 'hidden' || k === 'on_click_action' || k === 'requires_permission') continue;
       // Renderer convention: `label` in the tabs entry maps to the
       // primitive's `text` prop, matching how ion-button reads its label.
       if (k === 'label') {

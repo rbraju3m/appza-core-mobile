@@ -21,6 +21,19 @@ export type ActionInvocation = {
    */
   binding_root?: string;
   item?: unknown;
+  /**
+   * The whole row set this item was rendered from, and where `item` sits
+   * in it. Populated for per-item actions on a list AppZet; absent for
+   * static (no-data-source) ones.
+   *
+   * Exists for actions that operate on the COLLECTION rather than the row
+   * — the media grid's fullscreen viewer needs every photo in order to
+   * page between them and to say "1/6". Resolving that in the shell by
+   * re-reading the data source would race the fetch and duplicate the
+   * filtering the renderer has already done.
+   */
+  siblings?: unknown[];
+  siblingIndex?: number;
 };
 
 export type ActionDispatch = (inv: ActionInvocation) => void;

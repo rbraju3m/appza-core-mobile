@@ -37,6 +37,12 @@ import {
   schedulePresentation,
   SCHEDULE_SHEET_CHILD_COUNT,
   SCHEDULE_SHEET_APPZET_SLUG,
+  MediaViewer,
+  openMediaViewer,
+  patchMediaViewer,
+  mediaViewerPresentation,
+  MEDIA_VIEWER_CHILD_COUNT,
+  MEDIA_VIEWER_APPZET_SLUG,
   toggleDraftTopic,
   seedDraftForEdit,
   submitDocumentDraft,
@@ -707,6 +713,14 @@ export function App() {
         effectiveCustomizations,
       ),
     });
+    patchMediaViewer(editedAppzetSlug, {
+      presentation: mediaViewerPresentation(props),
+      childStyles: childStylesFromCustomizations(
+        editedAppzetSlug,
+        MEDIA_VIEWER_CHILD_COUNT,
+        effectiveCustomizations,
+      ),
+    });
   }, [effectiveCustomizations, editedAppzetSlug]);
 
   const openImagePicker = useCallback((target: { endpoint: string; method: string }) => {
@@ -1128,6 +1142,7 @@ export function App() {
       <AddMemberModal />
       <InviteUserModal />
       <ScheduleSheet />
+      <MediaViewer />
     </>
   );
 
@@ -2628,7 +2643,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     screenContextRef,
     screenPrefilledRef,
   } = deps;
-  const { action_slug, args, item, binding_root } = inv;
+  const { action_slug, args, item, binding_root, siblings, siblingIndex } = inv;
   const argRec = (args ?? {}) as Record<string, unknown>;
   // Per-invocation item root. `binding_root` on the AppZet action wiring
   // sub-selects a slice of the item — e.g. `data.ctaButtons[0]` picks the
@@ -3809,6 +3824,130 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         ),
         onConfirm: (value) => setDocumentDraft({ scheduled_at: value }),
       });
+      return;
+    }
+
+    // === MEDIA sub-tab (2026-08-17) ===
+    // Mirrors the mobile shell case for case, except media.download —
+    // see the note there.
+
+    case 'media.set_type': {
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      const picked = runtimeValue ?? itemValue ?? '';
+      if (picked) {
+        setSpaceDetailControls({ media_type: picked });
+      } else {
+        console.warn('[appza-admin] media.set_type: no picked value', { argRec, item });
+      }
+      return;
+    }
+
+    case 'media.open': {
+      const kind = itemRec && typeof itemRec.kind === 'string' ? itemRec.kind : '';
+      if (kind === 'video' || kind === 'audio') {
+        handleAppModeAction({ ...inv, action_slug: 'media.open_post' }, deps);
+        return;
+      }
+      const viewerSlug =
+        typeof argRec.viewer_appzet_slug === 'string'
+          ? argRec.viewer_appzet_slug
+          : MEDIA_VIEWER_APPZET_SLUG;
+      const photos = (Array.isArray(siblings) ? siblings : [item])
+        .filter(isRecord)
+        .filter((row) => row.kind !== 'video' && row.kind !== 'audio')
+        .map((row) => ({
+          url: typeof row.url === 'string' ? row.url : '',
+          title: typeof row.title === 'string' ? row.title : undefined,
+          feed_slug: typeof row.feed_slug === 'string' ? row.feed_slug : undefined,
+          feed_id:
+            typeof row.feed_id === 'number' || typeof row.feed_id === 'string'
+              ? (row.feed_id as number | string)
+              : undefined,
+        }))
+        .filter((row) => row.url !== '');
+      if (photos.length === 0) return;
+      const tappedUrl = itemRec && typeof itemRec.url === 'string' ? itemRec.url : '';
+      const startAt = photos.findIndex((row) => row.url === tappedUrl);
+      openMediaViewer({
+        appzetSlug: viewerSlug,
+        items: photos,
+        index: startAt >= 0 ? startAt : (typeof siblingIndex === 'number' ? siblingIndex : 0),
+        presentation: mediaViewerPresentation(readAppzetPropsFromCatalog(viewerSlug)),
+        childStyles: childStylesFromCustomizations(
+          viewerSlug,
+          MEDIA_VIEWER_CHILD_COUNT,
+          currentCustomizations,
+        ),
+        onDownload: (media) =>
+          handleAppModeAction(
+            { action_slug: 'media.download', args: argRec, item: media },
+            deps,
+          ),
+        onViewPost: (media) =>
+          handleAppModeAction(
+            { action_slug: 'media.open_post', args: argRec, item: media },
+            deps,
+          ),
+      });
+      return;
+    }
+
+    case 'media.open_post': {
+      const targetSlug =
+        typeof argRec.target_screen_slug === 'string' ? argRec.target_screen_slug : 'post-detail';
+      const target = catalog?.template_screens?.find(
+        (s) => s.app_map_screen_slug === targetSlug,
+      );
+      if (!target) {
+        console.warn('[appza-admin] media.open_post: target not in catalog', targetSlug);
+        return;
+      }
+      const slugPath = typeof argRec.feed_slug_path === 'string' ? argRec.feed_slug_path : 'feed_slug';
+      const idPath = typeof argRec.feed_id_path === 'string' ? argRec.feed_id_path : 'feed_id';
+      const postSlug = itemRec ? readDataPath(itemRec, `data.${slugPath}`) : undefined;
+      const postId = itemRec ? readDataPath(itemRec, `data.${idPath}`) : undefined;
+      const routeBag: Record<string, unknown> = {};
+      if (typeof postSlug === 'string' && postSlug) routeBag.post_slug = postSlug;
+      if (typeof postId === 'number' || typeof postId === 'string') routeBag.id = postId;
+      if (Object.keys(routeBag).length > 0) setRouteParams(routeBag);
+      screenContextRef.current[targetSlug] = {
+        ...(isRecord(item) ? item : {}),
+        slug: typeof postSlug === 'string' ? postSlug : undefined,
+        id: postId,
+      };
+      delete screenPrefilledRef.current[targetSlug];
+      if (currentScreenId != null) {
+        setScreenStack((prev) => [...prev, currentScreenId]);
+      }
+      setSelectedScreenId(target.id);
+      return;
+    }
+
+    case 'media.download': {
+      const urlPath = typeof argRec.url_path === 'string' ? argRec.url_path : 'url';
+      const namePath =
+        typeof argRec.filename_path === 'string' ? argRec.filename_path : 'title';
+      const url = itemRec ? readDataPath(itemRec, `data.${urlPath}`) : undefined;
+      if (typeof url !== 'string' || url === '') {
+        console.warn('[appza-admin] media.download: no url on the item', item);
+        return;
+      }
+      const name = itemRec ? readDataPath(itemRec, `data.${namePath}`) : undefined;
+      // The simulator runs in a real browser, so an anchor with the
+      // download attribute works here and saves under the DISPLAY name
+      // rather than FluentCommunity's storage name (P80). The mobile
+      // shell can't do this — a WebView ignores the attribute — so it
+      // hands off to the system browser instead.
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = typeof name === 'string' && name !== '' ? name : '';
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
       return;
     }
 

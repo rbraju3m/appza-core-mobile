@@ -98,6 +98,8 @@ export function ScreenRenderer({
       'space_detail_controls.space_slug': spaceDetailControls.space_slug,
       'space_detail_controls.documents_search': spaceDetailControls.documents_search,
       'space_detail_controls.documents_view': spaceDetailControls.documents_view,
+      'space_detail_controls.media_type': spaceDetailControls.media_type,
+      'space_detail_controls.media_view': spaceDetailControls.media_view,
     }),
     [
       spacesControls.tab,
@@ -109,6 +111,8 @@ export function ScreenRenderer({
       spaceDetailControls.space_slug,
       spaceDetailControls.documents_search,
       spaceDetailControls.documents_view,
+      spaceDetailControls.media_type,
+      spaceDetailControls.media_view,
     ],
   );
 

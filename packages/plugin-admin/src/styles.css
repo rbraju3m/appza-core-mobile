@@ -2217,6 +2217,26 @@ body {
   border-radius: 0;
 }
 
+/* Same leak, the :focus half of it — and it survived the border reset
+   above because WP paints this one with box-shadow, not border:
+
+     .wp-core-ui .button:focus { box-shadow: 0 0 0 1px #fff, 0 0 0 3px ... }
+
+   A tapped tab keeps focus, so the LAST control touched wears a
+   WordPress-blue ring. Found while checking the media strip against
+   Noor's design, where it read as a border around MEDIA — but it has
+   always applied to every button in the simulator, and it makes any
+   screenshot taken right after a click disagree with the design for a
+   reason that has nothing to do with the design.
+
+   Only the WP ring is dropped. `:focus-visible` is left alone, so
+   keyboard users still get the focus ring the browser draws. */
+.appza-device-viewport .button:focus,
+.appza-device-viewport .button:focus:active {
+  box-shadow: none;
+  outline: none;
+}
+
 /* wp-admin restyles links on hover/focus (`a:hover { color: #183ad6 }`),
    which turned an attached filename WordPress-blue as soon as the cursor
    crossed it — another light-DOM leak, same family as the button border

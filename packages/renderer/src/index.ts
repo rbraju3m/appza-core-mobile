@@ -97,7 +97,9 @@ export {
   ADD_MEMBER_CHILD_COUNT,
   INVITE_USER_CHILD_COUNT,
   SCHEDULE_SHEET_CHILD_COUNT,
+  MEDIA_VIEWER_CHILD_COUNT,
   schedulePresentation,
+  mediaViewerPresentation,
 } from './modalPresentation';export {
   getDocumentDraft,
   setDocumentDraft,
@@ -129,3 +131,12 @@ export {
   SCHEDULE_SHEET_APPZET_SLUG,
   type SchedulePresentation,
 } from './ScheduleSheet';
+export {
+  MediaViewer,
+  openMediaViewer,
+  closeMediaViewer,
+  patchMediaViewer,
+  MEDIA_VIEWER_APPZET_SLUG,
+  type MediaViewerItem,
+  type MediaViewerPresentation,
+} from './MediaViewer';

@@ -29,6 +29,20 @@ export type SpaceDetailControls = {
   // states off this single string, which is why it exists as state rather
   // than as local component state. Deliberately NOT persisted (see below).
   documents_view: string;
+  // MEDIA sub-tab (2026-08-17). Authored — the Photos/Videos/Audios strip
+  // writes it, and fc-space-media binds it as its `type` query param, so a
+  // tab tap refetches.
+  //
+  // '' means "not on the media tab". That is load-bearing, not tidiness: a
+  // placement visible_when carries exactly ONE clause, so the photo grid's
+  // clause is `media_type in ['photos','videos']` and cannot also say "and
+  // only on the media tab". Left at 'photos' after leaving, the grid would
+  // render underneath the POSTS feed. See the invariant in the setter.
+  media_type: string;
+  // Derived, same contract as documents_view: 'list' | 'empty' | 'loading'.
+  // Only the empty state needs it — which of the two content shapes renders
+  // is decided by media_type, which is authored.
+  media_view: string;
 };
 
 const STORAGE_KEY = 'appza.spaceDetailControls';
@@ -41,7 +55,12 @@ const DEFAULTS: SpaceDetailControls = {
   space_slug: '',
   documents_search: '',
   documents_view: 'loading',
+  media_type: '',
+  media_view: 'loading',
 };
+
+/** The tab media_type is seeded to on entering the MEDIA sub-tab. */
+const DEFAULT_MEDIA_TYPE = 'photos';
 
 function readFromStorage(): SpaceDetailControls {
   if (typeof window === 'undefined') return DEFAULTS;
@@ -65,6 +84,11 @@ function readFromStorage(): SpaceDetailControls {
       // Never restored — it describes the *current* fetch, and a stale
       // 'list' would flash the search bar over an empty space on mount.
       documents_view: DEFAULTS.documents_view,
+      // Neither media key is restored, for both reasons at once: media_type
+      // is per-visit (the setter re-seeds it on entering the tab) and
+      // media_view describes the current fetch.
+      media_type: DEFAULTS.media_type,
+      media_view: DEFAULTS.media_view,
     };
   } catch {
     return DEFAULTS;
@@ -90,6 +114,8 @@ export function setSpaceDetailControls(patch: Partial<SpaceDetailControls>): voi
         : current.documents_search,
     documents_view:
       typeof patch.documents_view === 'string' ? patch.documents_view : current.documents_view,
+    media_type: typeof patch.media_type === 'string' ? patch.media_type : current.media_type,
+    media_view: typeof patch.media_view === 'string' ? patch.media_view : current.media_view,
   };
   // Invariant: documents_view / documents_search describe the DOCUMENTS tab
   // of the CURRENT space only. Placement visible_when takes a single clause,
@@ -100,22 +126,45 @@ export function setSpaceDetailControls(patch: Partial<SpaceDetailControls>): voi
     next.documents_view = 'loading';
     next.documents_search = '';
   }
+  // Same invariant for MEDIA, and here it is doing more than housekeeping.
+  // The photo grid's placement gates on `media_type in [photos, videos]`
+  // ALONE — a placement predicate is a single clause and cannot also test
+  // the sub-tab. Blanking media_type off the tab is what stops the grid
+  // rendering underneath the POSTS feed; re-seeding it on the way in is
+  // what makes Photos the landing tab every visit.
+  if (next.active_subtab !== 'media' || next.space_slug !== current.space_slug) {
+    next.media_type = '';
+    next.media_view = 'loading';
+  }
+  if (next.active_subtab === 'media' && next.media_type === '') {
+    next.media_type = DEFAULT_MEDIA_TYPE;
+  }
   if (
     next.active_subtab === current.active_subtab &&
     next.topic_slug === current.topic_slug &&
     next.sort === current.sort &&
     next.space_slug === current.space_slug &&
     next.documents_search === current.documents_search &&
-    next.documents_view === current.documents_view
+    next.documents_view === current.documents_view &&
+    next.media_type === current.media_type &&
+    next.media_view === current.media_view
   ) {
     return;
   }
   current = next;
   if (typeof window !== 'undefined') {
     try {
-      // Both documents_* keys are per-visit, not preferences (see the type
-      // comments) — persisting them would restore state the UI can't show.
-      const { documents_view: _view, documents_search: _search, ...persisted } = next;
+      // The documents_* and media_* keys are per-visit, not preferences
+      // (see the type comments) — persisting them would restore state the
+      // UI can't show, and a restored media_type would put the grid on the
+      // POSTS tab on the next cold start.
+      const {
+        documents_view: _view,
+        documents_search: _search,
+        media_type: _mediaType,
+        media_view: _mediaView,
+        ...persisted
+      } = next;
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
     } catch {
       // best-effort — in-memory `current` still wins for the running session

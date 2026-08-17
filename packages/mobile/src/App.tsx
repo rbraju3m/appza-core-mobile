@@ -41,6 +41,10 @@ import {
   openScheduleSheet,
   schedulePresentation,
   SCHEDULE_SHEET_APPZET_SLUG,
+  MediaViewer,
+  openMediaViewer,
+  mediaViewerPresentation,
+  MEDIA_VIEWER_APPZET_SLUG,
   toggleDraftTopic,
   seedDraftForEdit,
   submitDocumentDraft,
@@ -1216,6 +1220,7 @@ export function App() {
         <AddMemberModal />
         <InviteUserModal />
         <ScheduleSheet />
+        <MediaViewer />
       </ActionProvider>
 
       {errorToast && (
@@ -1584,7 +1589,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     screenContextRef,
     screenPrefilledRef,
   } = deps;
-  const { action_slug, args, item, binding_root } = inv;
+  const { action_slug, args, item, binding_root, siblings, siblingIndex } = inv;
   const argRec = (args ?? {}) as Record<string, unknown>;
   const effectiveItem = binding_root ? readDataPath(item, binding_root) ?? item : item;
   const itemRec = isRecord(effectiveItem) ? (effectiveItem as Record<string, unknown>) : null;
@@ -2714,6 +2719,128 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         presentation: schedulePresentation(readAppzetPropsFromCatalog(sheetSlug)),
         onConfirm: (value) => setDocumentDraft({ scheduled_at: value }),
       });
+      return;
+    }
+
+    // === MEDIA sub-tab (2026-08-17) ===
+
+    case 'media.set_type': {
+      // fc-media-tabs children_from_prop strip — same value plumbing as
+      // space_detail.set_subtab. The refetch is implicit: fc-space-media
+      // binds its `type` query param to this state key.
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      const picked = runtimeValue ?? itemValue ?? '';
+      if (picked) {
+        setSpaceDetailControls({ media_type: picked });
+      } else {
+        console.warn('[appza-mobile] media.set_type: no picked value', { argRec, item });
+      }
+      return;
+    }
+
+    case 'media.open': {
+      // One action for both grid tabs, because one AppZet renders both.
+      // A photo opens the viewer; a video goes to its post — Noor's spec,
+      // and the reason the viewer never has to host a player.
+      const kind = itemRec && typeof itemRec.kind === 'string' ? itemRec.kind : '';
+      if (kind === 'video' || kind === 'audio') {
+        handleAction({ ...inv, action_slug: 'media.open_post' }, deps);
+        return;
+      }
+      const viewerSlug =
+        typeof argRec.viewer_appzet_slug === 'string'
+          ? argRec.viewer_appzet_slug
+          : MEDIA_VIEWER_APPZET_SLUG;
+      // Page across the photos only. `siblings` is the rendered row set,
+      // so on the Photos tab it is already all photos; filtering by kind
+      // keeps that true if a future tab ever mixes them.
+      const photos = (Array.isArray(siblings) ? siblings : [item])
+        .filter(isRecord)
+        .filter((row) => row.kind !== 'video' && row.kind !== 'audio')
+        .map((row) => ({
+          url: typeof row.url === 'string' ? row.url : '',
+          title: typeof row.title === 'string' ? row.title : undefined,
+          feed_slug: typeof row.feed_slug === 'string' ? row.feed_slug : undefined,
+          feed_id:
+            typeof row.feed_id === 'number' || typeof row.feed_id === 'string'
+              ? (row.feed_id as number | string)
+              : undefined,
+        }))
+        .filter((row) => row.url !== '');
+      if (photos.length === 0) return;
+      // The tapped index counts within the FILTERED list, so find the row
+      // rather than reusing siblingIndex — they diverge the moment
+      // anything is filtered out above.
+      const tappedUrl = itemRec && typeof itemRec.url === 'string' ? itemRec.url : '';
+      const startAt = photos.findIndex((row) => row.url === tappedUrl);
+      openMediaViewer({
+        appzetSlug: viewerSlug,
+        items: photos,
+        index: startAt >= 0 ? startAt : (typeof siblingIndex === 'number' ? siblingIndex : 0),
+        presentation: mediaViewerPresentation(readAppzetPropsFromCatalog(viewerSlug)),
+        onDownload: (media) =>
+          handleAction(
+            { action_slug: 'media.download', args: argRec, item: media },
+            deps,
+          ),
+        onViewPost: (media) =>
+          handleAction({ action_slug: 'media.open_post', args: argRec, item: media }, deps),
+      });
+      return;
+    }
+
+    case 'media.open_post': {
+      // Not post.open: a media row carries the post's slug on `feed_slug`,
+      // and has no nested `space` object to read the parent slug from.
+      const targetSlug =
+        typeof argRec.target_screen_slug === 'string' ? argRec.target_screen_slug : 'post-detail';
+      const target = catalog?.template_screens?.find(
+        (s) => s.app_map_screen_slug === targetSlug,
+      );
+      if (!target) {
+        console.warn('[appza-mobile] media.open_post: target not in catalog', targetSlug);
+        return;
+      }
+      const slugPath = typeof argRec.feed_slug_path === 'string' ? argRec.feed_slug_path : 'feed_slug';
+      const idPath = typeof argRec.feed_id_path === 'string' ? argRec.feed_id_path : 'feed_id';
+      const postSlug = itemRec ? readDataPath(itemRec, `data.${slugPath}`) : undefined;
+      const postId = itemRec ? readDataPath(itemRec, `data.${idPath}`) : undefined;
+      const routeBag: Record<string, unknown> = {};
+      if (typeof postSlug === 'string' && postSlug) routeBag.post_slug = postSlug;
+      if (typeof postId === 'number' || typeof postId === 'string') routeBag.id = postId;
+      // The space slug is already the current route param — a media row
+      // never leaves the space it was listed in — so it is deliberately
+      // NOT overwritten here.
+      if (Object.keys(routeBag).length > 0) setRouteParams(routeBag);
+      screenContextRef.current[targetSlug] = {
+        ...(isRecord(item) ? item : {}),
+        slug: typeof postSlug === 'string' ? postSlug : undefined,
+        id: postId,
+      };
+      delete screenPrefilledRef.current[targetSlug];
+      if (currentScreenId != null) {
+        setScreenStack((prev) => [...prev, currentScreenId]);
+      }
+      setSelectedScreenId(target.id);
+      return;
+    }
+
+    case 'media.download': {
+      const urlPath = typeof argRec.url_path === 'string' ? argRec.url_path : 'url';
+      const url = itemRec ? readDataPath(itemRec, `data.${urlPath}`) : undefined;
+      if (typeof url !== 'string' || url === '') {
+        console.warn('[appza-mobile] media.download: no url on the item', item);
+        return;
+      }
+      // Hand off to the system browser, which is what actually reaches the
+      // phone's Downloads folder. An <a download> is inert in a Capacitor
+      // WebView, and saving in-process would mean adding
+      // @capacitor/filesystem plus a native rebuild — Noor chose the
+      // handoff. The file is a plain public uploads URL (verified: 200,
+      // real bytes, no auth), so nothing of ours is in the path.
+      window.open(url, '_blank', 'noopener,noreferrer');
       return;
     }
 
