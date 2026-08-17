@@ -27,6 +27,7 @@ import {
   setFcRuntimeSettings,
   setFeedControls,
   setRouteParams,
+  getRouteParams,
   setSpaceDetailControls,
   setDocumentDraft,
   getDocumentDraft,
@@ -3911,7 +3912,13 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       const routeBag: Record<string, unknown> = {};
       if (typeof postSlug === 'string' && postSlug) routeBag.post_slug = postSlug;
       if (typeof postId === 'number' || typeof postId === 'string') routeBag.id = postId;
-      if (Object.keys(routeBag).length > 0) setRouteParams(routeBag);
+      // MERGE, don't replace: setRouteParams() overwrites the whole bag.
+      // Dropping the space `slug` here cost the return trip — space-detail
+      // seeds its own route slug when none is set, and that seeding also
+      // resets active_subtab to 'posts', so coming back from a post landed
+      // on POSTS instead of the MEDIA tab the user left from. A media row
+      // never leaves its space, so the existing slug is still correct.
+      setRouteParams({ ...getRouteParams(), ...routeBag });
       screenContextRef.current[targetSlug] = {
         ...(isRecord(item) ? item : {}),
         slug: typeof postSlug === 'string' ? postSlug : undefined,
