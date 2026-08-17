@@ -175,7 +175,7 @@ import type { PrimitiveRow } from './catalogIndex';
 import { AppzaFilePicker } from './AppzaFilePicker';
 import { AppzaFileList } from './AppzaFileList';
 import { AppzaMediaTile } from './MediaTile';
-import { AppzaAudioPlayer } from './AudioPlayerRow';
+import { AppzaAudioPlayer, AppzaAudioList } from './AudioPlayerRow';
 import { attach, attachOutline, cloudUploadOutline } from 'ionicons/icons';
 
 /**
@@ -685,6 +685,9 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
 
     case 'AppzaAudioPlayer':
       return <AppzaAudioPlayer overrides={overrides} />;
+
+    case 'AppzaAudioList':
+      return <AppzaAudioList overrides={overrides} />;
 
     case 'IonLabel':
       return <IonLabel>{label}</IonLabel>;

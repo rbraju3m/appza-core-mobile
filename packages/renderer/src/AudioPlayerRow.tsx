@@ -22,6 +22,62 @@ import { resolveIcon } from './PrimitiveRenderer';
  * usable in the simulator (P81: verify the way a person performs it).
  */
 
+/**
+ * Every audio attached to one feed post.
+ *
+ * FluentPlayer allows several audios per post (`max_audios_per_post`),
+ * and they arrive as `meta.audio_medias[]`.
+ *
+ * Takes the whole array as ONE prop rather than repeating a child, which
+ * is the same call `appza-file-list` makes and for the same reason:
+ * fc-post-card is a CSS grid with named areas, so a variadic child would
+ * have no area to land in — and the card's child indices are addressed by
+ * field_mappings AND by saved customizations, so a repeat that renumbers
+ * siblings would break both.
+ *
+ * Each row is the same player the MEDIA tab's Audios list uses, so an
+ * audio file looks the same wherever it appears. Every style and glyph
+ * prop on the wrapper rides through to each row.
+ */
+export function AppzaAudioList({ overrides }: { overrides?: Record<string, unknown> }) {
+  const raw = overrides?.audios;
+  const audios = Array.isArray(raw)
+    ? raw.filter((a): a is Record<string, unknown> => !!a && typeof a === 'object' && !Array.isArray(a))
+    : [];
+  if (audios.length === 0) return null;
+
+  return (
+    <span className="appza-audio-list">
+      {audios.map((audio, idx) => {
+        // FC nests the playable URL on `url`, mirrored in `settings.src`.
+        const settings =
+          audio.settings && typeof audio.settings === 'object' && !Array.isArray(audio.settings)
+            ? (audio.settings as Record<string, unknown>)
+            : {};
+        const url =
+          typeof audio.url === 'string' && audio.url
+            ? audio.url
+            : typeof settings.src === 'string'
+              ? settings.src
+              : '';
+        const title =
+          typeof audio.title === 'string' && audio.title
+            ? audio.title
+            : typeof settings.title === 'string'
+              ? settings.title
+              : '';
+        if (url === '') return null;
+        return (
+          <AppzaAudioPlayer
+            key={`${String(audio.media_id ?? '')}-${url}-${idx}`}
+            overrides={{ ...(overrides ?? {}), url, title }}
+          />
+        );
+      })}
+    </span>
+  );
+}
+
 function str(overrides: Record<string, unknown> | undefined, key: string): string {
   const v = overrides?.[key];
   return typeof v === 'string' ? v : '';

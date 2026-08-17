@@ -764,6 +764,7 @@
     'title  title  title  title  title'
     'body   body   body   body   body'
     'media  media  media  media  media'
+    'audio  audio  audio  audio  audio'
     'poll   poll   poll   poll   poll'
     'docs   docs   docs   docs   docs'
     'actions actions actions actions actions';
@@ -6111,4 +6112,26 @@
 audio.appza-video-embed-native {
   background: transparent;
   border-radius: 0;
+}
+
+/* children[29] — every audio attached to a post. FluentPlayer allows
+   several per post, so this is a stack, and it sits in its own grid row
+   between the media block and the poll so it never collides with the
+   document files at `docs`. */
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="29"] {
+  grid-area: audio;
+  min-width: 0;
+}
+.appza-audio-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--appza-row-gap, 8px);
+  width: 100%;
+  padding: 4px 0;
+}
+/* Inside a post card the rows are already on a white surface, so they
+   need their own fill to read as separate players — same tint the MEDIA
+   tab's list uses. */
+.appza-audio-list .appza-audio-row {
+  background: var(--appza-row-bg-color, #f1f2f4);
 }
