@@ -1785,8 +1785,55 @@ function normalizeIonButtonFill(raw: string | undefined): IonButtonFill {
  * Exported so the plug-in-admin's icon picker can render live glyphs
  * next to each name. Renderer callers should keep using it locally.
  */
+/**
+ * Names the registry has already been asked for and could not answer.
+ * Keyed so the warning fires ONCE per name — this runs on every render
+ * of every icon, and an unknown one in a long list would otherwise fill
+ * the console with the same line.
+ */
+const unknownIconNames = new Set<string>();
+
+/**
+ * Catalog icon name → the Ionicons SVG string, or undefined.
+ *
+ * Returning undefined silently is what makes a missing registry entry so
+ * expensive to find: the control still renders, laid out and styled and
+ * clickable, with a hole where the glyph should be. `copy-outline` sat
+ * blank on the profile card, and `arrow-undo-outline` on both the chat
+ * bubble's reply arrow and the composer's reply strip — each authored
+ * correctly in the catalog, each drawing nothing, none of them
+ * complaining. Every consumer treats undefined as "no icon wanted",
+ * which is indistinguishable from "icon wanted, name unknown".
+ *
+ * So say so. Once per name, naming the fix — the registry is explicit
+ * on purpose (see the note above it: a dynamic lookup gets tree-shaken
+ * to nothing), so a new icon always means a new line there.
+ *
+ * An empty name is not a mistake — most callers pass a prop that is
+ * legitimately unset, meaning "draw no icon" — so it never warns.
+ */
 export function resolveIcon(name: string): string | undefined {
   if (ICON_REGISTRY[name]) return ICON_REGISTRY[name];
   if (ICON_REGISTRY[name + '-outline']) return ICON_REGISTRY[name + '-outline'];
+
+  if (name && !unknownIconNames.has(name)) {
+    unknownIconNames.add(name);
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[appza-renderer] icon "${name}" is not in ICON_REGISTRY — it will render as nothing. ` +
+        'Add it to the registry in PrimitiveRenderer.tsx (import the ionicons export, then map the ' +
+        'catalog name to it). The registry is explicit because a dynamic lookup gets tree-shaken away.',
+    );
+  }
   return undefined;
+}
+
+/**
+ * Every icon name asked for that the registry could not answer, in the
+ * order they were first seen. Exposed so a check can assert the set is
+ * empty after exercising a screen, rather than relying on someone
+ * noticing a console line.
+ */
+export function unknownIcons(): string[] {
+  return Array.from(unknownIconNames);
 }
