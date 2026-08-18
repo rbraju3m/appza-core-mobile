@@ -492,6 +492,41 @@ export function PlacementRenderer({
     setChatControls({ messages_view: dataState.items.length > 0 ? 'list' : 'empty' });
   }, [publishesMessagesView, dataState.loading, dataState.items.length]);
 
+  // A conversation is the one screen where the other side changes it
+  // while you are looking at it. FluentCommunity ships realtime OFF by
+  // default (`realtime_enabled: no`), so without this the only way a
+  // message from the other person appears is a send, a screen change or
+  // a window focus — which reads as a chat that has stopped working.
+  //
+  // The interval is an AppZet prop rather than a constant, so a customer
+  // can slow it down or switch it off entirely; 0 means off. It refetches
+  // the whole list rather than walking the `new messages` cursor because
+  // the refresh event is the mechanism every other mutation already uses,
+  // and a second path into the same list is a second thing to keep
+  // correct.
+  const pollIntervalMs = (() => {
+    if (!publishesMessagesView) return 0;
+    const raw = (appzet?.default_props_override as Record<string, unknown> | null | undefined)
+      ?.['poll_interval_ms'];
+    const n = typeof raw === 'number' ? raw : Number.parseInt(String(raw ?? ''), 10);
+    return Number.isFinite(n) && n >= 1000 ? n : 0;
+  })();
+  const messagesDsSlug = dataSource?.slug ?? '';
+  useEffect(() => {
+    if (pollIntervalMs <= 0) return;
+    if (typeof window === 'undefined') return;
+    const tick = () => {
+      // Never poll over a screen nobody is looking at, and never while a
+      // fetch is already in flight.
+      if (document.hidden) return;
+      window.dispatchEvent(
+        new CustomEvent('appza:refresh-data', { detail: { data_source: messagesDsSlug } }),
+      );
+    };
+    const id = window.setInterval(tick, pollIntervalMs);
+    return () => window.clearInterval(id);
+  }, [pollIntervalMs, messagesDsSlug]);
+
   if (!appzet) return <MissingNode label={`unknown appzet: ${appzetSlug}`} />;
   if (!ss) return <MissingNode label={`appzet ${appzet.slug} has no superstructure`} />;
 
