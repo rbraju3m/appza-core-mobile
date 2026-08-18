@@ -1114,7 +1114,17 @@ export function PlacementRenderer({
   // subtree, resetting local component state like the video-embed's
   // `playing` flag, which reads as "video hides when clicked".
   if (dataState.loading && dataState.items.length === 0) {
-    const skeletonCount = isPaginated ? 3 : 1;
+    // How many placeholder rows read as "this layout". One is right for a
+    // single-fetch AppZet and wrong for a grid — a lone tile where six are
+    // about to appear reads as a broken screen rather than a loading one.
+    // `skeleton_count` on the AppZet overrides, so a customer who changes
+    // a grid's column count can keep the placeholder honest.
+    const authoredCount = Number(
+      (appzet.default_props_override as Record<string, unknown> | undefined)?.['skeleton_count'],
+    );
+    const skeletonCount = Number.isFinite(authoredCount) && authoredCount > 0
+      ? Math.min(authoredCount, 12)
+      : (SKELETON_COUNTS[appzet.slug] ?? (isPaginated ? 3 : 1));
     return (
       <>
         {optionFetchers}
@@ -1358,6 +1368,25 @@ export function PlacementRenderer({
  * Everything animates via the shared `appza-shimmer` keyframe defined
  * in styles.css — no JS timing, purely CSS.
  */
+/**
+ * Placeholder rows per AppZet, chosen to match the shape the screen is
+ * about to show. Anything unlisted keeps the old behaviour — three for a
+ * paginated list, one otherwise.
+ */
+const SKELETON_COUNTS: Record<string, number> = {
+  'fc-post-card': 3,
+  'fc-post-list-item': 4,
+  'fc-post-grid-item': 4,
+  'fc-space-card': 3,
+  'fc-member-card': 6,
+  'fc-media-tile': 6,
+  'fc-media-audio-row': 3,
+  'fc-document-card': 3,
+  'fc-comment-row': 3,
+  'fc-chat-message': 5,
+  'fc-notification-row': 4,
+};
+
 function AppzetSkeleton({ slug }: { slug: string }) {
   return (
     <div className="appza-renderer-skeleton" data-slug={slug}>

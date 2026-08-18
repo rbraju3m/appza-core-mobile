@@ -3173,6 +3173,7 @@
     ".       body    body    body    body    body    ."
     "poll    poll    poll    poll    poll    poll    poll"
     "image   image   image   image   image   image   image"
+    ".       audio   audio   audio   audio   audio   ."
     ".       docs    docs    docs    docs    docs    ."
     ".       react   react   react   react   react   ."
     "chdr    chdr    chdr    chdr    chdr    chdr    chdr"
@@ -3180,7 +3181,7 @@
     "cbody   cbody   cbody   cbody   cbody   cbody   cbody"
     "cfoot   cfoot   cfoot   cfoot   cfoot   cfoot   cfoot"
     ".       viewmore viewmore viewmore viewmore viewmore .";
-  grid-template-rows: auto auto auto auto auto auto auto auto auto auto auto auto auto auto;
+  grid-template-rows: auto auto auto auto auto auto auto auto auto auto auto auto auto auto auto;
   column-gap: 8px;
   row-gap: 0;
   padding: 0;
@@ -5718,6 +5719,20 @@
   padding: 4px 0 10px;
 }
 
+/* The audio stack needs the same treatment child[28] got, and for the
+   same reason: the space-detail card is a DIFFERENT grid from the feed
+   card, and it did not carry an `audio` area at all. The base rule below
+   still said `grid-area: audio`, so the browser invented an implicit
+   column for a name it could not find and squeezed the whole player into
+   45px against the card's right edge — the layout Noor reported.
+   Assigning it here as well as adding the row keeps it explicit rather
+   than dependent on which rule happens to come later in the file. */
+[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="29"] {
+  grid-area: audio;
+  min-width: 0;
+  padding: 4px 0 10px;
+}
+
 /* ---------- fc-edit-document-files — file editor on edit-post ---------- */
 .appza-renderer-appzet[data-slug="fc-edit-document-files"] {
   padding: var(--appza-row-padding, 4px 12px 14px);
@@ -7062,3 +7077,237 @@ audio.appza-video-embed-native {
   ion-avatar:has(.appza-renderer-avatar-fallback:empty) {
   display: none;
 }
+
+/* ========================================================
+ * Skeletons for everything shipped after the feed.
+ *
+ * Six AppZets got a tailored placeholder when skeletons landed;
+ * every one added since — spaces, members, media, documents,
+ * comments, chat — fell back to the generic card, so each screen
+ * showed the same white block regardless of what was coming. The
+ * point of a skeleton is that it is the shape of the thing you
+ * are waiting for, otherwise it is just a delay with decoration.
+ *
+ * Same idiom as the originals: AppzetSkeleton always emits three
+ * lines and a block, and each slug hides what it does not need
+ * and places the rest.
+ * ======================================================== */
+
+/* --- fc-space-card: a cover image with a title and meta under it --- */
+.appza-renderer-skeleton[data-slug="fc-space-card"] {
+  grid-template-areas: 'media' 'title' 'meta';
+  gap: 10px;
+}
+.appza-renderer-skeleton[data-slug="fc-space-card"] .appza-skel-block { grid-area: media; height: 120px; }
+.appza-renderer-skeleton[data-slug="fc-space-card"] .appza-skel-line:nth-of-type(1) { grid-area: title; width: 55%; height: 14px; }
+.appza-renderer-skeleton[data-slug="fc-space-card"] .appza-skel-line:nth-of-type(2) { grid-area: meta; width: 80%; }
+.appza-renderer-skeleton[data-slug="fc-space-card"] .appza-skel-line:nth-of-type(3) { display: none; }
+
+/* --- fc-member-card: a two-column grid of avatar + name tiles --- */
+.appza-renderer-skeleton-list[data-slug="fc-member-card"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+}
+.appza-renderer-skeleton[data-slug="fc-member-card"] {
+  margin: 0;
+  padding: 12px;
+  grid-template-columns: 36px 1fr;
+  grid-template-areas: 'avatar name' 'avatar meta';
+  gap: 6px 10px;
+}
+.appza-renderer-skeleton[data-slug="fc-member-card"] .appza-skel-block {
+  grid-area: avatar;
+  width: 36px; height: 36px; border-radius: 50%;
+  align-self: center;
+}
+.appza-renderer-skeleton[data-slug="fc-member-card"] .appza-skel-line:nth-of-type(1) { grid-area: name; width: 80%; align-self: end; }
+.appza-renderer-skeleton[data-slug="fc-member-card"] .appza-skel-line:nth-of-type(2) { grid-area: meta; width: 55%; height: 10px; align-self: start; }
+.appza-renderer-skeleton[data-slug="fc-member-card"] .appza-skel-line:nth-of-type(3) { display: none; }
+
+/* --- fc-media-tile: square tiles, same grid as the real gallery --- */
+.appza-renderer-skeleton-list[data-slug="fc-media-tile"] {
+  display: grid;
+  grid-template-columns: repeat(var(--appza-grid-columns, 2), minmax(0, 1fr));
+  gap: var(--appza-tile-gap, 10px);
+  padding: 12px 16px 16px;
+}
+.appza-renderer-skeleton[data-slug="fc-media-tile"] {
+  margin: 0; padding: 0; box-shadow: none; background: transparent;
+}
+.appza-renderer-skeleton[data-slug="fc-media-tile"] .appza-skel-line { display: none; }
+.appza-renderer-skeleton[data-slug="fc-media-tile"] .appza-skel-block {
+  height: auto; aspect-ratio: var(--appza-aspect-ratio, 1 / 1);
+  border-radius: var(--appza-tile-radius, 10px);
+}
+
+/* --- fc-media-audio-row: a player row — glyph, filename, transport --- */
+.appza-renderer-skeleton[data-slug="fc-media-audio-row"] {
+  grid-template-columns: 28px 1fr;
+  grid-template-areas: 'glyph name' 'bar bar';
+  gap: 10px;
+}
+.appza-renderer-skeleton[data-slug="fc-media-audio-row"] .appza-skel-line:nth-of-type(1) { grid-area: glyph; width: 20px; height: 20px; border-radius: 4px; align-self: center; }
+.appza-renderer-skeleton[data-slug="fc-media-audio-row"] .appza-skel-line:nth-of-type(2) { grid-area: name; width: 60%; align-self: center; }
+.appza-renderer-skeleton[data-slug="fc-media-audio-row"] .appza-skel-line:nth-of-type(3) { display: none; }
+.appza-renderer-skeleton[data-slug="fc-media-audio-row"] .appza-skel-block { grid-area: bar; height: 26px; border-radius: 8px; }
+
+/* --- fc-document-card: a file glyph with a name and a meta line --- */
+.appza-renderer-skeleton[data-slug="fc-document-card"] {
+  grid-template-columns: 34px 1fr;
+  grid-template-areas: 'glyph name' 'glyph meta';
+  gap: 6px 10px;
+}
+.appza-renderer-skeleton[data-slug="fc-document-card"] .appza-skel-block { grid-area: glyph; width: 34px; height: 34px; border-radius: 8px; align-self: center; }
+.appza-renderer-skeleton[data-slug="fc-document-card"] .appza-skel-line:nth-of-type(1) { grid-area: name; width: 70%; align-self: end; }
+.appza-renderer-skeleton[data-slug="fc-document-card"] .appza-skel-line:nth-of-type(2) { grid-area: meta; width: 45%; height: 10px; align-self: start; }
+.appza-renderer-skeleton[data-slug="fc-document-card"] .appza-skel-line:nth-of-type(3) { display: none; }
+
+/* --- fc-comment-row: a small avatar beside a short bubble --- */
+.appza-renderer-skeleton-list[data-slug="fc-comment-row"] { gap: 4px; }
+.appza-renderer-skeleton[data-slug="fc-comment-row"] {
+  margin: 4px 14px;
+  padding: 10px 12px;
+  grid-template-columns: 28px 1fr;
+  grid-template-areas: 'avatar name' 'avatar body';
+  gap: 6px 10px;
+  box-shadow: none;
+  background: #f1f2f4;
+}
+.appza-renderer-skeleton[data-slug="fc-comment-row"] .appza-skel-block { grid-area: avatar; width: 28px; height: 28px; border-radius: 50%; align-self: start; }
+.appza-renderer-skeleton[data-slug="fc-comment-row"] .appza-skel-line:nth-of-type(1) { grid-area: name; width: 40%; height: 10px; }
+.appza-renderer-skeleton[data-slug="fc-comment-row"] .appza-skel-line:nth-of-type(2) { grid-area: body; width: 85%; }
+.appza-renderer-skeleton[data-slug="fc-comment-row"] .appza-skel-line:nth-of-type(3) { display: none; }
+
+/* --- fc-chat-message: bubbles, alternating sides like a conversation ---
+   The real list mirrors on `is_mine`, so a column of identical cards is
+   the one shape a chat never has. */
+.appza-renderer-skeleton-list[data-slug="fc-chat-message"] {
+  gap: 14px;
+  padding: 14px 16px;
+  background: transparent;
+}
+.appza-renderer-skeleton[data-slug="fc-chat-message"] {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  grid-template-columns: 30px 1fr;
+  grid-template-areas: 'avatar bubble';
+  gap: 9px;
+  justify-items: start;
+}
+.appza-renderer-skeleton[data-slug="fc-chat-message"] .appza-skel-line { display: none; }
+.appza-renderer-skeleton[data-slug="fc-chat-message"] .appza-skel-line:nth-of-type(1) {
+  display: block;
+  grid-area: avatar;
+  width: 30px; height: 30px; border-radius: 50%;
+  align-self: end;
+}
+.appza-renderer-skeleton[data-slug="fc-chat-message"] .appza-skel-block {
+  grid-area: bubble;
+  width: 55%; height: 38px;
+  border-radius: var(--appza-bubble-radius, 10px);
+}
+/* Every other row is "yours": no avatar, bubble against the far edge. */
+.appza-renderer-skeleton[data-slug="fc-chat-message"]:nth-child(even) {
+  grid-template-columns: 1fr 30px;
+  grid-template-areas: 'bubble avatar';
+  justify-items: end;
+}
+.appza-renderer-skeleton[data-slug="fc-chat-message"]:nth-child(even) .appza-skel-line:nth-of-type(1) {
+  visibility: hidden;
+}
+.appza-renderer-skeleton[data-slug="fc-chat-message"]:nth-child(even) .appza-skel-block { width: 45%; }
+
+/* --- fc-notification-row: glyph, line, timestamp --- */
+.appza-renderer-skeleton[data-slug="fc-notification-row"] {
+  grid-template-columns: 32px 1fr;
+  grid-template-areas: 'glyph body' 'glyph meta';
+  gap: 6px 10px;
+}
+.appza-renderer-skeleton[data-slug="fc-notification-row"] .appza-skel-block { grid-area: glyph; width: 32px; height: 32px; border-radius: 50%; align-self: center; }
+.appza-renderer-skeleton[data-slug="fc-notification-row"] .appza-skel-line:nth-of-type(1) { grid-area: body; width: 85%; }
+.appza-renderer-skeleton[data-slug="fc-notification-row"] .appza-skel-line:nth-of-type(2) { grid-area: meta; width: 30%; height: 10px; }
+.appza-renderer-skeleton[data-slug="fc-notification-row"] .appza-skel-line:nth-of-type(3) { display: none; }
+
+/* --- Chrome and single-fetch strips ------------------------------------
+   These are the ones that made every screen look alike while it loaded:
+   an appbar, a chip strip and a cover image each rendered the same
+   14px-padded white card with a 160px media block inside it, stacked
+   three deep. None of them is a card. --------------------------------- */
+
+/* Appbars: one toolbar-height bar, flush, no card. */
+.appza-renderer-skeleton[data-slug$="-appbar"] {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 0;
+  box-shadow: none;
+  grid-template-columns: 24px 1fr 24px;
+  grid-template-areas: 'back title menu';
+  gap: 10px;
+  align-items: center;
+}
+.appza-renderer-skeleton[data-slug$="-appbar"] .appza-skel-block { display: none; }
+.appza-renderer-skeleton[data-slug$="-appbar"] .appza-skel-line:nth-of-type(1) { grid-area: back; width: 22px; height: 22px; border-radius: 6px; }
+.appza-renderer-skeleton[data-slug$="-appbar"] .appza-skel-line:nth-of-type(2) { grid-area: title; width: 55%; height: 14px; }
+.appza-renderer-skeleton[data-slug$="-appbar"] .appza-skel-line:nth-of-type(3) { grid-area: menu; width: 20px; height: 20px; border-radius: 6px; }
+
+/* Chip strips — the space switcher, topic filters, the media segments.
+   A row of pills, not a card. */
+.appza-renderer-skeleton[data-slug="fc-space-switcher"],
+.appza-renderer-skeleton[data-slug="fc-space-topics"],
+.appza-renderer-skeleton[data-slug="fc-media-tabs"],
+.appza-renderer-skeleton[data-slug="fc-space-members-actions"] {
+  margin: 8px 14px;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  grid-template-columns: repeat(3, auto);
+  grid-auto-flow: column;
+  justify-content: start;
+  gap: 8px;
+}
+.appza-renderer-skeleton[data-slug="fc-space-switcher"] .appza-skel-block,
+.appza-renderer-skeleton[data-slug="fc-space-topics"] .appza-skel-block,
+.appza-renderer-skeleton[data-slug="fc-media-tabs"] .appza-skel-block,
+.appza-renderer-skeleton[data-slug="fc-space-members-actions"] .appza-skel-block { display: none; }
+.appza-renderer-skeleton[data-slug="fc-space-switcher"] .appza-skel-line,
+.appza-renderer-skeleton[data-slug="fc-space-topics"] .appza-skel-line,
+.appza-renderer-skeleton[data-slug="fc-media-tabs"] .appza-skel-line,
+.appza-renderer-skeleton[data-slug="fc-space-members-actions"] .appza-skel-line {
+  width: 76px; height: 30px; border-radius: 999px;
+}
+
+/* The cover is an image and nothing else. */
+.appza-renderer-skeleton[data-slug="fc-space-cover"] {
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.appza-renderer-skeleton[data-slug="fc-space-cover"] .appza-skel-line { display: none; }
+.appza-renderer-skeleton[data-slug="fc-space-cover"] .appza-skel-block {
+  height: 180px;
+  border-radius: 0;
+}
+
+/* Slim single-row bars: sort/view toolbars and the documents search. */
+.appza-renderer-skeleton[data-slug="fc-space-post-toolbar"],
+.appza-renderer-skeleton[data-slug="fc-feed-toolbar"],
+.appza-renderer-skeleton[data-slug="fc-documents-search"] {
+  margin: 8px 14px;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.appza-renderer-skeleton[data-slug="fc-space-post-toolbar"] .appza-skel-line:nth-of-type(n+2),
+.appza-renderer-skeleton[data-slug="fc-feed-toolbar"] .appza-skel-line:nth-of-type(n+2),
+.appza-renderer-skeleton[data-slug="fc-documents-search"] .appza-skel-line:nth-of-type(n+2) { display: none; }
+.appza-renderer-skeleton[data-slug="fc-space-post-toolbar"] .appza-skel-line:nth-of-type(1),
+.appza-renderer-skeleton[data-slug="fc-feed-toolbar"] .appza-skel-line:nth-of-type(1),
+.appza-renderer-skeleton[data-slug="fc-documents-search"] .appza-skel-line:nth-of-type(1) { width: 100%; height: 34px; border-radius: 8px; }
+.appza-renderer-skeleton[data-slug="fc-space-post-toolbar"] .appza-skel-block,
+.appza-renderer-skeleton[data-slug="fc-feed-toolbar"] .appza-skel-block,
+.appza-renderer-skeleton[data-slug="fc-documents-search"] .appza-skel-block { display: none; }
