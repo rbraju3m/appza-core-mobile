@@ -535,7 +535,12 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
       const src = readString(overrides, 'src');
       const initials = readString(overrides, 'initials');
       const alt = readString(overrides, 'alt') ?? '';
-      const fallbackText = initials ?? 'A';
+      // No photo AND no initials means there is no person here — a
+      // conversation that never resolved, a row still loading. Drawing a
+      // hardcoded letter invents one: the chat appbar showed a confident
+      // teal "A" for a thread that did not exist. An empty circle is the
+      // honest shape, and it stays visible and selectable in the builder.
+      const fallbackText = initials ?? '';
       // Size and the initials palette are overridable because the chat
       // appbar needs a smaller circle than a profile row, and its fill
       // comes off the thread (teal behind a space, grey behind a person)

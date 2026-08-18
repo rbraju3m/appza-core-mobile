@@ -7022,3 +7022,13 @@ audio.appza-video-embed-native {
   border: 1px solid var(--appza-delete-border-color, #e53935);
   color: var(--appza-delete-color, #e53935);
 }
+
+/* An avatar with neither a photo nor initials is a conversation that did
+   not resolve — a deep link, or the Chat tab before its list exists. The
+   empty disc is noise on a screen with no identity to show, so hide it
+   here specifically. Scoped to this shell: elsewhere an empty avatar is
+   still a selectable target in the builder. */
+.appza-renderer-ss[data-slug="chat-appbar-shell"]
+  ion-avatar:has(.appza-renderer-avatar-fallback:empty) {
+  display: none;
+}

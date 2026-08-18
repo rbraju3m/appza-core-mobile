@@ -492,6 +492,24 @@ export function PlacementRenderer({
     setChatControls({ messages_view: dataState.items.length > 0 ? 'list' : 'empty' });
   }, [publishesMessagesView, dataState.loading, dataState.items.length]);
 
+  // The composer's gate. A footer placement has no row of its own to
+  // read, and a placement can read state and nothing else — so whether
+  // there is a conversation to post to has to be published here, by the
+  // AppZet that resolved the thread.
+  //
+  // Covers three cases with one string: no thread resolved at all (a
+  // deep link, or the Chat tab before its list exists), a thread the
+  // viewer has left, and a blocked one-to-one — FluentCommunity answers
+  // all three with can_send_message false.
+  const publishesThreadState = (dataSource?.slug ?? '') === 'fc-chat-thread';
+  useEffect(() => {
+    if (!publishesThreadState) return;
+    if (dataState.loading) return;
+    const row = dataState.items[0];
+    const canSend = isRecord(row) && row.can_send_message === true;
+    setChatControls({ can_send: canSend ? 'yes' : 'no' });
+  }, [publishesThreadState, dataState.loading, dataState.items]);
+
   // A conversation is the one screen where the other side changes it
   // while you are looking at it. FluentCommunity ships realtime OFF by
   // default (`realtime_enabled: no`), so without this the only way a

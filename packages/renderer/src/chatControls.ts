@@ -47,6 +47,19 @@ export type ChatControls = {
    */
   active_message_id: string;
   /**
+   * Derived, NOT authored: 'yes' once the thread has resolved AND the
+   * viewer may send to it, 'no' otherwise. The composer placement gates
+   * on it.
+   *
+   * It has to be state rather than data because a placement can read
+   * state and nothing else (P75), and the composer sits in the footer
+   * slot where it has no row of its own to read. Starts at 'no' so a
+   * screen that has not resolved a conversation yet never offers to
+   * send into one — the flash of an absent composer during the first
+   * fetch is the honest reading.
+   */
+  can_send: string;
+  /**
    * Composer text. Held here rather than in the DOM because other
    * actions write it — clearing after a send, and restoring a draft when
    * a reply is cancelled — and an uncontrolled field cannot be written
@@ -68,6 +81,7 @@ const DEFAULTS: ChatControls = {
   thread_id: '',
   space_slug: '',
   messages_view: 'loading',
+  can_send: 'no',
   reply_to_id: '',
   reply_to_name: '',
   reply_to_text: '',
@@ -89,6 +103,7 @@ export function setChatControls(patch: Partial<ChatControls>): void {
     space_slug: typeof patch.space_slug === 'string' ? patch.space_slug : current.space_slug,
     messages_view:
       typeof patch.messages_view === 'string' ? patch.messages_view : current.messages_view,
+    can_send: typeof patch.can_send === 'string' ? patch.can_send : current.can_send,
     reply_to_id: typeof patch.reply_to_id === 'string' ? patch.reply_to_id : current.reply_to_id,
     reply_to_name:
       typeof patch.reply_to_name === 'string' ? patch.reply_to_name : current.reply_to_name,
@@ -114,6 +129,9 @@ export function setChatControls(patch: Partial<ChatControls>): void {
   if (switched) {
     next.messages_view =
       typeof patch.messages_view === 'string' ? patch.messages_view : 'loading';
+    // Until the new conversation's own thread row lands, we do not know
+    // whether it can be posted to — assume not.
+    next.can_send = typeof patch.can_send === 'string' ? patch.can_send : 'no';
     next.reply_to_id = '';
     next.reply_to_name = '';
     next.reply_to_text = '';
@@ -127,6 +145,7 @@ export function setChatControls(patch: Partial<ChatControls>): void {
     next.thread_id === current.thread_id &&
     next.space_slug === current.space_slug &&
     next.messages_view === current.messages_view &&
+    next.can_send === current.can_send &&
     next.reply_to_id === current.reply_to_id &&
     next.reply_to_name === current.reply_to_name &&
     next.reply_to_text === current.reply_to_text &&

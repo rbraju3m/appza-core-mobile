@@ -106,6 +106,7 @@ export function ScreenRenderer({
       // gates on today; the reply keys are here so the reply bar can be
       // a placement of its own rather than a child the composer hides.
       'chat_controls.messages_view': chatControls.messages_view,
+      'chat_controls.can_send': chatControls.can_send,
       'chat_controls.reply_to_id': chatControls.reply_to_id,
       'chat_controls.thread_id': chatControls.thread_id,
       'chat_controls.space_slug': chatControls.space_slug,
@@ -123,6 +124,7 @@ export function ScreenRenderer({
       spaceDetailControls.media_type,
       spaceDetailControls.media_view,
       chatControls.messages_view,
+      chatControls.can_send,
       chatControls.reply_to_id,
       chatControls.thread_id,
       chatControls.space_slug,
