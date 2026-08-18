@@ -3,7 +3,7 @@ import { IonIcon } from '@ionic/react';
 import { useActionDispatch } from './actionContext';
 import { resolveIcon } from './PrimitiveRenderer';
 import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
-import { getChatControls, setChatControls } from './chatControls';
+import { setChatControls, useChatControls } from './chatControls';
 
 /**
  * One message in a conversation.
@@ -25,9 +25,17 @@ import { getChatControls, setChatControls } from './chatControls';
  * independent alignments — it is one axis flipped, which is why the CSS
  * expresses it as a single `align-items` swap.
  *
- * GESTURES (Noor's choice, 2026-08-18): a horizontal drag past a
- * threshold starts a reply on any message; a tap reveals the trash on a
- * message the viewer may delete. Neither is a click on the child, which
+ * GESTURES: a tap on ANY message reveals its actions beside the bubble —
+ * a reply arrow, plus the trash on one the viewer may delete. A
+ * horizontal drag past a threshold still starts a reply directly, as a
+ * shortcut for anyone who knows it.
+ *
+ * The swipe alone was the first cut, and it shipped invisible: it worked
+ * on a real device, and the person who drew the designs could not find
+ * it. A gesture nothing advertises is a gesture nobody uses, so the tap
+ * now surfaces the same action next to the trash that was already there.
+ *
+ * Neither is a click on the child, which
  * is why this child deliberately declares no `on_click_action` in the
  * catalog — naming one would make the renderer stamp
  * data-appza-inline-click and hijack the pointer before this component
@@ -109,12 +117,14 @@ export function AppzaChatBubble({ overrides }: { overrides?: Record<string, unkn
     ? thresholdRaw
     : DEFAULT_SWIPE_THRESHOLD;
 
-  // Read the slice imperatively rather than subscribing. A conversation
-  // is a long list, and every bubble re-rendering because one of them was
-  // selected is exactly the cost this avoids; the one row that needs to
-  // react keeps its own `selected` state below.
-  const [selected, setSelected] = useState(false);
+  // Subscribed, not read imperatively: only ONE message shows its
+  // actions at a time, so every row has to know when another was tapped.
+  // A conversation is tens of rows, not thousands — the re-render is
+  // cheaper than the bookkeeping that avoiding it would need.
+  const chat = useChatControls();
+  const selected = messageId !== '' && chat.active_message_id === messageId;
   const deletable = allowDelete && canDelete && messageId !== '' && !isSystem;
+  const replyable = allowReply && messageId !== '' && !isSystem;
 
   // A group lifecycle event ("X joined") is not a bubble in any design —
   // it is a centred caption with no author, no time and no affordances.
@@ -131,14 +141,6 @@ export function AppzaChatBubble({ overrides }: { overrides?: Record<string, unkn
       </span>
     );
   }
-
-  const clearSelection = () => {
-    if (!selected) return;
-    setSelected(false);
-    if (getChatControls().active_message_id === messageId) {
-      setChatControls({ active_message_id: '' });
-    }
-  };
 
   const onPointerDown = (e: React.PointerEvent) => {
     startX.current = e.clientX;
@@ -190,13 +192,11 @@ export function AppzaChatBubble({ overrides }: { overrides?: Record<string, unkn
 
     if (wasDrag) return;
 
-    if (deletable) {
-      const next = !selected;
-      setSelected(next);
-      setChatControls({ active_message_id: next ? messageId : '' });
-      return;
+    // A tap on any message with something to offer. Writing the id into
+    // the slice is what closes whichever other row was open.
+    if (replyable || deletable) {
+      setChatControls({ active_message_id: selected ? '' : messageId });
     }
-    clearSelection();
   };
 
   const dispatchAction = (slug: string, extra?: Record<string, unknown>) => {
@@ -287,6 +287,25 @@ export function AppzaChatBubble({ overrides }: { overrides?: Record<string, unkn
             <IonIcon icon={replyIcon} />
           </span>
         )}
+        {replyable && selected && (
+          <button
+            type="button"
+            className="appza-chat-reply"
+            aria-label="Reply to message"
+            onClick={(e) => {
+              e.stopPropagation();
+              setChatControls({
+                active_message_id: '',
+                reply_to_id: messageId,
+                reply_to_name: isMine ? mineLabel : authorName,
+                reply_to_text: stripTags(bodyHtml),
+              });
+              dispatchAction(replyActionSlug);
+            }}
+          >
+            <IonIcon icon={replyIcon} />
+          </button>
+        )}
         {deletable && selected && (
           <button
             type="button"
@@ -294,7 +313,6 @@ export function AppzaChatBubble({ overrides }: { overrides?: Record<string, unkn
             aria-label="Delete message"
             onClick={(e) => {
               e.stopPropagation();
-              setSelected(false);
               setChatControls({ active_message_id: '' });
               dispatchAction(deleteActionSlug);
             }}

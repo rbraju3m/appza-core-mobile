@@ -25,6 +25,8 @@ import {
   apps,
   arrowBack,
   arrowForward,
+  arrowUndo,
+  arrowUndoOutline,
   bag,
   bagOutline,
   book,
@@ -217,6 +219,12 @@ const ICON_REGISTRY: Record<string, string> = {
   apps,
   'arrow-back': arrowBack,
   'arrow-forward': arrowForward,
+  // The reply glyph. Missing until now, so the chat bubble's reply
+  // arrow and the composer's reply strip both drew an empty box —
+  // resolveIcon returns nothing for a name the registry lacks, and
+  // nothing downstream complains. Same shape as the copy-outline gap.
+  'arrow-undo': arrowUndo,
+  'arrow-undo-outline': arrowUndoOutline,
   book,
   'chevron-back': chevronBack,
   'chevron-down': chevronDown,

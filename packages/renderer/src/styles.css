@@ -6491,8 +6491,36 @@ audio.appza-video-embed-native {
 .appza-chat-delete ion-icon {
   font-size: 18px;
 }
+/* On your own message the line is reversed, so `order` is what keeps the
+   trash against the screen edge with the reply arrow inboard of it —
+   bubble, reply, trash reading left to right, as in design 7 plus the
+   arrow. On someone else's the natural order already gives
+   bubble, reply, trash. */
 .appza-chat-row[data-mine="1"] .appza-chat-delete {
+  order: -2;
+}
+.appza-chat-row[data-mine="1"] .appza-chat-reply {
   order: -1;
+}
+
+/* The reply arrow is the quieter of the two: an outline on the surface
+   rather than a filled destructive block. */
+.appza-chat-reply {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--appza-reply-border-color, #2b5cff);
+  border-radius: var(--appza-delete-radius, 8px);
+  background: #ffffff;
+  color: var(--appza-reply-border-color, #2b5cff);
+  cursor: pointer;
+}
+.appza-chat-reply ion-icon {
+  font-size: 17px;
 }
 
 /* Trails the bubble while a reply drag is in progress, so the gesture
@@ -6564,7 +6592,9 @@ audio.appza-video-embed-native {
 /* ---------- fc-chat-input — the composer ---------- */
 /* The footer toolbar is laid out for the nav bar; a composer needs the
    whole width and no centring. */
-[data-screen-slug="chat-page-details"] .appza-renderer-footer ion-toolbar {
+/* Only the composer's own toolbar loses its padding — the nav bar below
+   it keeps the layout every other screen gives it. */
+[data-screen-slug="chat-page-details"] .appza-renderer-footer ion-toolbar:has(.appza-renderer-footer-slot) {
   --padding-start: 0;
   --padding-end: 0;
   --padding-top: 0;
@@ -6572,7 +6602,7 @@ audio.appza-video-embed-native {
   --min-height: 0;
   --background: var(--appza-bar-bg-color, #ffffff);
 }
-[data-screen-slug="chat-page-details"] .appza-renderer-nav {
+[data-screen-slug="chat-page-details"] .appza-renderer-footer-slot {
   display: block;
   padding: 0;
 }

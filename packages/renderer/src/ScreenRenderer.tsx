@@ -270,33 +270,51 @@ export function ScreenRenderer({
         </IonContent>
 
         {/*
-          A screen that brings its OWN footer replaces the template's nav
-          bar; the template bar is the default, not an override. The
-          precedence used to run the other way, which meant a `footer`
-          placement could never render on a template that ships a bottom
-          nav — the conversation screen's composer and profile-page-edit's
-          Save button were both silently dropped. Screens with no footer
-          placement are unaffected: they still get the template bar.
+          A screen's own footer and the template's nav bar BOTH render,
+          screen footer above, nav pinned at the bottom — Noor's call:
+          the footer has to read the same on every page, so the nav is
+          never displaced by a screen that brings its own controls.
+
+          It used to be either/or, and in the wrong direction: the nav
+          won, so a `footer` placement could never render at all on a
+          template that ships one, and the conversation's composer and
+          profile-page-edit's Save button were both silently dropped.
         */}
         {(navPlacements.length > 0 || footerList.length > 0) && (
-          <IonFooter
-            className="appza-renderer-footer"
-            data-footer-source={footerList.length > 0 ? 'screen' : 'template'}
-          >
-            <IonToolbar>
-              <div className="appza-renderer-nav">
-                {(footerList.length > 0 ? footerList : navPlacements).map((p, idx) => (
-                  <PlacementRenderer
-                    key={`nav:${p.appzet_slug}:${idx}`}
-                    appzetSlug={p.appzet_slug}
-                    catalogIndex={catalogIndex}
-                    customizations={customizations}
-                    selectedAppzetSlug={selectedAppzetSlug}
-                    onSelectAppzet={onSelectAppzet}
-                  />
-                ))}
-              </div>
-            </IonToolbar>
+          <IonFooter className="appza-renderer-footer">
+            {footerList.length > 0 && (
+              <IonToolbar>
+                <div className="appza-renderer-footer-slot" data-slot="footer">
+                  {footerList.map((p, idx) => (
+                    <PlacementRenderer
+                      key={`ftr:${p.appzet_slug}:${idx}`}
+                      appzetSlug={p.appzet_slug}
+                      catalogIndex={catalogIndex}
+                      customizations={customizations}
+                      selectedAppzetSlug={selectedAppzetSlug}
+                      onSelectAppzet={onSelectAppzet}
+                      propsOverride={p.props_override}
+                    />
+                  ))}
+                </div>
+              </IonToolbar>
+            )}
+            {navPlacements.length > 0 && (
+              <IonToolbar>
+                <div className="appza-renderer-nav">
+                  {navPlacements.map((p, idx) => (
+                    <PlacementRenderer
+                      key={`nav:${p.appzet_slug}:${idx}`}
+                      appzetSlug={p.appzet_slug}
+                      catalogIndex={catalogIndex}
+                      customizations={customizations}
+                      selectedAppzetSlug={selectedAppzetSlug}
+                      onSelectAppzet={onSelectAppzet}
+                    />
+                  ))}
+                </div>
+              </IonToolbar>
+            )}
           </IonFooter>
         )}
       </IonPage>
