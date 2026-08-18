@@ -41,6 +41,13 @@ export {
   type SpaceDetailControls,
 } from './spaceDetailControls';
 export {
+  getChatControls,
+  setChatControls,
+  clearChatReply,
+  useChatControls,
+  type ChatControls,
+} from './chatControls';
+export {
   getFcRuntimeSettings,
   setFcRuntimeSettings,
   useFcRuntimeSettings,

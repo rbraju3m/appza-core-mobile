@@ -15,6 +15,7 @@ import { resolveOverridableColumn } from './resolveOverride';
 import { tokensToCssVars } from './tokens';
 import { useSpacesControls } from './spacesControls';
 import { useSpaceDetailControls } from './spaceDetailControls';
+import { useChatControls } from './chatControls';
 
 type ScreenRendererProps = {
   screen: TemplateScreen;
@@ -83,6 +84,7 @@ export function ScreenRenderer({
   // out of the assembled `stateBag` at match time.
   const spacesControls = useSpacesControls();
   const spaceDetailControls = useSpaceDetailControls();
+  const chatControls = useChatControls();
   // Placement-level visible_when reads out of this bag via
   // `binding.slice(6)` (i.e. `state.<key>` → `<key>`). Register nested
   // paths as flat keys so `state.space_detail_controls.active_subtab`
@@ -100,6 +102,13 @@ export function ScreenRenderer({
       'space_detail_controls.documents_view': spaceDetailControls.documents_view,
       'space_detail_controls.media_type': spaceDetailControls.media_type,
       'space_detail_controls.media_view': spaceDetailControls.media_view,
+      // Conversation screen. `messages_view` is the only one a placement
+      // gates on today; the reply keys are here so the reply bar can be
+      // a placement of its own rather than a child the composer hides.
+      'chat_controls.messages_view': chatControls.messages_view,
+      'chat_controls.reply_to_id': chatControls.reply_to_id,
+      'chat_controls.thread_id': chatControls.thread_id,
+      'chat_controls.space_slug': chatControls.space_slug,
     }),
     [
       spacesControls.tab,
@@ -113,6 +122,10 @@ export function ScreenRenderer({
       spaceDetailControls.documents_view,
       spaceDetailControls.media_type,
       spaceDetailControls.media_view,
+      chatControls.messages_view,
+      chatControls.reply_to_id,
+      chatControls.thread_id,
+      chatControls.space_slug,
     ],
   );
 
@@ -254,11 +267,23 @@ export function ScreenRenderer({
           )}
         </IonContent>
 
+        {/*
+          A screen that brings its OWN footer replaces the template's nav
+          bar; the template bar is the default, not an override. The
+          precedence used to run the other way, which meant a `footer`
+          placement could never render on a template that ships a bottom
+          nav — the conversation screen's composer and profile-page-edit's
+          Save button were both silently dropped. Screens with no footer
+          placement are unaffected: they still get the template bar.
+        */}
         {(navPlacements.length > 0 || footerList.length > 0) && (
-          <IonFooter className="appza-renderer-footer">
+          <IonFooter
+            className="appza-renderer-footer"
+            data-footer-source={footerList.length > 0 ? 'screen' : 'template'}
+          >
             <IonToolbar>
               <div className="appza-renderer-nav">
-                {(navPlacements.length > 0 ? navPlacements : footerList).map((p, idx) => (
+                {(footerList.length > 0 ? footerList : navPlacements).map((p, idx) => (
                   <PlacementRenderer
                     key={`nav:${p.appzet_slug}:${idx}`}
                     appzetSlug={p.appzet_slug}

@@ -35,6 +35,8 @@ import {
   setRouteParams,
   getRouteParams,
   setSpaceDetailControls,
+  setChatControls,
+  getChatControls,
   setDocumentDraft,
   getDocumentDraft,
   resetDocumentDraft,
@@ -2789,6 +2791,80 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         onViewPost: (media) =>
           handleAction({ action_slug: 'media.open_post', args: argRec, item: media }, deps),
       });
+      return;
+    }
+
+    case 'chat.open': {
+      // The CHAT sub-tab entry carries this as a per-entry
+      // on_click_action override instead of the usual set_subtab: every
+      // chat design Noor supplied is a screen of its own — its own
+      // appbar with the conversation's avatar, no switcher strip — so
+      // the tap is a push, not a tab switch.
+      //
+      // thread_id and space_slug are ALTERNATIVES, not a pair. The CHAT
+      // tab knows a space slug and nothing else; a conversation opened
+      // by id knows only the id. Both data sources bind both and the
+      // endpoint falls through, so whichever we have is enough.
+      const targetSlug =
+        typeof argRec.target_screen_slug === 'string'
+          ? argRec.target_screen_slug
+          : 'chat-page-details';
+      const target = catalog?.template_screens?.find(
+        (s) => s.app_map_screen_slug === targetSlug,
+      );
+      if (!target) {
+        console.warn('[appza-mobile] chat.open: target not in catalog', targetSlug);
+        return;
+      }
+
+      const threadPath =
+        typeof argRec.thread_id_path === 'string' ? argRec.thread_id_path : 'thread_id';
+      const slugPath =
+        typeof argRec.space_slug_path === 'string' ? argRec.space_slug_path : 'space_slug';
+      const rawThread = itemRec ? readDataPath(itemRec, `data.${threadPath}`) : undefined;
+      const rawSlug = itemRec ? readDataPath(itemRec, `data.${slugPath}`) : undefined;
+
+      const threadId =
+        typeof rawThread === 'number' || (typeof rawThread === 'string' && rawThread !== '')
+          ? String(rawThread)
+          : '';
+      // The sub-tab entry is only {value, label} — it cannot carry the
+      // space it belongs to. The space being viewed is already in the
+      // space-detail slice, which is where the other member actions read
+      // it from too.
+      let spaceSlug = typeof rawSlug === 'string' ? rawSlug : '';
+      // Falling back to the space-detail slice is the DEFAULT, not an
+      // opt-in. A per-entry on_click_action override carries a slug and
+      // nothing else — the shells receive `args` verbatim and never look
+      // the action's param_schema up — so requiring the arg meant the
+      // CHAT tab dispatched with an empty bag and bailed out silently.
+      const slugSource =
+        typeof argRec.space_slug_source === 'string'
+          ? argRec.space_slug_source
+          : 'space_detail_controls';
+      if (spaceSlug === '' && slugSource === 'space_detail_controls') {
+        spaceSlug = getSpaceDetailControls().space_slug ?? '';
+      }
+      if (threadId === '' && spaceSlug === '') {
+        console.warn('[appza-mobile] chat.open: neither a thread id nor a space slug', item);
+        return;
+      }
+
+      // Resets the per-visit keys (reply target, selection, draft) when
+      // the conversation changes — see the switch guard in the slice.
+      setChatControls({ thread_id: threadId, space_slug: spaceSlug });
+      // MERGE, don't replace (P85): space-detail's own `slug` has to
+      // survive, or coming back re-seeds it and resets the sub-tab.
+      setRouteParams({
+        ...getRouteParams(),
+        thread_id: threadId,
+        space_slug: spaceSlug,
+      });
+
+      if (currentScreenId != null) {
+        setScreenStack((prev) => [...prev, currentScreenId]);
+      }
+      setSelectedScreenId(target.id);
       return;
     }
 

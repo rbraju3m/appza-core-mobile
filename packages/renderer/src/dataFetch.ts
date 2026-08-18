@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getSpacesControls } from './spacesControls';
 import { getSpaceDetailControls } from './spaceDetailControls';
 import { getFeedControls } from './feedControls';
+import { getChatControls } from './chatControls';
 
 /**
  * useDataSource(slug, params) — fetch a list payload for an AppZet's
@@ -79,6 +80,7 @@ const STATE_SLICE_GETTERS: Record<string, () => Record<string, unknown>> = {
   spaces_controls: () => getSpacesControls() as unknown as Record<string, unknown>,
   space_detail_controls: () => getSpaceDetailControls() as unknown as Record<string, unknown>,
   feed_controls: () => getFeedControls() as unknown as Record<string, unknown>,
+  chat_controls: () => getChatControls() as unknown as Record<string, unknown>,
 };
 
 /** Legacy flat-key bindings kept for spacesControls callers pre-arc. */

@@ -6207,3 +6207,333 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-comment-row"] .appza-rich-text p {
   margin: 0;
 }
+
+/* ==========================================================
+ * Conversation screen (2026-08-18) — chat-page-details.
+ *
+ * Colours and geometry are measured off Noor's designs and
+ * expressed as var() fallbacks, so every one of them is also a
+ * right-panel prop. The literals below are what an unedited
+ * template renders.
+ * ========================================================== */
+
+/* The whole screen sits on the same near-white ground as the rest of the
+   app, painted on the content rather than the list so it still shows
+   under a short conversation. */
+[data-screen-slug="chat-page-details"] .appza-renderer-content {
+  --background: var(--appza-list-bg-color, #f6f7fb);
+  background: var(--appza-list-bg-color, #f6f7fb);
+}
+/* The conversation owns its own gutters — the shared 12px screen padding
+   would sit on top of the list's and push every bubble in by 28px. */
+[data-screen-slug="chat-page-details"] .appza-renderer-screen {
+  background: transparent;
+  padding: 0;
+  gap: 0;
+}
+[data-screen-slug="chat-page-details"] .appza-renderer-slot[data-slot="main"] {
+  gap: 0;
+}
+
+/* ---------- chat-appbar-shell — back | avatar | title | ⋮ ---------- */
+.appza-renderer-ss[data-slug="chat-appbar-shell"] {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: var(--appza-gap, 10px);
+  padding: 6px 8px;
+  background: #ffffff;
+}
+.appza-renderer-ss[data-slug="chat-appbar-shell"] ion-button {
+  --background: transparent;
+  --background-hover: transparent;
+  --background-activated: transparent;
+  --box-shadow: none;
+  --padding-start: 6px;
+  --padding-end: 6px;
+  --color: var(--appza-icon-color, #1b1c1f);
+  border: 0;
+  margin: 0;
+  height: 36px;
+  color: var(--appza-icon-color, #1b1c1f);
+}
+.appza-renderer-ss[data-slug="chat-appbar-shell"] ion-button::part(native) {
+  border: 0;
+  background: transparent;
+}
+.appza-renderer-ss[data-slug="chat-appbar-shell"] ion-button ion-icon {
+  font-size: 22px;
+  color: var(--appza-icon-color, #1b1c1f);
+}
+.appza-renderer-ss[data-slug="chat-appbar-shell"] ion-avatar {
+  flex: 0 0 auto;
+}
+.appza-renderer-ss[data-slug="chat-appbar-shell"] [data-child-index="2"] ion-text p {
+  font-size: var(--appza-title-size, 1.05rem);
+  font-weight: var(--appza-title-weight, 700);
+  color: var(--appza-title-color, #1b1c1f);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- fc-chat-message — the message list ---------- */
+.appza-renderer-appzet-list[data-slug="fc-chat-message"] {
+  display: flex;
+  flex-direction: column;
+  padding: var(--appza-list-padding, 14px 16px 20px 16px);
+  background: transparent;
+}
+.appza-renderer-appzet-list[data-slug="fc-chat-message"] .appza-renderer-appzet {
+  padding: 0;
+  min-width: 0;
+}
+.appza-renderer-ss[data-slug="fc-chat-message"],
+.appza-renderer-ss[data-slug="fc-chat-message"] .appza-renderer-ss-child {
+  display: block;
+  width: 100%;
+}
+
+/* A run is a block of consecutive messages by one author. Rows inside one
+   sit close together; the gap only opens where a new run starts, which is
+   the same row that carries the sender name. */
+.appza-chat-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  margin-top: var(--appza-row-gap, 4px);
+}
+.appza-chat-row[data-starts-run="1"] {
+  margin-top: var(--appza-group-gap, 18px);
+}
+.appza-chat-row[data-mine="1"] {
+  align-items: flex-end;
+}
+
+/* Aligned with the bubble, not with the avatar — the avatar column sits
+   to the left of both. */
+.appza-chat-sender {
+  font-size: var(--appza-sender-name-size, 0.9rem);
+  font-weight: var(--appza-sender-name-weight, 600);
+  color: var(--appza-sender-name-color, #1b1c1f);
+  margin: 0 0 8px calc(var(--appza-avatar-size, 30px) + 9px);
+}
+.appza-chat-row[data-mine="1"] .appza-chat-sender {
+  margin: 0 2px 8px 0;
+}
+
+.appza-chat-line {
+  display: flex;
+  align-items: flex-end;
+  gap: 9px;
+  max-width: 100%;
+}
+/* The mirror. Everything about a message of your own is the same layout
+   read the other way round, which is why this is one declaration rather
+   than a parallel set of alignments. */
+.appza-chat-row[data-mine="1"] .appza-chat-line {
+  flex-direction: row-reverse;
+}
+
+/* Always present, so every bubble in a run keeps the same left edge; only
+   the last row of the run paints anything into it. */
+.appza-chat-avatar {
+  flex: 0 0 auto;
+  width: var(--appza-avatar-size, 30px);
+  height: var(--appza-avatar-size, 30px);
+  border-radius: 50%;
+  overflow: hidden;
+}
+.appza-chat-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.appza-chat-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--appza-avatar-bg-color, #e3e5e9);
+  color: var(--appza-avatar-text-color, #5a5e68);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.appza-chat-bubble {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 68px;
+  max-width: var(--appza-bubble-max-width, 78%);
+  padding: var(--appza-bubble-padding, 7px 9px);
+  border-radius: var(--appza-bubble-radius, 10px);
+  background: var(--appza-bubble-bg-color, #eaeaea);
+  color: var(--appza-bubble-text-color, #40454f);
+  font-size: var(--appza-body-size, 0.82rem);
+  line-height: 1.45;
+  /* The reply swipe animates this; snapping back has to be visible or the
+     gesture reads as a dead drag. */
+  transition: transform 140ms ease-out;
+  touch-action: pan-y;
+  cursor: pointer;
+}
+.appza-chat-row[data-mine="1"] .appza-chat-bubble {
+  align-items: flex-end;
+  background: var(--appza-mine-bubble-bg-color, #d9e1f4);
+  color: var(--appza-mine-bubble-text-color, #40454f);
+}
+.appza-chat-body {
+  display: block;
+  word-break: break-word;
+}
+.appza-chat-body p {
+  margin: 0;
+}
+.appza-chat-body a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+/* Text on the outer edge, time on the inner one — see the MIRRORING note
+   in ChatBubble.tsx. */
+.appza-chat-time {
+  align-self: flex-end;
+  font-size: var(--appza-time-size, 0.62rem);
+  color: var(--appza-time-color, #9a9da5);
+  line-height: 1.4;
+}
+.appza-chat-row[data-mine="1"] .appza-chat-time {
+  align-self: flex-start;
+}
+
+/* The quoted message, nested inside the bubble. */
+.appza-chat-quote {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 1px;
+  margin-bottom: 4px;
+  padding: 4px 8px;
+  border-left: 3px solid var(--appza-reply-border-color, #2b5cff);
+  border-radius: var(--appza-reply-radius, 4px);
+  background: var(--appza-reply-bg-color, #ffffff);
+  text-align: left;
+}
+.appza-chat-quote-name {
+  font-size: 0.66rem;
+  font-weight: 500;
+  color: var(--appza-reply-name-color, #2b5cff);
+}
+.appza-chat-quote-text {
+  font-size: 0.74rem;
+  color: var(--appza-reply-text-color, #1b1c1f);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 190px;
+}
+
+.appza-chat-images {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-self: stretch;
+  margin-bottom: 4px;
+}
+.appza-chat-images img {
+  width: 100%;
+  border-radius: 6px;
+  display: block;
+}
+
+/* Delete sits OUTSIDE the bubble, on the far side from the avatar. On a
+   message of yours the line is reversed, so `order` is what keeps the
+   button against the screen edge rather than between bubble and centre. */
+.appza-chat-delete {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  padding: 0;
+  border-radius: var(--appza-delete-radius, 8px);
+  background: var(--appza-delete-bg-color, #e53935);
+  color: var(--appza-delete-icon-color, #ffffff);
+  cursor: pointer;
+}
+.appza-chat-delete ion-icon {
+  font-size: 18px;
+}
+.appza-chat-row[data-mine="1"] .appza-chat-delete {
+  order: -1;
+}
+
+/* Trails the bubble while a reply drag is in progress, so the gesture
+   says what it is going to do before it commits. */
+.appza-chat-swipe-hint {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--appza-reply-border-color, #2b5cff);
+  opacity: 0.8;
+}
+.appza-chat-swipe-hint ion-icon {
+  font-size: 18px;
+}
+
+/* Group lifecycle events — a caption, not a message. */
+.appza-chat-row.is-system {
+  align-items: center;
+}
+.appza-chat-system {
+  margin: 10px auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.05);
+  color: #6b7280;
+  font-size: 0.7rem;
+}
+
+/* ---------- fc-chat-home-fab ---------- */
+/* Fixed for the same reason the documents FAB is: it pins to the phone
+   viewport while the conversation scrolls under it. The simulator
+   overrides this to absolute inside the device frame. */
+.appza-renderer-appzet[data-slug="fc-chat-home-fab"] {
+  position: fixed;
+  right: var(--appza-offset-right, 18px);
+  bottom: var(--appza-offset-bottom, 92px);
+  z-index: 20;
+  padding: 0;
+}
+.appza-renderer-ss[data-slug="fc-chat-home-fab"] ion-button {
+  border: 0;
+  --background: var(--appza-bg-color, #4c5fdf);
+  --background-hover: var(--appza-bg-color, #4c5fdf);
+  --background-activated: #3d4dc4;
+  --color: var(--appza-icon-color, #ffffff);
+  --border-radius: 50%;
+  --box-shadow: var(--appza-shadow, 0 6px 16px rgba(60, 78, 196, 0.35));
+  --padding-start: 0;
+  --padding-end: 0;
+  width: var(--appza-size, 56px);
+  height: var(--appza-size, 56px);
+  margin: 0;
+  color: var(--appza-icon-color, #ffffff);
+}
+.appza-renderer-ss[data-slug="fc-chat-home-fab"] ion-button::part(native) {
+  border: 0;
+  background: var(--appza-bg-color, #4c5fdf);
+  border-radius: 50%;
+}
+.appza-renderer-ss[data-slug="fc-chat-home-fab"] ion-button ion-icon {
+  font-size: var(--appza-icon-size, 1.4rem);
+  color: var(--appza-icon-color, #ffffff);
+}

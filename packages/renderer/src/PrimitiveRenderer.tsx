@@ -176,6 +176,7 @@ import { AppzaFilePicker } from './AppzaFilePicker';
 import { AppzaFileList } from './AppzaFileList';
 import { AppzaMediaTile } from './MediaTile';
 import { AppzaAudioPlayer, AppzaAudioList } from './AudioPlayerRow';
+import { AppzaChatBubble } from './ChatBubble';
 import { attach, attachOutline, cloudUploadOutline } from 'ionicons/icons';
 
 /**
@@ -527,12 +528,26 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
       const initials = readString(overrides, 'initials');
       const alt = readString(overrides, 'alt') ?? '';
       const fallbackText = initials ?? 'A';
+      // Size and the initials palette are overridable because the chat
+      // appbar needs a smaller circle than a profile row, and its fill
+      // comes off the thread (teal behind a space, grey behind a person)
+      // rather than being one value for the whole template. Absent
+      // overrides keep the previous fixed 40px + stylesheet colours, so
+      // every existing avatar renders unchanged.
+      const size = readString(overrides, 'size');
+      const bgColor = readString(overrides, 'bg_color');
+      const textColor = readString(overrides, 'text_color');
       return (
-        <IonAvatar style={{ width: 40, height: 40 }}>
+        <IonAvatar style={{ width: size ?? 40, height: size ?? 40 }}>
           {src ? (
             <img src={src} alt={alt} className="appza-renderer-avatar-img" />
           ) : (
-            <div className="appza-renderer-avatar-fallback">{fallbackText}</div>
+            <div
+              className="appza-renderer-avatar-fallback"
+              style={{ background: bgColor, color: textColor }}
+            >
+              {fallbackText}
+            </div>
           )}
         </IonAvatar>
       );
@@ -688,6 +703,9 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
 
     case 'AppzaAudioList':
       return <AppzaAudioList overrides={overrides} />;
+
+    case 'AppzaChatBubble':
+      return <AppzaChatBubble overrides={overrides} />;
 
     case 'IonLabel':
       return <IonLabel>{label}</IonLabel>;

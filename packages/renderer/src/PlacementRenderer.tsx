@@ -10,6 +10,7 @@ import { useActionDispatch, type ActionInvocation } from './actionContext';
 import { useFeedControls } from './feedControls';
 import { useSpacesControls } from './spacesControls';
 import { setSpaceDetailControls, useSpaceDetailControls } from './spaceDetailControls';
+import { setChatControls } from './chatControls';
 import { useDocumentDraft } from './documentDraft';
 import { useFcRuntimeSettings } from './fcRuntimeSettings';
 import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
@@ -476,6 +477,20 @@ export function PlacementRenderer({
     setSpaceDetailControls({ media_view: dataState.items.length > 0 ? 'list' : 'empty' });
   }, [publishesMediaView, dataState.loading, dataState.items.length]);
 
+  // Conversation screen (2026-08-18). Same P75 shape again, and the
+  // simplest instance of it: one content AppZet, one empty state, no
+  // search. The message list is NOT gated on this — it has to stay
+  // mounted to run the fetch that decides the verdict in the first
+  // place.
+  const publishesMessagesView = (dataSource?.slug ?? '') === 'fc-chat-messages';
+  useEffect(() => {
+    if (!publishesMessagesView) return;
+    // Hold the previous verdict across a refetch, so sending a message
+    // does not flash "No messages yet" between the POST and the reload.
+    if (dataState.loading) return;
+    setChatControls({ messages_view: dataState.items.length > 0 ? 'list' : 'empty' });
+  }, [publishesMessagesView, dataState.loading, dataState.items.length]);
+
   if (!appzet) return <MissingNode label={`unknown appzet: ${appzetSlug}`} />;
   if (!ss) return <MissingNode label={`appzet ${appzet.slug} has no superstructure`} />;
 
@@ -908,6 +923,45 @@ export function PlacementRenderer({
     'time_color',
     'progress_color',
     'progress_track_color',
+    // Chat knobs (2026-08-18). `row_gap`, `time_color`, `gap` and
+    // `font_weight` are already above — the chat AppZets reuse them on
+    // purpose, so one CSS vocabulary covers the screen rather than a
+    // parallel chat_* set.
+    'avatar_size',
+    'avatar_bg_color',
+    'avatar_text_color',
+    'sender_name_color',
+    'sender_name_size',
+    'sender_name_weight',
+    'bubble_bg_color',
+    'bubble_text_color',
+    'mine_bubble_bg_color',
+    'mine_bubble_text_color',
+    'bubble_radius',
+    'bubble_padding',
+    'bubble_max_width',
+    'body_size',
+    'time_size',
+    'reply_bg_color',
+    'reply_border_color',
+    'reply_name_color',
+    'reply_text_color',
+    'reply_radius',
+    'delete_bg_color',
+    'delete_icon_color',
+    'delete_radius',
+    'group_gap',
+    'list_padding',
+    'list_bg_color',
+    // fc-chat-home-fab. The `fab_*` knobs above belong to the documents
+    // FAB, which is a different Superstructure with a different shape.
+    'bg_color',
+    'icon_color',
+    'icon_size',
+    'size',
+    'shadow',
+    'offset_right',
+    'offset_bottom',
   ]);
   // Aliases: some knobs also drive Ionic's own CSS custom properties
   // directly. Custom props inherit through shadow DOM (unlike `background`
