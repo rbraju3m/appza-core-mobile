@@ -245,6 +245,10 @@ export function AppzaChatBubble({ overrides }: { overrides?: Record<string, unkn
         )}
         <span
           className="appza-chat-bubble"
+          // A bubble carrying an image takes the full width it is allowed:
+          // sized to its text, the image would shrink to whatever the
+          // caption happens to be.
+          data-has-images={images.length > 0 ? '1' : undefined}
           style={{ transform: dragX !== 0 ? `translateX(${dragX}px)` : undefined } as CSSProperties}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

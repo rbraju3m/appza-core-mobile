@@ -48,6 +48,12 @@ export {
   type ChatControls,
 } from './chatControls';
 export {
+  sendChatMessage,
+  deleteChatMessage,
+  pickAndUploadChatImage,
+  type ChatWriteDeps,
+} from './chatSend';
+export {
   getFcRuntimeSettings,
   setFcRuntimeSettings,
   useFcRuntimeSettings,

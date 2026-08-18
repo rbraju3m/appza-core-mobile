@@ -177,6 +177,7 @@ import { AppzaFileList } from './AppzaFileList';
 import { AppzaMediaTile } from './MediaTile';
 import { AppzaAudioPlayer, AppzaAudioList } from './AudioPlayerRow';
 import { AppzaChatBubble } from './ChatBubble';
+import { AppzaChatComposer } from './ChatComposer';
 import { attach, attachOutline, cloudUploadOutline } from 'ionicons/icons';
 
 /**
@@ -455,6 +456,9 @@ export const SELF_ACTION_PRIMITIVES: ReadonlySet<string> = new Set([
   // or flipped anything.
   'ion-textarea',
   'ion-toggle',
+  // The attach button sits INSIDE the input pill, so a wrapper click
+  // would fire the picker whenever anyone tapped the field to type.
+  'appza-chat-composer',
 ]);
 
 /**
@@ -706,6 +710,9 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
 
     case 'AppzaChatBubble':
       return <AppzaChatBubble overrides={overrides} />;
+
+    case 'AppzaChatComposer':
+      return <AppzaChatComposer overrides={overrides} action={action} dispatch={dispatch} />;
 
     case 'IonLabel':
       return <IonLabel>{label}</IonLabel>;

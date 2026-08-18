@@ -31,6 +31,9 @@ import {
   setSpaceDetailControls,
   setChatControls,
   getChatControls,
+  sendChatMessage,
+  deleteChatMessage,
+  pickAndUploadChatImage,
   setDocumentDraft,
   getDocumentDraft,
   resetDocumentDraft,
@@ -3894,6 +3897,106 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             deps,
           ),
       });
+      return;
+    }
+
+    // === Chat writes (2026-08-18) ===
+    //
+    // The four of them share one shape: everything the write needs is in
+    // the chat state slice, and the endpoint comes off the action args.
+    // The sequences themselves live in the renderer's chatSend module so
+    // this shell and the simulator cannot drift — the same call
+    // documentSubmit makes, for the same reason (P69).
+    case 'chat.send': {
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      if (!endpoint) {
+        onLoginError('chat.send is missing its endpoint.');
+        return;
+      }
+      const refetchDs =
+        typeof argRec.refetch_data_source === 'string' ? argRec.refetch_data_source : null;
+      void sendChatMessage({
+        endpoint,
+        method: typeof argRec.method === 'string' ? argRec.method : 'POST',
+        authHeader: auth ? basicAuthHeader(auth) : '',
+        onError: onLoginError,
+        onSuccess: () => {
+          const g = window as unknown as { __appzaForceRefreshUntil?: number };
+          g.__appzaForceRefreshUntil = Date.now() + 3000;
+          window.dispatchEvent(
+            new CustomEvent('appza:refresh-data', { detail: { data_source: refetchDs } }),
+          );
+        },
+      });
+      return;
+    }
+
+    case 'chat.delete_message': {
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      if (!endpoint) {
+        onLoginError('chat.delete_message is missing its endpoint.');
+        return;
+      }
+      const messageId = itemRec ? readDataPath(itemRec, 'data.id') : undefined;
+      const refetchDs =
+        typeof argRec.refetch_data_source === 'string' ? argRec.refetch_data_source : null;
+      void deleteChatMessage(typeof messageId === 'string' || typeof messageId === 'number' ? messageId : '', {
+        endpoint,
+        method: typeof argRec.method === 'string' ? argRec.method : 'POST',
+        authHeader: auth ? basicAuthHeader(auth) : '',
+        toast: typeof argRec.toast_message === 'string' ? argRec.toast_message : 'Message deleted',
+        onError: onLoginError,
+        onInfo: onMenuInfo,
+        onSuccess: () => {
+          const g = window as unknown as { __appzaForceRefreshUntil?: number };
+          g.__appzaForceRefreshUntil = Date.now() + 3000;
+          window.dispatchEvent(
+            new CustomEvent('appza:refresh-data', { detail: { data_source: refetchDs } }),
+          );
+        },
+      });
+      return;
+    }
+
+    case 'chat.attach_image': {
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      if (!endpoint) {
+        onLoginError('chat.attach_image is missing its endpoint.');
+        return;
+      }
+      pickAndUploadChatImage({
+        endpoint,
+        method: typeof argRec.method === 'string' ? argRec.method : 'POST',
+        accept: typeof argRec.accept === 'string' ? argRec.accept : 'image/*',
+        authHeader: auth ? basicAuthHeader(auth) : '',
+        onError: onLoginError,
+      });
+      return;
+    }
+
+    // The bubble has already written the slice by the time this fires —
+    // a swipe is not a click, so it cannot wait for a dispatch round
+    // trip. The case exists so the gesture is still repointable from the
+    // right panel, and so a caller that fires it WITHOUT having written
+    // the slice (a customer wiring reply to something of their own) gets
+    // the same result.
+    case 'chat.reply_start': {
+      if (!itemRec) return;
+      const id = readDataPath(itemRec, 'data.id');
+      if (id === undefined || id === null || id === '') return;
+      const name = readDataPath(itemRec, 'data.author_name');
+      const body = readDataPath(itemRec, 'data.message_rendered');
+      setChatControls({
+        reply_to_id: String(id),
+        reply_to_name: typeof name === 'string' ? name : '',
+        reply_to_text:
+          typeof body === 'string' ? body.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() : '',
+      });
+      return;
+    }
+
+    case 'chat.reply_cancel': {
+      setChatControls({ reply_to_id: '', reply_to_name: '', reply_to_text: '' });
       return;
     }
 

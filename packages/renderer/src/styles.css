@@ -6297,20 +6297,21 @@ audio.appza-video-embed-native {
 /* A run is a block of consecutive messages by one author. Rows inside one
    sit close together; the gap only opens where a new run starts, which is
    the same row that carries the sender name. */
+/* `align-items: stretch` rather than flex-start/flex-end, so the line
+   below is a definite width. A shrink-to-fit line makes every percentage
+   inside it resolve against its own content — which is why a bubble
+   carrying an image came out the width of its caption. Side is chosen by
+   the line's own direction instead. */
 .appza-chat-row {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   width: 100%;
   margin-top: var(--appza-row-gap, 4px);
 }
 .appza-chat-row[data-starts-run="1"] {
   margin-top: var(--appza-group-gap, 18px);
 }
-.appza-chat-row[data-mine="1"] {
-  align-items: flex-end;
-}
-
 /* Aligned with the bubble, not with the avatar — the avatar column sits
    to the left of both. */
 .appza-chat-sender {
@@ -6318,20 +6319,25 @@ audio.appza-video-embed-native {
   font-weight: var(--appza-sender-name-weight, 600);
   color: var(--appza-sender-name-color, #1b1c1f);
   margin: 0 0 8px calc(var(--appza-avatar-size, 30px) + 9px);
+  text-align: left;
 }
 .appza-chat-row[data-mine="1"] .appza-chat-sender {
   margin: 0 2px 8px 0;
+  text-align: right;
 }
 
 .appza-chat-line {
   display: flex;
   align-items: flex-end;
+  justify-content: flex-start;
   gap: 9px;
-  max-width: 100%;
+  width: 100%;
 }
 /* The mirror. Everything about a message of your own is the same layout
    read the other way round, which is why this is one declaration rather
-   than a parallel set of alignments. */
+   than a parallel set of alignments — reversing the direction both moves
+   the bubble to the right edge and swaps which end the delete button and
+   the timestamp sit at. */
 .appza-chat-row[data-mine="1"] .appza-chat-line {
   flex-direction: row-reverse;
 }
@@ -6382,6 +6388,10 @@ audio.appza-video-embed-native {
   transition: transform 140ms ease-out;
   touch-action: pan-y;
   cursor: pointer;
+  /* A reply drag would otherwise select the message text on the way
+     across, leaving the bubble highlighted after the gesture ends. */
+  user-select: none;
+  -webkit-user-select: none;
 }
 .appza-chat-row[data-mine="1"] .appza-chat-bubble {
   align-items: flex-end;
@@ -6413,6 +6423,9 @@ audio.appza-video-embed-native {
 }
 
 /* The quoted message, nested inside the bubble. */
+.appza-chat-bubble:has(> .appza-chat-quote) {
+  width: var(--appza-bubble-max-width, 52%);
+}
 .appza-chat-quote {
   display: flex;
   flex-direction: column;
@@ -6429,6 +6442,9 @@ audio.appza-video-embed-native {
   font-size: 0.66rem;
   font-weight: 500;
   color: var(--appza-reply-name-color, #2b5cff);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .appza-chat-quote-text {
   font-size: 0.74rem;
@@ -6439,6 +6455,9 @@ audio.appza-video-embed-native {
   max-width: 190px;
 }
 
+.appza-chat-bubble[data-has-images="1"] {
+  width: var(--appza-bubble-max-width, 52%);
+}
 .appza-chat-images {
   display: flex;
   flex-direction: column;
@@ -6509,7 +6528,11 @@ audio.appza-video-embed-native {
 .appza-renderer-appzet[data-slug="fc-chat-home-fab"] {
   position: fixed;
   right: var(--appza-offset-right, 18px);
-  bottom: var(--appza-offset-bottom, 92px);
+  /* Measured from the top of the composer, not the viewport: the bar
+     grows when a reply is pending or an image is attached, and a fixed
+     offset would put the button behind it exactly then. The composer
+     publishes its footer's height. */
+  bottom: calc(var(--appza-chat-footer-h, 68px) + var(--appza-offset-bottom, 24px));
   z-index: 20;
   padding: 0;
 }
@@ -6536,4 +6559,198 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-chat-home-fab"] ion-button ion-icon {
   font-size: var(--appza-icon-size, 1.4rem);
   color: var(--appza-icon-color, #ffffff);
+}
+
+/* ---------- fc-chat-input — the composer ---------- */
+/* The footer toolbar is laid out for the nav bar; a composer needs the
+   whole width and no centring. */
+[data-screen-slug="chat-page-details"] .appza-renderer-footer ion-toolbar {
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  --min-height: 0;
+  --background: var(--appza-bar-bg-color, #ffffff);
+}
+[data-screen-slug="chat-page-details"] .appza-renderer-nav {
+  display: block;
+  padding: 0;
+}
+.appza-renderer-ss[data-slug="fc-chat-input"] {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--appza-gap, 10px);
+  padding: var(--appza-bar-padding, 10px 14px 14px 14px);
+  background: var(--appza-bar-bg-color, #ffffff);
+}
+/* The pill takes the room; the send button keeps its own width. */
+.appza-renderer-ss[data-slug="fc-chat-input"] > .appza-renderer-ss-child:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.appza-chat-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+.appza-chat-composer-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  min-height: var(--appza-input-height, 44px);
+  border-radius: var(--appza-input-radius, 10px);
+  background: var(--appza-input-bg-color, #eaeaea);
+}
+.appza-chat-composer-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  padding: 12px 0;
+  font: inherit;
+  font-size: var(--appza-input-size, 0.85rem);
+  line-height: 1.4;
+  color: var(--appza-input-text-color, #1b1c1f);
+}
+.appza-chat-composer-input::placeholder {
+  color: var(--appza-placeholder-color, #8b8e96);
+}
+.appza-chat-composer-attach {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--appza-attach-icon-color, #6b7280);
+  cursor: pointer;
+}
+.appza-chat-composer-attach ion-icon {
+  font-size: 20px;
+}
+.appza-chat-composer-attach:disabled {
+  opacity: 0.45;
+}
+
+/* Send. Grey at rest — which is every frame in the designs, because the
+   field is empty in all of them — and the accent once there is something
+   to send. */
+.appza-renderer-ss[data-slug="fc-chat-input"] ion-button {
+  --background: var(--appza-send-bg-color, #8b8c90);
+  --background-hover: var(--appza-send-bg-color, #8b8c90);
+  --background-activated: var(--appza-send-bg-color, #8b8c90);
+  --color: var(--appza-send-icon-color, #ffffff);
+  --border-radius: var(--appza-send-radius, 6px);
+  --box-shadow: none;
+  --padding-start: 0;
+  --padding-end: 0;
+  border: 0;
+  margin: 0;
+  width: var(--appza-send-width, 52px);
+  height: var(--appza-input-height, 44px);
+  color: var(--appza-send-icon-color, #ffffff);
+}
+.appza-renderer-ss[data-slug="fc-chat-input"] ion-button::part(native) {
+  border: 0;
+  background: var(--appza-send-bg-color, #8b8c90);
+  border-radius: var(--appza-send-radius, 6px);
+}
+.appza-renderer-appzet[data-appza-can-send="true"] .appza-renderer-ss[data-slug="fc-chat-input"] ion-button,
+.appza-renderer-appzet[data-appza-can-send="true"] .appza-renderer-ss[data-slug="fc-chat-input"] ion-button::part(native) {
+  --background: var(--appza-send-active-bg-color, #4c5fdf);
+  --background-hover: var(--appza-send-active-bg-color, #4c5fdf);
+  background: var(--appza-send-active-bg-color, #4c5fdf);
+}
+.appza-renderer-ss[data-slug="fc-chat-input"] ion-button ion-icon {
+  font-size: 20px;
+  color: var(--appza-send-icon-color, #ffffff);
+}
+
+/* The pending-reply strip, above the pill and part of the same bar. */
+.appza-chat-reply-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 8px;
+  border-left: 3px solid var(--appza-reply-accent-color, #2b5cff);
+  background: var(--appza-reply-bar-bg-color, #ffffff);
+}
+.appza-chat-reply-bar-icon {
+  flex: 0 0 auto;
+  font-size: 16px;
+  color: var(--appza-reply-accent-color, #2b5cff);
+}
+.appza-chat-reply-bar-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.appza-chat-reply-bar-name {
+  font-size: 0.66rem;
+  font-weight: 500;
+  color: var(--appza-reply-name-color, #2b5cff);
+}
+.appza-chat-reply-bar-text {
+  font-size: 0.7rem;
+  color: var(--appza-reply-text-color, #6b7280);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.appza-chat-reply-bar-close {
+  flex: 0 0 auto;
+  border: 0;
+  padding: 0 2px;
+  background: transparent;
+  color: var(--appza-reply-close-color, #9a9da5);
+  cursor: pointer;
+}
+.appza-chat-reply-bar-close ion-icon {
+  font-size: 16px;
+}
+
+/* Images picked but not yet sent. No design covers this state, so it
+   follows the post composer's thumbnail strip. */
+.appza-chat-attachments {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.appza-chat-attachment {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.appza-chat-attachment img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.appza-chat-attachment button {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+  cursor: pointer;
+}
+.appza-chat-attachment button ion-icon {
+  font-size: 12px;
 }

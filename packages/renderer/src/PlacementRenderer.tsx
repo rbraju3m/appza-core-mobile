@@ -10,7 +10,7 @@ import { useActionDispatch, type ActionInvocation } from './actionContext';
 import { useFeedControls } from './feedControls';
 import { useSpacesControls } from './spacesControls';
 import { setSpaceDetailControls, useSpaceDetailControls } from './spaceDetailControls';
-import { setChatControls } from './chatControls';
+import { setChatControls, useChatControls } from './chatControls';
 import { useDocumentDraft } from './documentDraft';
 import { useFcRuntimeSettings } from './fcRuntimeSettings';
 import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
@@ -146,6 +146,7 @@ export function PlacementRenderer({
   // Add-document draft — read unconditionally for stable hook order. Only
   // the topic chips consume it, to mark several chips active at once.
   const documentDraft = useDocumentDraft();
+  const chatControls = useChatControls();
   const draftTopicValues = useMemo(
     () => new Set(documentDraft.topic_ids.map((id) => String(id))),
     [documentDraft.topic_ids],
@@ -1010,6 +1011,14 @@ export function PlacementRenderer({
           data-appza-can-submit={
             appzet.slug === 'fc-add-document-appbar'
               ? String(documentDraft.files.length > 0 && !documentDraft.submitting)
+              : undefined
+          }
+          /* Same mechanism, for the composer's send button: it has to
+             look awake once there is something to send, and the button is
+             a plain ion-button with no view of the draft. */
+          data-appza-can-send={
+            appzet.slug === 'fc-chat-input'
+              ? String(chatControls.draft.trim().length > 0 || chatControls.attachments.length > 0)
               : undefined
           }
           data-spaces-active-tab={appzet.slug === 'fc-spaces-tabs' ? spacesTab : undefined}
