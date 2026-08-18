@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { IonIcon } from '@ionic/react';
 import { resolveIcon } from './PrimitiveRenderer';
 import { clearChatReply, setChatControls, useChatControls } from './chatControls';
+import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
 import type { ActionInvocation, ActionDispatch } from './actionContext';
 
 /**
@@ -59,6 +60,7 @@ export function AppzaChatComposer({ overrides, action, dispatch }: ChatComposerP
   const replyCancelIcon = resolveIcon(str(overrides, 'reply_cancel_icon') || 'close');
   const removeIcon = resolveIcon(str(overrides, 'attachment_remove_icon') || 'close');
   const showAttach = bool(overrides, 'show_attach', true);
+  const discardActionSlug = str(overrides, 'discard_action_slug') || 'chat.discard_attachment';
   const maxRows = Number.parseInt(str(overrides, 'max_rows'), 10);
 
   // Grow with the text, up to a cap, then scroll. A textarea has no
@@ -128,9 +130,15 @@ export function AppzaChatComposer({ overrides, action, dispatch }: ChatComposerP
               <button
                 type="button"
                 aria-label="Remove attachment"
+                // Not just a local removal: FluentCommunity created the
+                // Media row when the file was uploaded, so dropping the
+                // thumbnail without telling the server strands a file.
+                // The handler clears the list itself.
                 onClick={() =>
-                  setChatControls({
-                    attachments: chat.attachments.filter((u) => u !== url),
+                  dispatch({
+                    action_slug: discardActionSlug,
+                    args: readActionDefaultsFromCatalog(discardActionSlug) ?? undefined,
+                    item: { url },
                   })
                 }
               >

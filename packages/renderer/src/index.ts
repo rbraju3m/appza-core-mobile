@@ -51,6 +51,7 @@ export {
   sendChatMessage,
   deleteChatMessage,
   pickAndUploadChatImage,
+  discardChatAttachment,
   type ChatWriteDeps,
 } from './chatSend';
 export {

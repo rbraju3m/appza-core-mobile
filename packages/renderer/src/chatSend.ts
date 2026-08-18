@@ -187,6 +187,52 @@ export async function deleteChatMessage(
 }
 
 /**
+ * Throw away a pending attachment, row and file.
+ *
+ * FluentCommunity creates the Media row at UPLOAD time, so an image the
+ * user picks and then changes their mind about outlives the composer.
+ * The endpoint refuses anything a sent message is already showing, so a
+ * stale URL here cannot gut a conversation.
+ *
+ * The local list is cleared first either way: the thumbnail has to go
+ * when it is tapped, and a failed sweep is the daily job's problem, not
+ * something to make the user look at.
+ */
+export async function discardChatAttachment(
+  url: string,
+  deps: ChatWriteDeps,
+): Promise<void> {
+  setChatControls({
+    attachments: getChatControls().attachments.filter((u) => u !== url),
+  });
+
+  if (!deps.authHeader || url === '') return;
+  const abs = deps.absolutize ?? ((p: string) => p);
+
+  try {
+    const res = await fetch(abs(deps.endpoint), {
+      method: (deps.method ?? 'POST').toUpperCase(),
+      credentials: 'omit',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: deps.authHeader,
+      },
+      body: JSON.stringify({ url }),
+    });
+    const json = (await res.json().catch(() => null)) as Envelope | null;
+    if (!ok(res, json)) {
+      // Deliberately quiet: the thumbnail is already gone, the file is
+      // invisible to the user, and the scheduled sweep will take it.
+      // eslint-disable-next-line no-console
+      console.warn('[appza] discarding the attachment failed:', messageFrom(json, res.status, ''));
+    }
+  } catch {
+    // Same reasoning — never surface this.
+  }
+}
+
+/**
  * Pick one image and upload it, holding the returned URL until the
  * message that carries it is sent.
  *

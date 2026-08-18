@@ -40,6 +40,7 @@ import {
   sendChatMessage,
   deleteChatMessage,
   pickAndUploadChatImage,
+  discardChatAttachment,
   readActionDefaultsFromCatalog,
   ChatMembersSheet,
   openChatMembersSheet,
@@ -3148,6 +3149,28 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
             new CustomEvent('appza:refresh-data', { detail: { data_source: refetchDs } }),
           );
         },
+      });
+      return;
+    }
+
+    case 'chat.discard_attachment': {
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      const url = itemRec ? readDataPath(itemRec, 'data.url') : undefined;
+      if (!endpoint || typeof url !== 'string' || url === '') {
+        // Still drop the thumbnail — the user tapped ×, and a missing
+        // endpoint is not their problem. The scheduled sweep takes the
+        // file.
+        setChatControls({
+          attachments: getChatControls().attachments.filter((u) => u !== url),
+        });
+        return;
+      }
+      void discardChatAttachment(url, {
+        endpoint,
+        method: typeof argRec.method === 'string' ? argRec.method : 'POST',
+        authHeader: (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? '',
+        absolutize: absolutizeEndpoint,
+        onError: onError,
       });
       return;
     }
