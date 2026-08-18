@@ -754,6 +754,26 @@
    reactions:   [10 like] [11 comment] [12 bookmark] [13 likes] [14 comments]
    Children [16..22, 24..27] are Space-Detail-only extras (featured image, inline
    first comment, "View more comments", Reply, comment-like) — hidden on Feed.   */
+/* ⚠ THIS CARD HAS TWO GRIDS. This one serves feed, home and post-detail;
+   space-detail overrides it further down with a seven-column version
+   (search `"pill    pill"`). They are separate `grid-template-areas`
+   blocks and nothing keeps them in step.
+
+   So: a new FULL-WIDTH child needs a row in BOTH, and its own
+   `grid-area` assignment in both scopes. Miss the space-detail one and
+   the child does not fall back — the browser cannot find the area name,
+   invents an implicit column for it, and squeezes the child into a
+   sliver against the card's right edge while the feed looks perfect.
+   That is exactly what happened to the audio player (child 29), which
+   shipped with a row here and none there.
+
+   All thirty children are styled twice already. Merging the two is a
+   real option — the space-detail geometry is the superset, since its
+   14px gutter COLUMNS let a row be inset or edge-to-edge while this
+   card's padding forces one answer for everything — but it is a
+   ~200-line mechanical refactor across four screens. Deferred until the
+   next full-width child arrives, so the merge and the child get
+   verified in one pass. */
 .appza-renderer-ss[data-slug="fc-post-card"] {
   display: grid;
   grid-template-columns: 40px auto auto 1fr auto;
@@ -3162,6 +3182,11 @@
    inline comment footer) while other children span the full width.
    Scoped strictly to cards that carry child[15] (the topic pill), so
    ordinary Feed cards keep the original grid.                          */
+/* ⚠ THE OTHER HALF OF THE PAIR. The base card grid is near the top of
+   this file; feed, home and post-detail use it, this one serves
+   space-detail alone. A full-width child needs a row in both, or it
+   renders correctly on one screen and collapses into an implicit column
+   on the other — see the note on the base grid. */
 [data-screen-slug="space-detail"] .appza-renderer-appzet-list[data-slug="fc-post-card"] .appza-renderer-ss[data-slug="fc-post-card"] {
   display: grid;
   grid-template-columns: 14px 40px auto auto 1fr auto 14px;
