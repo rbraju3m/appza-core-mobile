@@ -6,6 +6,8 @@ import type { AddMemberRoleOption } from './AddMemberModal';
 import type { InviteChipPalette, InviteRoleOption } from './InviteUserModal';
 import type { SchedulePresentation } from './ScheduleSheet';
 import type { MediaViewerPresentation } from './MediaViewer';
+import type { ChatMembersPresentation } from './ChatMembersSheet';
+import type { ChatUserCardPresentation } from './ChatUserCard';
 
 // Maps an overlay AppZet's authored props (snake_case, as stored in
 // default_props_override) onto the camelCase payload its component
@@ -296,5 +298,99 @@ export function invitePresentation(props: Record<string, unknown>) {
     submitTextColor: str(props.submit_text_color),
     submitRadius: size(props.submit_radius),
     submitDisabledBgColor: str(props.submit_disabled_bg_color),
+  };
+}
+
+/**
+ * fc-chat-members-sheet — the 3-dot sheet on a space or group
+ * conversation (design 3).
+ *
+ * The two role maps come out of one authored array so a customer edits
+ * a single list: `[{ value, label, bg_color, text_color }]`. Splitting
+ * label from colour into two props would let them fall out of step.
+ */
+export function chatMembersPresentation(
+  props: Record<string, unknown>,
+): ChatMembersPresentation {
+  const roleLabels: Record<string, string> = {};
+  const roleColors: Record<string, [string, string]> = {};
+  const raw = Array.isArray(props.roles) ? props.roles : [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+    const r = entry as Record<string, unknown>;
+    if (typeof r.value !== 'string' || typeof r.label !== 'string') continue;
+    roleLabels[r.value] = r.label;
+    roleColors[r.value] = [
+      typeof r.bg_color === 'string' ? r.bg_color : '',
+      typeof r.text_color === 'string' ? r.text_color : '',
+    ];
+  }
+
+  return {
+    membersLabel: str(props.members_label) ?? 'MEMBERS',
+    viewCommunityLabel: str(props.view_community_label) ?? 'VIEW COMMUNITY',
+    leaveLabel: str(props.leave_label) ?? 'Leave group',
+    emptyLabel: str(props.empty_label) ?? 'No members yet',
+    usernamePrefix: typeof props.username_prefix === 'string' ? props.username_prefix : '@',
+    roleLabels,
+    roleColors,
+    showViewCommunity: bool(props.show_view_community, true),
+    showLeave: bool(props.show_leave, true),
+    hidden: bool(props.hidden, false),
+    sheetBgColor: str(props.sheet_bg_color),
+    sheetRadius: size(props.sheet_radius),
+    countColor: str(props.count_color),
+    countSize: size(props.count_size),
+    titleColor: str(props.title_color),
+    titleSize: size(props.title_size),
+    nameColor: str(props.name_color),
+    nameSize: size(props.name_size),
+    handleColor: str(props.handle_color),
+    avatarSize: size(props.avatar_size),
+    rowGap: size(props.row_gap),
+    viewCommunityColor: str(props.view_community_color),
+    viewCommunityBorderColor: str(props.view_community_border_color),
+    leaveColor: str(props.leave_color),
+  };
+}
+
+/**
+ * fc-chat-user-card — the 3-dot card on a one-to-one conversation
+ * (designs 5 and 6).
+ *
+ * Both activity wordings are props: the two designs differ in exactly
+ * that one string, and which shows is decided by a boolean the API
+ * publishes, not by anything computed here.
+ */
+export function chatUserCardPresentation(
+  props: Record<string, unknown>,
+): ChatUserCardPresentation {
+  return {
+    activeLabel: str(props.active_label) ?? 'Active now',
+    inactiveLabel: str(props.inactive_label) ?? 'No activity information available',
+    blockLabel: str(props.block_label) ?? 'BLOCK USER',
+    unblockLabel: str(props.unblock_label) ?? 'UNBLOCK USER',
+    deleteLabel: str(props.delete_label) ?? 'DELETE CONVERSATION',
+    copiedToast: str(props.copied_toast) ?? 'Username copied',
+    closeIcon: str(props.close_icon) ?? 'close',
+    copyIcon: str(props.copy_icon) ?? 'copy-outline',
+    infoIcon: str(props.info_icon) ?? 'information-circle',
+    showBlock: bool(props.show_block, true),
+    showDelete: bool(props.show_delete, true),
+    hidden: bool(props.hidden, false),
+    cardBgColor: str(props.card_bg_color),
+    cardRadius: size(props.card_radius),
+    avatarSize: size(props.avatar_size),
+    nameColor: str(props.name_color),
+    nameSize: size(props.name_size),
+    handleBgColor: str(props.handle_bg_color),
+    handleTextColor: str(props.handle_text_color),
+    handleRadius: size(props.handle_radius),
+    activityColor: str(props.activity_color),
+    infoIconColor: str(props.info_icon_color),
+    blockColor: str(props.block_color),
+    blockBorderColor: str(props.block_border_color),
+    deleteColor: str(props.delete_color),
+    deleteBorderColor: str(props.delete_border_color),
   };
 }

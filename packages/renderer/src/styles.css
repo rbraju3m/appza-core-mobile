@@ -6754,3 +6754,271 @@ audio.appza-video-embed-native {
 .appza-chat-attachment button ion-icon {
   font-size: 12px;
 }
+
+/* ==========================================================
+ * The two conversation 3-dot surfaces (2026-08-18).
+ * A space or group opens a sheet from the bottom (design 3);
+ * a one-to-one opens a centred card (designs 5 and 6).
+ * ========================================================== */
+
+/* ---------- fc-chat-members-sheet ---------- */
+.appza-chat-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(17, 24, 39, 0.35);
+}
+.appza-chat-sheet {
+  width: 100%;
+  max-height: 72%;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 16px 16px 16px;
+  border-radius: var(--appza-sheet-radius, 14px) var(--appza-sheet-radius, 14px) 0 0;
+  background: var(--appza-sheet-bg-color, #ffffff);
+}
+/* The drag grabber. Named apart from the member's @handle below — they
+   collided on one class, and every row painted this grey pill in place
+   of a username. */
+.appza-chat-sheet-grabber {
+  width: 40px;
+  height: 4px;
+  margin: 0 auto 12px auto;
+  border-radius: 999px;
+  background: #d1d5db;
+}
+.appza-chat-sheet-count {
+  font-size: var(--appza-count-size, 0.68rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--appza-count-color, #6b7280);
+}
+.appza-chat-sheet-title {
+  margin: 2px 0 14px 0;
+  font-size: var(--appza-title-size, 1.35rem);
+  font-weight: 700;
+  color: var(--appza-title-color, #111827);
+}
+.appza-chat-sheet-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--appza-row-gap, 14px);
+}
+/* Avatar, name, handle and pill on one baseline; the pill only takes the
+   room it needs so the handle never gets pushed off. */
+.appza-chat-sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.appza-chat-sheet-avatar {
+  flex: 0 0 auto;
+  width: var(--appza-avatar-size, 30px);
+  height: var(--appza-avatar-size, 30px);
+  border-radius: 50%;
+  overflow: hidden;
+}
+.appza-chat-sheet-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.appza-chat-sheet-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #e3e5e9;
+  color: #5a5e68;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+.appza-chat-sheet-name {
+  font-size: var(--appza-name-size, 0.85rem);
+  font-weight: 600;
+  color: var(--appza-name-color, #1b1c1f);
+  white-space: nowrap;
+}
+.appza-chat-sheet-handle {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: 0.82rem;
+  color: var(--appza-handle-color, #6b7280);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.appza-chat-sheet-role {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 0.66rem;
+  font-weight: 600;
+}
+.appza-chat-sheet-empty {
+  padding: 20px 0;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.82rem;
+}
+.appza-chat-sheet-actions {
+  flex: 0 0 auto;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #e5e7eb;
+}
+.appza-chat-sheet-view {
+  display: block;
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--appza-view-community-border-color, #2b7cff);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--appza-view-community-color, #2b7cff);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.appza-chat-sheet-leave {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: var(--appza-leave-color, #e53935);
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+/* ---------- fc-chat-user-card ---------- */
+.appza-chat-card-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(17, 24, 39, 0.35);
+}
+.appza-chat-card {
+  position: relative;
+  width: 100%;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 22px 18px 18px 18px;
+  border-radius: var(--appza-card-radius, 10px);
+  background: var(--appza-card-bg-color, #ffffff);
+}
+.appza-chat-card-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  border: 0;
+  padding: 4px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+}
+.appza-chat-card-close ion-icon {
+  font-size: 20px;
+}
+.appza-chat-card-avatar {
+  width: var(--appza-avatar-size, 64px);
+  height: var(--appza-avatar-size, 64px);
+  border-radius: 50%;
+  overflow: hidden;
+}
+.appza-chat-card-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.appza-chat-card-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #e3e5e9;
+  color: #4b5563;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+.appza-chat-card-name {
+  margin-top: 10px;
+  font-size: var(--appza-name-size, 0.95rem);
+  font-weight: 700;
+  color: var(--appza-name-color, #111827);
+}
+/* The handle reads as a field rather than a button, but it IS one — the
+   whole chip copies. */
+.appza-chat-card-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 30px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: var(--appza-handle-radius, 6px);
+  background: var(--appza-handle-bg-color, #e2e2e2);
+  color: var(--appza-handle-text-color, #4b5563);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.appza-chat-card-handle ion-icon {
+  font-size: 15px;
+}
+.appza-chat-card-activity {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.8rem;
+  color: var(--appza-activity-color, #374151);
+}
+.appza-chat-card-activity-icon {
+  flex: 0 0 auto;
+  font-size: 16px;
+  color: var(--appza-info-icon-color, #2b7cff);
+}
+.appza-chat-card-block,
+.appza-chat-card-delete {
+  width: 100%;
+  height: 36px;
+  margin-top: 10px;
+  border-radius: 4px;
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.appza-chat-card-block {
+  border: 1px solid var(--appza-block-border-color, #2b7cff);
+  color: var(--appza-block-color, #2b7cff);
+}
+.appza-chat-card-delete {
+  border: 1px solid var(--appza-delete-border-color, #e53935);
+  color: var(--appza-delete-color, #e53935);
+}

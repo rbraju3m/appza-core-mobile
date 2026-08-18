@@ -34,6 +34,17 @@ import {
   sendChatMessage,
   deleteChatMessage,
   pickAndUploadChatImage,
+  readActionDefaultsFromCatalog,
+  ChatMembersSheet,
+  openChatMembersSheet,
+  closeChatMembersSheet,
+  CHAT_MEMBERS_SHEET_CHILD_COUNT,
+  chatMembersPresentation,
+  ChatUserCard,
+  openChatUserCard,
+  closeChatUserCard,
+  CHAT_USER_CARD_CHILD_COUNT,
+  chatUserCardPresentation,
   setDocumentDraft,
   getDocumentDraft,
   resetDocumentDraft,
@@ -1149,6 +1160,8 @@ export function App() {
       <InviteUserModal />
       <ScheduleSheet />
       <MediaViewer />
+      <ChatMembersSheet />
+      <ChatUserCard />
     </>
   );
 
@@ -3897,6 +3910,282 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             deps,
           ),
       });
+      return;
+    }
+
+    // === The conversation 3-dot menu and its three destructive
+    // confirms (2026-08-18) ===
+    //
+    // ONE slug opens both surfaces, because the thread's `type` is what
+    // decides which: a space or group conversation opens a member sheet
+    // from the bottom, a one-to-one opens a profile card in the middle.
+    // Splitting it into two actions would put that branch in the
+    // catalog, where a customer editing the appbar would have to know
+    // which kind of conversation their app opens.
+    case 'chat.thread_menu': {
+      const thread = isRecord(effectiveItem) ? effectiveItem : {};
+      const type = typeof thread.type === 'string' ? thread.type : 'user';
+
+      if (type === 'user') {
+        const cardSlug =
+          typeof argRec.card_appzet_slug === 'string'
+            ? argRec.card_appzet_slug
+            : 'fc-chat-user-card';
+        const presentation = chatUserCardPresentation(readAppzetPropsFromCatalog(cardSlug));
+        openChatUserCard({
+          appzetSlug: cardSlug,
+          thread,
+          presentation,
+          childStyles: childStylesFromCustomizations(
+            cardSlug,
+            CHAT_USER_CARD_CHILD_COUNT,
+            currentCustomizations,
+          ),
+          onBlock: (t) => handleAppModeAction({
+              action_slug: 'chat.block_confirm',
+              // The confirm's copy lives on ITS action, not on the menu's —
+              // re-entering with the menu's args would hand the alert an
+              // empty bag and fall back to the hardcoded wording.
+              args: readActionDefaultsFromCatalog('chat.block_confirm') ?? undefined,
+              item: t,
+            }, deps),
+          onDelete: (t) =>
+            handleAppModeAction({
+              action_slug: 'chat.delete_conversation_confirm',
+              args: readActionDefaultsFromCatalog('chat.delete_conversation_confirm') ?? undefined,
+              item: t,
+            }, deps),
+          onCopy: (handle) => {
+            if (handle && navigator.clipboard) {
+              void navigator.clipboard.writeText(handle);
+              onMenuInfo(presentation.copiedToast);
+            }
+          },
+        });
+        return;
+      }
+
+      const sheetSlug =
+        typeof argRec.sheet_appzet_slug === 'string'
+          ? argRec.sheet_appzet_slug
+          : 'fc-chat-members-sheet';
+      const dsSlug =
+        typeof argRec.members_data_source === 'string'
+          ? argRec.members_data_source
+          : 'fc-chat-members';
+      // Resolved from the catalog, never written down here — the sheet
+      // is opened by an action rather than mounted by a placement, so
+      // there is no useDataSource in its tree to do it.
+      const membersEndpoint = readDataSourceEndpointFromCatalog(catalog, dsSlug);
+      if (!membersEndpoint) {
+        onLoginError(`No endpoint for the ${dsSlug} data source.`);
+        return;
+      }
+      openChatMembersSheet({
+        appzetSlug: sheetSlug,
+        thread,
+        presentation: chatMembersPresentation(readAppzetPropsFromCatalog(sheetSlug)),
+        childStyles: childStylesFromCustomizations(
+          sheetSlug,
+          CHAT_MEMBERS_SHEET_CHILD_COUNT,
+          currentCustomizations,
+        ),
+        listEndpoint: (membersEndpoint),
+        authHeader: (auth ? basicAuthHeader(auth) : ''),
+        onViewCommunity: (t) => handleAppModeAction({
+          action_slug: 'chat.view_community',
+          args: readActionDefaultsFromCatalog('chat.view_community') ?? undefined,
+          item: t,
+        }, deps),
+        onLeave: (t) => handleAppModeAction({
+          action_slug: 'chat.leave_confirm',
+          args: readActionDefaultsFromCatalog('chat.leave_confirm') ?? undefined,
+          item: t,
+        }, deps),
+      });
+      return;
+    }
+
+    case 'chat.view_community': {
+      const slugPath =
+        typeof argRec.space_slug_path === 'string' ? argRec.space_slug_path : 'space_slug';
+      const spaceSlug = itemRec ? readDataPath(itemRec, `data.${slugPath}`) : undefined;
+      if (typeof spaceSlug !== 'string' || spaceSlug === '') {
+        onLoginError('This conversation is not attached to a community.');
+        return;
+      }
+      const targetSlug =
+        typeof argRec.target_screen_slug === 'string' ? argRec.target_screen_slug : 'space-detail';
+      const target = catalog?.template_screens?.find(
+        (s) => s.app_map_screen_slug === targetSlug,
+      );
+      if (!target) {
+        onLoginError('The community screen is not in this template.');
+        return;
+      }
+      closeChatMembersSheet();
+      // The space-detail data sources bind route.slug, and its own
+      // controls slice drives which sub-tab opens — both have to agree
+      // or the screen re-seeds itself onto a different space.
+      setSpaceDetailControls({ space_slug: spaceSlug, active_subtab: 'posts' });
+      setRouteParams({ ...getRouteParams(), slug: spaceSlug });
+      if (currentScreenId != null) {
+        setScreenStack((prev) => [...prev, currentScreenId]);
+      }
+      setSelectedScreenId(target.id);
+      return;
+    }
+
+    // All three confirms are the shared row-layout alert — Cancel beside
+    // a destructive verb — which is the shape designs 4, 8 and 9 all
+    // draw. Only the copy and the action they dispatch differ, and both
+    // come off the catalog.
+    case 'chat.leave_confirm':
+    case 'chat.block_confirm':
+    case 'chat.delete_conversation_confirm': {
+      const thread = isRecord(effectiveItem) ? effectiveItem : {};
+      const isBlocked = thread.is_blocked === true;
+      const leaveDefaults = {
+        title: 'Leave group?',
+        message: "You'll stop receiving message from this group.",
+        confirm: 'Leave',
+        busy: 'Leaving…',
+        next: 'chat.leave',
+      };
+      const defaults: Record<string, typeof leaveDefaults> = {
+        'chat.leave_confirm': leaveDefaults,
+        'chat.block_confirm': {
+          title: isBlocked ? 'Unblock user?' : 'Block user?',
+          message: isBlocked
+            ? 'They will be able to message you again.'
+            : "They won't be able to message you. You'll stay in this chat and can unblock the anytime.",
+          confirm: isBlocked ? 'Unblock' : 'Block',
+          busy: isBlocked ? 'Unblocking…' : 'Blocking…',
+          next: 'chat.block',
+        },
+        'chat.delete_conversation_confirm': {
+          title: 'Delete conversation?',
+          message:
+            'Every message will be deleted for both of you, and the conversation will be removed from both chat lists. This cannot be undone.',
+          confirm: 'Delete',
+          busy: 'Deleting…',
+          next: 'chat.delete_conversation',
+        },
+      };
+      // The switch above guarantees one of the three keys, but the
+      // index signature does not know that.
+      const d = defaults[inv.action_slug] ?? leaveDefaults;
+      const nextSlugKey =
+        inv.action_slug === 'chat.leave_confirm'
+          ? 'leave_action_slug'
+          : inv.action_slug === 'chat.block_confirm'
+            ? 'block_action_slug'
+            : 'delete_action_slug';
+      openMemberRemoveConfirm({
+        subject: typeof argRec.title === 'string' ? argRec.title : d.title,
+        message: typeof argRec.message === 'string' ? argRec.message : d.message,
+        cancelLabel: typeof argRec.cancel_label === 'string' ? argRec.cancel_label : 'Cancel',
+        confirmLabel: typeof argRec.confirm_label === 'string' ? argRec.confirm_label : d.confirm,
+        busyLabel: typeof argRec.busy_label === 'string' ? argRec.busy_label : d.busy,
+        // Cancel beside the verb, not stacked — the member-removal flow
+        // stacks because "Remove from space" is too long to sit next to
+        // Cancel; these three verbs are one word each.
+        actionsLayout: 'row',
+        item: thread,
+        removeActionSlug:
+          typeof argRec[nextSlugKey] === 'string' ? (argRec[nextSlugKey] as string) : d.next,
+      });
+      return;
+    }
+
+    case 'chat.leave':
+    case 'chat.block':
+    case 'chat.delete_conversation': {
+      const thread = isRecord(effectiveItem) ? effectiveItem : {};
+      const threadId = Number(thread.id ?? 0);
+      const isBlocked = thread.is_blocked === true;
+      // Blocking and unblocking are one action on two endpoints: FC
+      // flips both the thread status and the blocker's own membership
+      // row, so the same pair undoes it.
+      const endpoint =
+        inv.action_slug === 'chat.block' && isBlocked
+          ? (typeof argRec.unblock_endpoint === 'string' ? argRec.unblock_endpoint : null)
+          : (typeof argRec.endpoint === 'string' ? argRec.endpoint : null);
+      const toast =
+        inv.action_slug === 'chat.block' && isBlocked
+          ? (typeof argRec.unblock_toast_message === 'string' ? argRec.unblock_toast_message : 'User unblocked')
+          : (typeof argRec.toast_message === 'string' ? argRec.toast_message : 'Done');
+      if (!endpoint || !Number.isFinite(threadId) || threadId <= 0) {
+        onLoginError('That conversation could not be identified.');
+        closeMemberRemoveConfirm();
+        return;
+      }
+      if (!auth) {
+        onLoginError('Please sign in first.');
+        closeMemberRemoveConfirm();
+        return;
+      }
+      // Leaving or deleting takes the screen with it, so the alert, the
+      // sheet and the card all come down before the pop.
+      const leavesScreen =
+        inv.action_slug === 'chat.leave' || inv.action_slug === 'chat.delete_conversation';
+      void (async () => {
+        try {
+          const res = await fetch((endpoint), {
+            method: typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST',
+            credentials: 'omit',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              Authorization: (auth ? basicAuthHeader(auth) : ''),
+            },
+            body: JSON.stringify({ thread_id: threadId }),
+          });
+          const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+          const inner =
+            json && typeof json === 'object' && 'response' in json
+              ? (json.response as Record<string, unknown> | undefined)
+              : undefined;
+          const innerStatus = inner && typeof inner.status === 'number' ? inner.status : null;
+          const ok = innerStatus !== null ? innerStatus === 200 : res.ok;
+          if (!ok) {
+            const msg =
+              (inner && typeof inner.message === 'string' && inner.message) || `HTTP ${res.status}`;
+            onLoginError(msg);
+            return;
+          }
+          onMenuInfo(toast);
+          closeChatMembersSheet();
+          closeChatUserCard();
+          const g = window as unknown as { __appzaForceRefreshUntil?: number };
+          g.__appzaForceRefreshUntil = Date.now() + 3000;
+          window.dispatchEvent(
+            new CustomEvent('appza:refresh-data', {
+              detail: {
+                data_source:
+                  typeof argRec.refetch_data_source === 'string'
+                    ? argRec.refetch_data_source
+                    : null,
+              },
+            }),
+          );
+          if (leavesScreen) {
+            // Design 9 says delete returns to the chat list. There is no
+            // list screen yet (Noor's call), so this pops back to
+            // whatever pushed the conversation.
+            setScreenStack((prev) => {
+              const next = [...prev];
+              const back = next.pop();
+              if (back != null) setSelectedScreenId(back);
+              return next;
+            });
+          }
+        } catch (err) {
+          onLoginError(err instanceof Error ? err.message : String(err));
+        } finally {
+          closeMemberRemoveConfirm();
+        }
+      })();
       return;
     }
 

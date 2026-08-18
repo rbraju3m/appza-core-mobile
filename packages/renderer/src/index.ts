@@ -54,6 +54,23 @@ export {
   type ChatWriteDeps,
 } from './chatSend';
 export {
+  ChatMembersSheet,
+  openChatMembersSheet,
+  closeChatMembersSheet,
+  CHAT_MEMBERS_SHEET_APPZET_SLUG,
+  CHAT_MEMBERS_SHEET_CHILD_COUNT,
+  type ChatMembersPresentation,
+  type ChatMember,
+} from './ChatMembersSheet';
+export {
+  ChatUserCard,
+  openChatUserCard,
+  closeChatUserCard,
+  CHAT_USER_CARD_APPZET_SLUG,
+  CHAT_USER_CARD_CHILD_COUNT,
+  type ChatUserCardPresentation,
+} from './ChatUserCard';
+export {
   getFcRuntimeSettings,
   setFcRuntimeSettings,
   useFcRuntimeSettings,
@@ -95,7 +112,13 @@ export {
   type InviteChipPalette,
 } from './InviteUserModal';
 export { ViewModePopover, openViewModePopover, type ViewModeOption } from './ViewModePopover';
-export { PostOptionsPopover, openPostOptionsPopover, setCatalogGlobal, type PostMenuItem } from './PostOptionsPopover';
+export {
+  PostOptionsPopover,
+  openPostOptionsPopover,
+  setCatalogGlobal,
+  readActionDefaultsFromCatalog,
+  type PostMenuItem,
+} from './PostOptionsPopover';
 export { tryHandlePostMenuAction, type PostMenuDeps, type StoredAuthLike } from './postMenuHandlers';
 export {
   prefillPostInformationFromContext,
@@ -113,6 +136,8 @@ export {
   MEDIA_VIEWER_CHILD_COUNT,
   schedulePresentation,
   mediaViewerPresentation,
+  chatMembersPresentation,
+  chatUserCardPresentation,
 } from './modalPresentation';export {
   getDocumentDraft,
   setDocumentDraft,
