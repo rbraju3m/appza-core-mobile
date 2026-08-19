@@ -906,21 +906,34 @@
 /* Hide Space-Detail-only children on every screen EXCEPT space-detail
    (feed, home, post-detail, etc.): featured image, redundant likes
    summary, inline first-comment block + reply row. The Space-Detail
-   scoped rules at line 2826+ position them back in with their own
-   grid-areas via a higher-specificity screen-scoped selector.
+   scoped rules further down position them back in with their own
+   grid-areas.
    Uses :not() so any legacy screen alias (e.g. `home`) is covered
-   without needing a per-screen allowlist.                             */
-:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="16"],
-:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="17"],
-:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"],
-:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="19"],
-:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="20"],
-:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="21"],
-:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="22"],
-:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="24"],
-:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"],
-:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="26"],
-:not([data-screen-slug="space-detail"]) > * .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"] {
+   without needing a per-screen allowlist.
+
+   ⚠ The :not() must sit on `.appza-renderer-app` — the ONE element that
+   carries data-screen-slug (ScreenRenderer stamps it there). This was
+   written as `:not([data-screen-slug="space-detail"]) > *`, which reads
+   like "a screen that isn't space-detail" but actually matches any
+   parent lacking the attribute, and #root never has it. So the rule
+   fired on space-detail too, where `display: none !important` beat the
+   re-show below: the inline first-comment block (avatar, name, time,
+   body, Reply / heart / N Reply, View more comments) was invisible on
+   the one screen it was built for, from 2026-08-04 until 2026-08-19.
+   Every child here is already gated by `visible_when data.comments[0]`
+   (child 16 by data.featured_image), so CSS never had to be the thing
+   that hid them.                                                      */
+.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="16"],
+.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="17"],
+.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"],
+.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="19"],
+.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="20"],
+.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="21"],
+.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="22"],
+.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="24"],
+.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"],
+.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="26"],
+.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"] {
   display: none !important;
 }
 /* Belt-and-suspenders: also hide by default using the fc-post-card
@@ -3415,14 +3428,24 @@
 /* Reaction row: build a horizontal strip via display:contents parent
    with sub-grid on a wrapper div. Since children[10..14,17] are direct
    grandchildren of the card, use grid subgrid via a wrapper isn't
-   possible — instead, place each on grid-row 7 with explicit columns. */
+   possible — instead, pack them onto one row with explicit columns.
+
+   ⚠ Address the row by its AREA NAME (`react-start / react-end`), never
+   by a row number. Every child from here to the end of the card shares
+   a row with a sibling, so they cannot use `grid-area` and have to name
+   the row themselves — and a row number is a fact about the OTHER end
+   of the file. When the `audio` row was inserted above `docs` on
+   2026-08-18, these all still said 9/10/11/12/13 and slid one row up:
+   the like/comment strip landed ON the `docs` row and drew on top of
+   the attached files of a document post, while `react` sat empty. The
+   named lines move with the area.                                     */
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"],
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"],
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"],
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="13"],
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="14"],
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="17"] {
-  grid-row: 9;
+  grid-row: react-start / react-end;
   align-self: center;
   padding-top: 10px;
   padding-bottom: 10px;
@@ -3438,7 +3461,7 @@
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"],
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"],
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] {
-  grid-row: 9;
+  grid-row: react-start / react-end;
   grid-column: 2 / 4;
   justify-self: start;
   align-self: center;
@@ -3476,7 +3499,7 @@
   margin: 0 !important;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="13"] {
-  grid-row: 9;
+  grid-row: react-start / react-end;
   grid-column: 5 / 7;
   justify-self: end;
   align-self: center;
@@ -3489,7 +3512,7 @@
   align-items: center;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="14"] {
-  grid-row: 9;
+  grid-row: react-start / react-end;
   grid-column: 5 / 7;
   justify-self: end;
   align-self: center;
@@ -3524,7 +3547,7 @@
    col-1/-1 full-width bg strip; the name overlays it via z-index and
    left padding. Same for time and body rows below.                   */
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"] {
-  grid-row: 10;
+  grid-row: chdr-start / chdr-end;
   grid-column: 1 / -1;
   padding: 12px 0 0 20px;
   margin-top: 8px;
@@ -3541,7 +3564,7 @@
   border-radius: 999px;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="19"] {
-  grid-row: 10;
+  grid-row: chdr-start / chdr-end;
   grid-column: 1 / -1;
   font-weight: 700;
   font-size: 0.9rem;
@@ -3553,7 +3576,7 @@
   z-index: 1;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="20"] {
-  grid-row: 11;
+  grid-row: ctime-start / ctime-end;
   grid-column: 1 / -1;
   font-size: 0.72rem;
   color: #6b7280;
@@ -3562,7 +3585,7 @@
   margin-right: 14px;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="21"] {
-  grid-row: 12;
+  grid-row: cbody-start / cbody-end;
   grid-column: 1 / -1;
   font-size: 0.85rem;
   color: #374151;
@@ -3577,7 +3600,7 @@
 }
 /* Comment footer row: Reply | blue heart+(1) on left, "1 Reply" right */
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="24"] {
-  grid-row: 13;
+  grid-row: cfoot-start / cfoot-end;
   grid-column: 1 / 4;
   font-size: 0.78rem;
   color: #374151;
@@ -3589,7 +3612,7 @@
   align-items: center;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"] {
-  grid-row: 13;
+  grid-row: cfoot-start / cfoot-end;
   grid-column: 1 / 4;
   padding: 4px 0 12px 90px;
   margin-left: 14px;
@@ -3610,7 +3633,7 @@
   margin: 0 !important;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="26"] {
-  grid-row: 13;
+  grid-row: cfoot-start / cfoot-end;
   grid-column: 1 / 4;
   font-size: 0.78rem;
   color: #1d4ed8;
@@ -3620,7 +3643,7 @@
   justify-self: start;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"] {
-  grid-row: 13;
+  grid-row: cfoot-start / cfoot-end;
   grid-column: 4 / -1;
   font-size: 0.78rem;
   color: #6b7280;
