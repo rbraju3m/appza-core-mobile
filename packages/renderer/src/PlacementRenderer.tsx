@@ -2643,14 +2643,38 @@ function computeHiddenIndices(ss: Superstructure, appzet: AppZet): HiddenIndices
       continue;
     }
 
-    const spec = typeof entry.controls_visibility_of === 'string' ? entry.controls_visibility_of : null;
-    if (!spec) continue;
-    const parsed = parseChildIndex(spec);
-    if (!parsed) continue;
+    // One toggle may govern SEVERAL children. The level row is the reason:
+    // its marker is a numbered circle OR a padlock, two children sharing a
+    // grid cell and gated against each other, so "show the marker" cannot
+    // name just one of them. Accepts an array or a comma-separated string,
+    // the same two shapes every other directive key takes (P53); a bare
+    // `children[N]` is the same single-target case as before.
+    const targets = parseChildIndexSpec(entry.controls_visibility_of);
+    if (targets.size === 0) continue;
 
-    if (!boolValue) hidden.add(parsed.index);
+    if (!boolValue) for (const idx of targets) hidden.add(idx);
   }
   return hidden;
+}
+
+/**
+ * Parses a `controls_visibility_of` value into the indices it governs.
+ * Accepts `children[2]`, `children[0],children[1]` and
+ * `['children[0]', 'children[1]']` alike (P53).
+ */
+function parseChildIndexSpec(spec: unknown): Set<number> {
+  const out = new Set<number>();
+  const list = Array.isArray(spec)
+    ? spec
+    : typeof spec === 'string'
+      ? spec.split(',')
+      : [];
+  for (const raw of list) {
+    if (typeof raw !== 'string') continue;
+    const parsed = parseChildIndex(raw.trim());
+    if (parsed) out.add(parsed.index);
+  }
+  return out;
 }
 
 /** Parses an array of `children[<index>]` specs into a Set of indices. */

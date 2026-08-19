@@ -7404,9 +7404,16 @@ audio.appza-video-embed-native {
 
 /* Card 1 — the viewer. A card on its own, so all four corners. */
 [data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-leaderboard-profile"] {
+  /* This card is one placement, so its container IS this AppZet's — which
+     is what makes card_bg_color / card_radius / card_shadow real controls
+     here. The other two cards are each built from two placements and have
+     no single wrapper to hang them on, so they carry no card properties
+     rather than three that would restyle half a card each. */
+  background: var(--appza-card-bg-color, #ffffff);
   border-top: 1px solid #e1e4eb;
   border-bottom: 1px solid #e1e4eb;
-  border-radius: 10px;
+  border-radius: var(--appza-card-radius, 10px);
+  box-shadow: var(--appza-card-shadow, none);
   margin-bottom: 16px;
 }
 
@@ -7749,7 +7756,7 @@ audio.appza-video-embed-native {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  gap: 0;
+  gap: var(--appza-gap, 0px);
   padding: 0;
   min-width: 0;
   background: transparent;
@@ -7877,6 +7884,13 @@ audio.appza-video-embed-native {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* Hairline between members. `divider_color` ships EMPTY, which draws
+   nothing — the design has no rules between rows — but the control is
+   real, so setting it paints them. `transparent` rather than dropping the
+   border so turning it on cannot shift the rows by a pixel. */
+[data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-leader-row"] .appza-renderer-appzet + .appza-renderer-appzet {
+  border-top: 1px solid var(--appza-divider-color, transparent);
 }
 .appza-renderer-ss[data-slug="fc-leader-row"] > [data-appza-primitive-path="children[4]"] {
   grid-area: 1 / 4 / 2 / 5;
