@@ -9,6 +9,8 @@ import type { MediaViewerPresentation } from './MediaViewer';
 import type { ChatMembersPresentation } from './ChatMembersSheet';
 import type { ChatUserCardPresentation } from './ChatUserCard';
 import type { LeaderboardPointsPresentation } from './LeaderboardPointsSheet';
+import type { OptionsSheetPresentation } from './OptionsSheet';
+import type { PostMenuSheetPresentation } from './PostOptionsPopover';
 
 // Maps an overlay AppZet's authored props (snake_case, as stored in
 // default_props_override) onto the camelCase payload its component
@@ -440,5 +442,112 @@ export function leaderboardPointsPresentation(
     levelPointsSize: size(props.level_points_size),
     dividerColor: str(props.divider_color),
     rowPadding: str(props.row_padding),
+  };
+}
+
+/**
+ * fc-options-sheet — the sort and layout bottom sheets on Saved Posts
+ * (Noor's designs 5 and 3).
+ *
+ * One mapper for both. The two AppZets ride the same Superstructure and
+ * differ only in a title and a row list, and the row list travels on the
+ * action that opens the sheet rather than on the sheet itself.
+ */
+export function optionsSheetPresentation(
+  props: Record<string, unknown>,
+): OptionsSheetPresentation {
+  return {
+    title: str(props.title) ?? 'Sort',
+    checkIcon: str(props.check_icon) ?? 'checkmark',
+    emptyLabel: str(props.empty_label) ?? 'No options',
+    hidden: bool(props.hidden, false),
+    showHandle: bool(props.show_handle, true),
+    showTitle: bool(props.show_title, true),
+    showRowIcons: bool(props.show_row_icons, true),
+    showCheck: bool(props.show_check, true),
+    sheetBgColor: str(props.sheet_bg_color),
+    sheetRadius: size(props.sheet_radius),
+    // Not size(): a percentage of the screen, never a vh — inside the
+    // simulator the device frame is a box on a much taller page and vh
+    // would measure the page (P91).
+    sheetMaxHeight: str(props.sheet_max_height),
+    backdropColor: str(props.backdrop_color),
+    handleColor: str(props.handle_color),
+    titleColor: str(props.title_color),
+    titleSize: size(props.title_size),
+    titleWeight: str(props.title_weight),
+    rowPadding: str(props.row_padding),
+    rowGap: size(props.row_gap),
+    rowRadius: size(props.row_radius),
+    labelColor: str(props.label_color),
+    labelSize: size(props.label_size),
+    iconColor: str(props.icon_color),
+    iconSize: size(props.icon_size),
+    selectedBgColor: str(props.selected_bg_color),
+    selectedLabelColor: str(props.selected_label_color),
+    selectedIconColor: str(props.selected_icon_color),
+    checkColor: str(props.check_color),
+    checkSize: size(props.check_size),
+    dividerColor: str(props.divider_color),
+  };
+}
+
+/**
+ * fc-post-menu-sheet — the 3-dot post menu drawn as a bottom sheet
+ * (design 4).
+ *
+ * `destructiveColor` deliberately has NO fallback. Design 4 draws Delete
+ * in the same colour as every row above it, so an unset value means the
+ * row inherits the label colour; a site that wants the red warning back
+ * sets it in the right panel.
+ */
+export function postMenuSheetPresentation(
+  props: Record<string, unknown>,
+): PostMenuSheetPresentation {
+  return {
+    eyebrow: str(props.eyebrow) ?? 'POST',
+    hidden: bool(props.hidden, false),
+    showHandle: bool(props.show_handle, true),
+    showEyebrow: bool(props.show_eyebrow, true),
+    showRowIcons: bool(props.show_row_icons, true),
+    sheetBgColor: str(props.sheet_bg_color),
+    sheetRadius: size(props.sheet_radius),
+    sheetMaxHeight: str(props.sheet_max_height),
+    backdropColor: str(props.backdrop_color),
+    handleColor: str(props.handle_color),
+    eyebrowColor: str(props.eyebrow_color),
+    eyebrowSize: size(props.eyebrow_size),
+    eyebrowWeight: str(props.eyebrow_weight),
+    rowPadding: str(props.row_padding),
+    rowGap: size(props.row_gap),
+    labelColor: str(props.label_color),
+    labelSize: size(props.label_size),
+    iconColor: str(props.icon_color),
+    iconSize: size(props.icon_size),
+    destructiveColor: str(props.destructive_color),
+    dividerColor: str(props.divider_color),
+  };
+}
+
+/**
+ * fc-profile-link-row — the "Saved posts" row under the profile header.
+ *
+ * A composed AppZet, not an overlay, so PlacementRenderer already binds
+ * its labels and glyphs. What it cannot bind is a colour, which is what
+ * this hands to the stylesheet.
+ */
+export function profileLinkRowVars(props: Record<string, unknown>): CSSProperties {
+  return {
+    ['--appza-row-bg-color' as string]: str(props.row_bg_color),
+    ['--appza-row-padding' as string]: str(props.row_padding),
+    ['--appza-row-gap' as string]: size(props.row_gap),
+    ['--appza-label-color' as string]: str(props.label_color),
+    ['--appza-label-size' as string]: size(props.label_size),
+    ['--appza-label-weight' as string]: str(props.label_weight),
+    ['--appza-icon-color' as string]: str(props.icon_color),
+    ['--appza-icon-size' as string]: size(props.icon_size),
+    ['--appza-chevron-color' as string]: str(props.chevron_color),
+    ['--appza-chevron-size' as string]: size(props.chevron_size),
+    ['--appza-divider-color' as string]: str(props.divider_color),
   };
 }

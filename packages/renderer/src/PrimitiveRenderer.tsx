@@ -105,6 +105,12 @@ import {
   linkOutline,
   pencilOutline,
   pinOutline,
+  // Saved Posts: the sort sheet's New Activity and Alphabetical glyphs,
+  // and Pin-to-sidebar's stacked layers — which on a screen full of
+  // bookmark buttons is the glyph that reads where a bookmark misleads.
+  ellipseOutline,
+  helpCircleOutline,
+  layersOutline,
   library,
   libraryOutline,
   location,
@@ -300,6 +306,10 @@ const ICON_REGISTRY: Record<string, string> = {
   'trophy-outline': trophyOutline,
   'pencil-outline': pencilOutline,
   'pin-outline': pinOutline,
+  // Saved Posts sort sheet + 3-dot sheet (designs 4 and 5).
+  'ellipse-outline': ellipseOutline,
+  'help-circle-outline': helpCircleOutline,
+  'layers-outline': layersOutline,
   'bar-chart': barChart,
   'bar-chart-outline': barChartOutline,
   notifications,

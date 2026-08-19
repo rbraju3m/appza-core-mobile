@@ -17,6 +17,7 @@ import { useSpacesControls } from './spacesControls';
 import { useSpaceDetailControls } from './spaceDetailControls';
 import { useChatControls } from './chatControls';
 import { useLeaderboardControls } from './leaderboardControls';
+import { useBookmarkControls } from './bookmarkControls';
 
 type ScreenRendererProps = {
   screen: TemplateScreen;
@@ -87,6 +88,7 @@ export function ScreenRenderer({
   const spaceDetailControls = useSpaceDetailControls();
   const chatControls = useChatControls();
   const leaderboardControls = useLeaderboardControls();
+  const bookmarkControls = useBookmarkControls();
   // Placement-level visible_when reads out of this bag via
   // `binding.slice(6)` (i.e. `state.<key>` → `<key>`). Register nested
   // paths as flat keys so `state.space_detail_controls.active_subtab`
@@ -121,6 +123,15 @@ export function ScreenRenderer({
       'leaderboard_controls.levels_scope': leaderboardControls.levels_scope,
       'leaderboard_controls.levels_view': leaderboardControls.levels_view,
       'leaderboard_controls.ranks_view': leaderboardControls.ranks_view,
+      // Saved Posts. `view` is the three-way VERDICT the search pill,
+      // the toolbar and both empty states gate on — 'list' | 'no-match'
+      // | 'empty' | 'loading' (P75). `search` is here so the difference
+      // between the two empty designs stays readable from a placement
+      // if it ever needs to be.
+      'bookmark_controls.view': bookmarkControls.view,
+      'bookmark_controls.search': bookmarkControls.search,
+      'bookmark_controls.sort': bookmarkControls.sort,
+      'bookmark_controls.view_mode': bookmarkControls.viewMode,
     }),
     [
       spacesControls.tab,
@@ -143,6 +154,10 @@ export function ScreenRenderer({
       leaderboardControls.levels_scope,
       leaderboardControls.levels_view,
       leaderboardControls.ranks_view,
+      bookmarkControls.view,
+      bookmarkControls.search,
+      bookmarkControls.sort,
+      bookmarkControls.viewMode,
     ],
   );
 

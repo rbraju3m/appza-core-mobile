@@ -7996,3 +7996,392 @@ audio.appza-video-embed-native {
   font-size: var(--appza-body-size, 14px);
   text-align: center;
 }
+
+/* ==========================================================
+ * Saved Posts — the bookmarks screen (2026-08-19)
+ *
+ * Five designs, and most of the screen is already built: the search
+ * pill rides fc-documents-search, the sort + layout strip rides
+ * fc-feed-toolbar, the three post layouts ride the three feed post
+ * Superstructures, the empty states ride fc-documents-empty and the
+ * home button rides fc-chat-home-fab. Every rule keyed on an SS slug
+ * therefore already applies here — what follows is only what differs.
+ *
+ * Colours are measured off the designs: page #f6f7fb, white search
+ * pill, one blue #0054ea for the picked row and its check over its
+ * #e2e4fb bed, sheet text #0e121b over grey #898995, and #4c5fdf on the
+ * home button — a different blue from the check in the same design set,
+ * so both are carried rather than reconciled.
+ * ========================================================== */
+
+[data-screen-slug="bookmarks"] .appza-renderer-screen,
+[data-screen-slug="bookmarks"] ion-content {
+  --background: #f6f7fb;
+  background: #f6f7fb;
+}
+
+/* The search pill is WHITE on this screen, where the documents tab draws
+   it grey on white. Same Superstructure, different ground: here it sits
+   on the page colour rather than inside a card. */
+.appza-renderer-appzet[data-slug="fc-bookmarks-search"] {
+  padding: var(--appza-row-padding, 10px 14px 4px);
+}
+.appza-renderer-appzet[data-slug="fc-bookmarks-search"] .appza-renderer-ss {
+  border: 1px solid #e6e8ef;
+  box-shadow: 0 1px 2px rgba(13, 17, 26, 0.04);
+}
+
+/* The strip is the MIRROR of the feed's: sort at the left, layout glyph
+   at the far right, no hairline above it — this one sits straight on the
+   page rather than under a card. Both are authored knobs on the AppZet
+   (`align` and `show_divider`), stamped as attributes because they are
+   layout decisions rather than colours. */
+.appza-renderer-appzet[data-slug="fc-bookmarks-toolbar"] {
+  background: transparent;
+}
+.appza-renderer-appzet[data-appza-align="start"] .appza-renderer-ss[data-slug="fc-feed-toolbar"] [data-child-index="0"] {
+  margin-left: 0;
+}
+.appza-renderer-appzet[data-appza-align="start"] .appza-renderer-ss[data-slug="fc-feed-toolbar"] [data-child-index="1"] {
+  margin-left: auto;
+}
+.appza-renderer-appzet[data-appza-divider="false"] .appza-renderer-ss[data-slug="fc-feed-toolbar"] {
+  border-top: 0;
+}
+/* Sort text, its chevron and the layout glyph are colour knobs now.
+   They were hard-coded until this screen needed different values —
+   and in the SIMULATOR the sort label also has wp-admin's link colour
+   to outrank, which is light DOM and wins on specificity (P79). */
+.appza-renderer-appzet[data-slug="fc-bookmarks-toolbar"]
+  .appza-renderer-ss[data-slug="fc-feed-toolbar"] {
+  padding: var(--appza-row-padding, 6px 14px 8px);
+}
+.appza-renderer-appzet[data-slug="fc-bookmarks-toolbar"]
+  .appza-renderer-ss[data-slug="fc-feed-toolbar"] [data-child-index="0"] ion-button {
+  --color: var(--appza-sort-text-color, #0e121b) !important;
+  color: var(--appza-sort-text-color, #0e121b) !important;
+}
+.appza-renderer-appzet[data-slug="fc-bookmarks-toolbar"]
+  .appza-renderer-ss[data-slug="fc-feed-toolbar"] [data-child-index="0"] ion-button ion-icon {
+  color: var(--appza-sort-icon-color, #0e121b) !important;
+}
+.appza-renderer-appzet[data-slug="fc-bookmarks-toolbar"]
+  .appza-renderer-ss[data-slug="fc-feed-toolbar"] [data-child-index="1"] ion-button ion-icon {
+  color: var(--appza-view-icon-color, #898995) !important;
+}
+
+/* The bar carries a back arrow and nothing on the right, and the design
+   centres the title under it. The shared appbar grid reserves two
+   trailing 40px columns for search and overflow; with both switched off
+   they are empty but still sized, which pushes the title 22px left of
+   true centre. Dropping to three columns puts it back. */
+.appza-renderer-ss[data-slug="appbar-shell"]:has(
+    [data-appza-appzet-slug="fc-bookmarks-appbar"]
+  ) {
+  grid-template-columns: 40px 1fr 40px;
+}
+.appza-renderer-ss[data-slug="appbar-shell"]
+  [data-appza-appzet-slug="fc-bookmarks-appbar"][data-child-index="1"] {
+  text-align: center;
+}
+
+/* The empty states sit high on the page rather than under a list, so
+   they get less top padding than the documents tab's. */
+.appza-renderer-appzet[data-slug="fc-bookmarks-empty"] .appza-renderer-ss,
+.appza-renderer-appzet[data-slug="fc-bookmarks-no-match"] .appza-renderer-ss {
+  padding: var(--appza-row-padding, 80px 24px 0);
+}
+
+/* Fixed for the same reason the other two FABs are: it pins to the phone
+   viewport while the list scrolls under it. The simulator overrides this
+   to absolute inside the device frame. No composer on this screen, so
+   the offset is measured from the viewport rather than from a footer
+   that grows. */
+.appza-renderer-appzet[data-slug="fc-bookmarks-home-fab"] {
+  position: fixed;
+  right: var(--appza-offset-right, 18px);
+  bottom: calc(var(--appza-nav-h, 56px) + var(--appza-offset-bottom, 24px));
+  z-index: 20;
+  padding: 0;
+}
+
+/* ---------- fc-options-sheet — the sort and layout sheets ---------- */
+/* One Superstructure, two AppZets (designs 5 and 3). */
+
+.appza-options-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: var(--appza-backdrop-color, rgba(13, 17, 26, 0.28));
+}
+.appza-options-sheet {
+  width: 100%;
+  /* A PERCENTAGE of the backdrop, never a vh: inside the simulator the
+     device frame is a box on a much taller page, so 72vh resolves
+     against the browser window and the sheet swallows the whole phone
+     (P91). The backdrop IS the phone, so 72% means what it says on both
+     surfaces. */
+  max-height: var(--appza-sheet-max-height, 72%);
+  display: flex;
+  flex-direction: column;
+  background: var(--appza-sheet-bg-color, #ffffff);
+  border-radius: var(--appza-sheet-radius, 16px) var(--appza-sheet-radius, 16px) 0 0;
+  box-shadow: 0 -8px 32px rgba(13, 17, 26, 0.16);
+  padding: 0 12px env(safe-area-inset-bottom, 12px);
+}
+.appza-options-sheet-grabber {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 5px;
+  margin: 10px auto 4px;
+  border-radius: 999px;
+  background: var(--appza-handle-color, #c6c6c8);
+}
+.appza-options-sheet-scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 14px;
+}
+.appza-options-sheet-title {
+  margin: 10px 8px 10px;
+  color: var(--appza-title-color, #0e121b);
+  font-size: var(--appza-title-size, 19px);
+  font-weight: var(--appza-title-weight, 700);
+  line-height: 1.3;
+}
+.appza-options-sheet-row {
+  display: flex;
+  align-items: center;
+  gap: var(--appza-row-gap, 12px);
+  width: 100%;
+  padding: var(--appza-row-padding, 11px 14px);
+  border: 0;
+  background: transparent;
+  border-radius: var(--appza-row-radius, 8px);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px solid var(--appza-divider-color, transparent);
+}
+.appza-options-sheet-row:last-child { border-bottom: 0; }
+.appza-options-sheet-row.is-selected {
+  background: var(--appza-selected-bg-color, #e2e4fb);
+}
+.appza-options-sheet-row-icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  color: var(--appza-icon-color, #898995);
+  font-size: var(--appza-icon-size, 18px);
+}
+.appza-options-sheet-row-icon ion-icon {
+  font-size: var(--appza-icon-size, 18px);
+  color: inherit;
+}
+.appza-options-sheet-row.is-selected .appza-options-sheet-row-icon {
+  color: var(--appza-selected-icon-color, #0054ea);
+}
+.appza-options-sheet-row-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--appza-label-color, #0e121b);
+  font-size: var(--appza-label-size, 15px);
+  line-height: 1.35;
+}
+.appza-options-sheet-row.is-selected .appza-options-sheet-row-label {
+  color: var(--appza-selected-label-color, #0054ea);
+}
+.appza-options-sheet-row-check {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  color: var(--appza-check-color, #0054ea);
+}
+.appza-options-sheet-row-check ion-icon {
+  font-size: var(--appza-check-size, 18px);
+  color: inherit;
+}
+.appza-options-sheet-empty {
+  padding: 20px 0;
+  color: var(--appza-label-color, #898995);
+  font-size: var(--appza-label-size, 14px);
+  text-align: center;
+}
+
+/* ---------- fc-post-menu-sheet — the 3-dot menu as a sheet ---------- */
+/* Design 4. Same rows as the popover the other screens use; only the
+   frame differs, which is why the row contents are not restated here. */
+
+.appza-post-menu-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: var(--appza-backdrop-color, rgba(13, 17, 26, 0.28));
+}
+.appza-post-menu-sheet {
+  width: 100%;
+  max-height: var(--appza-sheet-max-height, 80%);
+  display: flex;
+  flex-direction: column;
+  background: var(--appza-sheet-bg-color, #ffffff);
+  border-radius: var(--appza-sheet-radius, 16px) var(--appza-sheet-radius, 16px) 0 0;
+  box-shadow: 0 -8px 32px rgba(13, 17, 26, 0.16);
+  padding: 0 0 env(safe-area-inset-bottom, 12px);
+}
+.appza-post-menu-sheet-grabber {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 5px;
+  margin: 10px auto 2px;
+  border-radius: 999px;
+  background: var(--appza-handle-color, #c6c6c8);
+}
+.appza-post-menu-sheet-scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 10px;
+}
+.appza-post-menu-sheet-eyebrow {
+  margin: 6px 20px 8px;
+  color: var(--appza-eyebrow-color, #898995);
+  font-size: var(--appza-eyebrow-size, 13px);
+  font-weight: var(--appza-eyebrow-weight, 500);
+  letter-spacing: 0.02em;
+}
+.appza-post-menu-sheet-row {
+  display: flex;
+  align-items: center;
+  gap: var(--appza-row-gap, 14px);
+  width: 100%;
+  padding: var(--appza-row-padding, 13px 20px);
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px solid var(--appza-divider-color, transparent);
+}
+.appza-post-menu-sheet-row:last-child { border-bottom: 0; }
+.appza-post-menu-sheet-row-icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  color: var(--appza-icon-color, #898995);
+}
+.appza-post-menu-sheet-row-icon ion-icon {
+  font-size: var(--appza-icon-size, 20px);
+  color: inherit;
+}
+.appza-post-menu-sheet-row-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--appza-label-color, #0e121b);
+  font-size: var(--appza-label-size, 16px);
+  line-height: 1.35;
+}
+/* Destructive rows fall back to the ordinary label and glyph colours,
+   which is what design 4 draws — Delete reads like everything above it.
+   A site that wants the red warning back sets destructive_color in the
+   right panel and both of these follow it. */
+.appza-post-menu-sheet-row.is-destructive .appza-post-menu-sheet-row-label {
+  color: var(--appza-destructive-color, var(--appza-label-color, #0e121b));
+}
+.appza-post-menu-sheet-row.is-destructive .appza-post-menu-sheet-row-icon {
+  color: var(--appza-destructive-color, var(--appza-icon-color, #898995));
+}
+
+/* ---------- fc-profile-link-row — "Saved posts" on the profile ------ */
+/* children[0] is an INVISIBLE ion-button covering the whole row; the
+   glyph, label and chevron are painted under it with pointer-events off.
+   The obvious shape — one ion-button carrying icon and text — cannot be
+   left-aligned: Ionic centres its label inside a `.button-inner` that
+   lives in the shadow root at width 100%, and neither ::part(native) nor
+   any custom property reaches it. Measured on the real element before
+   restructuring, not assumed. */
+
+.appza-renderer-ss[data-slug="fc-profile-link-row"] {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--appza-row-gap, 12px);
+  padding: var(--appza-row-padding, 14px 16px);
+  background: var(--appza-row-bg-color, #ffffff);
+  border-bottom: 1px solid var(--appza-divider-color, #e1e4eb);
+}
+/* The tap target. Stretched over the row, transparent, and FIRST in
+   source order so the painted children sit above it — they carry
+   pointer-events: none, so every tap lands here wherever it falls. */
+.appza-renderer-ss[data-slug="fc-profile-link-row"] [data-child-index="0"] {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+}
+.appza-renderer-ss[data-slug="fc-profile-link-row"] [data-child-index="0"] ion-button {
+  border: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  --background: transparent;
+  --background-hover: rgba(13, 17, 26, 0.03);
+  --background-activated: rgba(13, 17, 26, 0.06);
+  --box-shadow: none;
+  --border-radius: 0;
+  --padding-start: 0;
+  --padding-end: 0;
+}
+.appza-renderer-ss[data-slug="fc-profile-link-row"] [data-child-index="0"] ion-button::part(native) {
+  border: 0;
+  background: transparent;
+  height: 100%;
+}
+/* The overlay carries no label of its own — the row's text is painted by
+   children[2]. An ion-button with an empty `text` still falls back to
+   the primitive's NAME, so it would read "BUTTON" straight through the
+   glyph and the label. Zeroing the font is what makes an invisible tap
+   target actually invisible. */
+.appza-renderer-ss[data-slug="fc-profile-link-row"] [data-child-index="0"] ion-button {
+  font-size: 0;
+}
+.appza-renderer-ss[data-slug="fc-profile-link-row"] [data-child-index="1"],
+.appza-renderer-ss[data-slug="fc-profile-link-row"] [data-child-index="2"],
+.appza-renderer-ss[data-slug="fc-profile-link-row"] [data-child-index="3"] {
+  position: relative;
+  /* The overlay underneath is the tap target — the paint must not eat
+     the tap that was aimed at it. */
+  pointer-events: none;
+}
+.appza-renderer-ss[data-slug="fc-profile-link-row"] [data-child-index="1"] {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.appza-renderer-ss[data-slug="fc-profile-link-row"] [data-child-index="1"] ion-icon {
+  font-size: var(--appza-icon-size, 20px);
+  color: var(--appza-icon-color, #525866);
+}
+.appza-renderer-ss[data-slug="fc-profile-link-row"] [data-child-index="2"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.appza-renderer-ss[data-slug="fc-profile-link-row"] [data-child-index="2"] ion-text {
+  display: block;
+  color: var(--appza-label-color, #0e121b);
+  font-size: var(--appza-label-size, 15px);
+  font-weight: var(--appza-label-weight, 600);
+  line-height: 1.35;
+}
+.appza-renderer-ss[data-slug="fc-profile-link-row"] [data-child-index="3"] {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.appza-renderer-ss[data-slug="fc-profile-link-row"] [data-child-index="3"] ion-icon {
+  font-size: var(--appza-chevron-size, 16px);
+  color: var(--appza-chevron-color, #a2a3a7);
+}

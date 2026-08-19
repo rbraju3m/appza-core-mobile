@@ -44,6 +44,16 @@ import {
   LEADERBOARD_POINTS_SHEET_CHILD_COUNT,
   setLeaderboardControls,
   resetLeaderboardControls,
+  OptionsSheet,
+  openOptionsSheet,
+  optionsSheetPresentation,
+  OPTIONS_SHEET_CHILD_COUNT,
+  readPickerOptions,
+  getBookmarkControls,
+  setBookmarkControls,
+  resetBookmarkControls,
+  postMenuSheetPresentation,
+  POST_MENU_SHEET_CHILD_COUNT,
   closeChatMembersSheet,
   CHAT_MEMBERS_SHEET_CHILD_COUNT,
   chatMembersPresentation,
@@ -589,6 +599,17 @@ export function App() {
   useEffect(() => {
     if (currentScreen?.app_map_screen_slug !== 'leaderboard') return;
     resetLeaderboardControls();
+  }, [currentScreen?.app_map_screen_slug]);
+
+  // Saved Posts arrives with a clean search box. Sort and layout are
+  // preferences and survive; a search string is not one — reopening on a
+  // phrase you typed last week would show "No matches" over a list that
+  // is not empty, with the reason off screen in a field you have to
+  // scroll to. The verdict resets with it so a stale 'empty' cannot
+  // paint over a list still loading.
+  useEffect(() => {
+    if (currentScreen?.app_map_screen_slug !== 'bookmarks') return;
+    resetBookmarkControls();
   }, [currentScreen?.app_map_screen_slug]);
 
   // Seed a default route.slug when landing on space-detail directly (via
@@ -1170,6 +1191,7 @@ export function App() {
   const sharedOverlays = (
     <>
       <ViewModePopover />
+      <OptionsSheet />
       <PostOptionsPopover />
       <MemberOptionsSheet />
       <MemberRoleSheet />
@@ -3092,7 +3114,35 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             `[data-appza-item-id="${CSS.escape(itemId)}"] [data-appza-action="on_tap_menu"]`,
           )
         : document.querySelector('[data-appza-action="on_tap_menu"]');
-      openPostOptionsPopover(items, effectiveItem, anchor);
+      // `presentation: 'sheet'` draws the same rows as design 4's bottom
+      // sheet instead of the anchored popover. The catalog decides; the
+      // rows, their per-viewer visibility and their toggle labels are
+      // identical either way, which is the point of doing it here rather
+      // than with a second action.
+      const menuSheetSlug =
+        argRec.presentation === 'sheet'
+          ? typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
+            ? argRec.sheet_appzet_slug
+            : 'fc-post-menu-sheet'
+          : null;
+      openPostOptionsPopover(
+        items,
+        effectiveItem,
+        anchor,
+        menuSheetSlug
+          ? {
+              appzetSlug: menuSheetSlug,
+              presentation: postMenuSheetPresentation(
+                readAppzetPropsFromCatalog(menuSheetSlug),
+              ),
+              childStyles: childStylesFromCustomizations(
+                menuSheetSlug,
+                POST_MENU_SHEET_CHILD_COUNT,
+                currentCustomizations,
+              ),
+            }
+          : undefined,
+      );
       return;
     }
 
@@ -3686,6 +3736,60 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         '[data-appza-appzet-slug="fc-feed-toolbar"][data-child-index="1"]',
       );
       openViewModePopover(options, anchor);
+      return;
+    }
+
+    // ── Saved Posts controls ─────────────────────────────────────────
+    // The same three shapes the feed carries, against bookmarkControls,
+    // with one difference that comes from the catalog rather than from
+    // here: `presentation`. Noor's designs draw sort and layout as
+    // BOTTOM SHEETS on this screen while the feed keeps its anchored
+    // popover, so the frame is an action arg. Leaving it unset gives the
+    // popover — which is what makes this safe to point at any screen.
+    case 'bookmarks.set_sort':
+    case 'bookmarks.set_view_mode': {
+      const isSort = inv.action_slug === 'bookmarks.set_sort';
+      const options = readPickerOptions(argRec.options);
+      if (options.length === 0) return;
+      const stateKey = isSort ? 'bookmarks_sort' : 'bookmarks_view_mode';
+      const current = isSort ? getBookmarkControls().sort : getBookmarkControls().viewMode;
+      if (argRec.presentation === 'sheet') {
+        const sheetSlug =
+          typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
+            ? argRec.sheet_appzet_slug
+            : isSort
+              ? 'fc-bookmarks-sort-sheet'
+              : 'fc-bookmarks-layout-sheet';
+        openOptionsSheet({
+          appzetSlug: sheetSlug,
+          presentation: optionsSheetPresentation(readAppzetPropsFromCatalog(sheetSlug)),
+          childStyles: childStylesFromCustomizations(
+            sheetSlug,
+            OPTIONS_SHEET_CHILD_COUNT,
+            currentCustomizations,
+          ),
+          options,
+          stateKey,
+          currentValue: current,
+        });
+        return;
+      }
+      const anchor = document.querySelector(
+        `[data-appza-appzet-slug="fc-bookmarks-toolbar"][data-child-index="${isSort ? 0 : 1}"]`,
+      );
+      openViewModePopover(options, anchor, stateKey);
+      return;
+    }
+
+    case 'bookmarks.set_search': {
+      // Fires on every keystroke, including the ⨯ clear — which sends an
+      // empty string, and must, since clearing the field is how you get
+      // the whole list back. fc-bookmarks binds `search`, so this is a
+      // refetch rather than a filter over the loaded page.
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      setBookmarkControls({ search: runtimeValue ?? itemValue ?? '' });
       return;
     }
 

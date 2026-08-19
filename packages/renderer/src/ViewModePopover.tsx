@@ -3,6 +3,7 @@ import { IonIcon } from '@ionic/react';
 import { setFeedControls, type FeedViewMode } from './feedControls';
 import { setSpacesControls, type SpacesSort } from './spacesControls';
 import { setSpaceDetailControls } from './spaceDetailControls';
+import { setBookmarkControls, type BookmarkViewMode } from './bookmarkControls';
 import { resolveIcon } from './PrimitiveRenderer';
 
 // Floating popover anchored to a DOM element, with a small list of
@@ -21,9 +22,77 @@ export type ViewModeOption = {
   icon?: string;
 };
 
+/**
+ * Read an action wiring's `args.options` into the {value,label,icon}
+ * rows a picker draws. Every option list in the catalog has this shape,
+ * and every dispatcher case was parsing it again by hand.
+ */
+export function readPickerOptions(raw: unknown): ViewModeOption[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((o): o is Record<string, unknown> => !!o && typeof o === 'object' && !Array.isArray(o))
+    .map((o) => ({
+      value: typeof o.value === 'string' ? o.value : '',
+      label: typeof o.label === 'string' ? o.label : '',
+      icon: typeof o.icon === 'string' ? o.icon : undefined,
+    }))
+    .filter((o) => o.value && o.label);
+}
+
 const OPEN_EVENT = 'appza:open-view-mode-popover';
 
-export type PopoverStateKey = 'sort' | 'viewMode' | 'spaces_sort' | 'space_detail_sort';
+export type PopoverStateKey =
+  | 'sort'
+  | 'viewMode'
+  | 'spaces_sort'
+  | 'space_detail_sort'
+  | 'bookmarks_sort'
+  | 'bookmarks_view_mode';
+
+/**
+ * Write a picked option into whichever control slice the key names.
+ *
+ * Lives here rather than inside the popover because the Saved Posts
+ * screen draws the SAME choice as a bottom sheet (Noor's designs 3 and
+ * 5) — two frames, one rule about what a pick means. Splitting it would
+ * be two places to add the next state key to, and one of them would get
+ * forgotten.
+ */
+export function applyControlPick(stateKey: PopoverStateKey, value: string): void {
+  if (stateKey === 'sort') {
+    setFeedControls({ sort: value });
+    return;
+  }
+  if (stateKey === 'spaces_sort') {
+    // Sort keys are catalog-driven now (fc-space-card.sort_specs).
+    // Any non-empty string is accepted; the renderer's spec lookup
+    // falls back to title-asc when the value isn't mapped.
+    if (value.length > 0) setSpacesControls({ sort: value as SpacesSort });
+    return;
+  }
+  if (stateKey === 'space_detail_sort') {
+    // fc-space-post-toolbar sort. Writes into spaceDetailControls.sort;
+    // fc-space-feeds' order_by_type query_param binds to this state key
+    // and auto-refetches when it changes.
+    if (value.length > 0) setSpaceDetailControls({ sort: value });
+    return;
+  }
+  if (stateKey === 'bookmarks_sort') {
+    // fc-bookmarks binds order_by_type to this key, so the pick is a
+    // refetch — same contract as space_detail_sort above.
+    if (value.length > 0) setBookmarkControls({ sort: value });
+    return;
+  }
+  if (stateKey === 'bookmarks_view_mode') {
+    if (value === 'timeline' || value === 'card' || value === 'list') {
+      setBookmarkControls({ viewMode: value as BookmarkViewMode });
+    }
+    return;
+  }
+  if (value === 'timeline' || value === 'card' || value === 'list') {
+    setFeedControls({ viewMode: value as FeedViewMode });
+  }
+}
 
 type OpenDetail = {
   options: ViewModeOption[];
@@ -104,25 +173,7 @@ export function ViewModePopover() {
   const top = detail.anchorRect.bottom + gap;
 
   const handlePick = (value: string) => {
-    if (detail.stateKey === 'sort') {
-      setFeedControls({ sort: value });
-    } else if (detail.stateKey === 'spaces_sort') {
-      // Sort keys are catalog-driven now (fc-space-card.sort_specs).
-      // Any non-empty string is accepted; the renderer's spec lookup
-      // falls back to title-asc when the value isn't mapped.
-      if (typeof value === 'string' && value.length > 0) {
-        setSpacesControls({ sort: value as SpacesSort });
-      }
-    } else if (detail.stateKey === 'space_detail_sort') {
-      // fc-space-post-toolbar sort. Writes into spaceDetailControls.sort;
-      // fc-space-feeds' order_by_type query_param binds to this state key
-      // and auto-refetches when it changes.
-      if (typeof value === 'string' && value.length > 0) {
-        setSpaceDetailControls({ sort: value });
-      }
-    } else if (value === 'timeline' || value === 'card' || value === 'list') {
-      setFeedControls({ viewMode: value as FeedViewMode });
-    }
+    applyControlPick(detail.stateKey, value);
     setOpen(false);
   };
 

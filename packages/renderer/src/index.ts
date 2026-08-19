@@ -128,13 +128,40 @@ export {
   type InvitationRow,
   type InviteChipPalette,
 } from './InviteUserModal';
-export { ViewModePopover, openViewModePopover, type ViewModeOption } from './ViewModePopover';
+export {
+  ViewModePopover,
+  openViewModePopover,
+  applyControlPick,
+  readPickerOptions,
+  type ViewModeOption,
+  type PopoverStateKey,
+} from './ViewModePopover';
+export {
+  OptionsSheet,
+  openOptionsSheet,
+  closeOptionsSheet,
+  OPTIONS_SHEET_APPZET_SLUG,
+  OPTIONS_SHEET_CHILD_COUNT,
+  type OptionsSheetPresentation,
+} from './OptionsSheet';
+export {
+  getBookmarkControls,
+  setBookmarkControls,
+  resetBookmarkControls,
+  useBookmarkControls,
+  type BookmarkControls,
+  type BookmarkViewMode,
+} from './bookmarkControls';
 export {
   PostOptionsPopover,
   openPostOptionsPopover,
   setCatalogGlobal,
   readActionDefaultsFromCatalog,
+  POST_MENU_SHEET_APPZET_SLUG,
+  POST_MENU_SHEET_CHILD_COUNT,
   type PostMenuItem,
+  type PostMenuSheetPresentation,
+  type PostMenuSheetOptions,
 } from './PostOptionsPopover';
 export { tryHandlePostMenuAction, type PostMenuDeps, type StoredAuthLike } from './postMenuHandlers';
 export {
@@ -156,6 +183,9 @@ export {
   chatMembersPresentation,
   chatUserCardPresentation,
   leaderboardPointsPresentation,
+  optionsSheetPresentation,
+  postMenuSheetPresentation,
+  profileLinkRowVars,
 } from './modalPresentation';export {
   getDocumentDraft,
   setDocumentDraft,

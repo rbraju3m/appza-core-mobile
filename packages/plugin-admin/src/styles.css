@@ -2191,7 +2191,8 @@ body {
    a page, so fixed would pin it to the browser window — absolute keeps it
    in the frame. Same split as the modal backdrops above. */
 .appza-device-viewport .appza-renderer-appzet[data-slug="fc-document-fab"],
-.appza-device-viewport .appza-renderer-appzet[data-slug="fc-chat-home-fab"] {
+.appza-device-viewport .appza-renderer-appzet[data-slug="fc-chat-home-fab"],
+.appza-device-viewport .appza-renderer-appzet[data-slug="fc-bookmarks-home-fab"] {
   position: absolute;
 }
 

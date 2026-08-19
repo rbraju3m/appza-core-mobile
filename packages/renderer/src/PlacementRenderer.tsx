@@ -12,6 +12,7 @@ import { useSpacesControls } from './spacesControls';
 import { setSpaceDetailControls, useSpaceDetailControls } from './spaceDetailControls';
 import { setChatControls, useChatControls } from './chatControls';
 import { setLeaderboardControls, useLeaderboardControls } from './leaderboardControls';
+import { setBookmarkControls, useBookmarkControls } from './bookmarkControls';
 import { useDocumentDraft } from './documentDraft';
 import { useFcRuntimeSettings } from './fcRuntimeSettings';
 import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
@@ -102,8 +103,36 @@ type HiddenIndices = ReadonlySet<number>;
 // SS + field_mappings + default_props apply per item. Keeps the swap
 // self-contained here; the catalog just needs to ship the variant
 // appzets under these slugs.
-const VIEW_MODE_VARIANTS: Record<string, { card?: string; list?: string }> = {
-  'fc-post-card': { card: 'fc-post-grid-item', list: 'fc-post-list-item' },
+//
+// `controls` names WHICH slice decides the mode, and `governingDs` the
+// DataSource that slice is authoritative for. Saved Posts has a toolbar
+// of its own writing a slice of its own, so without both fields picking
+// Card there would swap in the FEED's tile — still fetching the feed —
+// and picking Card on the feed would reshape the saved list behind it.
+const VIEW_MODE_VARIANTS: Record<
+  string,
+  { card?: string; list?: string; controls: 'feed' | 'bookmarks'; governingDs: string }
+> = {
+  'fc-post-card': {
+    card: 'fc-post-grid-item',
+    list: 'fc-post-list-item',
+    controls: 'feed',
+    governingDs: 'fc-feed',
+  },
+  'fc-bookmark-card': {
+    card: 'fc-bookmark-grid-item',
+    list: 'fc-bookmark-list-item',
+    controls: 'bookmarks',
+    governingDs: 'fc-bookmarks',
+  },
+};
+
+// Which control slice each sort/layout toolbar reflects. Both toolbars
+// ride the same Superstructure (fc-feed-toolbar) — they are two AppZets,
+// not two shapes — so the slug is what distinguishes them.
+const TOOLBAR_CONTROL_SLICES: Record<string, 'feed' | 'bookmarks'> = {
+  'fc-feed-toolbar': 'feed',
+  'fc-bookmarks-toolbar': 'bookmarks',
 };
 
 export function PlacementRenderer({
@@ -153,6 +182,11 @@ export function PlacementRenderer({
   // to mark its active tab, and the two verdicts are published from
   // here after the levels and ranks fetches land.
   const leaderboardControls = useLeaderboardControls();
+  // Saved Posts controls. Read unconditionally for stable hook order,
+  // same as every slice above — the toolbar reflects sort and layout,
+  // fc-bookmarks binds search and sort as query params, and the
+  // three-way empty verdict is published from here after each fetch.
+  const bookmarkControls = useBookmarkControls();
   const draftTopicValues = useMemo(
     () => new Set(documentDraft.topic_ids.map((id) => String(id))),
     [documentDraft.topic_ids],
@@ -170,18 +204,23 @@ export function PlacementRenderer({
     propsOverride && typeof propsOverride['data_source_slug'] === 'string'
       ? (propsOverride['data_source_slug'] as string)
       : null;
-  const feedGovernedDs =
-    !placementDsForVariant ||
-    placementDsForVariant === 'fc-feed' ||
-    (requestedAppzet?.default_data_source_id != null &&
-      catalogIndex.dataSourceById.get(requestedAppzet.default_data_source_id)?.slug === 'fc-feed' &&
-      !placementDsForVariant);
+  const variantSpec = requestedAppzet ? VIEW_MODE_VARIANTS[requestedAppzet.slug] : undefined;
+  const variantGovernedDs =
+    !!variantSpec &&
+    (!placementDsForVariant ||
+      placementDsForVariant === variantSpec.governingDs ||
+      (requestedAppzet?.default_data_source_id != null &&
+        catalogIndex.dataSourceById.get(requestedAppzet.default_data_source_id)?.slug ===
+          variantSpec.governingDs &&
+        !placementDsForVariant));
+  const variantViewMode =
+    variantSpec?.controls === 'bookmarks' ? bookmarkControls.viewMode : feedViewMode;
   const variantSlug =
-    requestedAppzet && VIEW_MODE_VARIANTS[requestedAppzet.slug] && feedGovernedDs
-      ? feedViewMode === 'card'
-        ? VIEW_MODE_VARIANTS[requestedAppzet.slug]!.card
-        : feedViewMode === 'list'
-          ? VIEW_MODE_VARIANTS[requestedAppzet.slug]!.list
+    variantSpec && variantGovernedDs
+      ? variantViewMode === 'card'
+        ? variantSpec.card
+        : variantViewMode === 'list'
+          ? variantSpec.list
           : undefined
       : undefined;
   const baseAppzet = variantSlug
@@ -242,23 +281,46 @@ export function PlacementRenderer({
           // Fetched option lists override any static default for the same
           // prop — the live catalog value is the truer one.
           ...optionData,
-          // fc-feed-toolbar reflects the persisted user preference in its
-          // controls — the sort button's text becomes "Sort by: <label>"
-          // where <label> is resolved by scanning the action wiring's
-          // args.options for a matching value. If no match, we fall back
-          // to the raw value key (better than showing "Sort by:" alone).
-          ...(baseAppzet.slug === 'fc-feed-toolbar'
+          // A sort/layout toolbar reflects the persisted preference in its
+          // own controls — the sort button reads "<sort_label> <label>",
+          // where <label> comes from scanning the action wiring's
+          // args.options for the current value. No match falls back to the
+          // raw key, which is better than showing the prefix alone.
+          //
+          // TWO toolbars now, against two different slices: the feed's
+          // (feedControls) and Saved Posts' (bookmarkControls). Keyed off
+          // the slug rather than branching, the way the leaderboard tabs
+          // taught activeChildValue a second slug rather than forking the
+          // Superstructure.
+          //
+          // `sort_label` is read here rather than hard-coded. It has been
+          // authored on fc-feed-toolbar since that toolbar shipped and
+          // nothing ever consumed it — a control in the right panel that
+          // did nothing (P74).
+          ...(TOOLBAR_CONTROL_SLICES[baseAppzet.slug]
             ? (() => {
+                const slice = TOOLBAR_CONTROL_SLICES[baseAppzet.slug]!;
+                const sortValue = slice === 'bookmarks' ? bookmarkControls.sort : feedSort;
+                const viewValue =
+                  slice === 'bookmarks' ? bookmarkControls.viewMode : feedViewMode;
+                const authored = (baseAppzet.default_props_override ?? {}) as Record<
+                  string,
+                  unknown
+                >;
+                const prefix =
+                  typeof authored.sort_label === 'string' && authored.sort_label
+                    ? authored.sort_label
+                    : 'Sort by:';
                 const actions = (baseAppzet.actions ?? null) as Record<string, unknown> | null;
                 const sortWiring = actions && actions.on_change_sort;
                 const opts =
                   isRecord(sortWiring) && isRecord((sortWiring as Record<string, unknown>).args)
                     ? (((sortWiring as Record<string, unknown>).args as Record<string, unknown>).options)
                     : undefined;
-                let label = feedSort;
+                let label = sortValue;
                 if (Array.isArray(opts)) {
                   const match = opts.find(
-                    (o) => isRecord(o) && (o as Record<string, unknown>).value === feedSort,
+                    (o) => isRecord(o) && (o as Record<string, unknown>).value === sortValue,
                   );
                   if (match && typeof (match as Record<string, unknown>).label === 'string') {
                     label = (match as Record<string, unknown>).label as string;
@@ -268,15 +330,15 @@ export function PlacementRenderer({
                 // sees immediate feedback of their pick (grid for card,
                 // rows for list, lines for timeline).
                 const viewIcon =
-                  feedViewMode === 'card'
+                  viewValue === 'card'
                     ? 'grid-outline'
-                    : feedViewMode === 'list'
+                    : viewValue === 'list'
                       ? 'reorder-four-outline'
                       : 'list-outline';
                 return {
-                  sort_button_text: `Sort by: ${label}`,
-                  default_sort: feedSort,
-                  default_view_mode: feedViewMode,
+                  sort_button_text: `${prefix} ${label}`,
+                  default_sort: sortValue,
+                  default_view_mode: viewValue,
                   view_toggle_icon: viewIcon,
                 };
               })()
@@ -309,6 +371,14 @@ export function PlacementRenderer({
     'state.space_detail_controls.space_slug': spaceDetailSpaceSlug,
     'state.leaderboard_controls.range': leaderboardControls.range,
     'state.leaderboard_controls.levels_scope': leaderboardControls.levels_scope,
+    // Saved Posts. `search` and `sort` are what fc-bookmarks binds as
+    // query params, so writing either is a refetch; `view` is the
+    // three-way verdict the search pill, the toolbar and the two empty
+    // states all gate on.
+    'state.bookmark_controls.search': bookmarkControls.search,
+    'state.bookmark_controls.sort': bookmarkControls.sort,
+    'state.bookmark_controls.view_mode': bookmarkControls.viewMode,
+    'state.bookmark_controls.view': bookmarkControls.view,
   };
   const dataSourceByState = (appzet as unknown as {
     data_source_by_state?: {
@@ -539,6 +609,35 @@ export function PlacementRenderer({
     if (dataState.loading) return;
     setLeaderboardControls({ ranks_view: dataState.items.length > 0 ? 'list' : 'empty' });
   }, [publishesRanksView, dataState.loading, dataState.items.length]);
+
+  // Saved Posts (2026-08-19). The same P75 shape as the documents tab,
+  // and for the same reason: three designs — the list, "No saved posts
+  // yet" and "No matches" — and the difference between the last two is
+  // the SEARCH VALUE, which a placement cannot see any more than it can
+  // see a row count.
+  //
+  // The card publishing this is deliberately ungated: it has to stay
+  // mounted to run the fetch that decides the verdict in the first place.
+  const publishesBookmarksView = (dataSource?.slug ?? '') === 'fc-bookmarks';
+  useEffect(() => {
+    if (!publishesBookmarksView) return;
+    // Hold the last verdict while a refetch is in flight. Publishing
+    // 'loading' on every keystroke would unmount the search pill — which
+    // gates on this value — mid-typing and throw away the text in it.
+    if (dataState.loading) return;
+    const view =
+      dataState.items.length > 0
+        ? 'list'
+        : bookmarkControls.search.trim().length > 0
+          ? 'no-match'
+          : 'empty';
+    setBookmarkControls({ view });
+  }, [
+    publishesBookmarksView,
+    dataState.loading,
+    dataState.items.length,
+    bookmarkControls.search,
+  ]);
 
   // The composer's gate. A footer placement has no row of its own to
   // read, and a placement can read state and nothing else — so whether
@@ -1111,6 +1210,11 @@ export function PlacementRenderer({
     'points_color',
     'points_size',
     'points_weight',
+    // Saved Posts strip (2026-08-19). `row_padding`, `icon_color` and
+    // `divider_color` are already above and reused on purpose.
+    'sort_text_color',
+    'sort_icon_color',
+    'view_icon_color',
   ]);
   // Aliases: some knobs also drive Ionic's own CSS custom properties
   // directly. Custom props inherit through shadow DOM (unlike `background`
@@ -1148,6 +1252,24 @@ export function PlacementRenderer({
   // No data source: render once with static overrides. Child actions still
   // apply (login button, create-post button, etc. — anything that doesn't
   // need per-item data context) so we compute them with a null item.
+  // Two toolbar knobs that are layout decisions rather than colours, so
+  // they reach CSS as attributes rather than as custom properties. The
+  // feed's strip puts sort at the right end; Saved Posts puts it at the
+  // left with the layout glyph pushed to the far right, and draws no
+  // hairline above itself. Both are authored on the AppZet, so a
+  // customer can swap either strip round from the right panel.
+  const toolbarProps = (appzet?.default_props_override ?? {}) as Record<string, unknown>;
+  const toolbarAlign =
+    baseAppzet && TOOLBAR_CONTROL_SLICES[baseAppzet.slug]
+      ? toolbarProps.align === 'start'
+        ? 'start'
+        : 'end'
+      : undefined;
+  const toolbarDivider =
+    baseAppzet && TOOLBAR_CONTROL_SLICES[baseAppzet.slug]
+      ? String(toolbarProps.show_divider !== false)
+      : undefined;
+
   if (!dataSource) {
     const staticActions = computeChildActions(expanded.children, appzet, undefined);
     return (
@@ -1175,6 +1297,8 @@ export function PlacementRenderer({
           data-space-detail-active-space={appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug : undefined}
           data-media-active-type={appzet.slug === 'fc-media-tabs' ? spaceDetailMediaType : undefined}
           data-leaderboard-active-range={appzet.slug === 'fc-leaderboard-tabs' ? leaderboardControls.range : undefined}
+          data-appza-align={toolbarAlign}
+          data-appza-divider={toolbarDivider}
           style={{ ...spacingStyle(spacing), ...styleVars } as React.CSSProperties}
           onClick={handleClick}
         >
