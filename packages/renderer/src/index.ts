@@ -64,6 +64,22 @@ export {
   type ChatMember,
 } from './ChatMembersSheet';
 export {
+  LeaderboardPointsSheet,
+  openLeaderboardPointsSheet,
+  closeLeaderboardPointsSheet,
+  LEADERBOARD_POINTS_SHEET_APPZET_SLUG,
+  LEADERBOARD_POINTS_SHEET_CHILD_COUNT,
+  type LeaderboardPointsPresentation,
+  type LeaderboardLevel,
+} from './LeaderboardPointsSheet';
+export {
+  getLeaderboardControls,
+  setLeaderboardControls,
+  resetLeaderboardControls,
+  useLeaderboardControls,
+  type LeaderboardControls,
+} from './leaderboardControls';
+export {
   ChatUserCard,
   openChatUserCard,
   closeChatUserCard,
@@ -139,6 +155,7 @@ export {
   mediaViewerPresentation,
   chatMembersPresentation,
   chatUserCardPresentation,
+  leaderboardPointsPresentation,
 } from './modalPresentation';export {
   getDocumentDraft,
   setDocumentDraft,

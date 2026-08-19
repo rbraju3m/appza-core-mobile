@@ -8,6 +8,7 @@ import type { SchedulePresentation } from './ScheduleSheet';
 import type { MediaViewerPresentation } from './MediaViewer';
 import type { ChatMembersPresentation } from './ChatMembersSheet';
 import type { ChatUserCardPresentation } from './ChatUserCard';
+import type { LeaderboardPointsPresentation } from './LeaderboardPointsSheet';
 
 // Maps an overlay AppZet's authored props (snake_case, as stored in
 // default_props_override) onto the camelCase payload its component
@@ -392,5 +393,52 @@ export function chatUserCardPresentation(
     blockBorderColor: str(props.block_border_color),
     deleteColor: str(props.delete_color),
     deleteBorderColor: str(props.delete_border_color),
+  };
+}
+
+/**
+ * fc-leaderboard-points-sheet — the explainer behind the circled i on
+ * the viewer's card (designs 5 and 6).
+ *
+ * Both paragraphs are props, not constants. FluentCommunity's own copy
+ * is translated, and a site that words its gamification differently
+ * should be able to say so without a build.
+ */
+export function leaderboardPointsPresentation(
+  props: Record<string, unknown>,
+): LeaderboardPointsPresentation {
+  return {
+    title: str(props.title) ?? 'Leaderboard points',
+    pointsHeading: str(props.points_heading) ?? '1 Like = 1 Point',
+    pointsBody:
+      str(props.points_body) ??
+      'You earn points when other members like your posts, articles or comments. This encourages members to produce quality content and interact with others in their community.',
+    levelsHeading: str(props.levels_heading) ?? 'Levels',
+    levelsBody:
+      str(props.levels_body) ??
+      'As you gain points you level up. Your level is shown at the bottom right of your avatar.',
+    emptyLabel: str(props.empty_label) ?? 'No levels configured',
+    hidden: bool(props.hidden, false),
+    showHandle: bool(props.show_handle, true),
+    showLevelsList: bool(props.show_levels_list, true),
+    sheetBgColor: str(props.sheet_bg_color),
+    sheetRadius: size(props.sheet_radius),
+    // Not size(): the design is a viewport fraction (72vh), and size()
+    // would leave a bare number unitless-to-px, which is not the shape
+    // this one wants.
+    sheetMaxHeight: str(props.sheet_max_height),
+    handleColor: str(props.handle_color),
+    titleColor: str(props.title_color),
+    titleSize: size(props.title_size),
+    headingColor: str(props.heading_color),
+    headingSize: size(props.heading_size),
+    bodyColor: str(props.body_color),
+    bodySize: size(props.body_size),
+    levelTitleColor: str(props.level_title_color),
+    levelTitleSize: size(props.level_title_size),
+    levelPointsColor: str(props.level_points_color),
+    levelPointsSize: size(props.level_points_size),
+    dividerColor: str(props.divider_color),
+    rowPadding: str(props.row_padding),
   };
 }

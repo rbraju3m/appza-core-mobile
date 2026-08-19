@@ -38,6 +38,12 @@ import {
   readActionDefaultsFromCatalog,
   ChatMembersSheet,
   openChatMembersSheet,
+  LeaderboardPointsSheet,
+  openLeaderboardPointsSheet,
+  leaderboardPointsPresentation,
+  LEADERBOARD_POINTS_SHEET_CHILD_COUNT,
+  setLeaderboardControls,
+  resetLeaderboardControls,
   closeChatMembersSheet,
   CHAT_MEMBERS_SHEET_CHILD_COUNT,
   chatMembersPresentation,
@@ -573,6 +579,17 @@ export function App() {
       setPoll: setPendingPoll,
     });
   }, [uiMode, currentScreen]);
+
+  // The Leaderboard's levels card expands one way, so arriving on the
+  // screen has to put it back in its landing state — otherwise a second
+  // visit opens on a nine-level card with no control to collapse it,
+  // because VIEW ALL is already gone. The two verdict strings go back to
+  // 'loading' with it, or a stale one paints the previous visit's answer
+  // over a card that has not fetched yet.
+  useEffect(() => {
+    if (currentScreen?.app_map_screen_slug !== 'leaderboard') return;
+    resetLeaderboardControls();
+  }, [currentScreen?.app_map_screen_slug]);
 
   // Seed a default route.slug when landing on space-detail directly (via
   // the Screen dropdown) rather than via a nav.push from the Spaces list.
@@ -1163,6 +1180,7 @@ export function App() {
       <MediaViewer />
       <ChatMembersSheet />
       <ChatUserCard />
+      <LeaderboardPointsSheet />
     </>
   );
 
@@ -3850,6 +3868,63 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     // === MEDIA sub-tab (2026-08-17) ===
     // Mirrors the mobile shell case for case, except media.download —
     // see the note there.
+
+    // ---- Leaderboard (2026-08-19) -------------------------------
+    //
+    // Both setters write a key that a DataSource binds as a query
+    // param, so the refetch is the fetch — nothing here filters or
+    // slices anything client-side.
+    case 'leaderboard.set_range': {
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      const picked = runtimeValue ?? itemValue ?? '';
+      if (picked) {
+        setLeaderboardControls({ range: picked });
+      } else {
+        console.warn('[appza-admin] leaderboard.set_range: no picked value', { argRec, item });
+      }
+      return;
+    }
+
+    case 'leaderboard.expand_levels': {
+      // A fixed value, not a toggle: VIEW ALL is one-way by design and
+      // the button's placement disappears once the card is expanded.
+      const value = typeof argRec.value === 'string' && argRec.value !== '' ? argRec.value : 'all';
+      setLeaderboardControls({ levels_scope: value });
+      return;
+    }
+
+    case 'leaderboard.open_points': {
+      const sheetSlug =
+        typeof argRec.sheet_appzet_slug === 'string'
+          ? argRec.sheet_appzet_slug
+          : 'fc-leaderboard-points-sheet';
+      const dsSlug =
+        typeof argRec.levels_data_source === 'string'
+          ? argRec.levels_data_source
+          : 'fc-leaderboard-levels';
+      // Resolved from the catalog, never written down here — the sheet
+      // is opened by an action rather than mounted by a placement, so
+      // there is no useDataSource in its tree to do it (D51).
+      const levelsEndpoint = readDataSourceEndpointFromCatalog(catalog, dsSlug);
+      if (!levelsEndpoint) {
+        onLoginError(`No endpoint for the ${dsSlug} data source.`);
+        return;
+      }
+      openLeaderboardPointsSheet({
+        appzetSlug: sheetSlug,
+        presentation: leaderboardPointsPresentation(readAppzetPropsFromCatalog(sheetSlug)),
+        childStyles: childStylesFromCustomizations(
+          sheetSlug,
+          LEADERBOARD_POINTS_SHEET_CHILD_COUNT,
+          currentCustomizations,
+        ),
+        levelsEndpoint,
+        authHeader: auth ? basicAuthHeader(auth) : '',
+      });
+      return;
+    }
 
     case 'media.set_type': {
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;

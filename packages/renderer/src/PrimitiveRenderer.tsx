@@ -99,6 +99,8 @@ import {
   informationCircleOutline,
   lockClosed,
   lockClosedOutline,
+  trophy,
+  trophyOutline,
   link,
   linkOutline,
   pencilOutline,
@@ -292,6 +294,10 @@ const ICON_REGISTRY: Record<string, string> = {
   'globe-outline': globeOutline,
   'lock-closed': lockClosed,
   'lock-closed-outline': lockClosedOutline,
+  // Leaderboard: the medal on the first three ranks, the glyph in the
+  // viewer card's points cell, and the empty state's outline variant.
+  trophy,
+  'trophy-outline': trophyOutline,
   'pencil-outline': pencilOutline,
   'pin-outline': pinOutline,
   'bar-chart': barChart,

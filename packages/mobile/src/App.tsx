@@ -44,6 +44,12 @@ import {
   readActionDefaultsFromCatalog,
   ChatMembersSheet,
   openChatMembersSheet,
+  LeaderboardPointsSheet,
+  openLeaderboardPointsSheet,
+  leaderboardPointsPresentation,
+  LEADERBOARD_POINTS_SHEET_CHILD_COUNT,
+  setLeaderboardControls,
+  resetLeaderboardControls,
   closeChatMembersSheet,
   CHAT_MEMBERS_SHEET_CHILD_COUNT,
   chatMembersPresentation,
@@ -712,6 +718,17 @@ export function App() {
     return catalog.template_screens?.find((s) => s.id === selectedScreenId) ?? null;
   }, [catalog, selectedScreenId]);
 
+  // The Leaderboard's levels card expands one way, so arriving on the
+  // screen has to put it back in its landing state — otherwise a second
+  // visit opens on a nine-level card with no control to collapse it,
+  // because VIEW ALL is already gone. The two verdict strings go back to
+  // 'loading' with it, or a stale one paints the previous visit's answer
+  // over a card that has not fetched yet.
+  useEffect(() => {
+    if (screen?.app_map_screen_slug !== 'leaderboard') return;
+    resetLeaderboardControls();
+  }, [screen?.app_map_screen_slug]);
+
   // Prefill composer forms from screen-mount context set by
   // nav.push(pass_item_as_context=true). Currently only
   // fc-post-information on edit-post-page uses this. Guarded by
@@ -1241,6 +1258,7 @@ export function App() {
         <MediaViewer />
         <ChatMembersSheet />
         <ChatUserCard />
+        <LeaderboardPointsSheet />
       </ActionProvider>
 
       {errorToast && (
@@ -2743,6 +2761,66 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     }
 
     // === MEDIA sub-tab (2026-08-17) ===
+
+    // ---- Leaderboard (2026-08-19) -------------------------------
+    //
+    // Both setters write a key that a DataSource binds as a query
+    // param, so the refetch is the fetch — nothing here filters or
+    // slices anything client-side.
+    case 'leaderboard.set_range': {
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      const picked = runtimeValue ?? itemValue ?? '';
+      if (picked) {
+        setLeaderboardControls({ range: picked });
+      } else {
+        console.warn('[appza-mobile] leaderboard.set_range: no picked value', { argRec, item });
+      }
+      return;
+    }
+
+    case 'leaderboard.expand_levels': {
+      // A fixed value, not a toggle: VIEW ALL is one-way by design and
+      // the button's placement disappears once the card is expanded.
+      const value = typeof argRec.value === 'string' && argRec.value !== '' ? argRec.value : 'all';
+      setLeaderboardControls({ levels_scope: value });
+      return;
+    }
+
+    case 'leaderboard.open_points': {
+      const sheetSlug =
+        typeof argRec.sheet_appzet_slug === 'string'
+          ? argRec.sheet_appzet_slug
+          : 'fc-leaderboard-points-sheet';
+      const dsSlug =
+        typeof argRec.levels_data_source === 'string'
+          ? argRec.levels_data_source
+          : 'fc-leaderboard-levels';
+      // Resolved from the catalog, never written down here — the sheet
+      // is opened by an action rather than mounted by a placement, so
+      // there is no useDataSource in its tree to do it (D51).
+      const levelsEndpoint = readDataSourceEndpointFromCatalog(dsSlug);
+      if (!levelsEndpoint) {
+        onError(`No endpoint for the ${dsSlug} data source.`);
+        return;
+      }
+      openLeaderboardPointsSheet({
+        appzetSlug: sheetSlug,
+        presentation: leaderboardPointsPresentation(readAppzetPropsFromCatalog(sheetSlug)),
+        childStyles: childStylesFromCustomizations(
+          sheetSlug,
+          LEADERBOARD_POINTS_SHEET_CHILD_COUNT,
+          currentCustomizations,
+        ),
+        // Absolute, or the fetch resolves against the Capacitor bundle's
+        // own origin and 404s on the phone while working in the browser
+        // (P60).
+        levelsEndpoint: absolutizeEndpoint(levelsEndpoint),
+        authHeader: ((window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? ''),
+      });
+      return;
+    }
 
     case 'media.set_type': {
       // fc-media-tabs children_from_prop strip — same value plumbing as

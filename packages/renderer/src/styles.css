@@ -7359,3 +7359,626 @@ audio.appza-video-embed-native {
 .appza-renderer-skeleton[data-slug="fc-space-post-toolbar"] .appza-skel-block,
 .appza-renderer-skeleton[data-slug="fc-feed-toolbar"] .appza-skel-block,
 .appza-renderer-skeleton[data-slug="fc-documents-search"] .appza-skel-block { display: none; }
+
+/* ============================================================
+ * LEADERBOARD (2026-08-19)
+ *
+ * Three cards, six placements. Two of the cards span two
+ * placements each — levels + VIEW ALL, tabs + rows — and the
+ * renderer has no card-grouping concept, so the white container
+ * is drawn here: each half paints the same background and side
+ * borders, and only the outermost corners are rounded.
+ *
+ * Colours are measured off Noor's designs, not picked: page
+ * #f6f7fb, card #ffffff on a 1px #e1e4eb border, one blue
+ * #0054ea, text #0d111a over #525866. They are also all catalog
+ * properties — the values here are only the fallbacks that apply
+ * when a property is left empty, which is how the Style tab can
+ * override any of them without a build.
+ * ============================================================ */
+
+.appza-renderer-app[data-screen-slug="leaderboard"] .appza-renderer-content {
+  --background: #f6f7fb;
+}
+/* gap 0: the cards own their own spacing, because two of them are
+   built out of two placements that must touch. */
+.appza-renderer-app[data-screen-slug="leaderboard"] .appza-renderer-slot[data-slot="main"] {
+  gap: 0;
+  padding: 16px 16px 24px;
+}
+
+/* Shared card shell. Every leaderboard placement paints it; the
+   corner rounding below decides which of them are card EDGES. */
+[data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-leaderboard-profile"],
+[data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-level-row"],
+[data-screen-slug="leaderboard"] .appza-renderer-appzet[data-slug="fc-leaderboard-view-all"],
+[data-screen-slug="leaderboard"] .appza-renderer-appzet[data-slug="fc-leaderboard-tabs"],
+[data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-leaderboard-tabs"],
+[data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-leader-row"],
+[data-screen-slug="leaderboard"] .appza-renderer-appzet[data-slug="fc-leaderboard-empty"] {
+  background: #ffffff;
+  border-left: 1px solid #e1e4eb;
+  border-right: 1px solid #e1e4eb;
+  border-radius: 0;
+}
+
+/* Card 1 — the viewer. A card on its own, so all four corners. */
+[data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-leaderboard-profile"] {
+  border-top: 1px solid #e1e4eb;
+  border-bottom: 1px solid #e1e4eb;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+/* Card 2 — levels, then VIEW ALL. */
+[data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-level-row"] {
+  border-top: 1px solid #e1e4eb;
+  border-radius: 10px 10px 0 0;
+  padding-top: 6px;
+}
+/* Expanded, or a community with three levels or fewer: no button
+   follows, so the list is the whole card and closes it itself. */
+[data-screen-slug="leaderboard"]
+  .appza-renderer-appzet-list[data-slug="fc-level-row"]:not([data-leaderboard-levels-view="more"]) {
+  border-bottom: 1px solid #e1e4eb;
+  border-radius: 10px;
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+}
+[data-screen-slug="leaderboard"] .appza-renderer-appzet[data-slug="fc-leaderboard-view-all"] {
+  border-bottom: 1px solid #e1e4eb;
+  border-radius: 0 0 10px 10px;
+  margin-bottom: 16px;
+}
+
+/* Card 3 — tab strip, then either the rows or the empty state.
+   Exactly one of those two ever renders (the list carries
+   hide_when_empty), so both close the card. */
+[data-screen-slug="leaderboard"] .appza-renderer-appzet[data-slug="fc-leaderboard-tabs"],
+[data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-leaderboard-tabs"] {
+  border-top: 1px solid #e1e4eb;
+  border-radius: 10px 10px 0 0;
+}
+[data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-leader-row"],
+[data-screen-slug="leaderboard"] .appza-renderer-appzet[data-slug="fc-leaderboard-empty"] {
+  border-bottom: 1px solid #e1e4eb;
+  border-radius: 0 0 10px 10px;
+  padding-bottom: 6px;
+}
+
+/* The per-row wrapper inside a list placement must not add a card of
+   its own — the generic AppZet styling gives it margins and a
+   background, which would draw a box per level and per member. */
+[data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-level-row"] .appza-renderer-appzet,
+[data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-leader-row"] .appza-renderer-appzet,
+[data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-leaderboard-profile"] .appza-renderer-appzet {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* ---------- Card 1: the viewer ------------------------------- */
+
+/* Children are addressed by their catalog path, never by nth-child: a
+   child whose visible_when fails is not rendered at all, so every child
+   after it shifts up and a positional selector lands on the wrong one.
+   That is how the level row first drew its own title inside the padlock
+   circle. `data-appza-primitive-path` is stamped on every top-level
+   child and does not move. */
+
+/* Two columns, four rows. The stat pill is the grid's own ::before,
+   which is a grid item like any other, and the hairline splitting it
+   is ::after — that is what lets a flat list of children read as a
+   card with a nested pill in it. */
+.appza-renderer-ss[data-slug="fc-leaderboard-profile"] {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto auto auto;
+  padding: var(--appza-card-padding, 16px);
+  row-gap: 0;
+  column-gap: 0;
+  align-items: center;
+}
+.appza-renderer-ss[data-slug="fc-leaderboard-profile"]::before {
+  content: '';
+  grid-area: 3 / 1 / 4 / 3;
+  background: var(--appza-stat-bg-color, #f6f7fb);
+  border: 1px solid var(--appza-stat-border-color, #e1e4eb);
+  border-radius: var(--appza-stat-radius, 6px);
+  min-height: var(--appza-stat-height, 36px);
+  margin-top: 14px;
+}
+.appza-renderer-ss[data-slug="fc-leaderboard-profile"]::after {
+  content: '';
+  grid-area: 3 / 1 / 4 / 2;
+  justify-self: end;
+  align-self: stretch;
+  width: 1px;
+  background: var(--appza-stat-border-color, #e1e4eb);
+  margin: 14px 0 0 0;
+}
+/* Avatar spans the name + level rows; the badge shares its cell and
+   pins to the bottom-right of it, which is where the design puts it
+   and where FluentCommunity's own portal puts it too. */
+.appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[0]"] {
+  grid-area: 1 / 1 / 3 / 2;
+  justify-self: start;
+  z-index: 1;
+}
+.appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[0]"] ion-avatar {
+  border: 2px solid var(--appza-avatar-ring-color, #ffffff);
+  box-shadow: 0 0 0 1px #e1e4eb;
+}
+.appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[1]"] {
+  grid-area: 1 / 1 / 3 / 2;
+  justify-self: start;
+  align-self: end;
+  z-index: 2;
+  /* Sits on the avatar's bottom-right corner. The offset is the avatar
+     width less the badge's own, so both are read from the same props
+     the catalog sets. */
+  margin-left: calc(var(--appza-avatar-size, 56px) - var(--appza-badge-size, 20px) + 4px);
+  min-width: var(--appza-badge-size, 20px);
+  height: var(--appza-badge-size, 20px);
+  line-height: calc(var(--appza-badge-size, 20px) - 4px);
+  border-radius: 999px;
+  border: 2px solid #ffffff;
+  background: var(--appza-badge-bg-color, #0054ea);
+  color: var(--appza-badge-text-color, #ffffff);
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  box-sizing: border-box;
+}
+.appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[2]"] {
+  grid-area: 1 / 1 / 2 / 3;
+  align-self: end;
+  padding-left: calc(var(--appza-avatar-size, 56px) + 12px);
+  color: var(--appza-name-color, #0d111a);
+  font-size: var(--appza-name-size, 16px);
+  font-weight: var(--appza-name-weight, 600);
+  line-height: 1.3;
+}
+.appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[3]"] {
+  grid-area: 2 / 1 / 3 / 3;
+  align-self: start;
+  padding-left: calc(var(--appza-avatar-size, 56px) + 12px);
+  color: var(--appza-level-title-color, #525866);
+  font-size: var(--appza-level-title-size, 13px);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+/* The two halves of the pill. Each is centred in its own track, which
+   is why the trophy is an icon ON the points button rather than a
+   child beside it — a row holding two grid items can centre each item,
+   never the pair. */
+.appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[4]"] {
+  grid-area: 3 / 1 / 4 / 2;
+  justify-self: center;
+  align-self: center;
+  margin-top: 14px;
+  z-index: 1;
+}
+.appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[5]"] {
+  grid-area: 3 / 2 / 4 / 3;
+  justify-self: center;
+  align-self: center;
+  margin-top: 14px;
+  z-index: 1;
+  color: var(--appza-stat-text-color, #0d111a);
+  font-size: var(--appza-stat-text-size, 14px);
+  font-weight: 500;
+}
+/* The points button is a label, not a control: no fill, no ripple, no
+   pointer. Only the info button below is actually tappable. */
+.appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[4]"] ion-button {
+  --background: transparent !important;
+  --background-hover: transparent !important;
+  --background-activated: transparent !important;
+  --box-shadow: none !important;
+  --border-width: 0 !important;
+  --ripple-color: transparent !important;
+  --color: var(--appza-stat-text-color, #0d111a) !important;
+  --padding-start: 0 !important;
+  --padding-end: 0 !important;
+  margin: 0 !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  padding-inline: 0 !important;
+  font-size: var(--appza-stat-text-size, 14px) !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  pointer-events: none;
+}
+.appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[4]"] ion-button::part(native) {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  color: var(--appza-stat-text-color, #0d111a) !important;
+}
+.appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[4]"] ion-icon {
+  color: var(--appza-trophy-color, #f2e534);
+  font-size: 15px;
+  margin-inline-end: 6px;
+}
+/* "5 points to level up" with the circled i after it — one child, so
+   the pair centres as a unit. */
+.appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[6]"] {
+  grid-area: 4 / 1 / 5 / 3;
+  justify-self: center;
+  margin-top: 10px;
+}
+.appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[6]"] ion-button {
+  --background: transparent !important;
+  --background-hover: transparent !important;
+  --background-activated: transparent !important;
+  --box-shadow: none !important;
+  --border-width: 0 !important;
+  --color: var(--appza-level-up-color, #525866) !important;
+  --padding-start: 0 !important;
+  --padding-end: 0 !important;
+  margin: 0 !important;
+  height: 18px !important;
+  min-height: 18px !important;
+  padding-inline: 0 !important;
+  font-size: var(--appza-level-up-size, 12px) !important;
+  font-weight: 400 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+.appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[6]"] ion-button::part(native) {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  color: var(--appza-level-up-color, #525866) !important;
+}
+.appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[6]"] ion-icon {
+  color: var(--appza-info-icon-color, #525866);
+  font-size: var(--appza-info-icon-size, 14px);
+  margin-inline-start: 5px;
+}
+
+/* ---------- Card 2: the levels ------------------------------- */
+
+.appza-renderer-ss[data-slug="fc-level-row"] {
+  display: grid;
+  grid-template-columns: var(--appza-marker-size, 40px) 1fr;
+  grid-template-rows: auto auto;
+  column-gap: var(--appza-row-gap, 18px);
+  padding: var(--appza-row-padding, 10px 16px);
+  align-items: center;
+}
+/* Number and padlock share one cell — only one of them is ever
+   rendered, because the row's visible_when clauses gate on the same
+   boolean from opposite sides. */
+.appza-renderer-ss[data-slug="fc-level-row"] > [data-appza-primitive-path="children[0]"],
+.appza-renderer-ss[data-slug="fc-level-row"] > [data-appza-primitive-path="children[1]"] {
+  grid-area: 1 / 1 / 3 / 2;
+  align-self: center;
+  justify-self: center;
+  width: var(--appza-marker-size, 40px);
+  height: var(--appza-marker-size, 40px);
+  border-radius: 999px;
+  background: var(--appza-marker-bg-color, #f6f7fb);
+  /* transparent, not none: the design's circle is a flat fill with no
+     ring, and a border-less box would shift by 2px against a ringed one
+     if a customer ever turns the ring on. */
+  border: 1px solid var(--appza-marker-border-color, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  color: var(--appza-marker-text-color, #525866);
+  font-size: 14px;
+  font-weight: 500;
+}
+.appza-renderer-ss[data-slug="fc-level-row"] > [data-appza-primitive-path="children[1]"] ion-icon {
+  color: var(--appza-lock-color, #525866);
+  font-size: 17px;
+}
+.appza-renderer-ss[data-slug="fc-level-row"] > [data-appza-primitive-path="children[2]"] {
+  grid-area: 1 / 2 / 2 / 3;
+  align-self: end;
+  color: var(--appza-title-color, #0d111a);
+  font-size: var(--appza-title-size, 15px);
+  font-weight: var(--appza-title-weight, 600);
+  line-height: 1.35;
+}
+.appza-renderer-ss[data-slug="fc-level-row"] > [data-appza-primitive-path="children[3]"] {
+  grid-area: 2 / 2 / 3 / 3;
+  align-self: start;
+  color: var(--appza-tagline-color, #525866);
+  font-size: var(--appza-tagline-size, 13px);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+/* VIEW ALL — full width inside the card's padding. */
+.appza-renderer-ss[data-slug="fc-leaderboard-view-all"] {
+  display: block;
+  padding: var(--appza-row-padding, 4px 16px 16px);
+}
+.appza-renderer-ss[data-slug="fc-leaderboard-view-all"] > .appza-renderer-ss-child {
+  display: block;
+}
+.appza-renderer-ss[data-slug="fc-leaderboard-view-all"] ion-button {
+  display: block;
+  width: 100%;
+  margin: 0 !important;
+  --background: var(--appza-bg-color, #0054ea) !important;
+  --background-hover: var(--appza-bg-color, #0054ea) !important;
+  --background-activated: var(--appza-bg-color, #0054ea) !important;
+  --color: var(--appza-text-color, #ffffff) !important;
+  --border-width: 0 !important;
+  --border-radius: var(--appza-radius, 4px) !important;
+  --box-shadow: none !important;
+  height: var(--appza-height, 34px) !important;
+  min-height: var(--appza-height, 34px) !important;
+  font-size: var(--appza-font-size, 13px) !important;
+  font-weight: var(--appza-font-weight, 600) !important;
+  letter-spacing: var(--appza-letter-spacing, 0.04em) !important;
+  text-transform: none !important;
+}
+/* Ionic paints a default border on the ion-button HOST that the custom
+   properties above never reach — override both, or a hairline outlines
+   the blue bar. */
+.appza-renderer-ss[data-slug="fc-leaderboard-view-all"] ion-button::part(native) {
+  border: 0 !important;
+  border-radius: var(--appza-radius, 4px) !important;
+  background: var(--appza-bg-color, #0054ea) !important;
+  color: var(--appza-text-color, #ffffff) !important;
+  box-shadow: none !important;
+}
+
+/* ---------- Card 3: the ranking ------------------------------ */
+
+/* The strip rides fc-space-subtabs' Superstructure, which brings its
+   own uppercase 0.72rem grey styling and a bottom border. This is a
+   different design on the same shape: sentence case, three equal
+   thirds, and the card's own hairline underneath. */
+[data-screen-slug="leaderboard"] .appza-renderer-appzet[data-slug="fc-leaderboard-tabs"],
+[data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-leaderboard-tabs"] {
+  overflow-x: visible;
+  border-bottom: 1px solid #e1e4eb;
+}
+[data-screen-slug="leaderboard"] [data-slug="fc-leaderboard-tabs"] .appza-renderer-ss[data-slug="fc-space-subtabs"] {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 0;
+  padding: 0;
+  min-width: 0;
+  background: transparent;
+}
+[data-screen-slug="leaderboard"] [data-slug="fc-leaderboard-tabs"] .appza-renderer-ss-child {
+  position: relative;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+}
+[data-screen-slug="leaderboard"] [data-slug="fc-leaderboard-tabs"] ion-button {
+  --color: #525866 !important;
+  padding-inline: 0 !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  text-transform: none !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  letter-spacing: 0 !important;
+}
+[data-screen-slug="leaderboard"] [data-slug="fc-leaderboard-tabs"] ion-button::part(native) {
+  color: #525866 !important;
+}
+/* Active tab: blue label plus a 3px bar spanning the whole third, which
+   is what the design draws — the underline is wider than the word. */
+[data-screen-slug="leaderboard"] [data-leaderboard-active-range="7_days"] [data-value="7_days"] ion-button,
+[data-screen-slug="leaderboard"] [data-leaderboard-active-range="30_days"] [data-value="30_days"] ion-button,
+[data-screen-slug="leaderboard"] [data-leaderboard-active-range="all_time"] [data-value="all_time"] ion-button {
+  --color: var(--appza-active-color, #0054ea) !important;
+  font-weight: 600 !important;
+}
+[data-screen-slug="leaderboard"] [data-leaderboard-active-range="7_days"] [data-value="7_days"] ion-button::part(native),
+[data-screen-slug="leaderboard"] [data-leaderboard-active-range="30_days"] [data-value="30_days"] ion-button::part(native),
+[data-screen-slug="leaderboard"] [data-leaderboard-active-range="all_time"] [data-value="all_time"] ion-button::part(native) {
+  color: var(--appza-active-color, #0054ea) !important;
+}
+[data-screen-slug="leaderboard"] [data-leaderboard-active-range="7_days"] [data-value="7_days"]::after,
+[data-screen-slug="leaderboard"] [data-leaderboard-active-range="30_days"] [data-value="30_days"]::after,
+[data-screen-slug="leaderboard"] [data-leaderboard-active-range="all_time"] [data-value="all_time"]::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  background: var(--appza-active-color, #0054ea);
+  border-radius: 2px 2px 0 0;
+}
+
+/* One member. The rank number and the trophy share the first column:
+   on the top three the number sits INSIDE the cup, which is a position,
+   not a second child. */
+.appza-renderer-ss[data-slug="fc-leader-row"] {
+  display: grid;
+  grid-template-columns: 28px var(--appza-avatar-size, 38px) 1fr auto;
+  column-gap: var(--appza-row-gap, 12px);
+  padding: var(--appza-row-padding, 9px 16px);
+  align-items: center;
+}
+.appza-renderer-ss[data-slug="fc-leader-row"] > [data-appza-primitive-path="children[0]"],
+.appza-renderer-ss[data-slug="fc-leader-row"] > [data-appza-primitive-path="children[1]"] {
+  grid-area: 1 / 1 / 2 / 2;
+  justify-self: center;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.appza-renderer-ss[data-slug="fc-leader-row"] > [data-appza-primitive-path="children[0]"] ion-icon {
+  font-size: var(--appza-trophy-size, 26px);
+  /* Fallback only — the real colour comes from the medal rules below. */
+  color: var(--appza-gold-color, #f2e534);
+}
+/* Rank number. On a medalled row it is small and white, drawn inside
+   the cup; on every other row it is the plain grey digit the design
+   shows from fourth place down. */
+.appza-renderer-ss[data-slug="fc-leader-row"] > [data-appza-primitive-path="children[1]"] {
+  color: var(--appza-rank-color, #525866);
+  font-size: var(--appza-rank-size, 13px);
+  min-width: 18px;
+  height: 15px;
+  border-radius: 4px;
+  background: #f6f7fb;
+}
+/* On a medalled row the digit is drawn INSIDE the cup, in the medal's
+   own colour — the design's trophy is an outline glyph, so a white
+   number would simply vanish. `medal_rank_color` ships empty, which is
+   what lets the fallback chain below follow gold / silver / bronze
+   without three more properties; setting it pins all three at once. */
+[data-row-variant] .appza-renderer-ss[data-slug="fc-leader-row"] > [data-appza-primitive-path="children[1]"] {
+  font-size: 9px;
+  font-weight: 700;
+  background: transparent;
+  min-width: 0;
+  height: auto;
+  /* Into the bowl of the cup rather than the glyph's centre. */
+  transform: translateY(-3px);
+  z-index: 1;
+}
+[data-row-variant="gold"] .appza-renderer-ss[data-slug="fc-leader-row"] ion-icon,
+[data-row-variant="gold"] .appza-renderer-ss[data-slug="fc-leader-row"] > [data-appza-primitive-path="children[1]"] {
+  color: var(--appza-medal-rank-color, var(--appza-gold-color, #f2e534));
+}
+[data-row-variant="silver"] .appza-renderer-ss[data-slug="fc-leader-row"] ion-icon,
+[data-row-variant="silver"] .appza-renderer-ss[data-slug="fc-leader-row"] > [data-appza-primitive-path="children[1]"] {
+  color: var(--appza-medal-rank-color, var(--appza-silver-color, #6b7280));
+}
+[data-row-variant="bronze"] .appza-renderer-ss[data-slug="fc-leader-row"] ion-icon,
+[data-row-variant="bronze"] .appza-renderer-ss[data-slug="fc-leader-row"] > [data-appza-primitive-path="children[1]"] {
+  color: var(--appza-medal-rank-color, var(--appza-bronze-color, #ad4e1e));
+}
+/* The trophy must not paint over the digit sharing its cell. */
+[data-row-variant] .appza-renderer-ss[data-slug="fc-leader-row"] > [data-appza-primitive-path="children[0]"] {
+  z-index: 0;
+}
+.appza-renderer-ss[data-slug="fc-leader-row"] > [data-appza-primitive-path="children[2]"] {
+  grid-area: 1 / 2 / 2 / 3;
+}
+.appza-renderer-ss[data-slug="fc-leader-row"] > [data-appza-primitive-path="children[3]"] {
+  grid-area: 1 / 3 / 2 / 4;
+  color: var(--appza-name-color, #0d111a);
+  font-size: var(--appza-name-size, 14px);
+  font-weight: var(--appza-name-weight, 500);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-renderer-ss[data-slug="fc-leader-row"] > [data-appza-primitive-path="children[4]"] {
+  grid-area: 1 / 4 / 2 / 5;
+  justify-self: end;
+  color: var(--appza-points-color, #525866);
+  font-size: var(--appza-points-size, 13px);
+  font-weight: var(--appza-points-weight, 500);
+  white-space: nowrap;
+}
+
+/* The ranking card's empty state — denied, or nobody has scored yet.
+   Reuses the documents empty Superstructure, so only the box around it
+   changes here. */
+[data-screen-slug="leaderboard"] .appza-renderer-ss[data-slug="fc-documents-empty"] {
+  padding: 34px 24px 38px;
+}
+
+/* ---------- The points sheet (designs 5 and 6) --------------- */
+
+.appza-lb-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(13, 17, 26, 0.12);
+}
+.appza-lb-sheet {
+  width: 100%;
+  /* A PERCENTAGE of the backdrop, never a vh: inside the plug-in
+     simulator the device frame is a box on a much taller page, so 72vh
+     resolves against the browser window and the sheet swallows the whole
+     phone. The backdrop is the phone, so 72% is what "most of the
+     screen" means on both surfaces. Same reason the chat sheet uses it. */
+  max-height: var(--appza-sheet-max-height, 72%);
+  display: flex;
+  flex-direction: column;
+  background: var(--appza-sheet-bg-color, #ffffff);
+  border-radius: var(--appza-sheet-radius, 16px) var(--appza-sheet-radius, 16px) 0 0;
+  box-shadow: 0 -8px 32px rgba(13, 17, 26, 0.16);
+  padding: 0 20px env(safe-area-inset-bottom, 12px);
+}
+.appza-lb-sheet-grabber {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 5px;
+  margin: 10px auto 6px;
+  border-radius: 999px;
+  background: var(--appza-handle-color, #c9cbd1);
+}
+/* One scroller for prose AND list: design 6 scrolls the explainer off
+   the top along with the levels, so a fixed header would be the wrong
+   shape. */
+.appza-lb-sheet-scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 16px;
+}
+.appza-lb-sheet-title {
+  margin: 8px 0 14px;
+  color: var(--appza-title-color, #0d111a);
+  font-size: var(--appza-title-size, 19px);
+  font-weight: 700;
+  line-height: 1.3;
+}
+.appza-lb-sheet-heading {
+  margin: 16px 0 8px;
+  color: var(--appza-heading-color, #0d111a);
+  font-size: var(--appza-heading-size, 15px);
+  font-weight: 700;
+  line-height: 1.35;
+}
+.appza-lb-sheet-heading:first-of-type { margin-top: 0; }
+.appza-lb-sheet-body {
+  color: var(--appza-body-color, #525866);
+  font-size: var(--appza-body-size, 14px);
+  line-height: 1.5;
+}
+.appza-lb-sheet-levels { margin-top: 18px; }
+.appza-lb-sheet-level {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: var(--appza-row-padding, 13px 0);
+  border-bottom: 1px solid var(--appza-divider-color, #e1e4eb);
+}
+.appza-lb-sheet-level:last-child { border-bottom: 0; }
+.appza-lb-sheet-level-title {
+  color: var(--appza-level-title-color, #0d111a);
+  font-size: var(--appza-level-title-size, 14px);
+  font-weight: 700;
+}
+.appza-lb-sheet-level-points {
+  color: var(--appza-level-points-color, #525866);
+  font-size: var(--appza-level-points-size, 14px);
+  white-space: nowrap;
+}
+.appza-lb-sheet-empty {
+  padding: 20px 0;
+  color: var(--appza-body-color, #525866);
+  font-size: var(--appza-body-size, 14px);
+  text-align: center;
+}

@@ -11,6 +11,7 @@ import { useFeedControls } from './feedControls';
 import { useSpacesControls } from './spacesControls';
 import { setSpaceDetailControls, useSpaceDetailControls } from './spaceDetailControls';
 import { setChatControls, useChatControls } from './chatControls';
+import { setLeaderboardControls, useLeaderboardControls } from './leaderboardControls';
 import { useDocumentDraft } from './documentDraft';
 import { useFcRuntimeSettings } from './fcRuntimeSettings';
 import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
@@ -147,6 +148,11 @@ export function PlacementRenderer({
   // the topic chips consume it, to mark several chips active at once.
   const documentDraft = useDocumentDraft();
   const chatControls = useChatControls();
+  // Leaderboard screen controls. Read unconditionally for stable hook
+  // order, same as every slice above — the ranking strip needs `range`
+  // to mark its active tab, and the two verdicts are published from
+  // here after the levels and ranks fetches land.
+  const leaderboardControls = useLeaderboardControls();
   const draftTopicValues = useMemo(
     () => new Set(documentDraft.topic_ids.map((id) => String(id))),
     [documentDraft.topic_ids],
@@ -301,6 +307,8 @@ export function PlacementRenderer({
     'state.space_detail_controls.topic_slug': spaceDetailTopicSlug,
     'state.space_detail_controls.sort': spaceDetailSort,
     'state.space_detail_controls.space_slug': spaceDetailSpaceSlug,
+    'state.leaderboard_controls.range': leaderboardControls.range,
+    'state.leaderboard_controls.levels_scope': leaderboardControls.levels_scope,
   };
   const dataSourceByState = (appzet as unknown as {
     data_source_by_state?: {
@@ -491,6 +499,46 @@ export function PlacementRenderer({
     if (dataState.loading) return;
     setChatControls({ messages_view: dataState.items.length > 0 ? 'list' : 'empty' });
   }, [publishesMessagesView, dataState.loading, dataState.items.length]);
+
+  // Leaderboard (2026-08-19). Two more P75 verdicts, one per card.
+  //
+  // The levels card publishes THREE states rather than the usual two,
+  // because VIEW ALL has three reasons not to be there and a placement
+  // predicate is a single clause: a guest gets no card at all ('empty'),
+  // an expanded card has nothing left to show ('complete'), and so does a
+  // community configured with three levels or fewer. `has_more` is
+  // decided server-side and stamped on every row, so this reads the
+  // first row rather than counting anything.
+  const publishesLevelsView = (dataSource?.slug ?? '') === 'fc-leaderboard-levels';
+  useEffect(() => {
+    if (!publishesLevelsView) return;
+    // Hold the last verdict across a refetch. Publishing 'loading' when
+    // VIEW ALL is tapped would unmount the button mid-press and the
+    // expanded card would arrive with the tap looking like it missed.
+    if (dataState.loading) return;
+    const first = dataState.items[0];
+    const view =
+      dataState.items.length === 0
+        ? 'empty'
+        : isRecord(first) && first.has_more === true
+          ? 'more'
+          : 'complete';
+    setLeaderboardControls({ levels_view: view });
+  }, [publishesLevelsView, dataState.loading, dataState.items]);
+
+  // The ranking card's empty state. Zero rows reads two ways — nobody has
+  // scored in this range, and the viewer may not see who has — and both
+  // land here deliberately: the plug-in answers a denial with an empty
+  // list rather than an error, because an error would fall through the
+  // proxy into fixture data.
+  const publishesRanksView = (dataSource?.slug ?? '') === 'fc-leaderboard-ranks';
+  useEffect(() => {
+    if (!publishesRanksView) return;
+    // Hold across the refetch a tab tap triggers, or the empty state
+    // flashes between Last 7 days and All time.
+    if (dataState.loading) return;
+    setLeaderboardControls({ ranks_view: dataState.items.length > 0 ? 'list' : 'empty' });
+  }, [publishesRanksView, dataState.loading, dataState.items.length]);
 
   // The composer's gate. A footer placement has no row of its own to
   // read, and a placement can read state and nothing else — so whether
@@ -1016,6 +1064,53 @@ export function PlacementRenderer({
     'shadow',
     'offset_right',
     'offset_bottom',
+    // Leaderboard knobs (2026-08-19). `card_*`, `avatar_size`,
+    // `avatar_bg_color`, `name_color`, `row_gap`, `row_padding`,
+    // `title_color`, `title_size`, `divider_color`, `icon_color`,
+    // `height`, `font_weight`, `bg_color`, `active_color` and `gap` are
+    // already above and are reused on purpose — one CSS vocabulary for
+    // the whole app rather than a parallel leaderboard_* set.
+    'avatar_ring_color',
+    'badge_bg_color',
+    'badge_text_color',
+    'badge_size',
+    'name_size',
+    'name_weight',
+    'level_title_color',
+    'level_title_size',
+    'stat_bg_color',
+    'stat_border_color',
+    'stat_radius',
+    'stat_height',
+    'stat_text_color',
+    'stat_text_size',
+    'trophy_color',
+    'level_up_color',
+    'level_up_size',
+    'info_icon_color',
+    'info_icon_size',
+    'marker_size',
+    'marker_bg_color',
+    'marker_text_color',
+    'marker_border_color',
+    'lock_color',
+    'title_weight',
+    'tagline_color',
+    'tagline_size',
+    'text_color',
+    'radius',
+    'font_size',
+    'letter_spacing',
+    'gold_color',
+    'silver_color',
+    'bronze_color',
+    'medal_rank_color',
+    'trophy_size',
+    'rank_color',
+    'rank_size',
+    'points_color',
+    'points_size',
+    'points_weight',
   ]);
   // Aliases: some knobs also drive Ionic's own CSS custom properties
   // directly. Custom props inherit through shadow DOM (unlike `background`
@@ -1079,6 +1174,7 @@ export function PlacementRenderer({
           data-space-detail-active-topic={appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug : undefined}
           data-space-detail-active-space={appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug : undefined}
           data-media-active-type={appzet.slug === 'fc-media-tabs' ? spaceDetailMediaType : undefined}
+          data-leaderboard-active-range={appzet.slug === 'fc-leaderboard-tabs' ? leaderboardControls.range : undefined}
           style={{ ...spacingStyle(spacing), ...styleVars } as React.CSSProperties}
           onClick={handleClick}
         >
@@ -1096,6 +1192,9 @@ export function PlacementRenderer({
               appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug :
               appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug :
               appzet.slug === 'fc-spaces-tabs' ? spacesTab :
+              // Rides fc-space-subtabs' Superstructure but reads a
+              // different slice, so it cannot fall into the first branch.
+              appzet.slug === 'fc-leaderboard-tabs' ? leaderboardControls.range :
               undefined
             }
             activeChildValues={
@@ -1221,6 +1320,11 @@ export function PlacementRenderer({
     : [{}];
   const ssChildren = expanded.children;
 
+  // `data-leaderboard-levels-view` below: the levels card is the TOP half
+  // of a white container whose bottom half is the VIEW ALL button — until
+  // the button goes, at which point the list has to round its own bottom
+  // corners. A stylesheet cannot see a sibling that is not there, so the
+  // verdict it would need is stamped on the wrapper instead.
   return (
     <>
       {optionFetchers}
@@ -1234,6 +1338,8 @@ export function PlacementRenderer({
         data-space-detail-active-topic={appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug : undefined}
         data-space-detail-active-space={appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug : undefined}
         data-media-active-type={appzet.slug === 'fc-media-tabs' ? spaceDetailMediaType : undefined}
+        data-leaderboard-active-range={appzet.slug === 'fc-leaderboard-tabs' ? leaderboardControls.range : undefined}
+        data-leaderboard-levels-view={appzet.slug === 'fc-level-row' ? leaderboardControls.levels_view : undefined}
         data-fc-member-layout={
           appzet.slug === 'fc-member-card'
             ? (fcMemberListLayout === 'grid' ? 'grid' : 'list')
@@ -1306,11 +1412,39 @@ export function PlacementRenderer({
           typeof rawItemId === 'string' || typeof rawItemId === 'number'
             ? String(rawItemId)
             : undefined;
+        // A per-row DATA value the stylesheet needs. The leaderboard's
+        // trophy is gold, silver or bronze depending on `medal`, and a
+        // field mapping can only reach a child's props — it cannot reach
+        // CSS. So an AppZet may name one field whose value is stamped on
+        // the row wrapper as `data-row-variant`, and the stylesheet keys
+        // off that.
+        //
+        // Deliberately ONE field and no path walking: this exists to let
+        // a design express a per-row variant, not to become a second
+        // binding language alongside field_mappings.
+        const rawVariantField = (appzet.default_props_override as
+          | Record<string, unknown>
+          | undefined)?.['row_variant_field'];
+        const rowVariantField =
+          typeof rawVariantField === 'string' && rawVariantField !== ''
+            ? rawVariantField
+            : undefined;
+        const rawRowVariant =
+          rowVariantField && isRecord(item)
+            ? (item as Record<string, unknown>)[rowVariantField]
+            : undefined;
+        const rowVariantAttr =
+          typeof rawRowVariant === 'string' && rawRowVariant !== ''
+            ? rawRowVariant
+            : typeof rawRowVariant === 'number'
+              ? String(rawRowVariant)
+              : undefined;
         return (
           <div
             className={wrapperClass}
             data-slug={appzet.slug}
             data-appza-item-id={itemIdAttr}
+            data-row-variant={rowVariantAttr}
             style={spacingStyle(spacing)}
             onClick={handleClick}
             key={idx}
@@ -1330,6 +1464,7 @@ export function PlacementRenderer({
                 appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug :
                 appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug :
                 appzet.slug === 'fc-spaces-tabs' ? spacesTab :
+                appzet.slug === 'fc-leaderboard-tabs' ? leaderboardControls.range :
                 undefined
               }
               activeChildValues={

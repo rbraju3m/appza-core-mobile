@@ -16,6 +16,7 @@ import { tokensToCssVars } from './tokens';
 import { useSpacesControls } from './spacesControls';
 import { useSpaceDetailControls } from './spaceDetailControls';
 import { useChatControls } from './chatControls';
+import { useLeaderboardControls } from './leaderboardControls';
 
 type ScreenRendererProps = {
   screen: TemplateScreen;
@@ -85,6 +86,7 @@ export function ScreenRenderer({
   const spacesControls = useSpacesControls();
   const spaceDetailControls = useSpaceDetailControls();
   const chatControls = useChatControls();
+  const leaderboardControls = useLeaderboardControls();
   // Placement-level visible_when reads out of this bag via
   // `binding.slice(6)` (i.e. `state.<key>` → `<key>`). Register nested
   // paths as flat keys so `state.space_detail_controls.active_subtab`
@@ -110,6 +112,15 @@ export function ScreenRenderer({
       'chat_controls.reply_to_id': chatControls.reply_to_id,
       'chat_controls.thread_id': chatControls.thread_id,
       'chat_controls.space_slug': chatControls.space_slug,
+      // Leaderboard. Both keys a placement gates on are VERDICTS, not
+      // counts — `levels_view` decides whether VIEW ALL exists,
+      // `ranks_view` whether the empty state shows (P75). The two
+      // authored keys are here too so the strip and the button can be
+      // read back without a second subscription.
+      'leaderboard_controls.range': leaderboardControls.range,
+      'leaderboard_controls.levels_scope': leaderboardControls.levels_scope,
+      'leaderboard_controls.levels_view': leaderboardControls.levels_view,
+      'leaderboard_controls.ranks_view': leaderboardControls.ranks_view,
     }),
     [
       spacesControls.tab,
@@ -128,6 +139,10 @@ export function ScreenRenderer({
       chatControls.reply_to_id,
       chatControls.thread_id,
       chatControls.space_slug,
+      leaderboardControls.range,
+      leaderboardControls.levels_scope,
+      leaderboardControls.levels_view,
+      leaderboardControls.ranks_view,
     ],
   );
 
