@@ -33,6 +33,21 @@ type FetchState = {
   error: string | null;
 };
 
+/**
+ * What `useDataSource` returns: a FetchState plus whether the items in it
+ * were fetched for the params being asked for RIGHT NOW.
+ *
+ * `loading` alone cannot answer that. The fetch effect sets loading in an
+ * effect, so within the commit where params change, every consumer still
+ * sees `loading: false` alongside the PREVIOUS answer's items — one
+ * render behind. Anything deriving a verdict from `items.length` in that
+ * window derives it from the wrong page. On Saved Posts that published
+ * "empty" for the 1.7s between clearing a search that had matched
+ * nothing and the full list arriving, which tore the search pill and the
+ * sort strip off the screen and put them back.
+ */
+type DataSourceState = FetchState & { stale: boolean };
+
 // `Window['appzaCoreConfig']` is augmented globally by @appza/schemas —
 // import at least one binding from there elsewhere in the graph and
 // this file picks it up. See packages/schemas/src/augmentations.ts.
@@ -200,8 +215,17 @@ function buildProxyUrl(
   return url.toString();
 }
 
-export function useDataSource(slug: string | undefined, params?: Record<string, unknown>): FetchState {
+export function useDataSource(
+  slug: string | undefined,
+  params?: Record<string, unknown>,
+): DataSourceState {
   const [state, setState] = useState<FetchState>({ items: [], loading: !!slug, error: null });
+  // The (slug, params) the items currently in `state` were fetched for.
+  // A ref rather than state: it is written in the same tick as the
+  // setState that delivers those items, so the render that shows them
+  // already sees it updated, and writing it never causes a render of its
+  // own.
+  const loadedKeyRef = useRef<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
   const paramsKey = params ? JSON.stringify(params) : '';
   const previewMode =
@@ -287,10 +311,15 @@ export function useDataSource(slug: string | undefined, params?: Record<string, 
         } else {
           items = [];
         }
+        loadedKeyRef.current = `${slug}|${paramsKey}`;
         setState({ items, loading: false, error: null });
       })
       .catch((err) => {
         if (cancelled) return;
+        // An error IS an answer about these params — leaving the key
+        // unset would pin `stale` true forever and freeze any verdict
+        // reading it.
+        loadedKeyRef.current = `${slug}|${paramsKey}`;
         setState({
           items: [],
           loading: false,
@@ -303,7 +332,8 @@ export function useDataSource(slug: string | undefined, params?: Record<string, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, paramsKey, previewMode, refreshTick]);
 
-  return state;
+  const stale = !!slug && loadedKeyRef.current !== `${slug}|${paramsKey}`;
+  return { ...state, stale };
 }
 
 /**

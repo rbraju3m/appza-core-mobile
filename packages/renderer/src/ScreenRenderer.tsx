@@ -165,9 +165,13 @@ export function ScreenRenderer({
   type PlacementEntry = {
     appzet_slug: string;
     props_override: Record<string, unknown> | null;
+    // React key, derived from the placement's position in the UNFILTERED
+    // list. See the note on `key=` below for why it cannot be the index
+    // of the filtered one.
+    key: string;
   };
   const bySlot = new Map<SlotKey, PlacementEntry[]>();
-  for (const p of placements) {
+  for (const [placementIndex, p] of placements.entries()) {
     const rawSlot = typeof p['slot'] === 'string' ? (p['slot'] as string) : 'other';
     const slot = normalizeSlot(rawSlot);
     const appzet_slug = typeof p['appzet_slug'] === 'string' ? (p['appzet_slug'] as string) : '';
@@ -185,7 +189,7 @@ export function ScreenRenderer({
         ? (rawPropsOverride as Record<string, unknown>)
         : null;
     const list = bySlot.get(slot) ?? [];
-    list.push({ appzet_slug, props_override });
+    list.push({ appzet_slug, props_override, key: `${appzet_slug}:${placementIndex}` });
     bySlot.set(slot, list);
   }
 
@@ -226,9 +230,9 @@ export function ScreenRenderer({
                 />
               ))
             ) : headerList.length > 0 ? (
-              headerList.map((p, idx) => (
+              headerList.map((p) => (
                 <PlacementRenderer
-                  key={`hdr:${p.appzet_slug}:${idx}`}
+                  key={`hdr:${p.key}`}
                   appzetSlug={p.appzet_slug}
                   catalogIndex={catalogIndex}
                   customizations={customizations}
@@ -252,9 +256,26 @@ export function ScreenRenderer({
             <div className="appza-renderer-screen">
               {mainList.length > 0 && (
                 <section className="appza-renderer-slot" data-slot="main">
-                  {mainList.map((p, idx) => (
+                  {/*
+                    Keyed by the placement's position in the UNFILTERED
+                    list, never by its index in this filtered one.
+
+                    A `visible_when` placement leaves no element behind
+                    when it fails, so the filtered indices of everything
+                    AFTER it shift by one — and with an index-derived key
+                    React reads that as "different component here" and
+                    unmounts + remounts every survivor. On Saved Posts
+                    that cost two extra fetches of the whole bookmark
+                    list every time the search box appeared or vanished:
+                    the card placement had done nothing, but its key moved
+                    from 2 to 0 and its useDataSource started over.
+
+                    Same family as P90 — a failing child leaves no gap, so
+                    nothing positional can address a placement.
+                  */}
+                  {mainList.map((p) => (
                     <PlacementRenderer
-                      key={`main:${p.appzet_slug}:${idx}`}
+                      key={`main:${p.key}`}
                       appzetSlug={p.appzet_slug}
                       catalogIndex={catalogIndex}
                       customizations={customizations}
@@ -267,9 +288,9 @@ export function ScreenRenderer({
               )}
               {actionsList.length > 0 && (
                 <section className="appza-renderer-slot" data-slot="actions">
-                  {actionsList.map((p, idx) => (
+                  {actionsList.map((p) => (
                     <PlacementRenderer
-                      key={`act:${p.appzet_slug}:${idx}`}
+                      key={`act:${p.key}`}
                       appzetSlug={p.appzet_slug}
                       catalogIndex={catalogIndex}
                       customizations={customizations}
@@ -282,9 +303,9 @@ export function ScreenRenderer({
               )}
               {otherList.length > 0 && (
                 <section className="appza-renderer-slot" data-slot="other">
-                  {otherList.map((p, idx) => (
+                  {otherList.map((p) => (
                     <PlacementRenderer
-                      key={`oth:${p.appzet_slug}:${idx}`}
+                      key={`oth:${p.key}`}
                       appzetSlug={p.appzet_slug}
                       catalogIndex={catalogIndex}
                       customizations={customizations}
@@ -315,9 +336,9 @@ export function ScreenRenderer({
             {footerList.length > 0 && (
               <IonToolbar>
                 <div className="appza-renderer-footer-slot" data-slot="footer">
-                  {footerList.map((p, idx) => (
+                  {footerList.map((p) => (
                     <PlacementRenderer
-                      key={`ftr:${p.appzet_slug}:${idx}`}
+                      key={`ftr:${p.key}`}
                       appzetSlug={p.appzet_slug}
                       catalogIndex={catalogIndex}
                       customizations={customizations}

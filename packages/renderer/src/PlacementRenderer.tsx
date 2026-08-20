@@ -454,7 +454,15 @@ export function PlacementRenderer({
   const staticParams = Object.keys(resolvedParams).length > 0 ? resolvedParams : undefined;
   const staticState = useDataSource(staticSlug, staticParams);
   const dataState = isPaginated
-    ? { items: pagedState.items, loading: pagedState.loading, error: pagedState.error }
+    ? {
+        items: pagedState.items,
+        loading: pagedState.loading,
+        error: pagedState.error,
+        // The paged hook accumulates across pages, so there is no single
+        // params key its items belong to. Nothing paginated publishes a
+        // verdict today; if one ever does, this needs the same treatment.
+        stale: false,
+      }
     : staticState;
 
   // Sibling DS for _config_apply — some AppZets (fc-space-switcher,
@@ -624,7 +632,15 @@ export function PlacementRenderer({
     // Hold the last verdict while a refetch is in flight. Publishing
     // 'loading' on every keystroke would unmount the search pill — which
     // gates on this value — mid-typing and throw away the text in it.
-    if (dataState.loading) return;
+    //
+    // `loading` alone is not enough: it is set in an effect, so in the
+    // commit where the search changes this still reads false next to the
+    // PREVIOUS search's items. Clearing a search that had matched nothing
+    // therefore published 'empty' — zero items, no search text — and the
+    // search pill and sort strip vanished until the full list landed 1.7s
+    // later. `stale` says the items belong to different params, which is
+    // the question actually being asked.
+    if (dataState.loading || dataState.stale) return;
     const view =
       dataState.items.length > 0
         ? 'list'
@@ -635,6 +651,7 @@ export function PlacementRenderer({
   }, [
     publishesBookmarksView,
     dataState.loading,
+    dataState.stale,
     dataState.items.length,
     bookmarkControls.search,
   ]);
