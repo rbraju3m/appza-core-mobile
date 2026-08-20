@@ -60,6 +60,7 @@ import {
   resetBookmarkControls,
   debounceSearch,
   cancelDebouncedSearch,
+  resolveIcon,
   postMenuSheetPresentation,
   POST_MENU_SHEET_CHILD_COUNT,
   closeChatMembersSheet,
@@ -256,10 +257,25 @@ function applyReactionOptimistic(feedId: number, reactType: string, on: boolean)
     if (btn) {
       const nextIcon = on ? cfg.iconOn : cfg.iconOff;
       const nextColor = on ? cfg.colorOn : 'medium';
+      // Pass the imported SVG data via `icon=`, never a bare kebab
+      // `name=`. Ionicons' built-in name registry does NOT contain
+      // 'heart' / 'bookmark' unless addIcons() was called, and this app
+      // deliberately ships a static import registry instead — so a bare
+      // name resolves to nothing and the glyph DISAPPEARS between the tap
+      // and the refetch, logging an Ionicons warning on the way out.
+      // Falls back to the outline variant, then to the current icon, so
+      // an unknown name can never blank the button.
+      //
+      // plugin-admin has had this right since the reactions work; the
+      // mobile shell kept the old line, which is exactly why the
+      // simulator never showed the warning. Keep the two in step.
+      const resolved =
+        resolveIcon(nextIcon) || resolveIcon(cfg.iconOff) || resolveIcon(cfg.iconOn);
+      if (!resolved) return; // no valid icon at all → leave the DOM alone
       btn.querySelectorAll<HTMLElement>('ion-icon').forEach((ic) => {
-        ic.setAttribute('name', nextIcon);
+        ic.removeAttribute('name');
         ic.removeAttribute('src');
-        ic.removeAttribute('icon');
+        ic.setAttribute('icon', resolved);
       });
       btn.querySelectorAll<HTMLElement>('ion-button').forEach((b) => {
         b.setAttribute('color', nextColor);
