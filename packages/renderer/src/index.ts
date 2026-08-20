@@ -153,6 +153,13 @@ export {
   type BookmarkViewMode,
 } from './bookmarkControls';
 export {
+  debounceSearch,
+  cancelDebouncedSearch,
+  flushDebouncedSearch,
+  SEARCH_DEBOUNCE_MS,
+  type SearchDebounceKey,
+} from './searchDebounce';
+export {
   PostOptionsPopover,
   openPostOptionsPopover,
   setCatalogGlobal,

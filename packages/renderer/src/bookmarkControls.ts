@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { cancelDebouncedSearch } from './searchDebounce';
 
 // Saved Posts screen controls — the search string, the sort key, which of
 // the three layouts is showing, and the derived verdict the gated
@@ -121,6 +122,11 @@ export function setBookmarkControls(patch: Partial<BookmarkControls>): void {
  * becomes active, the same job resetLeaderboardControls does next door.
  */
 export function resetBookmarkControls(): void {
+  // Drop any keystroke still waiting out its debounce interval first.
+  // A write armed on the way out of the screen would land AFTER this
+  // reset and put the abandoned search string back, so reopening Saved
+  // Posts would show "No matches" over a list that is not empty.
+  cancelDebouncedSearch('bookmarks');
   setBookmarkControls({ search: '', view: 'loading' });
 }
 

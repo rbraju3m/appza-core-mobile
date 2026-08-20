@@ -58,6 +58,8 @@ import {
   getBookmarkControls,
   setBookmarkControls,
   resetBookmarkControls,
+  debounceSearch,
+  cancelDebouncedSearch,
   postMenuSheetPresentation,
   POST_MENU_SHEET_CHILD_COUNT,
   closeChatMembersSheet,
@@ -737,6 +739,15 @@ export function App() {
   useEffect(() => {
     if (screen?.app_map_screen_slug !== 'leaderboard') return;
     resetLeaderboardControls();
+  }, [screen?.app_map_screen_slug]);
+
+  // A search keystroke still waiting out its debounce belongs to the
+  // screen it was typed on. Leaving arms nothing new, but a timer already
+  // armed would fire against a screen nobody is looking at and refetch
+  // it. Dropping every channel on a screen change is cheaper than
+  // reasoning about which one is still live.
+  useEffect(() => {
+    cancelDebouncedSearch();
   }, [screen?.app_map_screen_slug]);
 
   // Saved Posts arrives with a clean search box. Sort and layout are
@@ -2665,12 +2676,17 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     case 'bookmarks.set_search': {
       // Fires on every keystroke, including the ⨯ clear — which sends an
       // empty string, and must, since clearing the field is how you get
-      // the whole list back. fc-bookmarks binds `search`, so this is a
-      // refetch rather than a filter over the loaded page.
+      // the whole list back. fc-bookmarks binds `search`, so the WRITE is
+      // a refetch rather than a filter over the loaded page, which is
+      // exactly why it goes through debounceSearch: one request when the
+      // typing stops, not one per character. The clear is applied
+      // immediately — see searchDebounce.ts.
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
       const itemValue =
         itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
-      setBookmarkControls({ search: runtimeValue ?? itemValue ?? '' });
+      debounceSearch('bookmarks', runtimeValue ?? itemValue ?? '', (search) =>
+        setBookmarkControls({ search }),
+      );
       return;
     }
 
@@ -2698,6 +2714,11 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       const itemValue =
         itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
       const value = runtimeValue ?? itemValue ?? '';
+      // NOT debounced, unlike bookmarks and documents. The spaces list
+      // filters CLIENT-SIDE — PlacementRenderer matches title/description
+      // against this value over rows already in hand (fc-spaces-all /
+      // fc-spaces-my), and no DataSource binds it. There is no request to
+      // save, so a debounce would only add lag to a local filter.
       setSpacesControls({ search: value });
       return;
     }
@@ -2809,11 +2830,14 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       // fc-documents-search ion-input. onIonInput grafts the current text
       // onto action.item.value, including when Ionic's ⨯ clears the field
       // (it fires with ''), so one case covers set + clear. The refetch is
-      // automatic: fc-space-documents binds `search` to this state key.
+      // automatic: fc-space-documents binds `search` to this state key —
+      // hence the debounce, and hence the clear landing immediately.
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
       const itemValue =
         itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
-      setSpaceDetailControls({ documents_search: runtimeValue ?? itemValue ?? '' });
+      debounceSearch('documents', runtimeValue ?? itemValue ?? '', (documents_search) =>
+        setSpaceDetailControls({ documents_search }),
+      );
       return;
     }
 
