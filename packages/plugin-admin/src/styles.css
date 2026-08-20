@@ -2186,15 +2186,27 @@ body {
   font-style: italic;
 }
 
-/* The documents FAB is position:fixed in the renderer so it pins to the
-   phone viewport in the real app. In the simulator the phone is a box on
-   a page, so fixed would pin it to the browser window — absolute keeps it
-   in the frame. Same split as the modal backdrops above. */
-.appza-device-viewport .appza-renderer-appzet[data-slug="fc-document-fab"],
-.appza-device-viewport .appza-renderer-appzet[data-slug="fc-chat-home-fab"],
-.appza-device-viewport .appza-renderer-appzet[data-slug="fc-bookmarks-home-fab"] {
-  position: absolute;
-}
+/* The FABs used to be overridden to position:absolute here, on the
+   assumption that the renderer's position:fixed would escape the device
+   frame and pin to the browser window. It does not, and the override was
+   the bug: `.ion-page` carries `contain: layout`, which makes it the
+   containing block for fixed descendants, so a fixed FAB already pins to
+   the PHONE PAGE BOX on both surfaces.
+
+   What absolute actually did was resolve against `ion-content` — inside
+   the scroller — so the FAB scrolled away with the list. Measured
+   2026-08-20 in the simulator: the Saved Posts home button sat 60px too
+   high at rest and left the screen entirely at y=-776 after a 1500px
+   scroll, and the documents FAB tracked the scroll 1:1.
+
+   The modal backdrops above still need their absolute override, and the
+   difference is exactly the containing block: those are mounted at the
+   APP root, outside `.ion-page`, so nothing scopes their `fixed` and it
+   really would resolve against the browser window. Anything rendered as
+   a PLACEMENT is inside `.ion-page` and must keep `fixed`.
+
+   Before adding an override here, check which side of `.ion-page` the
+   element is mounted on. */
 
 /* The schedule sheet is fixed in the renderer so it covers the phone
    viewport in the real app; in the simulator the phone is a box on a
