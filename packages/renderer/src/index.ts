@@ -159,6 +159,7 @@ export {
   SEARCH_DEBOUNCE_MS,
   type SearchDebounceKey,
 } from './searchDebounce';
+export { setPrimitiveInputValue } from './primitiveField';
 export {
   getSearchControls,
   setSearchControls,

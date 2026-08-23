@@ -64,6 +64,7 @@ import {
   clearRecentSearches,
   configureSearchControls,
   resetSearchControls,
+  setPrimitiveInputValue,
   debounceSearch,
   cancelDebouncedSearch,
   resolveIcon,
@@ -2796,6 +2797,11 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       if (argRec.immediate === true) {
         cancelDebouncedSearch('search');
         setSearchControls({ query: value });
+        // The field is UNCONTROLLED (Ionic holds the text), so writing the
+        // slice does not put the term in the box. Without this the tapped
+        // search runs and its results — or its "No matches" — appear over
+        // an EMPTY field, with the reason for them nowhere on screen.
+        setPrimitiveInputValue('fc-search-field', 'children[1]', value);
         // Re-searching something already remembered moves it to the top
         // rather than duplicating it.
         recordRecentSearch(value);

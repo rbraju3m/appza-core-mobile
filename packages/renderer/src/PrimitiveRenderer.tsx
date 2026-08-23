@@ -57,6 +57,7 @@ import {
   chevronUp,
   close,
   closeCircle,
+  closeOutline,
   copy,
   copyOutline,
   closeCircleOutline,
@@ -270,6 +271,11 @@ const ICON_REGISTRY: Record<string, string> = {
   'checkmark-circle': checkmarkCircle,
   'checkmark-circle-outline': checkmarkCircleOutline,
   close,
+  // The ⨯ on a Search screen recent row. Registered because the registry
+  // is EXPLICIT — a dynamic ionicons lookup gets tree-shaken away, so an
+  // unregistered name renders as nothing at all (P100). The renderer warns
+  // when it happens; this one was caught by that warning.
+  'close-outline': closeOutline,
   'close-circle': closeCircle,
   copy,
   'copy-outline': copyOutline,
