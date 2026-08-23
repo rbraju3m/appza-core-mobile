@@ -18,6 +18,7 @@ import { useSpaceDetailControls } from './spaceDetailControls';
 import { useChatControls } from './chatControls';
 import { useLeaderboardControls } from './leaderboardControls';
 import { useBookmarkControls } from './bookmarkControls';
+import { useSearchControls } from './searchControls';
 
 type ScreenRendererProps = {
   screen: TemplateScreen;
@@ -89,6 +90,7 @@ export function ScreenRenderer({
   const chatControls = useChatControls();
   const leaderboardControls = useLeaderboardControls();
   const bookmarkControls = useBookmarkControls();
+  const searchControls = useSearchControls();
   // Placement-level visible_when reads out of this bag via
   // `binding.slice(6)` (i.e. `state.<key>` → `<key>`). Register nested
   // paths as flat keys so `state.space_detail_controls.active_subtab`
@@ -132,6 +134,27 @@ export function ScreenRenderer({
       'bookmark_controls.search': bookmarkControls.search,
       'bookmark_controls.sort': bookmarkControls.sort,
       'bookmark_controls.view_mode': bookmarkControls.viewMode,
+      // Search. Three keys carry the whole screen.
+      //
+      // `view` is the six-way verdict everything except the three result
+      // cards gates on: 'recent' | 'prompt' | 'typing' | 'loading' |
+      // 'results' | 'no-match'.
+      //
+      // `active_scope` is what the three result CARDS gate on, and it is
+      // deliberately not `tab`: it stays '' until the query is long enough,
+      // so a short query mounts no card, fires no request, and cannot ask
+      // /feeds for everything it has with an empty search. It also keeps
+      // exactly one card mounted, which is what makes one request per
+      // settled query true rather than three.
+      //
+      // `tab` is here because the two-condition no-match placements pair it
+      // with `view` — the AND-list case the evaluator below grew for.
+      'search_controls.view': searchControls.view,
+      'search_controls.active_scope': searchControls.active_scope,
+      'search_controls.tab': searchControls.tab,
+      'search_controls.post_scope': searchControls.post_scope,
+      'search_controls.query': searchControls.query,
+      'search_controls.noun': searchControls.noun,
     }),
     [
       spacesControls.tab,
@@ -158,6 +181,12 @@ export function ScreenRenderer({
       bookmarkControls.search,
       bookmarkControls.sort,
       bookmarkControls.viewMode,
+      searchControls.view,
+      searchControls.active_scope,
+      searchControls.tab,
+      searchControls.post_scope,
+      searchControls.query,
+      searchControls.noun,
     ],
   );
 
@@ -446,16 +475,44 @@ function readScreenTitle(screen: TemplateScreen): string {
  * pre-item). Fail-open on missing / unparseable shapes so a catalog that
  * ships an unknown op or binding root still shows the placement.
  *
- * Grammar mirrors the per-child evaluator in PlacementRenderer:
- *   { binding: 'state.spaces_tab', op: '==', value: 'all' }
+ * Two accepted shapes:
+ *
+ *   { binding: 'state.spaces_tab', op: '==', value: 'all' }            one clause
+ *   [ { ... }, { ... } ]                                               ALL must pass
+ *
+ * The list form arrived with the Search screen (2026-08-23), whose no-match
+ * placements have to say "this tab AND nothing matched" — two facts that no
+ * single binding holds. The alternative was deriving another slice key per
+ * such pair, which would have meant minting one forever.
+ *
+ * It is an AND-list, not an OR-list, to match the per-child `conditions`
+ * grammar D45 already locked. Nothing here is an OR: a placement that needs
+ * one is two placements.
  */
 function evaluatePlacementVisibleWhen(
   placement: Record<string, unknown>,
   stateBag: Record<string, unknown>,
 ): boolean {
   const vw = placement['visible_when'];
-  if (!vw || typeof vw !== 'object' || Array.isArray(vw)) return true;
-  const rec = vw as Record<string, unknown>;
+  if (!vw || typeof vw !== 'object') return true;
+  if (Array.isArray(vw)) {
+    // An EMPTY list is not "hide everything" — it is a catalog row that
+    // says nothing, and saying nothing has always meant show.
+    if (vw.length === 0) return true;
+    return vw.every((clause) =>
+      clause && typeof clause === 'object' && !Array.isArray(clause)
+        ? evaluateVisibleWhenClause(clause as Record<string, unknown>, stateBag)
+        : true,
+    );
+  }
+  return evaluateVisibleWhenClause(vw as Record<string, unknown>, stateBag);
+}
+
+/** One `{binding, op, value}` clause. See the grammar note above. */
+function evaluateVisibleWhenClause(
+  rec: Record<string, unknown>,
+  stateBag: Record<string, unknown>,
+): boolean {
   const binding = typeof rec['binding'] === 'string' ? (rec['binding'] as string) : '';
   const op = typeof rec['op'] === 'string' ? (rec['op'] as string) : '';
   const value = 'value' in rec ? rec['value'] : undefined;

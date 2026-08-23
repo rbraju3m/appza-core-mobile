@@ -14,13 +14,20 @@
 // one round trip and one per letter, and the answers race: nothing
 // guarantees the reply for "zzzqq" lands before the reply for "zzzq".
 //
-// Two of the three search fields are wired this way — bookmarks and
-// space documents, both of which bind `search` as a DataSource
-// query_param. The SPACES search is deliberately absent from this
-// module: it filters client-side in PlacementRenderer over rows already
-// in hand, so there is no request to save and a debounce would only make
-// a local filter feel slow. If a third field is added, debounce it only
-// if a DataSource binds it.
+// Three of the four search fields are wired this way — bookmarks, space
+// documents and the Search screen, all of which bind `search` as a
+// DataSource query_param. The SPACES search is deliberately absent from
+// this module: it filters client-side in PlacementRenderer over rows
+// already in hand, so there is no request to save and a debounce would
+// only make a local filter feel slow. If another field is added,
+// debounce it only if a DataSource binds it (P97).
+//
+// The Search screen channel carries one extra job the other two do not:
+// the settled write is also when a term is REMEMBERED. Recording per
+// keystroke would fill the recent list with every prefix of every word,
+// so `recordRecentSearch` hangs off the debounce landing, not the
+// dispatch. A recent ROW, by contrast, hands over a whole term at once
+// and bypasses this module entirely — there is nothing to wait for.
 //
 // This module sits between the dispatcher and the slice write. The
 // keystrokes still arrive one at a time; only the WRITE is delayed, so
@@ -34,7 +41,7 @@ export const SEARCH_DEBOUNCE_MS = 300;
  * Identifies a debounce channel. One per SERVER-BACKED search field, so
  * typing in space documents cannot cancel a pending bookmarks write.
  */
-export type SearchDebounceKey = 'bookmarks' | 'documents';
+export type SearchDebounceKey = 'bookmarks' | 'documents' | 'search';
 
 type Pending = {
   timer: ReturnType<typeof setTimeout>;

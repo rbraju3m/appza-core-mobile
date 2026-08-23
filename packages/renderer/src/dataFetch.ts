@@ -5,6 +5,7 @@ import { getFeedControls } from './feedControls';
 import { getChatControls } from './chatControls';
 import { getLeaderboardControls } from './leaderboardControls';
 import { getBookmarkControls } from './bookmarkControls';
+import { getSearchControls } from './searchControls';
 
 /**
  * useDataSource(slug, params) — fetch a list payload for an AppZet's
@@ -21,6 +22,10 @@ import { getBookmarkControls } from './bookmarkControls';
  *
  * Behaviour:
  *   - Returns { items, loading, error }.
+ *   - A DataSource carrying `client_state_binding` never fetches at all:
+ *     its rows are an array on a renderer state slice, read directly and
+ *     re-read whenever that slice announces a change. Used by the Search
+ *     screen's recent-search list, whose four histories are device-local.
  *   - On HTTP error or schema mismatch, falls back to a small fixture
  *     dataset baked into the proxy (so local dev with broken WP plugins
  *     still renders a useful preview).
@@ -100,6 +105,27 @@ const STATE_SLICE_GETTERS: Record<string, () => Record<string, unknown>> = {
   chat_controls: () => getChatControls() as unknown as Record<string, unknown>,
   leaderboard_controls: () => getLeaderboardControls() as unknown as Record<string, unknown>,
   bookmark_controls: () => getBookmarkControls() as unknown as Record<string, unknown>,
+  search_controls: () => getSearchControls() as unknown as Record<string, unknown>,
+};
+
+/**
+ * Which window event announces a change to each slice.
+ *
+ * Only `client_state_binding` sources need this: they have no fetch to
+ * re-run, so re-reading is their only way of noticing a change. Written out
+ * per slice rather than derived from the key by string-mangling — the
+ * mangling would happen to work for all seven of these, and would fail
+ * silently the first time a slice was named something that did not
+ * transliterate, which is precisely the bug nobody goes looking for.
+ */
+const STATE_SLICE_EVENTS: Record<string, string> = {
+  spaces_controls: 'appza:spaces-controls-change',
+  space_detail_controls: 'appza:space-detail-controls-change',
+  feed_controls: 'appza:feed-controls-change',
+  chat_controls: 'appza:chat-controls-change',
+  leaderboard_controls: 'appza:leaderboard-controls-change',
+  bookmark_controls: 'appza:bookmark-controls-change',
+  search_controls: 'appza:search-controls-change',
 };
 
 /** Legacy flat-key bindings kept for spacesControls callers pre-arc. */
@@ -111,7 +137,7 @@ const LEGACY_FLAT_STATE_BAG: Record<string, () => unknown> = {
   feed_view_mode: () => getFeedControls().viewMode,
 };
 
-function readStateBinding(binding: string): unknown {
+export function readStateBinding(binding: string): unknown {
   if (!binding.startsWith('state.')) return undefined;
   const path = binding.slice(6);
   if (path.length === 0) return undefined;
@@ -215,9 +241,57 @@ function buildProxyUrl(
   return url.toString();
 }
 
+/**
+ * Read a `client_state_binding` source: the rows are an array sitting on a
+ * renderer state slice, so there is nothing to fetch.
+ *
+ * Subscribes to that slice's change event, because re-reading is the only
+ * way such a source learns anything changed — no params move, so the fetch
+ * effect below would never re-run.
+ *
+ * Returns `stale: false` unconditionally: the answer is always for the
+ * question being asked right now. That is the whole difference between this
+ * and a fetch, and it is why the P99 guard has nothing to do here.
+ */
+function useClientStateSource(binding: string): DataSourceState {
+  const [items, setItems] = useState<unknown[]>(() => (binding ? readStateArray(binding) : []));
+  useEffect(() => {
+    if (typeof window === 'undefined' || !binding) return;
+    const slice = binding.startsWith('state.') ? binding.slice(6).split('.')[0] : '';
+    const event = slice ? STATE_SLICE_EVENTS[slice] : undefined;
+    if (!event) {
+      // A binding naming a slice with no registered event still READS
+      // correctly — it just never updates. Say so, loudly: silence here
+      // looks exactly like "the list is empty".
+      console.warn(
+        `[appza] client_state_binding "${binding}" names a slice with no change event registered; the list will not refresh.`,
+      );
+      return;
+    }
+    const onChange = () => setItems(readStateArray(binding));
+    window.addEventListener(event, onChange);
+    // Re-read on subscribe: the slice may have changed between the
+    // useState initialiser and this effect.
+    onChange();
+    return () => window.removeEventListener(event, onChange);
+  }, [binding]);
+  return { items, loading: false, error: null, stale: false };
+}
+
+function readStateArray(binding: string): unknown[] {
+  const value = readStateBinding(binding);
+  return Array.isArray(value) ? value : [];
+}
+
 export function useDataSource(
   slug: string | undefined,
   params?: Record<string, unknown>,
+  /**
+   * The DataSource row's `client_state_binding`, when it has one. Passed in
+   * rather than looked up, because this hook never sees the catalog — it
+   * only ever knew a slug.
+   */
+  clientStateBinding?: string | null,
 ): DataSourceState {
   const [state, setState] = useState<FetchState>({ items: [], loading: !!slug, error: null });
   // The (slug, params) the items currently in `state` were fetched for.
@@ -244,8 +318,17 @@ export function useDataSource(
     };
   }, []);
 
+  // Called unconditionally with '' when this is an ordinary HTTP source —
+  // hook order has to stay stable across renders, so the branch is in what
+  // we RETURN, not in whether the hook runs.
+  const clientState = useClientStateSource(clientStateBinding || '');
+
   useEffect(() => {
-    if (!slug) {
+    // A client-state source has nothing to fetch, and must not fall through
+    // to the proxy: its `endpoint` is '' by construction, so a fetch would
+    // hit the proxy with no route and answer with the fixture fallback —
+    // demo rows presented as the viewer's own recent searches.
+    if (!slug || clientStateBinding) {
       setState({ items: [], loading: false, error: null });
       return;
     }
@@ -330,7 +413,9 @@ export function useDataSource(
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, paramsKey, previewMode, refreshTick]);
+  }, [slug, paramsKey, previewMode, refreshTick, clientStateBinding]);
+
+  if (clientStateBinding) return clientState;
 
   const stale = !!slug && loadedKeyRef.current !== `${slug}|${paramsKey}`;
   return { ...state, stale };

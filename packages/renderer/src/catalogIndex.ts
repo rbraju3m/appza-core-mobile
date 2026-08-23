@@ -19,6 +19,15 @@ export type DataSourceRow = {
   id: number;
   slug: string;
   endpoint?: string;
+  /**
+   * When set, this source reads a renderer state slice instead of
+   * fetching — `endpoint` is '' on such rows and the binding is the
+   * discriminator. Shape: `state.<slice>.<key>`, resolved through the
+   * same getters `query_params` bindings use, and expected to hold an
+   * array. Used by the Search screen's recent-search list, whose four
+   * per-scope histories are device-local and have no endpoint anywhere.
+   */
+  client_state_binding?: string | null;
   http_method?: string;
   /**
    * Declarative query-param config. Two shapes:

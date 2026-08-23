@@ -8385,3 +8385,312 @@ audio.appza-video-embed-native {
   font-size: var(--appza-chevron-size, 16px);
   color: var(--appza-chevron-color, #a2a3a7);
 }
+
+/* ==========================================================
+ * Search — one screen, four scopes (2026-08-23)
+ *
+ * Ten designs, and most of the screen is already built: the field rides
+ * fc-documents-search, the five placeholder states ride
+ * fc-documents-empty, the results ride the post / member / space cards
+ * the rest of the app uses, and the home button rides fc-chat-home-fab.
+ * Every rule keyed on those SS slugs already applies — what follows is
+ * only what differs, plus the three Superstructures this screen added.
+ *
+ * Colours measured off the designs: page #f6f7fb, white field on a blue
+ * #2a5cff focus ring, grey #e9eaec segment track with a white raised
+ * pill, and the Content/Comments pair in #2a5cff on a #dbe7ff bed. The
+ * home button keeps #4c5fdf, the same different-blue Saved Posts
+ * carries — two blues in one design set, carried rather than reconciled.
+ * ========================================================== */
+
+[data-screen-slug="search"] .appza-renderer-screen,
+[data-screen-slug="search"] ion-content {
+  --background: #f6f7fb;
+  background: #f6f7fb;
+}
+
+/* The field, the two strips and the hairline under them read as ONE
+   white header block sitting on the page colour — designs 1, 2 and 3
+   draw a single card behind all three. They are separate placements, so
+   the block is assembled from their backgrounds rather than a wrapper. */
+[data-screen-slug="search"] .appza-renderer-appzet[data-slug="fc-search-field"],
+[data-screen-slug="search"] .appza-renderer-appzet[data-slug="fc-search-tabs"],
+[data-screen-slug="search"] .appza-renderer-appzet[data-slug="fc-search-scope-tabs"] {
+  background: #ffffff;
+}
+/* The hairline closes the block, so it belongs to whichever strip is
+   LAST — and that changes with the tab. `:last-of-type` cannot see
+   across placements, so both carry it and the scope strip's wins by
+   simply being lower when it is present. */
+[data-screen-slug="search"] .appza-renderer-appzet[data-slug="fc-search-tabs"],
+[data-screen-slug="search"] .appza-renderer-appzet[data-slug="fc-search-scope-tabs"] {
+  border-bottom: 1px solid #e6e8ef;
+}
+[data-screen-slug="search"]
+  .appza-renderer-appzet[data-slug="fc-search-tabs"]:has(
+    + .appza-renderer-appzet[data-slug="fc-search-scope-tabs"]
+  ) {
+  border-bottom: 0;
+}
+
+/* The field is WHITE with a blue ring, which is how every design draws
+   it — focused or not. fc-documents-search paints it grey on white for
+   the documents tab; same Superstructure, different ground. */
+.appza-renderer-appzet[data-slug="fc-search-field"] .appza-renderer-ss {
+  border: 1.5px solid var(--appza-search-border-color, #2a5cff);
+  border-radius: var(--appza-search-radius, 10px);
+  background: var(--appza-search-bg-color, #ffffff);
+}
+
+/* ---------- fc-search-tabs — one strip, two looks ---------- */
+/* Both strips ride this Superstructure, so they are told apart by AppZet
+   slug — which is also what `variant` names in the catalog, and the two
+   have to agree. The ACTIVE entry is found by `data-active`, stamped by
+   the renderer on whichever expanded child matches the slice, so no
+   per-value selector is written here: adding a fourth tab is a catalog
+   row and no CSS at all. */
+
+.appza-renderer-ss[data-slug="fc-search-tabs"] {
+  display: flex;
+  align-items: stretch;
+  gap: var(--appza-gap, 0px);
+  width: 100%;
+}
+.appza-renderer-ss[data-slug="fc-search-tabs"] > * {
+  flex: 1 1 0;
+  min-width: 0;
+  position: relative;
+}
+.appza-renderer-ss[data-slug="fc-search-tabs"] ion-button {
+  --background: transparent;
+  --background-hover: transparent;
+  --background-activated: transparent;
+  --box-shadow: none;
+  --border-radius: var(--appza-tab-radius, 8px);
+  --padding-start: 4px;
+  --padding-end: 4px;
+  --color: var(--appza-tab-text-color, #525866);
+  margin: 0;
+  width: 100%;
+  height: var(--appza-tab-height, 36px);
+  font-size: var(--appza-font-size, 15px);
+  font-weight: var(--appza-font-weight, 600);
+  text-transform: none;
+  letter-spacing: 0;
+}
+/* wp-admin styles `button` in the light DOM and outranks Ionic's own
+   colour on the HOST, which is why bare ion-buttons read WordPress blue
+   in the simulator (P79). Both halves have to be said. */
+.appza-renderer-ss[data-slug="fc-search-tabs"] ion-button::part(native) {
+  color: var(--appza-tab-text-color, #525866);
+  background: transparent;
+}
+
+/* Segmented — the Posts / Members / Spaces strip. A grey track with a
+   white pill that lifts under the active entry. */
+.appza-renderer-appzet[data-slug="fc-search-tabs"]
+  .appza-renderer-ss[data-slug="fc-search-tabs"] {
+  background: var(--appza-track-bg-color, #e9eaec);
+  border-radius: var(--appza-track-radius, 10px);
+  padding: var(--appza-track-padding, 4px);
+}
+.appza-renderer-appzet[data-slug="fc-search-tabs"]
+  .appza-renderer-ss[data-slug="fc-search-tabs"] [data-active="true"] ion-button {
+  --background: var(--appza-active-bg-color, #ffffff);
+  --background-hover: var(--appza-active-bg-color, #ffffff);
+  --background-activated: var(--appza-active-bg-color, #ffffff);
+  --color: var(--appza-active-color, #0e121b) !important;
+  --box-shadow: 0 1px 2px rgba(13, 17, 26, 0.12);
+}
+.appza-renderer-appzet[data-slug="fc-search-tabs"]
+  .appza-renderer-ss[data-slug="fc-search-tabs"] [data-active="true"] ion-button::part(native) {
+  color: var(--appza-active-color, #0e121b) !important;
+  background: var(--appza-active-bg-color, #ffffff);
+  box-shadow: 0 1px 2px rgba(13, 17, 26, 0.12);
+}
+
+/* Outlined — the Content / Comments pair. Bordered buttons, the active
+   one filled. No track behind them; the gap is real space. */
+.appza-renderer-appzet[data-slug="fc-search-scope-tabs"]
+  .appza-renderer-ss[data-slug="fc-search-tabs"] {
+  background: transparent;
+  padding: 0;
+}
+.appza-renderer-appzet[data-slug="fc-search-scope-tabs"]
+  .appza-renderer-ss[data-slug="fc-search-tabs"] ion-button {
+  --background: var(--appza-tab-bg-color, #ffffff);
+  --background-hover: var(--appza-tab-bg-color, #ffffff);
+  --background-activated: var(--appza-tab-bg-color, #ffffff);
+  --border-width: 1px;
+  --border-style: solid;
+  --border-color: var(--appza-tab-border-color, #cdd0d5);
+  --color: var(--appza-tab-text-color, #0e121b);
+  height: var(--appza-tab-height, 44px);
+}
+.appza-renderer-appzet[data-slug="fc-search-scope-tabs"]
+  .appza-renderer-ss[data-slug="fc-search-tabs"] [data-active="true"] ion-button {
+  --background: var(--appza-active-bg-color, #dbe7ff) !important;
+  --background-hover: var(--appza-active-bg-color, #dbe7ff) !important;
+  --background-activated: var(--appza-active-bg-color, #dbe7ff) !important;
+  --border-color: var(--appza-active-border-color, #2a5cff) !important;
+  --color: var(--appza-active-color, #2a5cff) !important;
+}
+.appza-renderer-appzet[data-slug="fc-search-scope-tabs"]
+  .appza-renderer-ss[data-slug="fc-search-tabs"] [data-active="true"] ion-button::part(native) {
+  color: var(--appza-active-color, #2a5cff) !important;
+  background: var(--appza-active-bg-color, #dbe7ff);
+  border-color: var(--appza-active-border-color, #2a5cff);
+}
+
+/* ---------- fc-search-recents-header — RECENT + Clear ---------- */
+
+.appza-renderer-ss[data-slug="fc-search-recents-header"] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: var(--appza-row-padding, 14px 16px 8px);
+}
+.appza-renderer-ss[data-slug="fc-search-recents-header"] [data-child-index="0"] ion-text {
+  display: block;
+  color: var(--appza-title-color, #525866);
+  font-size: var(--appza-title-size, 12px);
+  font-weight: var(--appza-title-weight, 600);
+  letter-spacing: var(--appza-letter-spacing, 0.06em);
+}
+.appza-renderer-ss[data-slug="fc-search-recents-header"] [data-child-index="1"] ion-button {
+  --background: transparent;
+  --background-hover: transparent;
+  --background-activated: transparent;
+  --box-shadow: none;
+  --padding-start: 0;
+  --padding-end: 0;
+  --color: var(--appza-clear-color, #2a5cff);
+  margin: 0;
+  height: auto;
+  min-height: 0;
+  font-size: var(--appza-clear-size, 14px);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.appza-renderer-ss[data-slug="fc-search-recents-header"] [data-child-index="1"] ion-button::part(native) {
+  color: var(--appza-clear-color, #2a5cff);
+  padding: 0;
+}
+
+/* ---------- fc-search-recent-row — one remembered term ---------- */
+/* Built inside out (P94): children[0] is an INVISIBLE full-width button
+   covering the row, and the glyph, term and ⨯ are painted above it. An
+   ion-button centres its label inside the shadow root where no CSS of
+   ours reaches, and an ion-button with empty text falls back to printing
+   the primitive's NAME — which would read "BUTTON" straight through the
+   term. font-size: 0 is what stops that. */
+
+.appza-renderer-ss[data-slug="fc-search-recent-row"] {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--appza-row-gap, 12px);
+  min-height: var(--appza-row-height, 44px);
+  padding: var(--appza-row-padding, 0 16px);
+  border-bottom: 1px solid var(--appza-divider-color, transparent);
+}
+.appza-renderer-ss[data-slug="fc-search-recent-row"] [data-child-index="0"] {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.appza-renderer-ss[data-slug="fc-search-recent-row"] [data-child-index="0"] ion-button {
+  --background: transparent;
+  --background-hover: transparent;
+  --background-activated: rgba(13, 17, 26, 0.04);
+  --box-shadow: none;
+  --border-radius: 0;
+  --padding-start: 0;
+  --padding-end: 0;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  font-size: 0;
+}
+/* Everything painted over the overlay ignores pointer events, so any tap
+   that is not on the ⨯ falls through to the row button beneath. */
+.appza-renderer-ss[data-slug="fc-search-recent-row"] [data-child-index="1"],
+.appza-renderer-ss[data-slug="fc-search-recent-row"] [data-child-index="2"] {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+.appza-renderer-ss[data-slug="fc-search-recent-row"] [data-child-index="1"] {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.appza-renderer-ss[data-slug="fc-search-recent-row"] [data-child-index="1"] ion-icon {
+  font-size: var(--appza-icon-size, 18px);
+  color: var(--appza-icon-color, #a2a3a7);
+}
+.appza-renderer-ss[data-slug="fc-search-recent-row"] [data-child-index="2"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.appza-renderer-ss[data-slug="fc-search-recent-row"] [data-child-index="2"] ion-text {
+  display: block;
+  color: var(--appza-text-color, #0e121b);
+  font-size: var(--appza-text-size, 15px);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The ⨯ keeps its own pointer events — it is the second tap target, and
+   the only reason this row is a Data-Source-backed card rather than a
+   children_from_prop strip. */
+.appza-renderer-ss[data-slug="fc-search-recent-row"] [data-child-index="3"] {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.appza-renderer-ss[data-slug="fc-search-recent-row"] [data-child-index="3"] ion-button {
+  --background: transparent;
+  --background-hover: transparent;
+  --background-activated: transparent;
+  --box-shadow: none;
+  --padding-start: 6px;
+  --padding-end: 6px;
+  --color: var(--appza-remove-color, #a2a3a7);
+  margin: 0;
+  height: 32px;
+  font-size: 0;
+}
+.appza-renderer-ss[data-slug="fc-search-recent-row"] [data-child-index="3"] ion-icon {
+  font-size: var(--appza-remove-size, 18px);
+  color: var(--appza-remove-color, #a2a3a7);
+}
+
+/* ---------- The five placeholder states ---------- */
+/* All on fc-documents-empty. They sit high on the page rather than under
+   a list, same as Saved Posts' two. */
+[data-screen-slug="search"] .appza-renderer-appzet[data-slug="fc-search-prompt"] .appza-renderer-ss,
+[data-screen-slug="search"] .appza-renderer-appzet[data-slug="fc-search-typing"] .appza-renderer-ss,
+[data-screen-slug="search"] .appza-renderer-appzet[data-slug="fc-search-no-match-posts"] .appza-renderer-ss,
+[data-screen-slug="search"] .appza-renderer-appzet[data-slug="fc-search-no-match-members"] .appza-renderer-ss,
+[data-screen-slug="search"] .appza-renderer-appzet[data-slug="fc-search-no-match-spaces"] .appza-renderer-ss {
+  padding: var(--appza-row-padding, 90px 24px 0);
+}
+
+/* ---------- The home button ---------- */
+/* Fixed for the same reason the other three FABs are: it pins to the
+   phone viewport while the results scroll under it. The simulator must
+   NOT override this to absolute — that resolves against ion-content,
+   inside the scroller, and the button rides the scroll away (P102). */
+.appza-renderer-appzet[data-slug="fc-search-home-fab"] {
+  position: fixed;
+  right: var(--appza-offset-right, 18px);
+  bottom: calc(var(--appza-nav-h, 56px) + var(--appza-offset-bottom, 24px));
+  z-index: 20;
+  padding: 0;
+}

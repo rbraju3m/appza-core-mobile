@@ -3,7 +3,13 @@ import { IonInfiniteScroll, IonInfiniteScrollContent } from '@ionic/react';
 import type { AppZet, LayoutStyle, PropertiesSchemaEntry, Superstructure } from '@appza/schemas';
 import type { CatalogIndex } from './catalogIndex';
 import { PrimitiveRenderer } from './PrimitiveRenderer';
-import { readDataPath, resolveQueryParams, useDataSource, useDataSourcePaged } from './dataFetch';
+import {
+  readDataPath,
+  readStateBinding,
+  resolveQueryParams,
+  useDataSource,
+  useDataSourcePaged,
+} from './dataFetch';
 import { isRecord, readOverride, resolveOverridableColumn } from './resolveOverride';
 import { layoutStyleToCss } from './layoutStyle';
 import { useActionDispatch, type ActionInvocation } from './actionContext';
@@ -13,6 +19,7 @@ import { setSpaceDetailControls, useSpaceDetailControls } from './spaceDetailCon
 import { setChatControls, useChatControls } from './chatControls';
 import { setLeaderboardControls, useLeaderboardControls } from './leaderboardControls';
 import { setBookmarkControls, useBookmarkControls } from './bookmarkControls';
+import { publishSearchFetchView, useSearchControls } from './searchControls';
 import { useDocumentDraft } from './documentDraft';
 import { useFcRuntimeSettings } from './fcRuntimeSettings';
 import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
@@ -187,6 +194,11 @@ export function PlacementRenderer({
   // fc-bookmarks binds search and sort as query params, and the
   // three-way empty verdict is published from here after each fetch.
   const bookmarkControls = useBookmarkControls();
+  // Search screen controls. Read unconditionally for stable hook order,
+  // same as every slice above — both strips read it to mark their active
+  // entry, three DataSources bind it as query params, and the fetch
+  // verdict is published from here.
+  const searchControls = useSearchControls();
   const draftTopicValues = useMemo(
     () => new Set(documentDraft.topic_ids.map((id) => String(id))),
     [documentDraft.topic_ids],
@@ -452,7 +464,11 @@ export function PlacementRenderer({
   });
   const staticSlug = isPaginated ? undefined : dataSource?.slug;
   const staticParams = Object.keys(resolvedParams).length > 0 ? resolvedParams : undefined;
-  const staticState = useDataSource(staticSlug, staticParams);
+  // A source declaring `client_state_binding` reads a renderer state slice
+  // instead of fetching (the Search screen's recent-search list). The hook
+  // never sees the catalog, so the binding has to travel with the slug.
+  const clientStateBinding = dataSource?.client_state_binding || null;
+  const staticState = useDataSource(staticSlug, staticParams, clientStateBinding);
   const dataState = isPaginated
     ? {
         items: pagedState.items,
@@ -655,6 +671,34 @@ export function PlacementRenderer({
     dataState.items.length,
     bookmarkControls.search,
   ]);
+
+  // Search (2026-08-23). Three DIFFERENT sources publish into ONE key,
+  // and that only works because exactly one of them is ever mounted:
+  // the three result cards gate on `active_scope`, which holds a single
+  // tab value at a time and '' while the query is too short. Nothing here
+  // arbitrates between them, because nothing has to.
+  //
+  // Narrower than the bookmarks verdict next door: this one only ever
+  // says what the FETCH found. The three states that happen with no card
+  // mounted — a history to show, no history, a query too short — are
+  // derived inside the slice from the query and the recents, because no
+  // fetch is running to publish them.
+  const searchResultSlugs = ['fc-search-posts', 'fc-search-members', 'fc-search-spaces'];
+  const publishesSearchView = searchResultSlugs.includes(dataSource?.slug ?? '');
+  useEffect(() => {
+    if (!publishesSearchView) return;
+    // `stale`, not just `loading` — P99. In the commit where the query
+    // changes, `loading` still reads false beside the PREVIOUS query's
+    // items, so a verdict taken here would be taken about the wrong
+    // answer. On this screen that would flash "No matching posts" over
+    // results that are about to arrive, and tear the no-match state on
+    // and off between every pair of keystrokes.
+    if (dataState.loading || dataState.stale) {
+      publishSearchFetchView('loading');
+      return;
+    }
+    publishSearchFetchView(dataState.items.length > 0 ? 'results' : 'no-match');
+  }, [publishesSearchView, dataState.loading, dataState.stale, dataState.items.length]);
 
   // The composer's gate. A footer placement has no row of its own to
   // read, and a placement can read state and nothing else — so whether
@@ -1232,6 +1276,24 @@ export function PlacementRenderer({
     'sort_text_color',
     'sort_icon_color',
     'view_icon_color',
+    // Search screen (2026-08-23). `track_*`, `row_padding`, `row_gap`,
+    // `active_bg_color`, `active_color`, `active_border_color`,
+    // `font_size`, `font_weight`, `gap`, `icon_color`, `icon_size`,
+    // `text_color`, `divider_color`, `title_color`, `title_size`,
+    // `title_weight`, `letter_spacing` and the `search_*` set are all
+    // already above and reused on purpose — same rule as every block
+    // before this one: one CSS vocabulary, not a parallel search_* set.
+    'tab_bg_color',
+    'tab_text_color',
+    'tab_border_color',
+    'tab_radius',
+    'tab_height',
+    'clear_color',
+    'clear_size',
+    'remove_color',
+    'remove_size',
+    'row_height',
+    'text_size',
   ]);
   // Aliases: some knobs also drive Ionic's own CSS custom properties
   // directly. Custom props inherit through shadow DOM (unlike `background`
@@ -1336,6 +1398,14 @@ export function PlacementRenderer({
               // Rides fc-space-subtabs' Superstructure but reads a
               // different slice, so it cannot fall into the first branch.
               appzet.slug === 'fc-leaderboard-tabs' ? leaderboardControls.range :
+              // Search's two strips (2026-08-23). One Superstructure wearing
+              // two looks, reading two different keys of the same slice — so,
+              // like the leaderboard above, neither can fall into an earlier
+              // branch. The active entry is marked with data-active rather
+              // than by pairing a wrapper attribute against each value, which
+              // is what the CSS keys on.
+              appzet.slug === 'fc-search-tabs' ? searchControls.tab :
+              appzet.slug === 'fc-search-scope-tabs' ? searchControls.post_scope :
               undefined
             }
             activeChildValues={
@@ -1606,6 +1676,14 @@ export function PlacementRenderer({
                 appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug :
                 appzet.slug === 'fc-spaces-tabs' ? spacesTab :
                 appzet.slug === 'fc-leaderboard-tabs' ? leaderboardControls.range :
+                // Search's two strips (2026-08-23). One Superstructure wearing
+                // two looks, reading two different keys of the same slice — so,
+                // like the leaderboard above, neither can fall into an earlier
+                // branch. The active entry is marked with data-active rather
+                // than by pairing a wrapper attribute against each value, which
+                // is what the CSS keys on.
+                appzet.slug === 'fc-search-tabs' ? searchControls.tab :
+                appzet.slug === 'fc-search-scope-tabs' ? searchControls.post_scope :
                 undefined
               }
               activeChildValues={
@@ -2686,11 +2764,12 @@ function computeChildOverrides(ss: Superstructure, appzet: AppZet): ChildOverrid
     const parsed = parseBindsTo(bind);
     if (!parsed) continue;
 
-    const value =
+    const raw =
       overrides && entry.name in overrides
         ? overrides[entry.name]
         : entry.default;
-    if (value === undefined || value === null) continue;
+    if (raw === undefined || raw === null) continue;
+    const value = interpolateStateTokens(raw);
 
     const bucket = result[parsed.index] ?? {};
     bucket[parsed.propName] = value;
@@ -2723,6 +2802,37 @@ function computeChildLayoutStyles(
     }
   }
   return result;
+}
+
+/**
+ * Substitutes `{state.<slice>.<key>}` tokens inside a catalog prop string.
+ *
+ * Two designs need a prop to carry live state, and neither can be served by
+ * a per-value AppZet:
+ *
+ *   - the search field's placeholder follows the tab ("Search posts" /
+ *     "Search members" / "Search spaces"). Three tab-gated fields would
+ *     have worked visually and been wrong: IonInput renders UNCONTROLLED,
+ *     so remounting one clears the text the viewer typed, and design 4
+ *     shows that text surviving a tab switch.
+ *   - the no-match line echoes the query — `No posts matched "wibble"`.
+ *
+ * Deliberately narrow. Only `state.*` resolves; anything else is left
+ * alone, so a literal brace in copy stays a literal brace. An unresolvable
+ * binding collapses to an empty string rather than printing its own path,
+ * because a user seeing `No posts matched "{state.search_controls.query}"`
+ * is worse than seeing an empty pair of quotes.
+ *
+ * Non-strings pass straight through: most props are booleans, sizes and
+ * colours, and the `indexOf` guard means those cost nothing.
+ */
+function interpolateStateTokens(value: unknown): unknown {
+  if (typeof value !== 'string' || value.indexOf('{state.') === -1) return value;
+  return value.replace(/\{(state\.[a-z0-9_]+(?:\.[a-z0-9_]+)*)\}/gi, (_match, binding: string) => {
+    const resolved = readStateBinding(binding);
+    if (resolved === undefined || resolved === null) return '';
+    return typeof resolved === 'object' ? '' : String(resolved);
+  });
 }
 
 /** Parses `children[<index>].<propName>` → `{index, propName}`. */
