@@ -160,6 +160,23 @@ export {
   type SearchDebounceKey,
 } from './searchDebounce';
 export {
+  getSearchControls,
+  setSearchControls,
+  publishSearchFetchView,
+  recordRecentSearch,
+  removeRecentSearch,
+  clearRecentSearches,
+  configureSearchControls,
+  resetSearchControls,
+  useSearchControls,
+  type SearchControls,
+  type SearchTab,
+  type SearchPostScope,
+  type SearchScopeKey,
+  type SearchFetchView,
+  type SearchRecentItem,
+} from './searchControls';
+export {
   PostOptionsPopover,
   openPostOptionsPopover,
   setCatalogGlobal,

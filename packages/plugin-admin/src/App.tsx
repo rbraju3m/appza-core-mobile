@@ -52,6 +52,12 @@ import {
   getBookmarkControls,
   setBookmarkControls,
   resetBookmarkControls,
+  setSearchControls,
+  recordRecentSearch,
+  removeRecentSearch,
+  clearRecentSearches,
+  configureSearchControls,
+  resetSearchControls,
   debounceSearch,
   cancelDebouncedSearch,
   postMenuSheetPresentation,
@@ -621,6 +627,28 @@ export function App() {
   useEffect(() => {
     if (currentScreen?.app_map_screen_slug !== 'bookmarks') return;
     resetBookmarkControls();
+  }, [currentScreen?.app_map_screen_slug]);
+
+  // Search arrives on Posts → Content with an empty field, for the same
+  // reason Saved Posts arrives with a clean search box — and here the
+  // stakes are higher, because a restored query would ALSO restore
+  // whichever tab and sub-scope it was typed against.
+  //
+  // The two config values are read off fc-search-field's authored props
+  // rather than hard-coded, so raising the minimum is a right-panel edit.
+  // They are applied AFTER the reset: the reset is per-visit, the config
+  // is not, and doing it the other way round would wipe the values on
+  // every entry to the screen.
+  useEffect(() => {
+    if (currentScreen?.app_map_screen_slug !== 'search') return;
+    resetSearchControls();
+    const props = readAppzetPropsFromCatalog('fc-search-field');
+    const min = Number(props.min_query_length);
+    const limit = Number(props.recent_limit);
+    configureSearchControls({
+      min_query_length: Number.isFinite(min) && min >= 0 ? min : undefined,
+      recent_limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
+    });
   }, [currentScreen?.app_map_screen_slug]);
 
   // Seed a default route.slug when landing on space-detail directly (via
@@ -3806,6 +3834,114 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       debounceSearch('bookmarks', runtimeValue ?? itemValue ?? '', (search) =>
         setBookmarkControls({ search }),
       );
+      return;
+    }
+
+    // ── Search screen (2026-08-23) ─────────────────────────────────────
+    //
+    // Five handlers, and every one of them is a write to searchControls
+    // and nothing else. None calls an endpoint: the three result lists
+    // refetch because their DataSources bind the slice as query params,
+    // and the four recent-search histories never leave the device.
+    //
+    // Nothing here decides which list is showing either. The slice
+    // derives `active_scope` from the tab and the query length, and the
+    // placements gate on that — so a handler that wrote the wrong tab
+    // would show the wrong results, but a handler cannot show results
+    // for a query too short to have any.
+
+    case 'search.set_tab': {
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      const picked = runtimeValue ?? itemValue ?? '';
+      // Validated against the closed set rather than passed through like
+      // spaces.set_tab. These three values are not just catalog labels —
+      // `active_scope` carries whichever one is written straight into the
+      // placement gates, so a typo in the tabs array would mount NO
+      // result card and leave a screen that searches and shows nothing.
+      if (picked === 'posts' || picked === 'members' || picked === 'spaces') {
+        setSearchControls({ tab: picked });
+      } else {
+        console.warn('[appza] search.set_tab: unrecognised tab value', { picked });
+      }
+      return;
+    }
+
+    case 'search.set_post_scope': {
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      const picked = runtimeValue ?? itemValue ?? '';
+      // FluentCommunity's own `search_in` values. Guarded for a different
+      // reason than the tabs above: FC does not reject an unknown one, it
+      // matches NOTHING — so a typo would read as "there are no results"
+      // rather than as a bug.
+      if (picked === 'post_content' || picked === 'post_comments') {
+        setSearchControls({ post_scope: picked });
+      } else {
+        console.warn('[appza] search.set_post_scope: unrecognised scope value', { picked });
+      }
+      return;
+    }
+
+    case 'search.set_query': {
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      const value = runtimeValue ?? itemValue ?? '';
+      // Two callers, and they want opposite things.
+      //
+      // A RECENT ROW hands over a whole term at once — there is nothing
+      // to wait for, and 300ms of nothing after tapping a row reads as a
+      // dead row. It cancels any keystroke still pending first, or that
+      // keystroke lands afterwards and overwrites the term just picked.
+      if (argRec.immediate === true) {
+        cancelDebouncedSearch('search');
+        setSearchControls({ query: value });
+        // Re-searching something already remembered moves it to the top
+        // rather than duplicating it.
+        recordRecentSearch(value);
+        return;
+      }
+      // The FIELD fires once per character (onIonInput, by design —
+      // onIonChange only fires on blur and search-as-you-type would feel
+      // dead until you tapped away). Three DataSources bind `query`, so
+      // each write is a REFETCH: without the debounce, six letters is six
+      // requests whose answers race (P97). The ⨯ clear sends '' and is
+      // applied immediately — see searchDebounce.ts.
+      //
+      // Remembering the term hangs off the SETTLED write, not the
+      // dispatch. Recording per keystroke would fill the list with every
+      // prefix of every word.
+      debounceSearch('search', value, (query) => {
+        setSearchControls({ query });
+        recordRecentSearch(query);
+      });
+      return;
+    }
+
+    case 'search.remove_recent': {
+      // The ⨯ on one row. The term arrives on the bound item — this row
+      // is a Data-Source-backed card, so `item` is the {value,label} row
+      // fc-search-recents served out of the slice.
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      const term = runtimeValue ?? itemValue ?? '';
+      if (!term) {
+        console.warn('[appza] search.remove_recent: no term on the tapped row', { item });
+        return;
+      }
+      removeRecentSearch(term);
+      return;
+    }
+
+    case 'search.clear_recents': {
+      // Clears the CURRENT tab + scope only. Designs 1 and 2 show Content
+      // and Comments as two separate lists, so clearing one must leave the
+      // other alone — the slice scopes it by `scope_key`, not here.
+      clearRecentSearches();
       return;
     }
 
