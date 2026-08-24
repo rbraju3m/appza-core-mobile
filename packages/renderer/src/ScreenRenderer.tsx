@@ -19,6 +19,7 @@ import { useChatControls } from './chatControls';
 import { useLeaderboardControls } from './leaderboardControls';
 import { useBookmarkControls } from './bookmarkControls';
 import { useSearchControls } from './searchControls';
+import { usePostDraft } from './postDraft';
 
 type ScreenRendererProps = {
   screen: TemplateScreen;
@@ -91,6 +92,7 @@ export function ScreenRenderer({
   const leaderboardControls = useLeaderboardControls();
   const bookmarkControls = useBookmarkControls();
   const searchControls = useSearchControls();
+  const postDraft = usePostDraft();
   // Placement-level visible_when reads out of this bag via
   // `binding.slice(6)` (i.e. `state.<key>` → `<key>`). Register nested
   // paths as flat keys so `state.space_detail_controls.active_subtab`
@@ -155,6 +157,18 @@ export function ScreenRenderer({
       'search_controls.post_scope': searchControls.post_scope,
       'search_controls.query': searchControls.query,
       'search_controls.noun': searchControls.noun,
+      // Create post. `can_announce` is a VERDICT, not a flag the user
+      // sets: FluentCommunity grants the announcement email to a global
+      // moderator OR to a moderator of the space being posted to, so it
+      // can turn on when the destination changes. The checkbox is its own
+      // placement gated on this rather than a child the composer hides,
+      // which is what makes Noor's design 4 — a member seeing neither the
+      // schedule control nor the email row — a catalog decision (P75).
+      'post_draft.can_announce':
+        postDraft.viewer_is_moderator || postDraft.space_can_announce ? 'yes' : 'no',
+      'post_draft.target': postDraft.target,
+      'post_draft.space_slug': postDraft.space_slug,
+      'post_draft.can_upload_documents': postDraft.space_can_upload_documents ? 'yes' : 'no',
     }),
     [
       spacesControls.tab,
@@ -187,6 +201,11 @@ export function ScreenRenderer({
       searchControls.post_scope,
       searchControls.query,
       searchControls.noun,
+      postDraft.viewer_is_moderator,
+      postDraft.space_can_announce,
+      postDraft.target,
+      postDraft.space_slug,
+      postDraft.space_can_upload_documents,
     ],
   );
 

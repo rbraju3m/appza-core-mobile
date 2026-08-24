@@ -191,6 +191,7 @@ import { AppzaMediaTile } from './MediaTile';
 import { AppzaAudioPlayer, AppzaAudioList } from './AudioPlayerRow';
 import { AppzaChatBubble } from './ChatBubble';
 import { AppzaChatComposer } from './ChatComposer';
+import { AppzaPostComposer, AppzaPostAnnounce } from './PostComposer';
 import { attach, attachOutline, cloudUploadOutline } from 'ionicons/icons';
 
 /**
@@ -493,6 +494,9 @@ export const SELF_ACTION_PRIMITIVES: ReadonlySet<string> = new Set([
   // The attach button sits INSIDE the input pill, so a wrapper click
   // would fire the picker whenever anyone tapped the field to type.
   'appza-chat-composer',
+  // Same reason: the space chip sits inside a card the user types in, so
+  // a wrapper click would open the space picker on every tap of the body.
+  'appza-post-composer',
 ]);
 
 /**
@@ -752,6 +756,12 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
 
     case 'AppzaChatComposer':
       return <AppzaChatComposer overrides={overrides} action={action} dispatch={dispatch} />;
+
+    case 'AppzaPostComposer':
+      return <AppzaPostComposer overrides={overrides} action={action} dispatch={dispatch} />;
+
+    case 'AppzaPostAnnounce':
+      return <AppzaPostAnnounce overrides={overrides} />;
 
     case 'IonLabel':
       return <IonLabel>{label}</IonLabel>;

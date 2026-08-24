@@ -25,6 +25,7 @@ import {
   INVITE_USER_CHILD_COUNT,
   setCatalogGlobal,
   setFcRuntimeSettings,
+  getFcRuntimeSettings,
   setFeedControls,
   setRouteParams,
   getRouteParams,
@@ -46,6 +47,15 @@ import {
   resetLeaderboardControls,
   OptionsSheet,
   openOptionsSheet,
+  PostSpaceSheet,
+  openPostSpaceSheet,
+  postSpaceSheetPresentation,
+  POST_SPACE_SHEET_CHILD_COUNT,
+  fetchPostSpacePayload,
+  preparePostComposer,
+  clearPostSpaceCache,
+  resetPostDraft,
+  setPostDraft,
   optionsSheetPresentation,
   OPTIONS_SHEET_CHILD_COUNT,
   readPickerOptions,
@@ -572,6 +582,33 @@ export function App() {
     if (!selectedScreenId) return null;
     return screens.find((s) => s.id === selectedScreenId) ?? null;
   }, [selectedScreenId, screens]);
+
+
+  // The create-post screen arrives empty, and knowing WHO is looking is
+  // part of arriving. The announcement row and the schedule control exist
+  // on a per-viewer verdict that the cached bootstrap cannot answer (it
+  // would be whoever warmed the cache), and Noor's designs show the
+  // composer with that row already decided before a space is chosen — so
+  // the verdict is warmed here rather than waiting for the picker.
+  //
+  // The endpoint is read off the composer's own catalog wiring rather
+  // than written down, so pointing the picker at a different list is a
+  // right-panel edit and cannot leave these two disagreeing.
+  //
+  // The reset only fires for CREATE. edit-post-page seeds the same draft
+  // from the post being edited, and clearing it here would race that.
+  useEffect(() => {
+    if (uiMode !== 'app') return;
+    const slug = currentScreen?.app_map_screen_slug;
+    if (slug !== 'create-post-page' && slug !== 'edit-post-page') return;
+    if (slug === 'create-post-page') resetPostDraft();
+    const wiring = readAppzetActionsFromCatalog('fc-post-information');
+    const dsSlug =
+      typeof wiring?.on_tap_space?.args?.data_source === 'string'
+        ? (wiring.on_tap_space.args.data_source as string)
+        : 'fc-post-space-picker';
+    void preparePostComposer(dsSlug);
+  }, [uiMode, currentScreen?.app_map_screen_slug, auth]);
 
   // Prefill composer forms from screen-mount context. Currently only
   // fc-post-information on edit-post-page uses this — nav.push carried
@@ -1232,6 +1269,7 @@ export function App() {
     <>
       <ViewModePopover />
       <OptionsSheet />
+      <PostSpaceSheet />
       <PostOptionsPopover />
       <MemberOptionsSheet />
       <MemberRoleSheet />
@@ -2157,6 +2195,29 @@ function setCustomizationsForActions(customizations: unknown): void {
  * An AppZet's props with overrides resolved — the same three layers the
  * renderer applies (catalog default, customer override, live edit).
  */
+/**
+ * The `args` an AppZet's action wiring carries, straight off the catalog.
+ *
+ * Used to read the composer's space-picker endpoint at screen mount,
+ * where there is no placement in the tree to resolve it — the same
+ * problem readAppzetPropsFromCatalog solves for overlay props. Reading
+ * it rather than writing the path down is what keeps the mount-time warm
+ * and the picker itself pointed at the same list.
+ */
+function readAppzetActionsFromCatalog(
+  slug: string,
+): Record<string, { action_slug?: string; args?: Record<string, unknown> }> | null {
+  const cat = (window as unknown as { __appzaCatalog?: { appzets?: unknown[] } }).__appzaCatalog;
+  const appzets = Array.isArray(cat?.appzets) ? cat!.appzets! : [];
+  const found = appzets.find(
+    (a): a is Record<string, unknown> =>
+      isRecord(a) && (a as Record<string, unknown>).slug === slug,
+  );
+  return found && isRecord(found.actions)
+    ? (found.actions as Record<string, { action_slug?: string; args?: Record<string, unknown> }>)
+    : null;
+}
+
 function readAppzetPropsFromCatalog(slug: string): Record<string, unknown> {
   const cat = (window as unknown as { __appzaCatalog?: { appzets?: unknown[] } })
     .__appzaCatalog;
@@ -2861,6 +2922,12 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
     case 'auth.logout': {
       setAuth(null);
+      // The picker's payload is one viewer's answer to "where may I
+      // post" — spaces, permissions, moderator verdict. Signing out must
+      // drop it, or the next person to sign in on this device opens the
+      // composer holding the previous one's destinations.
+      clearPostSpaceCache();
+      resetPostDraft();
       // Force login screen after logout so the user sees the state change.
       const login = catalog?.template_screens?.find(
         (s) => s.app_map_screen_slug === 'login-page',
@@ -3671,6 +3738,43 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       } else if (url) {
         onLoginError('Please enter a full URL starting with http:// or https://');
       }
+      return;
+    }
+
+    case 'picker.space': {
+      if (!auth) {
+        onLoginError('Please sign in to choose where to post.');
+        return;
+      }
+      const dsSlug =
+        typeof argRec.data_source === 'string' && argRec.data_source
+          ? argRec.data_source
+          : 'fc-post-space-picker';
+      const sheetSlug =
+        typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
+          ? argRec.sheet_appzet_slug
+          : 'fc-post-space-sheet';
+      void (async () => {
+        const payload = await fetchPostSpacePayload(dsSlug);
+        // The moderator verdict rides the same payload, so opening the
+        // picker also settles whether the announcement row and the
+        // schedule control belong on this screen.
+        setPostDraft({ viewer_is_moderator: payload.viewerIsModerator });
+        openPostSpaceSheet({
+          appzetSlug: sheetSlug,
+          presentation: postSpaceSheetPresentation(readAppzetPropsFromCatalog(sheetSlug)),
+          childStyles: childStylesFromCustomizations(
+            sheetSlug,
+            POST_SPACE_SHEET_CHILD_COUNT,
+            currentCustomizations,
+          ),
+          groups: payload.groups,
+          // Settings -> General -> Global Post Status. With it off there
+          // is no "On my profile" row, which is Noor's note on design 5.
+          globalPostsEnabled: getFcRuntimeSettings().composer.global_posts_enabled,
+          viewerIsModerator: payload.viewerIsModerator,
+        });
+      })();
       return;
     }
 

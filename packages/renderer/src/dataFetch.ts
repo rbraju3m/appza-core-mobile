@@ -242,6 +242,34 @@ function buildProxyUrl(
 }
 
 /**
+ * Fetch one DataSource once, outside React.
+ *
+ * The hooks above are the normal path; this exists for the things that
+ * are opened rather than mounted — a bottom sheet's rows, warmed before
+ * anything is tapped. It goes through the SAME preview proxy for a
+ * reason that is easy to get wrong: fcom-mobile authenticates on
+ * `is_user_logged_in()`, so a direct browser fetch to it answers 401
+ * even from wp-admin (a cookie without a REST nonce is not a session as
+ * far as WP REST is concerned). The proxy is where this app's auth
+ * actually lives, in both shells.
+ */
+export async function fetchDataSourceOnce(
+  slug: string,
+  params?: Record<string, unknown>,
+  opts?: { bypassCache?: boolean },
+): Promise<unknown> {
+  const authHeader =
+    (typeof window !== 'undefined'
+      ? (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader
+      : undefined) || undefined;
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (authHeader) headers['X-Appza-Auth'] = authHeader;
+  const res = await fetch(buildProxyUrl(slug, params, opts?.bypassCache === true), { headers });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+/**
  * Read a `client_state_binding` source: the rows are an array sitting on a
  * renderer state slice, so there is nothing to fetch.
  *

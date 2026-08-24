@@ -11,6 +11,7 @@ import type { ChatUserCardPresentation } from './ChatUserCard';
 import type { LeaderboardPointsPresentation } from './LeaderboardPointsSheet';
 import type { OptionsSheetPresentation } from './OptionsSheet';
 import type { PostMenuSheetPresentation } from './PostOptionsPopover';
+import type { PostSpaceSheetPresentation } from './PostSpaceSheet';
 
 // Maps an overlay AppZet's authored props (snake_case, as stored in
 // default_props_override) onto the camelCase payload its component
@@ -549,5 +550,62 @@ export function profileLinkRowVars(props: Record<string, unknown>): CSSPropertie
     ['--appza-chevron-color' as string]: str(props.chevron_color),
     ['--appza-chevron-size' as string]: size(props.chevron_size),
     ['--appza-divider-color' as string]: str(props.divider_color),
+  };
+}
+
+/**
+ * fc-post-space-sheet — "Post to", the create-post space picker
+ * (design 5).
+ *
+ * `public_label` / `private_label` / `secret_label` have real defaults
+ * rather than falling through to the raw privacy string: FluentCommunity
+ * stores 'secret', and the design writes words a member reads, not
+ * database values.
+ */
+export function postSpaceSheetPresentation(
+  props: Record<string, unknown>,
+): PostSpaceSheetPresentation {
+  return {
+    title: str(props.title) ?? 'Post to',
+    profileLabel: str(props.profile_label) ?? 'On my profile',
+    emptyLabel: str(props.empty_label) ?? 'No spaces to post in',
+    publicIcon: str(props.public_icon) ?? 'globe-outline',
+    privateIcon: str(props.private_icon) ?? 'lock-closed-outline',
+    hidden: bool(props.hidden, false),
+    showHandle: bool(props.show_handle, true),
+    showTitle: bool(props.show_title, true),
+    showProfileRow: bool(props.show_profile_row, true),
+    showGroupHeadings: bool(props.show_group_headings, true),
+    showAvatars: bool(props.show_avatars, true),
+    showPrivacyLabel: bool(props.show_privacy_label, true),
+    publicLabel: str(props.public_label) ?? 'Public',
+    privateLabel: str(props.private_label) ?? 'Private',
+    secretLabel: str(props.secret_label) ?? 'Secret',
+    sheetBgColor: str(props.sheet_bg_color),
+    sheetRadius: size(props.sheet_radius),
+    // A percentage, never a vh — inside the simulator the device frame
+    // is a box on a much taller page and vh would measure the page (P91).
+    sheetMaxHeight: str(props.sheet_max_height),
+    backdropColor: str(props.backdrop_color),
+    handleColor: str(props.handle_color),
+    titleColor: str(props.title_color),
+    titleSize: size(props.title_size),
+    titleWeight: str(props.title_weight),
+    groupColor: str(props.group_color),
+    groupSize: size(props.group_size),
+    groupWeight: str(props.group_weight),
+    rowPadding: str(props.row_padding),
+    rowGap: size(props.row_gap),
+    avatarSize: size(props.avatar_size),
+    avatarRadius: size(props.avatar_radius),
+    iconColor: str(props.icon_color),
+    iconSize: size(props.icon_size),
+    labelColor: str(props.label_color),
+    labelSize: size(props.label_size),
+    labelWeight: str(props.label_weight),
+    privacyColor: str(props.privacy_color),
+    privacySize: size(props.privacy_size),
+    dividerColor: str(props.divider_color),
+    disabledOpacity: str(props.disabled_opacity),
   };
 }
