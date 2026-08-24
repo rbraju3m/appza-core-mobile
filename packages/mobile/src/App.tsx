@@ -62,6 +62,9 @@ import {
   clearPostSpaceCache,
   resetPostDraft,
   setPostDraft,
+  usePostDraft,
+  getPostDraft,
+  addPostDraftImages,
   optionsSheetPresentation,
   OPTIONS_SHEET_CHILD_COUNT,
   readPickerOptions,
@@ -635,7 +638,16 @@ export function App() {
     const id = window.setInterval(tick, 30000);
     return () => window.clearInterval(id);
   }, []);
-  const [pendingImages, setPendingImages] = useState<string[]>([]);
+  // The draft owns the images now — the composer and the preview both
+  // render them, and neither can read a shell useState. Kept as a local
+  // name because post.create / post.edit already build `media_images`
+  // from it, and one source of truth is the point.
+  const postDraft = usePostDraft();
+  const pendingImages = useMemo(() => postDraft.images.map((i) => i.url), [postDraft.images]);
+  const setImagesFromUrls = useCallback(
+    (urls: string[]) => setPostDraft({ images: urls.map((url) => ({ url })) }),
+    [],
+  );
   const [uploadingCount, setUploadingCount] = useState(0);
   const [pendingVideo, setPendingVideo] = useState<PendingVideo | null>(null);
   const [videoLoading, setVideoLoading] = useState(false);
@@ -680,7 +692,7 @@ export function App() {
       setDeleteInFlight(false);
       setCommentPanel(null);
       reactedRef.current = new Set();
-      setPendingImages([]);
+      setPostDraft({ images: [] });
       setPendingVideo(null);
       setPendingPoll(null);
       setPollModalOpen(false);
@@ -863,7 +875,7 @@ export function App() {
     if (screenPrefilledRef.current[slug]) return;
     screenPrefilledRef.current[slug] = true;
     prefillPostInformationFromContext(ctx, {
-      setImages: setPendingImages,
+      setImages: setImagesFromUrls,
       setVideo: setPendingVideo,
       setPoll: setPendingPoll,
     });
@@ -952,7 +964,7 @@ export function App() {
     if (fileInputRef.current) fileInputRef.current.click();
   }, []);
   const openPollModal = useCallback(() => setPollModalOpen(true), []);
-  const clearPendingImages = useCallback(() => setPendingImages([]), []);
+  const clearPendingImages = useCallback(() => setPostDraft({ images: [] }), []);
   const clearPendingVideo = useCallback(() => setPendingVideo(null), []);
   const clearPendingPoll = useCallback(() => setPendingPoll(null), []);
 
@@ -968,7 +980,21 @@ export function App() {
         setErrorToast('Image attach is missing its endpoint.');
         return;
       }
-      const list = Array.from(files);
+      // Cap BEFORE uploading, not after. Uploading everything and then
+      // keeping the first N leaves the rest on the server as orphaned
+      // inactive Media rows that nothing will ever attach or clean up —
+      // and there is no endpoint to remove them (see removePostDraftImage).
+      const max = getFcRuntimeSettings().composer.max_media_per_post;
+      const room = max > 0 ? Math.max(0, max - getPostDraft().images.length) : files.length;
+      const picked = Array.from(files);
+      const list = picked.slice(0, room);
+      if (picked.length > list.length) {
+        const refused = picked.length - list.length;
+        setErrorToast(
+          `Only ${max} image${max === 1 ? '' : 's'} can go on a post — ${refused} not added.`,
+        );
+      }
+      if (list.length === 0) return;
       setUploadingCount((c) => c + list.length);
       const uploads = list.map(async (file) => {
         try {
@@ -1014,7 +1040,10 @@ export function App() {
         }
       });
       const urls = (await Promise.all(uploads)).filter((u): u is string => !!u);
-      if (urls.length > 0) setPendingImages((prev) => [...prev, ...urls]);
+      // The cap is applied again here, against the draft as it stands
+      // now: two picks can be in flight at once, and the slice above only
+      // knew about the images that existed when IT started.
+      if (urls.length > 0) addPostDraftImages(urls.map((url) => ({ url })), max);
     },
     [auth],
   );
@@ -1496,7 +1525,11 @@ export function App() {
         }}
       />
 
-      {(pendingImages.length > 0 || uploadingCount > 0 || pendingVideo || videoLoading || pendingPoll) && (
+      {/* Images have LEFT this strip — the composer draws them now, in the
+          card, where the designs put them. What is left is the video and
+          poll placeholders, until their own chunks replace them the same
+          way. */}
+      {(uploadingCount > 0 || pendingVideo || videoLoading || pendingPoll) && (
         <div
           style={{
             position: 'fixed',
@@ -1517,32 +1550,6 @@ export function App() {
           }}
         >
           {uploadingCount > 0 && <span>Uploading {uploadingCount}…</span>}
-          {pendingImages.map((u, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <img
-                src={u}
-                alt=""
-                style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4 }}
-              />
-              <button
-                type="button"
-                onClick={() =>
-                  setPendingImages((prev) => prev.filter((_, idx) => idx !== i))
-                }
-                style={{
-                  border: 'none',
-                  background: 'rgba(255,255,255,0.2)',
-                  color: '#fff',
-                  borderRadius: 999,
-                  width: 20,
-                  height: 20,
-                  cursor: 'pointer',
-                }}
-              >
-                ×
-              </button>
-            </div>
-          ))}
           {videoLoading && <span>Loading video…</span>}
           {pendingVideo && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

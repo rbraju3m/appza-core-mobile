@@ -96,9 +96,12 @@ export {
   usePostDraft,
   resetPostDraft,
   togglePostDraftTopic,
+  addPostDraftImages,
+  removePostDraftImage,
   type PostDraft,
   type PostDraftTopic,
   type PostDraftTarget,
+  type PostDraftImage,
 } from './postDraft';
 export {
   PostSpaceSheet,

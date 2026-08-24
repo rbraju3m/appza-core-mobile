@@ -639,6 +639,12 @@
 .appza-post-composer {
   flex: 1;
   min-width: 0;
+  /* Scrolls inside the card so the action bar stays where the design
+     puts it. Without this a tall attachment — a 4:3 photo is already
+     most of a phone — pushes the five glyphs off the bottom of the
+     screen, and the only way back to them is to delete the photo. */
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   padding: var(--appza-card-padding, 14px 16px 8px);
@@ -766,6 +772,54 @@
 .appza-post-composer-topic[data-picked='yes'] {
   background: var(--appza-topic-active-bg-color, #eceefe);
   color: var(--appza-topic-active-text-color, #4f5bd5);
+}
+
+/* Attached images in the COMPOSER — designs 10 and 13. Three across,
+   because that is what the design draws; one image takes the full card
+   width instead, since a third-width thumbnail of a single photo reads
+   as a mistake. */
+.appza-post-composer-images {
+  display: grid;
+  grid-template-columns: repeat(var(--appza-image-columns, 3), 1fr);
+  gap: var(--appza-image-gap, 8px);
+  margin-top: var(--appza-image-gap, 8px);
+}
+.appza-post-composer-images[data-count='one'] {
+  grid-template-columns: 1fr;
+}
+.appza-post-composer-image {
+  position: relative;
+  display: block;
+  aspect-ratio: var(--appza-image-aspect, 1 / 1);
+  border-radius: var(--appza-image-radius, 4px);
+  overflow: hidden;
+}
+.appza-post-composer-images[data-count='one'] .appza-post-composer-image {
+  aspect-ratio: var(--appza-single-image-aspect, 16 / 10);
+}
+.appza-post-composer-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.appza-post-composer-image-remove {
+  position: absolute;
+  top: var(--appza-remove-offset, 6px);
+  right: var(--appza-remove-offset, 6px);
+  width: var(--appza-remove-size, 18px);
+  height: var(--appza-remove-size, 18px);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: var(--appza-remove-bg-color, rgba(17, 24, 39, 0.55));
+  color: var(--appza-remove-color, #ffffff);
+  font-size: calc(var(--appza-remove-size, 18px) * 0.62);
+  line-height: 1;
 }
 
 /* Body — takes whatever height is left, which is most of the card. */
@@ -9087,6 +9141,44 @@ audio.appza-video-embed-native {
   width: 100%;
   display: block;
 }
+/* The preview's image grid. Design 14: a 2x2 of tiles with the overflow
+   count written over the last one. A SINGLE image is not a one-cell grid
+   — it runs the full width, which is how designs 11 and 12 draw it. */
+.appza-post-preview-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--appza-tile-gap, 2px);
+}
+.appza-post-preview-grid[data-count='one'] {
+  grid-template-columns: 1fr;
+}
+.appza-post-preview-tile {
+  position: relative;
+  display: block;
+  aspect-ratio: var(--appza-tile-aspect, 1 / 1);
+  overflow: hidden;
+}
+.appza-post-preview-grid[data-count='one'] .appza-post-preview-tile {
+  aspect-ratio: var(--appza-single-aspect, 4 / 3);
+}
+.appza-post-preview-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.appza-post-preview-overflow {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--appza-overflow-bg-color, rgba(17, 24, 39, 0.45));
+  color: var(--appza-overflow-color, #ffffff);
+  font-size: var(--appza-overflow-size, 1.5rem);
+  font-weight: var(--appza-overflow-weight, 500);
+}
+
 /* Design-time only — a block to style the two layouts against before any
    chunk has put real media on a draft. */
 .appza-post-preview-media-sample {

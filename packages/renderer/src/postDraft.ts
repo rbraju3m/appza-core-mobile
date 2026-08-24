@@ -20,6 +20,13 @@ export type PostDraftTopic = {
   slug: string;
 };
 
+export type PostDraftImage = {
+  /** The public URL the upload returned — what `media_images` carries. */
+  url: string;
+  /** FluentCommunity's Media row id, when the upload reported one. */
+  media_id?: string;
+};
+
 /** Where the post is going. '' until the user has chosen. */
 export type PostDraftTarget = '' | 'space' | 'profile';
 
@@ -57,6 +64,16 @@ export type PostDraft = {
   topic_ids: string[];
 
   announcement: boolean;
+
+  /**
+   * Images uploaded and waiting to be posted, in pick order.
+   *
+   * Capped at the site's Max Media Per Post. FluentCommunity enforces the
+   * same cap server-side by SLICING the array, so an over-long list would
+   * not error — it would silently drop the tail. Refusing the pick is the
+   * honest version of that.
+   */
+  images: PostDraftImage[];
 };
 
 const EVENT = 'appza:post-draft-change';
@@ -77,6 +94,7 @@ const DEFAULTS: PostDraft = {
   topics: [],
   topic_ids: [],
   announcement: false,
+  images: [],
 };
 
 let current: PostDraft = { ...DEFAULTS };
@@ -116,6 +134,7 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
     topics: Array.isArray(patch.topics) ? patch.topics : current.topics,
     topic_ids: Array.isArray(patch.topic_ids) ? patch.topic_ids : current.topic_ids,
     announcement: bool(patch, 'announcement', current.announcement),
+    images: Array.isArray(patch.images) ? patch.images : current.images,
   };
 
   // Changing where the post goes invalidates everything that described
@@ -148,7 +167,8 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
     next.body === current.body &&
     next.topics === current.topics &&
     next.topic_ids === current.topic_ids &&
-    next.announcement === current.announcement
+    next.announcement === current.announcement &&
+    next.images === current.images
   ) {
     return;
   }
@@ -175,6 +195,39 @@ export function togglePostDraftTopic(id: string, max: number): boolean {
   if (max > 0 && current.topic_ids.length >= max) return false;
   setPostDraft({ topic_ids: [...current.topic_ids, id] });
   return true;
+}
+
+/**
+ * Append uploaded images, stopping at the cap.
+ *
+ * Returns how many were REFUSED, so the caller can say so — a picker
+ * that silently drops half of what you chose is the failure this is
+ * written to avoid. Duplicates are dropped too: the same URL twice would
+ * post the same image twice.
+ */
+export function addPostDraftImages(images: PostDraftImage[], max: number): number {
+  const have = current.images;
+  const room = max > 0 ? Math.max(0, max - have.length) : images.length;
+  const seen = new Set(have.map((i) => i.url));
+  const fresh = images.filter((i) => i.url !== '' && !seen.has(i.url));
+  const accepted = fresh.slice(0, room);
+  if (accepted.length > 0) setPostDraft({ images: [...have, ...accepted] });
+  return fresh.length - accepted.length;
+}
+
+/**
+ * Drop one image from the draft.
+ *
+ * Local only, deliberately. FluentCommunity creates the Media row at
+ * upload time as an inactive draft and attaches it when the post is
+ * saved; fcom-mobile's `/feeds/media-delete` removes a media preview from
+ * an EXISTING feed and requires a feed_id, so there is nothing it could
+ * be called with here. An abandoned upload stays inactive, which is
+ * exactly what the portal leaves behind too.
+ */
+export function removePostDraftImage(url: string): void {
+  if (!current.images.some((i) => i.url === url)) return;
+  setPostDraft({ images: current.images.filter((i) => i.url !== url) });
 }
 
 /**

@@ -56,6 +56,9 @@ import {
   clearPostSpaceCache,
   resetPostDraft,
   setPostDraft,
+  usePostDraft,
+  getPostDraft,
+  addPostDraftImages,
   optionsSheetPresentation,
   OPTIONS_SHEET_CHILD_COUNT,
   readPickerOptions,
@@ -308,7 +311,16 @@ export function App() {
   // Images the user has selected + uploaded for the current create-post
   // draft. Each entry is a URL returned by /feeds/media-upload. Included
   // as `media_images` on post.create and cleared on success + on logout.
-  const [pendingImages, setPendingImages] = useState<string[]>([]);
+  // The draft owns the images now — the composer and the preview both
+  // render them, and neither can read a shell useState. Kept as a local
+  // name because post.create / post.edit already build `media_images`
+  // from it, and one source of truth is the point.
+  const postDraft = usePostDraft();
+  const pendingImages = useMemo(() => postDraft.images.map((i) => i.url), [postDraft.images]);
+  const setImagesFromUrls = useCallback(
+    (urls: string[]) => setPostDraft({ images: urls.map((url) => ({ url })) }),
+    [],
+  );
   const [uploadingCount, setUploadingCount] = useState(0);
   // Video oembed attachment for the current draft. Populated by picker.video
   // after a successful /feeds/oembed lookup. Sent on post.create as
@@ -391,7 +403,7 @@ export function App() {
   // so nothing leaks between sessions.
   useEffect(() => {
     if (!auth) {
-      setPendingImages([]);
+      setPostDraft({ images: [] });
       setPendingVideo(null);
       setPendingPoll(null);
       setPollModalOpen(false);
@@ -632,7 +644,7 @@ export function App() {
     if (screenPrefilledRef.current[slug]) return;
     screenPrefilledRef.current[slug] = true;
     prefillPostInformationFromContext(ctx, {
-      setImages: setPendingImages,
+      setImages: setImagesFromUrls,
       setVideo: setPendingVideo,
       setPoll: setPendingPoll,
     });
@@ -870,7 +882,7 @@ export function App() {
     uploadEndpointRef.current = target;
     fileInputRef.current.click();
   }, []);
-  const clearPendingImages = useCallback(() => setPendingImages([]), []);
+  const clearPendingImages = useCallback(() => setPostDraft({ images: [] }), []);
   const clearPendingVideo = useCallback(() => setPendingVideo(null), []);
   const openPollModal = useCallback(() => setPollModalOpen(true), []);
   const openDeleteConfirm = useCallback((next: PendingDelete) => {
@@ -1152,7 +1164,21 @@ export function App() {
         );
         return;
       }
-      const list = Array.from(files);
+      // Cap BEFORE uploading, not after. Uploading everything and then
+      // keeping the first N leaves the rest on the server as orphaned
+      // inactive Media rows that nothing will ever attach or clean up —
+      // and there is no endpoint to remove them (see removePostDraftImage).
+      const max = getFcRuntimeSettings().composer.max_media_per_post;
+      const room = max > 0 ? Math.max(0, max - getPostDraft().images.length) : files.length;
+      const picked = Array.from(files);
+      const list = picked.slice(0, room);
+      if (picked.length > list.length) {
+        const refused = picked.length - list.length;
+        setAuthMessage(
+          `Only ${max} image${max === 1 ? '' : 's'} can go on a post — ${refused} not added.`,
+        );
+      }
+      if (list.length === 0) return;
       setUploadingCount((c) => c + list.length);
       const uploads = list.map(async (file) => {
         try {
@@ -1201,9 +1227,10 @@ export function App() {
         }
       });
       const urls = (await Promise.all(uploads)).filter((u): u is string => !!u);
-      if (urls.length > 0) {
-        setPendingImages((prev) => [...prev, ...urls]);
-      }
+      // The cap is applied again here, against the draft as it stands
+      // now: two picks can be in flight at once, and the slice above only
+      // knew about the images that existed when IT started.
+      if (urls.length > 0) addPostDraftImages(urls.map((url) => ({ url })), max);
     },
     [auth],
   );
@@ -1542,11 +1569,14 @@ export function App() {
         </div>
       )}
 
-      {uiMode === 'app' && auth && (pendingImages.length > 0 || uploadingCount > 0) && (
+      {/* Images have LEFT this strip — the composer draws them now, in
+          the card, where the designs put them. What remains is the
+          upload-in-flight indicator. */}
+      {uiMode === 'app' && auth && uploadingCount > 0 && (
         <div
           className="appza-pending-images"
           role="region"
-          aria-label="Attached images"
+          aria-label="Attaching images"
           style={{
             position: 'fixed',
             bottom: 110,
@@ -1564,49 +1594,6 @@ export function App() {
             overflowX: 'auto',
           }}
         >
-          {pendingImages.map((url, idx) => (
-            <div
-              key={url}
-              style={{
-                position: 'relative',
-                width: 56,
-                height: 56,
-                flex: '0 0 56px',
-                borderRadius: 6,
-                overflow: 'hidden',
-                background: '#f3f4f6',
-              }}
-            >
-              <img
-                src={url}
-                alt=""
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-              <button
-                type="button"
-                onClick={() => setPendingImages((prev) => prev.filter((_, i) => i !== idx))}
-                aria-label="Remove image"
-                style={{
-                  position: 'absolute',
-                  top: 2,
-                  right: 2,
-                  width: 18,
-                  height: 18,
-                  padding: 0,
-                  border: 'none',
-                  borderRadius: '50%',
-                  background: 'rgba(17,24,39,0.8)',
-                  color: '#fff',
-                  cursor: 'pointer',
-                  fontSize: 12,
-                  lineHeight: '18px',
-                  textAlign: 'center',
-                }}
-              >
-                ×
-              </button>
-            </div>
-          ))}
           {uploadingCount > 0 && (
             <div
               style={{

@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { IonIcon } from '@ionic/react';
 
 import { resolveIcon } from './PrimitiveRenderer';
-import { setPostDraft, togglePostDraftTopic, usePostDraft } from './postDraft';
+import {
+  removePostDraftImage,
+  setPostDraft,
+  togglePostDraftTopic,
+  usePostDraft,
+} from './postDraft';
 import { useFcRuntimeSettings } from './fcRuntimeSettings';
 import type { ActionInvocation, ActionDispatch } from './actionContext';
 
@@ -125,6 +130,9 @@ export function AppzaPostComposer({ overrides, action, dispatch }: PostComposerP
   // to be kept in sync by hand.
   const topicsLabelTemplate = str(overrides, 'topics_label') || 'Topic.up to {max}';
 
+  const removeIcon = resolveIcon(str(overrides, 'remove_icon') || 'close');
+  const showMedia = bool(overrides, 'show_media', true);
+
   const showTopics = bool(overrides, 'show_topics', true);
   const showTitle = bool(overrides, 'show_title', true);
   const showPostedIn = bool(overrides, 'show_posted_in', true);
@@ -153,6 +161,7 @@ export function AppzaPostComposer({ overrides, action, dispatch }: PostComposerP
   useAutoGrow(titleRef, draft.title);
   useAutoGrow(bodyRef, draft.body);
 
+  const images = draft.images;
   const chosen = draft.target !== '';
   const isProfile = draft.target === 'profile';
   const spaceLabel = isProfile
@@ -250,6 +259,31 @@ export function AppzaPostComposer({ overrides, action, dispatch }: PostComposerP
         value={draft.body}
         onChange={(e) => setPostDraft({ body: e.target.value })}
       />
+
+      {/* Attached images, under the body and above the action bar —
+          designs 10 (one, full width) and 13 (a grid). One image is not a
+          one-cell grid: the design gives it the whole card width, and a
+          third-width thumbnail of a single photo reads as a mistake. */}
+      {showMedia && images.length > 0 && (
+        <span
+          className="appza-post-composer-images"
+          data-count={images.length === 1 ? 'one' : 'many'}
+        >
+          {images.map((image) => (
+            <span key={image.url} className="appza-post-composer-image">
+              <img src={image.url} alt="" />
+              <button
+                type="button"
+                className="appza-post-composer-image-remove"
+                aria-label="Remove image"
+                onClick={() => removePostDraftImage(image.url)}
+              >
+                {removeIcon ? <IonIcon icon={removeIcon} /> : '×'}
+              </button>
+            </span>
+          ))}
+        </span>
+      )}
     </span>
   );
 }

@@ -104,6 +104,12 @@ export function AppzaPostPreview({ overrides }: PostPreviewProps) {
   const layoutProp = str(overrides, 'layout') || 'auto';
   const layout = layoutProp === 'auto' ? settings.rich_post_layout : layoutProp;
 
+  // How many tiles the grid shows before the rest collapse into "+N".
+  // Design 14 shows four with a +2 on the last. A single image is not a
+  // one-cell grid — it takes the full width, as design 11 and 12 draw it.
+  const gridTiles = Math.max(1, Number.parseInt(str(overrides, 'grid_tiles'), 10) || 4);
+  const overflowPrefix = str(overrides, 'overflow_prefix') || '+';
+
   const title = draft.title || (designTime ? 'hurry' : '');
   const body = draft.body || (designTime ? 'fufhudfh uhuf yhdfyh' : '');
   const spaceName = draft.target === 'space' ? draft.space_title : '';
@@ -111,11 +117,35 @@ export function AppzaPostPreview({ overrides }: PostPreviewProps) {
   const meta =
     showSpace && spaceName ? `${nowLabel}${metaSeparator}${spaceName}` : nowLabel;
 
-  // Media lands here as the later chunks add it — images, video, audio,
-  // a poll, attached files. The region exists now so the two layouts are
-  // real rather than something to retrofit, and so the builder has both
-  // to style. Empty at runtime until then.
-  const media = designTime ? <span className="appza-post-preview-media-sample" /> : null;
+  // Images now; video, audio, a poll and attached files join them as
+  // their chunks land. The design-time sample keeps both layouts
+  // stylable when the draft carries nothing.
+  const images = draft.images;
+  let media: React.ReactNode = null;
+  if (images.length > 0) {
+    const shown = images.length > gridTiles ? images.slice(0, gridTiles) : images;
+    const hidden = images.length - shown.length;
+    media = (
+      <span
+        className="appza-post-preview-grid"
+        data-count={images.length === 1 ? 'one' : 'many'}
+      >
+        {shown.map((image, i) => (
+          <span key={image.url} className="appza-post-preview-tile">
+            <img src={image.url} alt="" />
+            {/* The overflow badge rides the LAST shown tile rather than
+                replacing it — design 14 dims that photo and writes the
+                count over it, so the tile is still part of the picture. */}
+            {hidden > 0 && i === shown.length - 1 && (
+              <span className="appza-post-preview-overflow">{`${overflowPrefix}${hidden}`}</span>
+            )}
+          </span>
+        ))}
+      </span>
+    );
+  } else if (designTime) {
+    media = <span className="appza-post-preview-media-sample" />;
+  }
 
   return (
     <span className="appza-post-preview" data-layout={layout}>

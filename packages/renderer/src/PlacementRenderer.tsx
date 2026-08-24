@@ -1369,6 +1369,21 @@ export function PlacementRenderer({
     'close_color',
     'close_size',
     'close_weight',
+    // Images on the composer and in the preview (2026-08-24).
+    'image_columns',
+    'image_gap',
+    'image_aspect',
+    'image_radius',
+    'single_image_aspect',
+    'remove_offset',
+    'remove_size',
+    'remove_bg_color',
+    'tile_aspect',
+    'single_aspect',
+    'overflow_bg_color',
+    'overflow_color',
+    'overflow_size',
+    'overflow_weight',
   ]);
   // Aliases: some knobs also drive Ionic's own CSS custom properties
   // directly. Custom props inherit through shadow DOM (unlike `background`
