@@ -338,3 +338,48 @@ export function AppzaAudioPlayer({ overrides }: { overrides?: Record<string, unk
     </span>
   );
 }
+
+/**
+ * The audio attached to a DRAFT — designs 22 and 23.
+ *
+ * Reuses `AppzaAudioPlayer`, which is the same row the feed and the MEDIA
+ * tab draw, so a file looks the same in the composer, in the preview and
+ * in the post. A second player written for the composer would be a
+ * preview that lies about the thing it is previewing.
+ *
+ * The only difference is the discard badge, which the composer passes and
+ * the preview does not.
+ */
+export function AppzaDraftAudioList({
+  audios,
+  overrides,
+  onRemove,
+  removeIcon,
+}: {
+  audios: Array<{ media_id: string; url: string; title: string }>;
+  overrides?: Record<string, unknown>;
+  onRemove?: (mediaId: string) => void;
+  removeIcon?: string;
+}) {
+  if (audios.length === 0) return null;
+  const glyph = removeIcon ? resolveIcon(removeIcon) : undefined;
+  return (
+    <span className="appza-draft-audio-list">
+      {audios.map((audio) => (
+        <span key={audio.media_id || audio.url} className="appza-draft-audio">
+          <AppzaAudioPlayer overrides={{ ...(overrides ?? {}), url: audio.url, title: audio.title }} />
+          {onRemove && (
+            <button
+              type="button"
+              className="appza-draft-audio-remove"
+              aria-label="Remove audio"
+              onClick={() => onRemove(audio.media_id)}
+            >
+              {glyph ? <IonIcon icon={glyph} /> : '×'}
+            </button>
+          )}
+        </span>
+      ))}
+    </span>
+  );
+}

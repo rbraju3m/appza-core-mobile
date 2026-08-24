@@ -4,6 +4,7 @@ import { IonIcon } from '@ionic/react';
 import { resolveIcon } from './PrimitiveRenderer';
 import { usePostDraft } from './postDraft';
 import { AppzaDraftVideo } from './VideoSheet';
+import { AppzaDraftAudioList } from './AudioPlayerRow';
 import { useFcRuntimeSettings } from './fcRuntimeSettings';
 
 /**
@@ -122,8 +123,19 @@ export function AppzaPostPreview({ overrides }: PostPreviewProps) {
   // their chunks land. The design-time sample keeps both layouts
   // stylable when the draft carries nothing.
   const images = draft.images;
+  const audios = draft.audios;
   let media: React.ReactNode = null;
-  if (draft.video) {
+  if (audios.length > 0) {
+    // Audio wins the media slot when it is the only thing attached, and
+    // sits above the rest when it is not — design 23 puts the players
+    // where the photo would go.
+    media = (
+      <>
+        <AppzaDraftAudioList audios={audios} overrides={overrides} />
+        {draft.video ? <AppzaDraftVideo video={draft.video} /> : null}
+      </>
+    );
+  } else if (draft.video) {
     media = <AppzaDraftVideo video={draft.video} />;
   } else if (images.length > 0) {
     const shown = images.length > gridTiles ? images.slice(0, gridTiles) : images;

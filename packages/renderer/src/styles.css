@@ -9444,3 +9444,42 @@ audio.appza-video-embed-native {
   margin-top: 0;
   border-radius: 0;
 }
+
+/* ---------- attached audio on a draft (designs 22 and 23) ------------- */
+
+.appza-draft-audio-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--appza-audio-gap, 10px);
+  margin-top: var(--appza-image-gap, 8px);
+}
+.appza-draft-audio {
+  position: relative;
+  display: block;
+}
+/* The discard badge sits over the row's own top-right corner. The player
+   is the SAME component the feed draws, so the badge is layered on rather
+   than built into it — a composer-only affordance must not change what a
+   posted file looks like. */
+.appza-draft-audio-remove {
+  position: absolute;
+  top: var(--appza-remove-offset, 6px);
+  right: var(--appza-remove-offset, 6px);
+  width: var(--appza-remove-size, 18px);
+  height: var(--appza-remove-size, 18px);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: var(--appza-audio-remove-bg-color, transparent);
+  color: var(--appza-audio-remove-color, #6b7280);
+  font-size: calc(var(--appza-remove-size, 18px) * 0.72);
+  line-height: 1;
+  z-index: 2;
+}
+.appza-post-preview-media .appza-draft-audio-list {
+  margin-top: 0;
+}

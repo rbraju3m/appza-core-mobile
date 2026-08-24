@@ -90,6 +90,7 @@ export {
 } from './ChatUserCard';
 export { AppzaPostComposer, AppzaPostAnnounce, type PostComposerProps } from './PostComposer';
 export { AppzaPostPreview, type PostPreviewProps } from './PostPreview';
+export { AppzaDraftAudioList } from './AudioPlayerRow';
 export {
   getPostDraft,
   setPostDraft,
@@ -99,11 +100,14 @@ export {
   addPostDraftImages,
   removePostDraftImage,
   removePostDraftVideo,
+  addPostDraftAudios,
+  removePostDraftAudio,
   type PostDraft,
   type PostDraftTopic,
   type PostDraftTarget,
   type PostDraftImage,
   type PostDraftVideo,
+  type PostDraftAudio,
 } from './postDraft';
 export {
   VideoSheet,

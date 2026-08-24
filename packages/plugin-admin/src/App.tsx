@@ -65,6 +65,7 @@ import {
   usePostDraft,
   getPostDraft,
   addPostDraftImages,
+  addPostDraftAudios,
   optionsSheetPresentation,
   OPTIONS_SHEET_CHILD_COUNT,
   readPickerOptions,
@@ -392,6 +393,8 @@ export function App() {
   // Hidden file input reused across picker.image invocations. Ref lets the
   // dispatcher trigger `.click()` without React re-render.
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const audioInputRef = useRef<HTMLInputElement | null>(null);
+  const audioUploadEndpointRef = useRef<string | null>(null);
   // Endpoint the dispatcher hands over when picker.image / picker.video
   // fires. Kept in a ref (not state) so the write is synchronous with the
   // dispatch AND the subsequent uploadImages / attachVideo read sees the
@@ -888,6 +891,13 @@ export function App() {
     uploadEndpointRef.current = target;
     fileInputRef.current.click();
   }, []);
+  const openAudioPicker = useCallback((endpoint: string) => {
+    // Same ref-then-click shape as the image picker, and for the same
+    // reason: the input's onChange fires after this returns, so the
+    // endpoint has to be somewhere it can read synchronously.
+    audioUploadEndpointRef.current = endpoint;
+    audioInputRef.current?.click();
+  }, []);
   const clearPendingImages = useCallback(() => setPostDraft({ images: [] }), []);
   const clearPendingVideo = useCallback(() => setPendingVideo(null), []);
   const openPollModal = useCallback(() => setPollModalOpen(true), []);
@@ -988,6 +998,7 @@ export function App() {
         onMenuInfo: showMenuInfo,
         onMenuError: showMenuError,
         openImagePicker,
+        openAudioPicker,
         pendingImages,
         clearPendingImages,
         attachVideo,
@@ -1005,7 +1016,7 @@ export function App() {
     },
     [
       catalog, selectedScreenId, auth, setAuth, uiMode,
-      openImagePicker, pendingImages, clearPendingImages,
+      openImagePicker, openAudioPicker, pendingImages, clearPendingImages,
       attachVideo, pendingVideo, clearPendingVideo,
       openPollModal, pendingPoll, clearPendingPoll,
       openDeleteConfirm, openCommentPanel,
@@ -1156,6 +1167,49 @@ export function App() {
    * top-of-app red banner. Uploads run in parallel; count is tracked so
    * we can show a "Uploading N…" indicator in the thumbnail strip.
    */
+  /**
+   * Upload the picked audio files and put them on the draft.
+   *
+   * Capped BEFORE uploading for the same reason the images are: uploading
+   * everything and keeping the first N leaves orphaned FluentPlayer media
+   * rows that nothing will attach and no endpoint removes.
+   */
+  const uploadAudios = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
+      const endpoint = audioUploadEndpointRef.current;
+      if (!endpoint) return;
+      const max = getFcRuntimeSettings().composer.fluent_player.max_audios_per_post;
+      const room = max > 0 ? Math.max(0, max - getPostDraft().audios.length) : files.length;
+      const picked = Array.from(files);
+      const list = picked.slice(0, room);
+      if (picked.length > list.length) {
+        setAuthMessage(
+          `Only ${max} audio file${max === 1 ? '' : 's'} can go on a post — ${picked.length - list.length} not added.`,
+        );
+      }
+      if (list.length === 0) return;
+      setUploadingCount((c) => c + list.length);
+      const results = await Promise.all(
+        list.map(async (file) => {
+          try {
+            const video = await uploadDraftVideo(file, endpoint, auth ? basicAuthHeader(auth) : '', 'audio');
+            if (!video || !video.media_id || !video.media_url) {
+              setAuthMessage(`Could not upload ${file.name}.`);
+              return null;
+            }
+            return { media_id: video.media_id, url: video.media_url, title: file.name };
+          } finally {
+            setUploadingCount((c) => c - 1);
+          }
+        }),
+      );
+      const clean = results.filter((a): a is { media_id: string; url: string; title: string } => !!a);
+      if (clean.length > 0) addPostDraftAudios(clean, max);
+    },
+    [auth],
+  );
+
   const uploadImages = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return;
@@ -1403,6 +1457,25 @@ export function App() {
             const files = e.target.files;
             void uploadImages(files);
             // Reset so selecting the same file again re-fires onChange
+            e.target.value = '';
+          }}
+        />
+      )}
+
+      {/* Audio gets its OWN hidden input rather than sharing the image
+          one: the accept list differs, and a shared input would need its
+          `accept` swapped before every click — a race the picker would
+          lose exactly when two glyphs are tapped in quick succession. */}
+      {uiMode === 'app' && (
+        <input
+          ref={audioInputRef}
+          type="file"
+          accept="audio/*"
+          multiple
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const files = e.target.files;
+            void uploadAudios(files);
             e.target.value = '';
           }}
         />
@@ -2375,6 +2448,7 @@ type AppModeActionDeps = {
   onMenuInfo: (message: string) => void;
   onMenuError: (message: string) => void;
   openImagePicker: (target: { endpoint: string; method: string }) => void;
+  openAudioPicker: (endpoint: string) => void;
   pendingImages: string[];
   clearPendingImages: () => void;
   attachVideo: (url: string, target: { endpoint: string; method: string }) => Promise<void>;
@@ -3086,6 +3160,21 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         }
         if (body.media) body.content_type = 'oembed';
       }
+      // Audio rides alongside whatever else is attached rather than
+      // replacing it: FluentCommunity stores meta.audio_medias
+      // independently of content_type. The server re-checks ownership and
+      // re-applies the per-post cap, so this only has to name the files.
+      const draftAudios = getPostDraft().audios;
+      if (draftAudios.length > 0) {
+        body.audio_medias = draftAudios.map((a) => ({
+          media_id: a.media_id,
+          player: 'fluent_player',
+          content_type: 'audio',
+          url: a.url,
+          title: a.title,
+          settings: { src: a.url, title: a.title, viewType: 'audio' },
+        }));
+      }
       // Attach poll (survey). FC reads survey.options[].label + survey.type,
       // slugs each option server-side (opt_1, opt_2, …) on create + sets
       // content_type = 'survey'. Poll overrides video/image if all three
@@ -3364,6 +3453,21 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           };
         }
         if (body.media) body.content_type = 'oembed';
+      }
+      // Audio rides alongside whatever else is attached rather than
+      // replacing it: FluentCommunity stores meta.audio_medias
+      // independently of content_type. The server re-checks ownership and
+      // re-applies the per-post cap, so this only has to name the files.
+      const draftAudios = getPostDraft().audios;
+      if (draftAudios.length > 0) {
+        body.audio_medias = draftAudios.map((a) => ({
+          media_id: a.media_id,
+          player: 'fluent_player',
+          content_type: 'audio',
+          url: a.url,
+          title: a.title,
+          settings: { src: a.url, title: a.title, viewType: 'audio' },
+        }));
       }
       if (pendingPoll && pendingPoll.options.filter((o) => o.label.trim()).length >= 2) {
         // post.edit MUST forward the server-issued slug on every option
@@ -3876,6 +3980,27 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             uploadDraftVideo(file, uploadEndpoint, auth ? basicAuthHeader(auth) : ''),
         });
       })();
+      return;
+    }
+
+    case 'picker.audio': {
+      if (!auth) {
+        onLoginError('Please sign in to attach audio.');
+        return;
+      }
+      const player = getFcRuntimeSettings().composer.fluent_player;
+      if (!player.enabled || !player.audio_upload_enabled) {
+        // The glyph is gated on the same two switches, so this only fires
+        // if the catalog was edited to show it anyway. Saying why beats a
+        // silent no-op.
+        onLoginError('Audio posts are turned off for this community.');
+        return;
+      }
+      const audioEndpoint =
+        typeof argRec.endpoint === 'string' && argRec.endpoint
+          ? argRec.endpoint
+          : '/wp-json/fcom-mobile/api/v1/fluent-player/video-upload';
+      deps.openAudioPicker(audioEndpoint);
       return;
     }
 

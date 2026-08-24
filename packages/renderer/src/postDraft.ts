@@ -46,6 +46,16 @@ export type PostDraftVideo = {
   media_url?: string;
 };
 
+/**
+ * One attached audio. FluentPlayer owns the file; the post stores a
+ * reference to it in `meta.audio_medias`.
+ */
+export type PostDraftAudio = {
+  media_id: string;
+  url: string;
+  title: string;
+};
+
 /** Where the post is going. '' until the user has chosen. */
 export type PostDraftTarget = '' | 'space' | 'profile';
 
@@ -101,6 +111,14 @@ export type PostDraft = {
    * and silently drop the other.
    */
   video: PostDraftVideo | null;
+
+  /**
+   * Attached audio, in pick order. NOT exclusive with the other media:
+   * FluentCommunity stores `meta.audio_medias` independently of
+   * `content_type`, so a post can carry audio alongside images or a
+   * video — which is why the exclusivity rule above names only those two.
+   */
+  audios: PostDraftAudio[];
 };
 
 const EVENT = 'appza:post-draft-change';
@@ -123,6 +141,7 @@ const DEFAULTS: PostDraft = {
   announcement: false,
   images: [],
   video: null,
+  audios: [],
 };
 
 let current: PostDraft = { ...DEFAULTS };
@@ -164,6 +183,7 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
     announcement: bool(patch, 'announcement', current.announcement),
     images: Array.isArray(patch.images) ? patch.images : current.images,
     video: patch.video !== undefined ? patch.video : current.video,
+    audios: Array.isArray(patch.audios) ? patch.audios : current.audios,
   };
 
   // A post is one kind of thing. Attaching a video clears the photos and
@@ -210,7 +230,8 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
     next.topic_ids === current.topic_ids &&
     next.announcement === current.announcement &&
     next.images === current.images &&
-    next.video === current.video
+    next.video === current.video &&
+    next.audios === current.audios
   ) {
     return;
   }
@@ -270,6 +291,26 @@ export function addPostDraftImages(images: PostDraftImage[], max: number): numbe
 export function removePostDraftImage(url: string): void {
   if (!current.images.some((i) => i.url === url)) return;
   setPostDraft({ images: current.images.filter((i) => i.url !== url) });
+}
+
+/**
+ * Append uploaded audio, stopping at FluentPlayer's per-post ceiling.
+ * Returns how many were refused, same contract as the image adder.
+ */
+export function addPostDraftAudios(items: PostDraftAudio[], max: number): number {
+  const have = current.audios;
+  const room = max > 0 ? Math.max(0, max - have.length) : items.length;
+  const seen = new Set(have.map((a) => a.media_id));
+  const fresh = items.filter((a) => a.media_id !== '' && !seen.has(a.media_id));
+  const accepted = fresh.slice(0, room);
+  if (accepted.length > 0) setPostDraft({ audios: [...have, ...accepted] });
+  return fresh.length - accepted.length;
+}
+
+/** Drop one audio from the draft. Local only, as with the images. */
+export function removePostDraftAudio(mediaId: string): void {
+  if (!current.audios.some((a) => a.media_id === mediaId)) return;
+  setPostDraft({ audios: current.audios.filter((a) => a.media_id !== mediaId) });
 }
 
 /** Drop the attached video. Local only, for the same reason images are. */

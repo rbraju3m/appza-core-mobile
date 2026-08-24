@@ -3,7 +3,9 @@ import { IonIcon } from '@ionic/react';
 
 import { resolveIcon } from './PrimitiveRenderer';
 import { AppzaDraftVideo } from './VideoSheet';
+import { AppzaDraftAudioList } from './AudioPlayerRow';
 import {
+  removePostDraftAudio,
   removePostDraftImage,
   removePostDraftVideo,
   setPostDraft,
@@ -269,6 +271,18 @@ export function AppzaPostComposer({ overrides, action, dispatch }: PostComposerP
         <AppzaDraftVideo
           video={draft.video}
           onRemove={removePostDraftVideo}
+          removeIcon={str(overrides, 'remove_icon') || 'close'}
+        />
+      )}
+
+      {/* Attached audio — design 22. Not exclusive with the rest:
+          FluentCommunity stores meta.audio_medias independently of
+          content_type, so a post may carry audio alongside images. */}
+      {showMedia && draft.audios.length > 0 && (
+        <AppzaDraftAudioList
+          audios={draft.audios}
+          overrides={overrides}
+          onRemove={removePostDraftAudio}
           removeIcon={str(overrides, 'remove_icon') || 'close'}
         />
       )}

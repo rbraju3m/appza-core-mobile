@@ -21,7 +21,7 @@ import { setLeaderboardControls, useLeaderboardControls } from './leaderboardCon
 import { setBookmarkControls, useBookmarkControls } from './bookmarkControls';
 import { publishSearchFetchView, useSearchControls } from './searchControls';
 import { useDocumentDraft } from './documentDraft';
-import { useFcRuntimeSettings } from './fcRuntimeSettings';
+import { getFcRuntimeSettings, useFcRuntimeSettings } from './fcRuntimeSettings';
 import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
 
 /**
@@ -179,7 +179,8 @@ export function PlacementRenderer({
   // the 2-column grid and the horizontal list layout. Read unconditionally
   // for stable hook order (subscribes to a small store; no cost when
   // unused by non-member AppZets).
-  const { member_list_layout: fcMemberListLayout } = useFcRuntimeSettings();
+  const fcSettings = useFcRuntimeSettings();
+  const { member_list_layout: fcMemberListLayout } = fcSettings;
   // Add-document draft — read unconditionally for stable hook order. Only
   // the topic chips consume it, to mark several chips active at once.
   const documentDraft = useDocumentDraft();
@@ -1014,6 +1015,23 @@ export function PlacementRenderer({
   }
 
   const hiddenIndices = computeHiddenIndices(ss, appzet);
+  // Child `visible_when` on the SINGLE (no data source) path.
+  //
+  // It used to be evaluated only on the repeat path, where there is a row
+  // to read — so a clause on an AppZet that binds no data source was
+  // parsed, carried into the snapshot, and then never consulted. The
+  // composer is exactly that case: it has no row, and the glyphs that
+  // exist only under a plugin switch have nowhere else to be gated.
+  //
+  // `data.*` clauses resolve to undefined here, which is the honest
+  // answer when there is no item; `settings.*` resolve against the site's
+  // FluentCommunity configuration.
+  const singlePathHidden = useMemo(() => {
+    const dataHidden = computeDataHiddenIndices(readChildren(ss), null);
+    if (dataHidden.size === 0) return hiddenIndices;
+    return new Set<number>([...hiddenIndices, ...dataHidden]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ss, hiddenIndices, fcSettings]);
   const childLayoutStyles = computeChildLayoutStyles(appzet, ss, customizations);
 
   // When `children_from_prop` is active AND actually expanded from a
@@ -1384,6 +1402,10 @@ export function PlacementRenderer({
     'overflow_color',
     'overflow_size',
     'overflow_weight',
+    // Attached audio (2026-08-24).
+    'audio_gap',
+    'audio_remove_bg_color',
+    'audio_remove_color',
   ]);
   // Aliases: some knobs also drive Ionic's own CSS custom properties
   // directly. Custom props inherit through shadow DOM (unlike `background`
@@ -1476,7 +1498,7 @@ export function PlacementRenderer({
             catalogIndex={catalogIndex}
             depth={0}
             childOverrides={baseChildOverrides}
-            hiddenIndices={hiddenIndices}
+            hiddenIndices={singlePathHidden}
             childLayoutStyles={childLayoutStyles}
             childActions={staticActions}
             appzetSlugForPath={appzet.slug}
@@ -2812,7 +2834,21 @@ function computeDataHiddenIndices(children: SSChild[], item: unknown): Set<numbe
 }
 
 function evaluateVisibleWhen(vw: VisibleWhen, item: unknown): boolean {
-  const resolved = readDataPath(item, vw.binding);
+  // `settings.*` reads the site's FluentCommunity configuration rather
+  // than the bound row. A glyph that exists only where a plugin switch
+  // allows it — the audio one needs FluentPlayer with audio on, the poll
+  // one needs the survey module — is not a property of any data item, and
+  // there is no row under the composer to hang it off. Placement-level
+  // gating cannot reach a CHILD, so the clause grammar grows instead of
+  // the Superstructure splitting into variants.
+  //
+  // `readDataPath` only walks a path that begins `data.`, so the prefix is
+  // swapped rather than stripped. Stripping it returns undefined for every
+  // clause, which fails CLOSED for `== true` — the glyph disappears and
+  // looks like the setting is off.
+  const resolved = vw.binding.startsWith('settings.')
+    ? readDataPath(getFcRuntimeSettings(), vw.binding.replace(/^settings\./, 'data.'))
+    : readDataPath(item, vw.binding);
   switch (vw.op) {
     case 'exists':
       return resolved !== undefined && resolved !== null && resolved !== '';
