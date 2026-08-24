@@ -319,18 +319,22 @@ function applyReactionOptimistic(feedId: number, reactType: string, on: boolean)
   });
 }
 
-// Pipe FluentCommunity portal customization settings from the bootstrap
-// envelope into the renderer's fcRuntimeSettings store. Runs after every
-// bootstrap load (first render + pull-to-refresh) so the mobile follows
-// whatever the site admin picked in Settings → Customization →
-// "Members List Layout" (classic = list, grid = tiles).
+// Pipe FluentCommunity portal settings from the bootstrap envelope into
+// the renderer's fcRuntimeSettings store. Runs after every bootstrap
+// load (first render + pull-to-refresh) so the mobile follows whatever
+// the site admin picked: Settings → Customization → "Members List
+// Layout" (classic = list, grid = tiles), and the whole `composer`
+// block the create-post screen branches on (post title pref, media cap,
+// rich-media layout, FluentPlayer switches).
+//
+// The whole block is handed over as-is — the store validates and
+// falls back per field, so a shell that has not been taught about a new
+// setting still passes it through.
 function applyFcRuntimeSettings(envelope: BootstrapEnvelope): void {
   const cfg = (envelope.runtime_config ?? null) as Record<string, unknown> | null;
   const fc = cfg && isRecord(cfg.fluent_community) ? (cfg.fluent_community as Record<string, unknown>) : null;
-  const layout = fc && typeof fc.member_list_layout === 'string' ? fc.member_list_layout : null;
-  if (layout === 'classic' || layout === 'grid') {
-    setFcRuntimeSettings({ member_list_layout: layout });
-  }
+  if (!fc) return;
+  setFcRuntimeSettings(fc);
 }
 
 // Absolutize an endpoint against the tunnel/SITE_URL. Catalog actions

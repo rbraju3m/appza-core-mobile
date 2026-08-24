@@ -89,10 +89,16 @@ export {
 } from './ChatUserCard';
 export {
   getFcRuntimeSettings,
+  getFcComposerSettings,
   setFcRuntimeSettings,
   useFcRuntimeSettings,
   type FcRuntimeSettings,
   type FcMemberListLayout,
+  type FcComposerSettings,
+  type FcFluentPlayerSettings,
+  type FcPostTitlePref,
+  type FcRichPostLayout,
+  type FcVideoUploadRole,
 } from './fcRuntimeSettings';
 export {
   MemberOptionsSheet,

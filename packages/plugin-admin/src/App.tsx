@@ -2088,17 +2088,16 @@ function renderThemes(templateTokens: unknown, screenTokens: unknown) {
   );
 }
 
-// Pipe FluentCommunity portal customization settings from the bootstrap
-// envelope into the renderer's fcRuntimeSettings store. Mirrors the mobile
-// shell path so the simulator previews fc-member-card in whatever layout
-// (list vs grid) the site admin picked in Settings → Customization.
+// Pipe FluentCommunity portal settings from the bootstrap envelope into
+// the renderer's fcRuntimeSettings store. Mirrors the mobile shell path
+// EXACTLY — the two shells dispatch the same actions and render the same
+// components, so a setting honoured in one and not the other is a bug
+// the simulator cannot show you (P100).
 function applyFcRuntimeSettings(envelope: BootstrapEnvelope): void {
   const cfg = (envelope.runtime_config ?? null) as Record<string, unknown> | null;
   const fc = cfg && isRecord(cfg.fluent_community) ? (cfg.fluent_community as Record<string, unknown>) : null;
-  const layout = fc && typeof fc.member_list_layout === 'string' ? fc.member_list_layout : null;
-  if (layout === 'classic' || layout === 'grid') {
-    setFcRuntimeSettings({ member_list_layout: layout });
-  }
+  if (!fc) return;
+  setFcRuntimeSettings(fc);
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
