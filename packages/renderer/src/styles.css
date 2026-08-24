@@ -9237,3 +9237,210 @@ audio.appza-video-embed-native {
   border: none;
   box-shadow: none;
 }
+
+/* ---------- fc-post-video-sheet — "Attach Media" (designs 15-19) ------- */
+
+.appza-video-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: var(--appza-backdrop-color, rgba(17, 24, 39, 0.35));
+}
+.appza-video-sheet {
+  width: 100%;
+  max-height: var(--appza-sheet-max-height, 88%);
+  display: flex;
+  flex-direction: column;
+  background: var(--appza-sheet-bg-color, #ffffff);
+  border-top-left-radius: var(--appza-sheet-radius, 16px);
+  border-top-right-radius: var(--appza-sheet-radius, 16px);
+  overflow: hidden;
+}
+.appza-video-sheet-grabber {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 4px;
+  margin: 8px auto 4px;
+  border-radius: 2px;
+  background: var(--appza-handle-color, #d1d5db);
+}
+.appza-video-sheet-scroll {
+  overflow-y: auto;
+  padding: 4px var(--appza-sheet-padding-x, 16px) 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.appza-video-sheet-eyebrow {
+  color: var(--appza-eyebrow-color, #6b7280);
+  font-size: var(--appza-eyebrow-size, 0.6875rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.appza-video-sheet-title {
+  color: var(--appza-title-color, #111827);
+  font-size: var(--appza-title-size, 1.1875rem);
+  font-weight: var(--appza-title-weight, 700);
+  margin-top: -6px;
+}
+
+/* The segmented control. Equal thirds so the three labels line up with
+   the design regardless of how long each word is. */
+.appza-video-sheet-tabs {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--appza-tab-radius, 6px);
+  background: var(--appza-tab-bg-color, #e9eaec);
+}
+.appza-video-sheet-tab {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--appza-tab-size, 0.8125rem);
+  height: var(--appza-tab-height, 30px);
+  border-radius: calc(var(--appza-tab-radius, 6px) - 2px);
+  background: transparent;
+  color: var(--appza-tab-text-color, #4b5563);
+}
+.appza-video-sheet-tab[data-active='yes'] {
+  background: var(--appza-active-bg-color, #ffffff);
+  color: var(--appza-active-color, #111827);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+.appza-video-sheet-hint {
+  color: var(--appza-hint-color, #4b5563);
+  font-size: var(--appza-hint-size, 0.8125rem);
+  margin-bottom: -4px;
+}
+.appza-video-sheet-error {
+  color: var(--appza-error-color, #d33a2c);
+  font-size: var(--appza-hint-size, 0.8125rem);
+}
+
+.appza-video-sheet-field {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: var(--appza-field-size, 0.875rem);
+  padding: 10px 12px;
+  border-radius: var(--appza-field-radius, 6px);
+  border: 1px solid var(--appza-field-border-color, #d7dade);
+  background: var(--appza-field-bg-color, #e9eaec);
+  color: var(--appza-field-text-color, #111827);
+  outline: none;
+}
+.appza-video-sheet-textarea {
+  resize: vertical;
+  min-height: 88px;
+  font-family: inherit;
+}
+.appza-video-sheet-preview {
+  border-radius: var(--appza-field-radius, 6px);
+  overflow: hidden;
+}
+.appza-video-sheet-preview iframe,
+.appza-video-sheet-preview video {
+  width: 100%;
+  aspect-ratio: var(--appza-embed-aspect, 16 / 9);
+  height: auto;
+  display: block;
+  border: 0;
+}
+
+.appza-video-sheet-attach {
+  align-self: flex-start;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--appza-attach-size, 0.8125rem);
+  padding: 6px 14px;
+  border-radius: var(--appza-attach-radius, 4px);
+  color: var(--appza-attach-text-color, #ffffff);
+  background: var(--appza-attach-disabled-bg-color, #a5b0f5);
+}
+.appza-video-sheet-attach[data-ready='yes'] {
+  background: var(--appza-attach-bg-color, #2f57ef);
+}
+
+.appza-video-sheet-dropzone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  padding: 14px 16px;
+  border-radius: var(--appza-upload-radius, 6px);
+  border: 1px solid var(--appza-upload-border-color, #d7dade);
+  background: transparent;
+  color: var(--appza-icon-color, #4b5563);
+  font-size: var(--appza-icon-size, 22px);
+}
+.appza-video-sheet-dropzone-text {
+  display: flex;
+  flex-direction: column;
+}
+.appza-video-sheet-dropzone-title {
+  color: var(--appza-title-color, #111827);
+  font-size: var(--appza-upload-title-size, 0.9375rem);
+  font-weight: var(--appza-upload-title-weight, 600);
+}
+.appza-video-sheet-dropzone-sub {
+  color: var(--appza-hint-color, #6b7280);
+  font-size: var(--appza-hint-size, 0.75rem);
+}
+
+/* ---------- the attached video, in the composer and the preview ------- */
+
+.appza-draft-video {
+  position: relative;
+  display: block;
+  margin-top: var(--appza-image-gap, 8px);
+  border-radius: var(--appza-image-radius, 4px);
+  overflow: hidden;
+  background: var(--appza-video-bg-color, #0f1115);
+}
+.appza-draft-video video,
+.appza-draft-video iframe {
+  width: 100%;
+  aspect-ratio: var(--appza-embed-aspect, 16 / 9);
+  height: auto;
+  display: block;
+  border: 0;
+}
+.appza-draft-video-embed {
+  display: block;
+}
+.appza-draft-video-remove {
+  position: absolute;
+  top: var(--appza-remove-offset, 6px);
+  right: var(--appza-remove-offset, 6px);
+  width: var(--appza-remove-size, 18px);
+  height: var(--appza-remove-size, 18px);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: var(--appza-remove-bg-color, rgba(17, 24, 39, 0.55));
+  color: var(--appza-remove-color, #ffffff);
+  font-size: calc(var(--appza-remove-size, 18px) * 0.62);
+  line-height: 1;
+  z-index: 2;
+}
+/* The preview draws no discard badge — nothing there is editable — so the
+   media region keeps the same corners the images get. */
+.appza-post-preview-media .appza-draft-video {
+  margin-top: 0;
+  border-radius: 0;
+}

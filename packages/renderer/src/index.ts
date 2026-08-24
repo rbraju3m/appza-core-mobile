@@ -98,11 +98,25 @@ export {
   togglePostDraftTopic,
   addPostDraftImages,
   removePostDraftImage,
+  removePostDraftVideo,
   type PostDraft,
   type PostDraftTopic,
   type PostDraftTarget,
   type PostDraftImage,
+  type PostDraftVideo,
 } from './postDraft';
+export {
+  VideoSheet,
+  openVideoSheet,
+  closeVideoSheet,
+  VIDEO_SHEET_APPZET_SLUG,
+  VIDEO_SHEET_CHILD_COUNT,
+  AppzaDraftVideo,
+  lookupVideoOembed,
+  uploadDraftVideo,
+  type VideoSheetPresentation,
+  type VideoOembedResult,
+} from './VideoSheet';
 export {
   PostSpaceSheet,
   openPostSpaceSheet,
@@ -247,6 +261,7 @@ export {
   optionsSheetPresentation,
   postMenuSheetPresentation,
   postSpaceSheetPresentation,
+  videoSheetPresentation,
   profileLinkRowVars,
 } from './modalPresentation';
 export {

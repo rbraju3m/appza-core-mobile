@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { IonIcon } from '@ionic/react';
 
 import { resolveIcon } from './PrimitiveRenderer';
+import { AppzaDraftVideo } from './VideoSheet';
 import {
   removePostDraftImage,
+  removePostDraftVideo,
   setPostDraft,
   togglePostDraftTopic,
   usePostDraft,
@@ -259,6 +261,17 @@ export function AppzaPostComposer({ overrides, action, dispatch }: PostComposerP
         value={draft.body}
         onChange={(e) => setPostDraft({ body: e.target.value })}
       />
+
+      {/* The attached video — design 20. Exclusive with images: the
+          draft slice clears one when the other arrives, because
+          FluentCommunity stores a single content_type per post. */}
+      {showMedia && draft.video && (
+        <AppzaDraftVideo
+          video={draft.video}
+          onRemove={removePostDraftVideo}
+          removeIcon={str(overrides, 'remove_icon') || 'close'}
+        />
+      )}
 
       {/* Attached images, under the body and above the action bar —
           designs 10 (one, full width) and 13 (a grid). One image is not a

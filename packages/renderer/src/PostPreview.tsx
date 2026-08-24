@@ -3,6 +3,7 @@ import { IonIcon } from '@ionic/react';
 
 import { resolveIcon } from './PrimitiveRenderer';
 import { usePostDraft } from './postDraft';
+import { AppzaDraftVideo } from './VideoSheet';
 import { useFcRuntimeSettings } from './fcRuntimeSettings';
 
 /**
@@ -122,7 +123,9 @@ export function AppzaPostPreview({ overrides }: PostPreviewProps) {
   // stylable when the draft carries nothing.
   const images = draft.images;
   let media: React.ReactNode = null;
-  if (images.length > 0) {
+  if (draft.video) {
+    media = <AppzaDraftVideo video={draft.video} />;
+  } else if (images.length > 0) {
     const shown = images.length > gridTiles ? images.slice(0, gridTiles) : images;
     const hidden = images.length - shown.length;
     media = (

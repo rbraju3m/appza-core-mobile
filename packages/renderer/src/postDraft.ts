@@ -27,6 +27,25 @@ export type PostDraftImage = {
   media_id?: string;
 };
 
+/**
+ * The one video a post may carry. FluentCommunity allows exactly one, and
+ * it is exclusive with images — `content_type` is a single value.
+ */
+export type PostDraftVideo = {
+  kind: 'oembed' | 'html' | 'upload';
+  /** oEmbed only — the source URL, which is what post.create sends. */
+  url?: string;
+  /** The markup to render: the provider's iframe, or the pasted one. */
+  html?: string;
+  /** oEmbed poster, when the provider gave one. */
+  image?: string;
+  provider?: string;
+  title?: string;
+  /** Upload only — FluentPlayer's media row. */
+  media_id?: string;
+  media_url?: string;
+};
+
 /** Where the post is going. '' until the user has chosen. */
 export type PostDraftTarget = '' | 'space' | 'profile';
 
@@ -74,6 +93,14 @@ export type PostDraft = {
    * honest version of that.
    */
   images: PostDraftImage[];
+
+  /**
+   * The attached video, or null. One at a time and exclusive with images:
+   * FluentCommunity stores a single `content_type` per post, so attaching
+   * a video to a draft that already carries photos would post one of them
+   * and silently drop the other.
+   */
+  video: PostDraftVideo | null;
 };
 
 const EVENT = 'appza:post-draft-change';
@@ -95,6 +122,7 @@ const DEFAULTS: PostDraft = {
   topic_ids: [],
   announcement: false,
   images: [],
+  video: null,
 };
 
 let current: PostDraft = { ...DEFAULTS };
@@ -135,7 +163,20 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
     topic_ids: Array.isArray(patch.topic_ids) ? patch.topic_ids : current.topic_ids,
     announcement: bool(patch, 'announcement', current.announcement),
     images: Array.isArray(patch.images) ? patch.images : current.images,
+    video: patch.video !== undefined ? patch.video : current.video,
   };
+
+  // A post is one kind of thing. Attaching a video clears the photos and
+  // vice versa, because FluentCommunity's `content_type` is a single
+  // value — sending both would post one and silently drop the other, and
+  // the composer would have shown the user both right up to the moment
+  // they pressed Post.
+  if (patch.video != null && next.images.length > 0 && !Array.isArray(patch.images)) {
+    next.images = [];
+  }
+  if (Array.isArray(patch.images) && patch.images.length > 0 && patch.video === undefined) {
+    next.video = null;
+  }
 
   // Changing where the post goes invalidates everything that described
   // the previous destination. The topic chips belong to the space, so a
@@ -168,7 +209,8 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
     next.topics === current.topics &&
     next.topic_ids === current.topic_ids &&
     next.announcement === current.announcement &&
-    next.images === current.images
+    next.images === current.images &&
+    next.video === current.video
   ) {
     return;
   }
@@ -228,6 +270,12 @@ export function addPostDraftImages(images: PostDraftImage[], max: number): numbe
 export function removePostDraftImage(url: string): void {
   if (!current.images.some((i) => i.url === url)) return;
   setPostDraft({ images: current.images.filter((i) => i.url !== url) });
+}
+
+/** Drop the attached video. Local only, for the same reason images are. */
+export function removePostDraftVideo(): void {
+  if (current.video === null) return;
+  setPostDraft({ video: null });
 }
 
 /**

@@ -55,6 +55,12 @@ import {
   openOptionsSheet,
   PostSpaceSheet,
   openPostSpaceSheet,
+  VideoSheet,
+  openVideoSheet,
+  videoSheetPresentation,
+  VIDEO_SHEET_CHILD_COUNT,
+  lookupVideoOembed,
+  uploadDraftVideo,
   postSpaceSheetPresentation,
   POST_SPACE_SHEET_CHILD_COUNT,
   fetchPostSpacePayload,
@@ -1392,6 +1398,7 @@ export function App() {
         <ViewModePopover />
         <OptionsSheet />
         <PostSpaceSheet />
+        <VideoSheet />
         <PostOptionsPopover />
         {/* Member overflow flow: 3-dot bottom sheet → role picker sheet
          * (Change Membership) or center confirm alert (Remove from space).
@@ -2287,9 +2294,24 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         body.media_images = deps.pendingImages.map((u) => ({ url: u, provider: 'uploader' }));
         body.content_type = 'image';
       }
-      if (deps.pendingVideo) {
-        body.media = { type: 'oembed', url: deps.pendingVideo.url };
-        body.content_type = 'oembed';
+      // The draft's video, in whichever of the three shapes it came from.
+      // FluentCommunity takes an oEmbed by URL and re-parses it; a pasted
+      // iframe and a FluentPlayer upload go as `html` and `media_id`, the
+      // two shapes its own composer sends.
+      const draftVideo = getPostDraft().video;
+      if (draftVideo) {
+        if (draftVideo.kind === 'oembed' && draftVideo.url) {
+          body.media = { type: 'oembed', url: draftVideo.url };
+        } else if (draftVideo.kind === 'html' && draftVideo.html) {
+          body.media = { type: 'custom_html', html: draftVideo.html };
+        } else if (draftVideo.kind === 'upload' && draftVideo.media_id) {
+          body.media = {
+            type: 'fluent_player',
+            media_id: draftVideo.media_id,
+            url: draftVideo.media_url,
+          };
+        }
+        if (body.media) body.content_type = 'oembed';
       }
       if (deps.pendingPoll && deps.pendingPoll.options.filter((o) => o.label.trim()).length >= 2) {
         // post.create — server assigns fresh slugs; omit any that may
@@ -2521,9 +2543,24 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         body.media_images = deps.pendingImages.map((u) => ({ url: u, provider: 'uploader' }));
         body.content_type = 'image';
       }
-      if (deps.pendingVideo) {
-        body.media = { type: 'oembed', url: deps.pendingVideo.url };
-        body.content_type = 'oembed';
+      // The draft's video, in whichever of the three shapes it came from.
+      // FluentCommunity takes an oEmbed by URL and re-parses it; a pasted
+      // iframe and a FluentPlayer upload go as `html` and `media_id`, the
+      // two shapes its own composer sends.
+      const draftVideo = getPostDraft().video;
+      if (draftVideo) {
+        if (draftVideo.kind === 'oembed' && draftVideo.url) {
+          body.media = { type: 'oembed', url: draftVideo.url };
+        } else if (draftVideo.kind === 'html' && draftVideo.html) {
+          body.media = { type: 'custom_html', html: draftVideo.html };
+        } else if (draftVideo.kind === 'upload' && draftVideo.media_id) {
+          body.media = {
+            type: 'fluent_player',
+            media_id: draftVideo.media_id,
+            url: draftVideo.media_url,
+          };
+        }
+        if (body.media) body.content_type = 'oembed';
       }
       if (deps.pendingPoll && deps.pendingPoll.options.filter((o) => o.label.trim()).length >= 2) {
         // post.edit MUST forward the server-issued slug on every option
@@ -2677,20 +2714,46 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         onError('Please sign in to attach a video.');
         return;
       }
-      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
-      const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
-      if (!endpoint) {
-        onError('picker.video is missing its endpoint.');
-        return;
-      }
-      const url = window.prompt('Paste a video URL (YouTube, Vimeo, etc.):') ?? '';
-      const trimmed = url.trim();
-      if (!trimmed) return;
-      if (!/^https?:\/\//i.test(trimmed)) {
-        onError('Please enter a full URL starting with http:// or https://');
-        return;
-      }
-      void attachVideo(trimmed, { endpoint, method });
+      const oembedEndpoint =
+        typeof argRec.endpoint === 'string' && argRec.endpoint
+          ? argRec.endpoint
+          : '/wp-json/fcom-mobile/api/v1/feeds/oembed';
+      const uploadEndpoint =
+        typeof argRec.upload_endpoint === 'string' && argRec.upload_endpoint
+          ? argRec.upload_endpoint
+          : '/wp-json/fcom-mobile/api/v1/fluent-player/video-upload';
+      const sheetSlug =
+        typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
+          ? argRec.sheet_appzet_slug
+          : 'fc-post-video-sheet';
+      const player = getFcRuntimeSettings().composer.fluent_player;
+      void (async () => {
+        // The upload tab's gate is a question about the VIEWER, so it
+        // comes off the same per-request payload the space picker uses,
+        // not the cached bootstrap. Already warmed at screen mount.
+        const dsSlug =
+          typeof readAppzetActionsFromCatalog('fc-post-information')?.on_tap_space?.args
+            ?.data_source === 'string'
+            ? (readAppzetActionsFromCatalog('fc-post-information')!.on_tap_space!.args!
+                .data_source as string)
+            : 'fc-post-space-picker';
+        const payload = await fetchPostSpacePayload(dsSlug);
+        openVideoSheet({
+          appzetSlug: sheetSlug,
+          presentation: videoSheetPresentation(readAppzetPropsFromCatalog(sheetSlug)),
+          childStyles: childStylesFromCustomizations(
+            sheetSlug,
+            VIDEO_SHEET_CHILD_COUNT,
+            currentCustomizations,
+          ),
+          canUpload: player.enabled && player.video_upload_enabled && payload.canUploadVideo,
+          embedEnabled: getFcRuntimeSettings().composer.video_embed_enabled,
+          onLookup: (u: string) =>
+            lookupVideoOembed(u, absolutizeEndpoint(oembedEndpoint), (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? ''),
+          onUpload: (file: File) =>
+            uploadDraftVideo(file, absolutizeEndpoint(uploadEndpoint), (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? ''),
+        });
+      })();
       return;
     }
 

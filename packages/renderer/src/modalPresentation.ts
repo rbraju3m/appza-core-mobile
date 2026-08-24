@@ -12,6 +12,7 @@ import type { LeaderboardPointsPresentation } from './LeaderboardPointsSheet';
 import type { OptionsSheetPresentation } from './OptionsSheet';
 import type { PostMenuSheetPresentation } from './PostOptionsPopover';
 import type { PostSpaceSheetPresentation } from './PostSpaceSheet';
+import type { VideoSheetPresentation } from './VideoSheet';
 
 // Maps an overlay AppZet's authored props (snake_case, as stored in
 // default_props_override) onto the camelCase payload its component
@@ -607,5 +608,67 @@ export function postSpaceSheetPresentation(
     privacySize: size(props.privacy_size),
     dividerColor: str(props.divider_color),
     disabledOpacity: str(props.disabled_opacity),
+  };
+}
+
+/**
+ * fc-post-video-sheet — "Attach Media" (designs 15-19).
+ *
+ * `empty_hint` is shared by the two text tabs on purpose: the designs
+ * show both reading the same generic line until something is typed, and
+ * only then saying what each actually accepts.
+ */
+export function videoSheetPresentation(props: Record<string, unknown>): VideoSheetPresentation {
+  return {
+    eyebrow: str(props.eyebrow) ?? 'EMBED',
+    title: str(props.title) ?? 'Attach Media',
+    oembedTab: str(props.oembed_tab) ?? 'Oembed',
+    htmlTab: str(props.html_tab) ?? 'HTML Code',
+    uploadTab: str(props.upload_tab) ?? 'Upload Video',
+    emptyHint: str(props.empty_hint) ?? 'Add video iframe code',
+    oembedHint: str(props.oembed_hint) ?? 'Embed from Vimeo, YouTube, Wistia and more',
+    htmlHint: str(props.html_hint) ?? 'Add video from custom HTML Code',
+    urlPlaceholder: str(props.url_placeholder) ?? 'Enter video URL',
+    htmlPlaceholder: str(props.html_placeholder) ?? 'Pasate an iframe code',
+    attachLabel: str(props.attach_label) ?? 'Attach',
+    uploadTitle: str(props.upload_title) ?? 'Upload a video',
+    uploadSubtitle: str(props.upload_subtitle) ?? 'MP4, WebM or MOV',
+    uploadIcon: str(props.upload_icon) ?? 'videocam-outline',
+    uploadAccept: str(props.upload_accept) ?? 'video/mp4,video/webm,video/quicktime',
+    lookupFailedLabel: str(props.lookup_failed_label) ?? 'No video found at that link.',
+    hidden: bool(props.hidden, false),
+    showHandle: bool(props.show_handle, true),
+    showEyebrow: bool(props.show_eyebrow, true),
+    showTitle: bool(props.show_title, true),
+    sheetBgColor: str(props.sheet_bg_color),
+    sheetRadius: size(props.sheet_radius),
+    sheetMaxHeight: str(props.sheet_max_height),
+    backdropColor: str(props.backdrop_color),
+    handleColor: str(props.handle_color),
+    eyebrowColor: str(props.eyebrow_color),
+    eyebrowSize: size(props.eyebrow_size),
+    titleColor: str(props.title_color),
+    titleSize: size(props.title_size),
+    titleWeight: str(props.title_weight),
+    tabBgColor: str(props.tab_bg_color),
+    tabTextColor: str(props.tab_text_color),
+    tabRadius: size(props.tab_radius),
+    tabHeight: size(props.tab_height),
+    activeBgColor: str(props.active_bg_color),
+    activeColor: str(props.active_color),
+    hintColor: str(props.hint_color),
+    hintSize: size(props.hint_size),
+    fieldBgColor: str(props.field_bg_color),
+    fieldTextColor: str(props.field_text_color),
+    fieldRadius: size(props.field_radius),
+    fieldBorderColor: str(props.field_border_color),
+    attachBgColor: str(props.attach_bg_color),
+    attachDisabledBgColor: str(props.attach_disabled_bg_color),
+    attachTextColor: str(props.attach_text_color),
+    attachRadius: size(props.attach_radius),
+    uploadBorderColor: str(props.upload_border_color),
+    uploadRadius: size(props.upload_radius),
+    iconColor: str(props.icon_color),
+    iconSize: size(props.icon_size),
   };
 }
