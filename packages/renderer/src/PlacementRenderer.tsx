@@ -1351,6 +1351,24 @@ export function PlacementRenderer({
     'box_checked_tick_color',
     'label_color',
     'label_size',
+    // Post preview (2026-08-24). `card_*`, `avatar_size`,
+    // `avatar_bg_color`, `name_*`, `meta_color`, `title_*`, `body_*`,
+    // `divider_color`, `icon_color`, `icon_size` and `row_gap` are
+    // already above and reused on purpose.
+    'author_gap',
+    'meta_size',
+    'empty_color',
+    'media_gap',
+    'media_radius',
+    'media_sample_height',
+    'media_sample_color',
+    'actions_gap',
+    'actions_gap_top',
+    'bar_padding',
+    'bar_bg_color',
+    'close_color',
+    'close_size',
+    'close_weight',
   ]);
   // Aliases: some knobs also drive Ionic's own CSS custom properties
   // directly. Custom props inherit through shadow DOM (unlike `background`

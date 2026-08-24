@@ -8970,3 +8970,178 @@ audio.appza-video-embed-native {
   z-index: 20;
   padding: 0;
 }
+
+/* ============================================================
+   post-preview — "what this will look like once it is posted".
+   Noor's designs 9 (text), 11 (modern) and 12 (classic).
+
+   The card is deliberately NOT fc-post-card. A draft has no id, no
+   timestamp, no reactions and no 3-dot menu, so riding the feed card
+   would mean faking a feed row and then hiding two thirds of it.
+
+   MODERN vs CLASSIC is one attribute on the wrapper, read from
+   FluentCommunity's Rich Media Post Layout: modern lifts the media above
+   the author block and runs it edge to edge; classic leaves it under the
+   body, inset. The media region is empty until the chunks that fill it —
+   the two layouts exist now so they are real rather than retrofitted.  */
+
+[data-screen-slug="post-preview"] .appza-renderer-screen {
+  padding: 0;
+  gap: 0;
+  min-height: 100%;
+  background: var(--appza-page-bg-color, #f4f5f7);
+}
+
+.appza-renderer-ss[data-slug="fc-post-preview"] {
+  display: block;
+  margin: var(--appza-card-margin, 12px);
+}
+
+.appza-post-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--appza-row-gap, 8px);
+  padding: var(--appza-card-padding, 14px);
+  background: var(--appza-card-bg-color, #ffffff);
+  border-radius: var(--appza-card-radius, 8px);
+  box-shadow: var(--appza-card-shadow, 0 1px 3px rgba(15, 23, 42, 0.08));
+  /* The modern layout's media runs to the card's edges, which means
+     cancelling the padding with a negative margin. Clip it so the media's
+     corners follow the card's. */
+  overflow: hidden;
+}
+
+.appza-post-preview-author {
+  display: flex;
+  align-items: center;
+  gap: var(--appza-author-gap, 10px);
+  min-width: 0;
+}
+.appza-post-preview-avatar {
+  flex: 0 0 auto;
+  width: var(--appza-avatar-size, 34px);
+  height: var(--appza-avatar-size, 34px);
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--appza-avatar-bg-color, #eef0f3);
+}
+.appza-post-preview-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.appza-post-preview-author-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.appza-post-preview-name {
+  color: var(--appza-name-color, #111827);
+  font-size: var(--appza-name-size, 0.875rem);
+  font-weight: var(--appza-name-weight, 600);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-post-preview-meta {
+  color: var(--appza-meta-color, #9ca3af);
+  font-size: var(--appza-meta-size, 0.75rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appza-post-preview-title {
+  color: var(--appza-title-color, #111827);
+  font-size: var(--appza-title-size, 0.9375rem);
+  font-weight: var(--appza-title-weight, 400);
+  overflow-wrap: anywhere;
+}
+.appza-post-preview-body {
+  color: var(--appza-body-color, #6b7280);
+  font-size: var(--appza-body-size, 0.875rem);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.appza-post-preview-empty {
+  color: var(--appza-empty-color, #9ca3af);
+  font-size: var(--appza-body-size, 0.875rem);
+  font-style: italic;
+}
+
+.appza-post-preview-media[data-position='top'] {
+  /* Edge to edge: cancel the card padding on three sides so the media
+     meets the card's own corners. */
+  margin: calc(-1 * var(--appza-card-padding, 14px));
+  margin-bottom: var(--appza-media-gap, 10px);
+}
+.appza-post-preview-media[data-position='bottom'] {
+  margin-top: var(--appza-media-gap, 4px);
+  border-radius: var(--appza-media-radius, 6px);
+  overflow: hidden;
+}
+.appza-post-preview-media img,
+.appza-post-preview-media video {
+  width: 100%;
+  display: block;
+}
+/* Design-time only — a block to style the two layouts against before any
+   chunk has put real media on a draft. */
+.appza-post-preview-media-sample {
+  display: block;
+  height: var(--appza-media-sample-height, 150px);
+  background: var(--appza-media-sample-color, #dfe3e8);
+}
+
+.appza-post-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--appza-actions-gap, 26px);
+  margin-top: var(--appza-actions-gap-top, 6px);
+  padding-top: var(--appza-actions-gap-top, 6px);
+  border-top: 1px solid var(--appza-divider-color, #e5e7eb);
+  color: var(--appza-icon-color, #374151);
+  font-size: var(--appza-icon-size, 20px);
+}
+
+/* ---------- preview-appbar-shell — centred title + Close ---------- */
+.appza-renderer-ss[data-slug="preview-appbar-shell"] {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: var(--appza-bar-padding, 6px 12px);
+  background: var(--appza-bar-bg-color, #ffffff);
+}
+.appza-renderer-ss[data-slug="preview-appbar-shell"] [data-child-index="0"] {
+  grid-column: 2;
+  justify-self: center;
+  color: var(--appza-title-color, #111827);
+  font-size: var(--appza-title-size, 1rem);
+  font-weight: var(--appza-title-weight, 600);
+}
+.appza-renderer-ss[data-slug="preview-appbar-shell"] [data-child-index="1"] {
+  grid-column: 3;
+  justify-self: end;
+}
+.appza-renderer-ss[data-slug="preview-appbar-shell"] [data-child-index="1"] ion-button {
+  --background: transparent;
+  --background-hover: transparent;
+  --background-activated: transparent;
+  --box-shadow: none;
+  --border-width: 0;
+  --color: var(--appza-close-color, #111827);
+  --padding-start: 4px;
+  --padding-end: 4px;
+  font-size: var(--appza-close-size, 1rem);
+  font-weight: var(--appza-close-weight, 400);
+  text-transform: none;
+  letter-spacing: 0;
+  margin: 0;
+  border: none;
+}
+.appza-renderer-ss[data-slug="preview-appbar-shell"] [data-child-index="1"] ion-button::part(native) {
+  border: none;
+  box-shadow: none;
+}

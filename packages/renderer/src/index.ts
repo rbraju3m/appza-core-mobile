@@ -89,6 +89,7 @@ export {
   type ChatUserCardPresentation,
 } from './ChatUserCard';
 export { AppzaPostComposer, AppzaPostAnnounce, type PostComposerProps } from './PostComposer';
+export { AppzaPostPreview, type PostPreviewProps } from './PostPreview';
 export {
   getPostDraft,
   setPostDraft,

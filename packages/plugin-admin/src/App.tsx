@@ -595,13 +595,15 @@ export function App() {
   // than written down, so pointing the picker at a different list is a
   // right-panel edit and cannot leave these two disagreeing.
   //
-  // The reset only fires for CREATE. edit-post-page seeds the same draft
-  // from the post being edited, and clearing it here would race that.
+  // Emptying the draft is NOT done here. This effect runs on every
+  // arrival at the screen, and returning from the preview is an arrival —
+  // so a reset here would wipe the draft the user just went to look at.
+  // nav.push owns it instead, which is the one place that can tell
+  // "opened the composer" from "came back to it".
   useEffect(() => {
     if (uiMode !== 'app') return;
     const slug = currentScreen?.app_map_screen_slug;
     if (slug !== 'create-post-page' && slug !== 'edit-post-page') return;
-    if (slug === 'create-post-page') resetPostDraft();
     const wiring = readAppzetActionsFromCatalog('fc-post-information');
     const dsSlug =
       typeof wiring?.on_tap_space?.args?.data_source === 'string'
@@ -2817,6 +2819,12 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       const targetSlug =
         typeof argRec.target_screen_slug === 'string' ? argRec.target_screen_slug : null;
       if (!targetSlug || !catalog) return;
+      // A fresh composer starts empty. This is the ONLY place that can
+      // tell "opened the composer" from "came back to it": the preview is
+      // its own screen, so returning from it changes the screen slug
+      // exactly the way arriving does, and a reset keyed on the slug
+      // wipes the draft the user just went to look at.
+      if (targetSlug === 'create-post-page') resetPostDraft();
       const target = catalog.template_screens?.find(
         (s) => s.app_map_screen_slug === targetSlug,
       );

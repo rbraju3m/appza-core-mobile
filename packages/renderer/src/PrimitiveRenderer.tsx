@@ -192,6 +192,7 @@ import { AppzaAudioPlayer, AppzaAudioList } from './AudioPlayerRow';
 import { AppzaChatBubble } from './ChatBubble';
 import { AppzaChatComposer } from './ChatComposer';
 import { AppzaPostComposer, AppzaPostAnnounce } from './PostComposer';
+import { AppzaPostPreview } from './PostPreview';
 import { attach, attachOutline, cloudUploadOutline } from 'ionicons/icons';
 
 /**
@@ -762,6 +763,9 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
 
     case 'AppzaPostAnnounce':
       return <AppzaPostAnnounce overrides={overrides} />;
+
+    case 'AppzaPostPreview':
+      return <AppzaPostPreview overrides={overrides} />;
 
     case 'IonLabel':
       return <IonLabel>{label}</IonLabel>;
