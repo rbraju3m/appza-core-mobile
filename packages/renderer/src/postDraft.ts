@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+import { getFcComposerSettings } from './fcRuntimeSettings';
+
 // The create-post composer's draft — what the user has typed, where it
 // is going, and what the space they chose allows.
 //
@@ -209,6 +211,20 @@ export type PostDraft = {
    * audio and image blocks are not rendered at all.
    */
   documents: PostDraftDocument[];
+
+  /**
+   * When the post should publish — 'YYYY-MM-DD HH:MM:SS' in the site's
+   * wall-clock, or '' to publish now. Design 10's grey strip.
+   *
+   * FluentCommunity Pro's SchedulePostHandler takes it on the create
+   * request and, if it is at least 30 minutes out, sets `status =
+   * 'scheduled'` and queues the publish. It is **silently ignored for a
+   * non-moderator** — `if (!is_admin) return $data;` — so a member who
+   * could reach the control would set a time and watch the post publish
+   * immediately. That is why the calendar glyph is gated rather than
+   * merely erroring.
+   */
+  scheduled_at: string;
 };
 
 const EVENT = 'appza:post-draft-change';
@@ -234,6 +250,7 @@ const DEFAULTS: PostDraft = {
   audios: [],
   poll: null,
   documents: [],
+  scheduled_at: '',
 };
 
 let current: PostDraft = { ...DEFAULTS };
@@ -278,6 +295,7 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
     audios: Array.isArray(patch.audios) ? patch.audios : current.audios,
     poll: patch.poll !== undefined ? patch.poll : current.poll,
     documents: Array.isArray(patch.documents) ? patch.documents : current.documents,
+    scheduled_at: str(patch, 'scheduled_at', current.scheduled_at),
   };
 
   // Documents take the whole post. FluentCommunity resolves exactly one
@@ -328,6 +346,12 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
   if (moved) {
     next.topic_ids = Array.isArray(patch.topic_ids) ? patch.topic_ids : [];
     if (typeof patch.announcement !== 'boolean') next.announcement = false;
+    // Scheduling goes with it for the same reason. FluentCommunity grants
+    // it to a moderator of the space being posted to, so a time set for
+    // one destination may be worth nothing at the next — and FC ignores a
+    // schedule it will not honour SILENTLY, publishing immediately. A
+    // strip that still read "Scheduled for…" would be a lie.
+    if (typeof patch.scheduled_at !== 'string') next.scheduled_at = '';
   }
 
   if (
@@ -350,7 +374,8 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
     next.video === current.video &&
     next.audios === current.audios &&
     next.poll === current.poll &&
-    next.documents === current.documents
+    next.documents === current.documents &&
+    next.scheduled_at === current.scheduled_at
   ) {
     return;
   }
@@ -542,6 +567,14 @@ export function postDraftStateEntries(draft: PostDraft): Record<string, unknown>
     draft.audios.length > 0 ||
     draft.poll !== null;
   const hasDocuments = draft.documents.length > 0;
+  // The moderator verdict: a global community moderator, or a moderator
+  // of the space being posted to. FluentCommunity resolves the two the
+  // same way for BOTH the announcement email and scheduling
+  // (`hasPermissionOrInCurrentSpace('community_moderator', $space)`), so
+  // the derivation is shared — but each control gets its own key, because
+  // a calendar gated on something called `can_announce` is a puzzle for
+  // whoever reads the catalog next.
+  const isModerator = draft.viewer_is_moderator || draft.space_can_announce;
   return {
     // A VERDICT, not a flag the user sets: FluentCommunity grants the
     // announcement email to a global moderator OR to a moderator of the
@@ -560,7 +593,41 @@ export function postDraftStateEntries(draft: PostDraft): Record<string, unknown>
     // catalog than as one derived key here.
     'post_draft.can_attach_documents':
       draft.space_can_upload_documents && !hasOtherMedia ? 'yes' : 'no',
+    'post_draft.can_schedule': isModerator ? 'yes' : 'no',
+    'post_draft.has_schedule': draft.scheduled_at !== '' ? 'yes' : 'no',
+    'post_draft.can_post': isPostable(draft) ? 'yes' : 'no',
   };
+}
+
+/**
+ * Is there enough here for FluentCommunity to accept?
+ *
+ * Every clause mirrors a refusal the server already makes, so the pale
+ * Post button of designs 1 and 4 says the same thing the round trip would
+ * — before the round trip:
+ *
+ *  - **a message**: `/feeds/create` declares `message` required, and the
+ *    shells short-circuit an empty one with "Write something to post."
+ *  - **a destination**: FeedsController refuses a post with no space
+ *    unless the site allows global posts.
+ *  - **a topic where the space demands one**: "Please select at least one
+ *    topic to post in this space."
+ *  - **a title where the site demands one**: `post_title_pref` is
+ *    'required'. That one is a SITE setting rather than a draft field,
+ *    which is why this reads the runtime store — the verdict genuinely
+ *    depends on both, and putting a copy of the pref on the draft would
+ *    be one more thing to keep in step.
+ *
+ * Attachments deliberately do NOT count. FluentCommunity requires a
+ * message even on a post that is nothing but a photo, so a draft with an
+ * image and no words is not postable and the button must say so.
+ */
+function isPostable(draft: PostDraft): boolean {
+  if (draft.body.trim() === '') return false;
+  if (draft.target === '') return false;
+  if (draft.topic_required && draft.topic_ids.length === 0) return false;
+  if (getFcComposerSettings().post_title_pref === 'required' && draft.title.trim() === '') return false;
+  return true;
 }
 
 /**

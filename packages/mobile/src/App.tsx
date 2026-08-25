@@ -72,6 +72,8 @@ import {
   addPostDraftDocuments,
   removePostDraftDocument,
   renamePostDraftDocument,
+  onScheduleSheetRequest,
+  hydratePostDraftSpace,
   lookupVideoOembed,
   uploadDraftVideo,
   postSpaceSheetPresentation,
@@ -118,6 +120,7 @@ import {
   openScheduleSheet,
   schedulePresentation,
   SCHEDULE_SHEET_APPZET_SLUG,
+  SCHEDULE_SHEET_CHILD_COUNT,
   MediaViewer,
   openMediaViewer,
   mediaViewerPresentation,
@@ -757,6 +760,13 @@ export function App() {
     [],
   );
 
+  // "Edit" on the schedule strip, same channel and same reason as the
+  // poll strip's.
+  useEffect(
+    () => onScheduleSheetRequest(() => openScheduleSheetFromCatalog(SCHEDULE_SHEET_APPZET_SLUG)),
+    [],
+  );
+
   // Rename / remove on the composer's document rows. Both go to the
   // SERVER first and only then touch the draft, so a refusal leaves the
   // row where it was rather than losing the user's file from the list
@@ -986,6 +996,16 @@ export function App() {
       // there, so an edit that seeded shell state would open a composer
       // showing no poll on a post that has one.
       setPoll: (poll) => setPostDraft({ poll }),
+      // The destination is a chip, a topic list, a document permission
+      // and an announcement verdict — all of which live in the picker's
+      // payload, not on the post. Resolve it the same way a tap does.
+      setSpace: (slug) => {
+        void hydratePostDraftSpace(
+          readAppzetActionsFromCatalog('fc-post-information')?.on_tap_space?.args
+            ?.data_source as string ?? 'fc-post-space-picker',
+          slug,
+        );
+      },
     });
   }, [screen]);
 
@@ -1976,7 +1996,20 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       // its own screen, so returning from it changes the screen slug
       // exactly the way arriving does, and a reset keyed on the slug
       // wipes the draft the user just went to look at.
-      if (targetSlug === 'create-post-page') resetPostDraft();
+      // Both composer screens start clean. This is the ONLY place that
+      // can tell "opened the composer" from "came back to it": the
+      // preview is its own screen, so returning from it changes the
+      // screen slug exactly the way arriving does, and a reset keyed on
+      // the slug wipes the draft the user just went to look at (P111).
+      //
+      // edit-post-page resets too, and MUST: nothing else clears the
+      // draft between visits, so a create-post draft the user abandoned
+      // would otherwise leak into an edit of an unrelated post — carrying
+      // its images, its poll and its schedule onto someone else's words.
+      // The prefill repopulates immediately from the bound item.
+      if (targetSlug === 'create-post-page' || targetSlug === 'edit-post-page') {
+        resetPostDraft();
+      }
       const target = catalog.template_screens?.find(
         (s) => s.app_map_screen_slug === targetSlug,
       );
@@ -2543,6 +2576,14 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         }));
         body.content_type = 'document';
       }
+      // Design 10's schedule. FluentCommunity Pro takes it on the create
+      // request, requires it to be at least 30 minutes out, and sets
+      // `status = 'scheduled'`. It is ignored SILENTLY for a
+      // non-moderator, which is why the glyph that sets it is gated —
+      // by the time a value is here, the viewer has already been vetted.
+      const draftSchedule = getPostDraft().scheduled_at;
+      if (draftSchedule !== '') body.scheduled_at = draftSchedule;
+
       const draftPoll = getPostDraft().poll;
       if (draftPoll && draftPoll.options.length >= 2) {
         // post.create — the server assigns fresh slugs, so any that
@@ -3036,6 +3077,27 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
           ? argRec.endpoint
           : '/wp-json/fcom-mobile/api/v1/fluent-player/video-upload';
       deps.openAudioPicker(absolutizeEndpoint(audioEndpoint));
+      return;
+    }
+
+    case 'picker.schedule': {
+      if (!auth) {
+        onError('Please sign in to schedule a post.');
+        return;
+      }
+      // The glyph is gated on the moderator verdict, so this only fires
+      // without one if the catalog was edited to show it anyway. Saying
+      // why beats a sheet whose result FluentCommunity would discard in
+      // silence.
+      if (getPostDraft().viewer_is_moderator === false && !getPostDraft().space_can_announce) {
+        onError('Only moderators can schedule a post.');
+        return;
+      }
+      openScheduleSheetFromCatalog(
+        typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
+          ? argRec.sheet_appzet_slug
+          : SCHEDULE_SHEET_APPZET_SLUG,
+      );
       return;
     }
 
@@ -5052,6 +5114,28 @@ function openPollSheetFromCatalog(sheetSlug: string): void {
     // has votes against, which is what "existing" means here: the type
     // freezes and those rows stop being removable.
     existing: !!poll && poll.options.some((o) => !!o.slug),
+  });
+}
+
+/**
+ * Open the schedule sheet on the composer draft.
+ *
+ * Module-level for the same reason the poll one is: two callers in
+ * different worlds — the `picker.schedule` action, dispatched from a
+ * plain function, and the strip's "Edit", which arrives as a window
+ * event — and one implementation so the two sheets cannot drift.
+ */
+function openScheduleSheetFromCatalog(sheetSlug: string): void {
+  openScheduleSheet({
+    appzetSlug: sheetSlug,
+    value: getPostDraft().scheduled_at,
+    presentation: schedulePresentation(readAppzetPropsFromCatalog(sheetSlug)),
+    childStyles: childStylesFromCustomizations(
+      sheetSlug,
+      SCHEDULE_SHEET_CHILD_COUNT,
+      currentCustomizations,
+    ),
+    onConfirm: (value) => setPostDraft({ scheduled_at: value }),
   });
 }
 

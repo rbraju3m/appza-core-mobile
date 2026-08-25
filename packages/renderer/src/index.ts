@@ -90,6 +90,13 @@ export {
 } from './ChatUserCard';
 export { AppzaPostComposer, AppzaPostAnnounce, type PostComposerProps } from './PostComposer';
 export { AppzaPostPreview, type PostPreviewProps } from './PostPreview';
+export {
+  AppzaPostSchedule,
+  requestScheduleSheet,
+  onScheduleSheetRequest,
+  formatScheduledFor,
+  type PostScheduleProps,
+} from './PostSchedule';
 export { AppzaDraftAudioList } from './AudioPlayerRow';
 export {
   getPostDraft,
@@ -169,6 +176,9 @@ export {
   fetchPostSpacePayload,
   preparePostComposer,
   clearPostSpaceCache,
+  hydratePostDraftSpace,
+  applySpaceDestination,
+  applyProfileDestination,
   type PostSpacePayload,
 } from './PostSpaceSheet';
 export {

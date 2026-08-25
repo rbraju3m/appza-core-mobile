@@ -1013,6 +1013,26 @@ export function PlacementRenderer({
       baseChildOverrides[2] = { ...(baseChildOverrides[2] ?? {}), text: busy };
     }
   }
+  // The Post button's two states — designs 1 and 4 pale, design 10 solid.
+  //
+  // Painted through the CHILD OVERRIDE rather than a stylesheet rule,
+  // because ThemedIonButton writes the button's surface onto
+  // `::part(native)` with `!important`; an attribute-scoped rule loses to
+  // that no matter how specific it is. Going through the override means
+  // the pale fill takes exactly the path the authored one does.
+  if (
+    appzet.slug === 'fc-create-post-appbar' &&
+    postDraftStateEntries(composerDraft)['post_draft.can_post'] !== 'yes'
+  ) {
+    const pale = readAppzetProp(ss, appzet, 'cta_disabled_bg_color');
+    const paleText = readAppzetProp(ss, appzet, 'cta_disabled_color');
+    if (typeof pale === 'string' && pale !== '') {
+      baseChildOverrides[2] = { ...(baseChildOverrides[2] ?? {}), background: pale };
+    }
+    if (typeof paleText === 'string' && paleText !== '') {
+      baseChildOverrides[2] = { ...(baseChildOverrides[2] ?? {}), text_color: paleText };
+    }
+  }
   if (appzet.slug === 'fc-add-document-schedule' && documentDraft.scheduled_at) {
     const prefix = readAppzetProp(ss, appzet, 'scheduled_prefix');
     baseChildOverrides[1] = {
@@ -1470,6 +1490,24 @@ export function PlacementRenderer({
     'doc_heading_size',
     'doc_heading_weight',
     'doc_heading_padding',
+    // The schedule strip and the Post CTA's pale state (2026-08-25).
+    'strip_margin',
+    'strip_padding',
+    'strip_height',
+    'strip_radius',
+    'strip_gap',
+    'strip_bg_color',
+    'strip_text_color',
+    'strip_size',
+    'strip_icon_color',
+    'strip_icon_size',
+    'strip_edit_color',
+    'strip_edit_size',
+    'strip_edit_weight',
+    'strip_clear_color',
+    'strip_clear_size',
+    'cta_disabled_bg_color',
+    'cta_disabled_color',
   ]);
   // Aliases: some knobs also drive Ionic's own CSS custom properties
   // directly. Custom props inherit through shadow DOM (unlike `background`
@@ -1544,6 +1582,17 @@ export function PlacementRenderer({
           data-appza-can-send={
             appzet.slug === 'fc-chat-input'
               ? String(chatControls.draft.trim().length > 0 || chatControls.attachments.length > 0)
+              : undefined
+          }
+          /* And again for the Post button. `can_post` mirrors
+             FluentCommunity's OWN refusals — a message, a destination, a
+             topic where the space demands one, a title where the site
+             does — so the pale button of designs 1 and 4 says what the
+             round trip would say. Stamped only for the CREATE appbar;
+             the edit appbar shares the shell and is left alone. */
+          data-appza-can-post={
+            appzet.slug === 'fc-create-post-appbar'
+              ? String(postDraftStateEntries(composerDraft)['post_draft.can_post'] === 'yes')
               : undefined
           }
           data-spaces-active-tab={appzet.slug === 'fc-spaces-tabs' ? spacesTab : undefined}

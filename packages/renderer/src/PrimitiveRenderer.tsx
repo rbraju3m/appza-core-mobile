@@ -192,6 +192,7 @@ import { AppzaAudioPlayer, AppzaAudioList } from './AudioPlayerRow';
 import { AppzaChatBubble } from './ChatBubble';
 import { AppzaChatComposer } from './ChatComposer';
 import { AppzaPostComposer, AppzaPostAnnounce } from './PostComposer';
+import { AppzaPostSchedule } from './PostSchedule';
 import { AppzaPostPreview } from './PostPreview';
 import { attach, attachOutline, cloudUploadOutline } from 'ionicons/icons';
 
@@ -486,6 +487,7 @@ function SeededIonToggle({
 export const SELF_ACTION_PRIMITIVES: ReadonlySet<string> = new Set([
   'ion-select',
   'appza-poll-block',
+  'appza-post-schedule',
   'ion-input',
   // Both dispatch from their own value-change event, same as ion-input:
   // a wrapper click carries no value and fires before the user has typed
@@ -763,6 +765,9 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
 
     case 'AppzaPostAnnounce':
       return <AppzaPostAnnounce overrides={overrides} />;
+
+    case 'AppzaPostSchedule':
+      return <AppzaPostSchedule overrides={overrides} />;
 
     case 'AppzaPostPreview':
       return <AppzaPostPreview overrides={overrides} />;

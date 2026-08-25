@@ -10048,3 +10048,78 @@ audio.appza-video-embed-native {
   border-radius: var(--appza-doc-radius, 6px);
   background: var(--appza-doc-bg-color, #ffffff);
 }
+
+/* ============================================================
+   fc-post-schedule — "Scheduled for … — Edit", Noor's design 10.
+
+   Sits below the announcement row, outside the card, and is drawn only
+   when the draft carries a time (the placement gates on
+   state.post_draft.has_schedule).                                     */
+
+.appza-renderer-ss[data-slug="fc-post-schedule"] {
+  display: block;
+  padding: var(--appza-strip-margin, 0 12px 12px);
+}
+.appza-post-schedule {
+  display: flex;
+  align-items: center;
+  gap: var(--appza-strip-gap, 10px);
+  min-height: var(--appza-strip-height, 34px);
+  padding: var(--appza-strip-padding, 0 12px);
+  border-radius: var(--appza-strip-radius, 4px);
+  background: var(--appza-strip-bg-color, #d9dade);
+}
+.appza-post-schedule-icon {
+  flex: 0 0 auto;
+  font-size: var(--appza-strip-icon-size, 16px);
+  color: var(--appza-strip-icon-color, #4b5563);
+}
+.appza-post-schedule-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--appza-strip-text-color, #374151);
+  font-size: var(--appza-strip-size, 0.8125rem);
+}
+.appza-post-schedule-edit {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--appza-strip-edit-color, #2f57ef);
+  font-size: var(--appza-strip-edit-size, 0.8125rem);
+  font-weight: var(--appza-strip-edit-weight, 600);
+}
+.appza-post-schedule-clear {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  color: var(--appza-strip-clear-color, #6b7280);
+  font-size: var(--appza-strip-clear-size, 14px);
+}
+.appza-post-schedule-clear ion-icon {
+  font-size: var(--appza-strip-clear-size, 14px);
+  color: var(--appza-strip-clear-color, #6b7280);
+}
+
+/* ---------- the Post CTA's two states ----------
+
+   Designs 1 and 4 draw it pale on an empty draft; design 10 draws it
+   solid once there is something to post.
+
+   ⚠ NOT styled here. ThemedIonButton writes the button's surface onto
+   `::part(native)` with `!important`, so no stylesheet rule can reach it
+   however specific — the attribute-scoped rule this replaced looked
+   right and painted nothing. The pale fill is applied as a CHILD
+   OVERRIDE in PlacementRenderer instead, which takes exactly the path
+   the authored colour does. `data-appza-can-post` stays on the wrapper
+   because it is what makes the state visible to a test and to anyone
+   reading the DOM.                                                     */

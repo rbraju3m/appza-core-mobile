@@ -187,38 +187,12 @@ export function PostSpaceSheet() {
   };
 
   const pickProfile = () => {
-    setPostDraft({
-      target: 'profile',
-      space_slug: '',
-      space_title: '',
-      space_logo: '',
-      space_emoji: '',
-      space_privacy: '',
-      // A profile post has no space to moderate, so only the global
-      // verdict can grant the announcement email.
-      space_can_announce: detail.viewerIsModerator,
-      space_can_upload_documents: false,
-      topic_required: false,
-      topics: [],
-    });
+    applyProfileDestination(detail.viewerIsModerator);
     closePostSpaceSheet();
   };
 
   const pickSpace = (row: PostSpaceRow) => {
-    setPostDraft({
-      target: 'space',
-      space_slug: row.slug,
-      space_title: row.title,
-      space_logo: row.logo,
-      space_emoji: row.emoji,
-      space_privacy: row.privacy,
-      // FluentCommunity gates the announcement email on being a
-      // moderator globally OR of the space posted to, so either grants it.
-      space_can_announce: detail.viewerIsModerator || row.can_announce,
-      space_can_upload_documents: row.can_upload_documents,
-      topic_required: row.topic_required,
-      topics: row.topics,
-    });
+    applySpaceDestination(row, detail.viewerIsModerator);
     closePostSpaceSheet();
   };
 
@@ -345,6 +319,51 @@ export function PostSpaceSheet() {
 }
 
 /**
+ * Write one space onto the draft as the post's destination.
+ *
+ * Exported and shared rather than inlined in the picker, because the
+ * EDIT screen needs the identical write: a post being edited already has
+ * a space, and its chip, its topic chips, its document permission and its
+ * announcement verdict all have to arrive together. Two copies of this
+ * mapping would drift, and the half that drifted would be the one nobody
+ * was looking at (P100).
+ */
+export function applySpaceDestination(row: PostSpaceRow, viewerIsModerator: boolean): void {
+  setPostDraft({
+    target: 'space',
+    space_slug: row.slug,
+    space_title: row.title,
+    space_logo: row.logo,
+    space_emoji: row.emoji,
+    space_privacy: row.privacy,
+    // FluentCommunity gates the announcement email on being a moderator
+    // globally OR of the space posted to, so either grants it.
+    space_can_announce: viewerIsModerator || row.can_announce,
+    space_can_upload_documents: row.can_upload_documents,
+    topic_required: row.topic_required,
+    topics: row.topics,
+  });
+}
+
+/** The same, for "On my profile". */
+export function applyProfileDestination(viewerIsModerator: boolean): void {
+  setPostDraft({
+    target: 'profile',
+    space_slug: '',
+    space_title: '',
+    space_logo: '',
+    space_emoji: '',
+    space_privacy: '',
+    // A profile post has no space to moderate, so only the global
+    // verdict can grant the announcement email.
+    space_can_announce: viewerIsModerator,
+    space_can_upload_documents: false,
+    topic_required: false,
+    topics: [],
+  });
+}
+
+/**
  * The picker's payload: every space the viewer may post in, grouped as
  * the site groups them, plus the verdicts about the viewer themselves.
  */
@@ -466,6 +485,37 @@ export async function fetchPostSpacePayload(
 export async function preparePostComposer(dataSourceSlug: string): Promise<void> {
   const payload = await fetchPostSpacePayload(dataSourceSlug);
   setPostDraft({ viewer_is_moderator: payload.viewerIsModerator });
+}
+
+/**
+ * Put an EXISTING post's space onto the draft — the edit screen's opening
+ * move.
+ *
+ * Looks the slug up in the same payload the picker uses, so the chip, the
+ * topic chips, the document permission and the announcement verdict all
+ * arrive exactly as they would from a tap. A slug that is not in the
+ * payload means the viewer can no longer post there; the destination is
+ * left unset rather than faked, which makes the Post button pale and
+ * says so honestly.
+ *
+ * Returns whether it found the space, so a caller can tell "restored" from
+ * "that space is gone".
+ */
+export async function hydratePostDraftSpace(
+  dataSourceSlug: string,
+  spaceSlug: string,
+): Promise<boolean> {
+  if (spaceSlug === '') return false;
+  const payload = await fetchPostSpacePayload(dataSourceSlug);
+  for (const group of payload.groups) {
+    for (const row of group.spaces) {
+      if (row.slug === spaceSlug) {
+        applySpaceDestination(row, payload.viewerIsModerator);
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 /** Drop the cached payload — on sign-out, or when a write may have changed it. */

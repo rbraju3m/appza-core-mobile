@@ -28,17 +28,15 @@
  * that one retries until an option matching the target slug exists.
  */
 
-const COMPOSER_SLUG = 'fc-post-information';
-const MOUNT_TIMEOUT_MS = 3000;
-const SPACE_OPTION_TIMEOUT_MS = 5000;
-const POLL_INTERVAL_MS = 80;
-
-type IonicWebComponent = HTMLElement & {
-  value?: unknown;
-  componentOnReady?: () => Promise<HTMLElement>;
-};
+import { setPostDraft } from './postDraft';
 
 export type PrefillMediaSetters = {
+  /**
+   * Called with the post's space SLUG. The caller resolves it against the
+   * picker payload (`hydratePostDraftSpace`) — the prefill deliberately
+   * does not fetch.
+   */
+  setSpace?: (slug: string) => void;
   /** Called with image URLs when the post has uploaded images. */
   setImages?: (urls: string[]) => void;
   /** Called with the video oembed preview when the post is a video. */
@@ -100,28 +98,27 @@ export function prefillPostInformationFromContext(
   // is single-select today, so pick the first term.
   const topicId = extractFirstTopicId(data);
 
-  const start = Date.now();
-  const tick = () => {
-    const titleWrap = findChild(2);
-    const messageWrap = findChild(3);
-    const spaceWrap = findChild(1);
-    const topicWrap = findChild(10);
-    if (!titleWrap && !messageWrap && !spaceWrap && !topicWrap) {
-      if (Date.now() - start < MOUNT_TIMEOUT_MS) {
-        window.setTimeout(tick, POLL_INTERVAL_MS);
-      } else {
-        console.warn(
-          '[appza-renderer] prefill: composer not found within timeout — is fc-post-information mounted?',
-        );
-      }
-      return;
-    }
-    if (titleWrap) void writeIonicValue(titleWrap, title);
-    if (messageWrap) void writeIonicValue(messageWrap, message);
-    if (spaceWrap && space) applySpaceWithRetry(spaceWrap, space);
-    if (topicWrap && topicId) applyTopicWithRetry(topicWrap, topicId);
-  };
-  window.setTimeout(tick, POLL_INTERVAL_MS);
+  // ── The text, straight onto the DRAFT ──────────────────────────────
+  //
+  // This used to poll the DOM for `children[1..3]` and `children[10]` and
+  // write Ionic values into them. Chunk 1 replaced the composer's eleven
+  // loose primitives with one bespoke one, so those indices are attach
+  // BUTTONS now: `writeIonicValue` found no input inside and returned,
+  // silently, on every field. Editing a post opened an EMPTY composer —
+  // and it did not even warn, because the warning fires only when all
+  // four wrappers are missing and three of them still exist.
+  //
+  // The same lesson as the param_map (P114): a CONTROLLED field cannot be
+  // written through the DOM. The fields live on the slice, so write the
+  // slice. No polling, no mount race — the composer reads whatever is
+  // there whenever it renders.
+  setPostDraft({ title, body: message, topic_ids: topicId ? [topicId] : [] });
+
+  // The space is the one thing that cannot be set from the post alone: a
+  // destination is a chip, a topic list, a document permission and an
+  // announcement verdict, all of which live in the picker's payload. The
+  // caller supplies the lookup because it owns the fetch seam.
+  if (space && media?.setSpace) media.setSpace(space);
 
   // ── Media ──────────────────────────────────────────────────────────
   // Media hydration is best-effort. Shape checks are defensive because
@@ -159,77 +156,14 @@ export function prefillPostInformationFromContext(
   }
 }
 
-function findChild(childIndex: number): Element | null {
-  return document.querySelector(
-    `[data-appza-appzet-slug="${COMPOSER_SLUG}"][data-appza-primitive-path="children[${childIndex}]"]`,
-  );
-}
-
-async function writeIonicValue(wrap: Element, value: string): Promise<void> {
-  const ionic = wrap.querySelector('ion-input, ion-textarea') as IonicWebComponent | null;
-  if (ionic) {
-    try {
-      if (typeof ionic.componentOnReady === 'function') {
-        await ionic.componentOnReady();
-      }
-      ionic.value = value;
-      ionic.dispatchEvent(new CustomEvent('ionInput', { bubbles: true, detail: { value } }));
-      ionic.dispatchEvent(new CustomEvent('ionChange', { bubbles: true, detail: { value } }));
-      const inner = ionic.querySelector('input, textarea') as
-        | (HTMLInputElement | HTMLTextAreaElement)
-        | null;
-      if (inner) {
-        inner.value = value;
-        inner.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-    } catch (err) {
-      console.warn('[appza-renderer] prefill: ionic write failed', err);
-    }
-    return;
-  }
-  const native = wrap.querySelector('input, textarea') as
-    | (HTMLInputElement | HTMLTextAreaElement)
-    | null;
-  if (native) {
-    native.value = value;
-    native.dispatchEvent(new Event('input', { bubbles: true }));
-    native.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-}
-
-function applySpaceWithRetry(wrap: Element, slug: string): void {
-  const start = Date.now();
-  const attempt = (): boolean => {
-    const native = wrap.querySelector('select') as HTMLSelectElement | null;
-    if (native) {
-      const has = Array.from(native.options).some((o) => o.value === slug);
-      if (!has) return false;
-      native.value = slug;
-      native.dispatchEvent(new Event('change', { bubbles: true }));
-      return true;
-    }
-    const ionic = wrap.querySelector('ion-select') as IonicWebComponent | null;
-    if (ionic) {
-      ionic.value = slug;
-      ionic.dispatchEvent(new CustomEvent('ionChange', { bubbles: true, detail: { value: slug } }));
-      return true;
-    }
-    return false;
-  };
-  if (attempt()) return;
-  const tick = () => {
-    if (attempt()) return;
-    if (Date.now() - start < SPACE_OPTION_TIMEOUT_MS) {
-      window.setTimeout(tick, POLL_INTERVAL_MS);
-    } else {
-      console.warn(
-        `[appza-renderer] prefill: space "${slug}" not in options within timeout`,
-      );
-    }
-  };
-  window.setTimeout(tick, POLL_INTERVAL_MS);
-}
-
+/**
+ * The post's first topic id, from `data.terms[0].pivot.term_id`.
+ *
+ * FluentCommunity returns terms as an array because a post can carry
+ * several; the composer's chips are multi-select now, but an edit only
+ * ever needs to restore what the post has — and every FC response so far
+ * carries at most one.
+ */
 function extractFirstTopicId(data: Record<string, unknown>): string {
   const terms = Array.isArray(data.terms) ? data.terms : null;
   if (!terms || terms.length === 0) return '';
@@ -244,43 +178,6 @@ function extractFirstTopicId(data: Record<string, unknown>): string {
     (first as Record<string, unknown>).id;
   if (raw == null) return '';
   return String(raw);
-}
-
-function applyTopicWithRetry(wrap: Element, value: string): void {
-  const start = Date.now();
-  const attempt = (): boolean => {
-    const native = wrap.querySelector('select') as HTMLSelectElement | null;
-    if (native) {
-      const has = Array.from(native.options).some((o) => o.value === value);
-      if (!has) return false;
-      native.value = value;
-      native.dispatchEvent(new Event('change', { bubbles: true }));
-      return true;
-    }
-    const ionic = wrap.querySelector('ion-select') as IonicWebComponent | null;
-    if (ionic) {
-      const nested = wrap.querySelectorAll('ion-select-option');
-      if (nested.length === 0) return false;
-      const has = Array.from(nested).some((el) => (el as HTMLElement & { value?: unknown }).value === value);
-      if (!has) return false;
-      ionic.value = value;
-      ionic.dispatchEvent(new CustomEvent('ionChange', { bubbles: true, detail: { value } }));
-      return true;
-    }
-    return false;
-  };
-  if (attempt()) return;
-  const tick = () => {
-    if (attempt()) return;
-    if (Date.now() - start < SPACE_OPTION_TIMEOUT_MS) {
-      window.setTimeout(tick, POLL_INTERVAL_MS);
-    } else {
-      console.warn(
-        `[appza-renderer] prefill: topic "${value}" not in options within timeout`,
-      );
-    }
-  };
-  window.setTimeout(tick, POLL_INTERVAL_MS);
 }
 
 function extractImageUrls(meta: Record<string, unknown> | null): string[] {

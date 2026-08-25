@@ -66,6 +66,8 @@ import {
   addPostDraftDocuments,
   removePostDraftDocument,
   renamePostDraftDocument,
+  onScheduleSheetRequest,
+  hydratePostDraftSpace,
   lookupVideoOembed,
   uploadDraftVideo,
   postSpaceSheetPresentation,
@@ -671,6 +673,16 @@ export function App() {
       // there, so an edit that seeded shell state would open a composer
       // showing no poll on a post that has one.
       setPoll: (poll) => setPostDraft({ poll }),
+      // The destination is a chip, a topic list, a document permission
+      // and an announcement verdict — all of which live in the picker's
+      // payload, not on the post. Resolve it the same way a tap does.
+      setSpace: (slug) => {
+        void hydratePostDraftSpace(
+          (readAppzetActionsFromCatalog('fc-post-information')?.on_tap_space?.args
+            ?.data_source as string) ?? 'fc-post-space-picker',
+          slug,
+        );
+      },
     });
   }, [uiMode, currentScreen]);
 
@@ -680,6 +692,13 @@ export function App() {
   // glyph's action calls, so the two sheets cannot drift.
   useEffect(
     () => onPollSheetRequest(() => openPollSheetFromCatalog('fc-post-poll-sheet')),
+    [],
+  );
+
+  // "Edit" on the schedule strip, same channel and same reason as the
+  // poll strip's.
+  useEffect(
+    () => onScheduleSheetRequest(() => openScheduleSheetFromCatalog(SCHEDULE_SHEET_APPZET_SLUG)),
     [],
   );
 
@@ -2365,6 +2384,27 @@ function readAppzetPropsFromCatalog(slug: string): Record<string, unknown> {
 }
 
 /**
+ * Open the schedule sheet on the composer draft.
+ *
+ * Module-level for the same reason the poll one is: two callers in
+ * different worlds — the `picker.schedule` action and the strip's
+ * "Edit" window event — and one implementation so they cannot drift.
+ */
+function openScheduleSheetFromCatalog(sheetSlug: string): void {
+  openScheduleSheet({
+    appzetSlug: sheetSlug,
+    value: getPostDraft().scheduled_at,
+    presentation: schedulePresentation(readAppzetPropsFromCatalog(sheetSlug)),
+    childStyles: childStylesFromCustomizations(
+      sheetSlug,
+      SCHEDULE_SHEET_CHILD_COUNT,
+      currentCustomizations,
+    ),
+    onConfirm: (value) => setPostDraft({ scheduled_at: value }),
+  });
+}
+
+/**
  * Open the "Create poll" sheet with the catalog's own copy and colours.
  *
  * Module-level rather than a callback because it has two callers that
@@ -2997,7 +3037,15 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       // its own screen, so returning from it changes the screen slug
       // exactly the way arriving does, and a reset keyed on the slug
       // wipes the draft the user just went to look at.
-      if (targetSlug === 'create-post-page') resetPostDraft();
+      // Both composer screens start clean, and edit-post-page MUST:
+      // nothing else clears the draft between visits, so an abandoned
+      // create-post draft would leak into an edit of an unrelated post,
+      // carrying its images, its poll and its schedule onto someone
+      // else's words. The prefill repopulates from the bound item. Only
+      // nav.push can tell arriving from returning (P111).
+      if (targetSlug === 'create-post-page' || targetSlug === 'edit-post-page') {
+        resetPostDraft();
+      }
       const target = catalog.template_screens?.find(
         (s) => s.app_map_screen_slug === targetSlug,
       );
@@ -3302,6 +3350,14 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         }));
         body.content_type = 'document';
       }
+      // Design 10's schedule. FluentCommunity Pro takes it on the create
+      // request, requires it to be at least 30 minutes out, and sets
+      // `status = 'scheduled'`. It is ignored SILENTLY for a
+      // non-moderator, which is why the glyph that sets it is gated —
+      // by the time a value is here, the viewer has already been vetted.
+      const draftSchedule = getPostDraft().scheduled_at;
+      if (draftSchedule !== '') body.scheduled_at = draftSchedule;
+
       const draftPoll = getPostDraft().poll;
       if (draftPoll && draftPoll.options.length >= 2) {
         body.survey = {
@@ -4557,6 +4613,28 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         setSelectedScreenId(prev[prev.length - 1] ?? null);
         return rest;
       });
+      return;
+    }
+
+    case 'picker.schedule': {
+      if (!auth) {
+        onLoginError('Please sign in to schedule a post.');
+        return;
+      }
+      // The glyph is gated on the moderator verdict, so this only fires
+      // without one if the catalog was edited to show it anyway. Saying
+      // why beats a sheet whose result FluentCommunity would discard in
+      // silence.
+      const d = getPostDraft();
+      if (!d.viewer_is_moderator && !d.space_can_announce) {
+        onLoginError('Only moderators can schedule a post.');
+        return;
+      }
+      openScheduleSheetFromCatalog(
+        typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
+          ? argRec.sheet_appzet_slug
+          : SCHEDULE_SHEET_APPZET_SLUG,
+      );
       return;
     }
 
