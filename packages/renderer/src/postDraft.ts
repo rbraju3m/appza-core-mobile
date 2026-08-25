@@ -640,6 +640,18 @@ export function postDraftStateEntries(draft: PostDraft): Record<string, unknown>
     // than this gate and is not closed by it.
     'post_draft.can_attach_documents':
       draft.space_can_upload_documents && !hasOtherMedia && !editing ? 'yes' : 'no',
+    // The EDIT screen's own file block — the other half of the same
+    // rule. Same two conditions, opposite side of `editing`, because on
+    // that screen the block IS the way to add a file and the composer's
+    // paperclip is not drawn.
+    //
+    // Without this the block appeared only for posts that already had
+    // documents, so a plain text post could never gain its first one.
+    // `!hasOtherMedia` keeps it off a post carrying images, a video or a
+    // poll: documents take the whole post, so adding one there would
+    // silently discard the rest.
+    'post_draft.can_edit_documents':
+      draft.space_can_upload_documents && !hasOtherMedia && editing ? 'yes' : 'no',
     'post_draft.is_editing': editing ? 'yes' : 'no',
     'post_draft.can_schedule': isModerator ? 'yes' : 'no',
     'post_draft.has_schedule': draft.scheduled_at !== '' ? 'yes' : 'no',

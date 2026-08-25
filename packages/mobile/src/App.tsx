@@ -1930,11 +1930,24 @@ export function App() {
 
 /**
  * Load a post's attached files into the document draft when its edit
- * screen opens. Non-document posts reset it, which is what keeps the
- * file block off every other kind of post.
+ * screen opens.
+ *
+ * Seeds for EVERY post now, not only document ones. It used to reset the
+ * draft for anything else, which left `edit_feed_id` null — and the file
+ * block hides itself on an unseeded draft, so a plain text post could
+ * never gain its first document. Where the block BELONGS is decided by
+ * the placement's `state.post_draft.can_edit_documents` gate instead: the
+ * space must take documents, and the post must not already carry images,
+ * a video or a poll.
+ *
+ * A post with no documents seeds `seeded_file_count = 0`, and that is
+ * the interlock that keeps this safe: the submit path leaves
+ * `document_ids` out entirely unless files were actually added, so "the
+ * user removed them all" still cannot be confused with "there were never
+ * any".
  */
 function seedEditDraftFromPost(item: unknown): void {
-  if (!isRecord(item) || item.content_type !== 'document') {
+  if (!isRecord(item)) {
     resetDocumentDraft('');
     return;
   }
