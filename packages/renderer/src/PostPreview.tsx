@@ -6,6 +6,7 @@ import { usePostDraft } from './postDraft';
 import { AppzaDraftVideo } from './VideoSheet';
 import { AppzaDraftAudioList } from './AudioPlayerRow';
 import { AppzaPollPreview } from './PollSheet';
+import { AppzaDocumentsPreview } from './PostDocuments';
 import { useFcRuntimeSettings } from './fcRuntimeSettings';
 
 /**
@@ -131,7 +132,8 @@ export function AppzaPostPreview({ overrides }: PostPreviewProps) {
     draft.poll === null &&
     draft.video === null &&
     draft.images.length === 0 &&
-    draft.audios.length === 0;
+    draft.audios.length === 0 &&
+    draft.documents.length === 0;
 
   // Images now; video, audio, a poll and attached files join them as
   // their chunks land. The design-time sample keeps both layouts
@@ -216,6 +218,20 @@ export function AppzaPostPreview({ overrides }: PostPreviewProps) {
           percentFormat={str(overrides, 'poll_percent_format') || '{whole}%.{decimal}'}
           votesLabel={str(overrides, 'poll_votes_label') || '{n} Vote'}
           showVotes={bool(overrides, 'show_poll_votes', true)}
+        />
+      )}
+
+      {/* Attached documents — design 31. Its own card under the body,
+          in both layouts: a document post has no rich media to move to
+          the top, because documents are exclusive with everything the
+          modern layout exists to reposition. */}
+      {draft.documents.length > 0 && (
+        <AppzaDocumentsPreview
+          documents={draft.documents}
+          heading={str(overrides, 'documents_heading') || 'Documents and files'}
+          fileIcon={str(overrides, 'doc_file_icon') || 'document-outline'}
+          downloadIcon={str(overrides, 'doc_download_icon') || 'download-outline'}
+          showHeading={bool(overrides, 'show_documents_heading', true)}
         />
       )}
 

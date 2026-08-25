@@ -9943,3 +9943,108 @@ audio.appza-video-embed-native {
   color: var(--appza-poll-votes-color, #6b7280);
   font-size: var(--appza-poll-votes-size, 0.75rem);
 }
+
+/* ============================================================
+   Attached documents — Noor's designs 30 and 31.
+
+   Two lists of the same files. The composer's carries rename and delete;
+   the preview's sits in a bordered card with a download glyph. Both
+   truncate the name rather than wrapping it, which is what the designs
+   draw and what keeps a long filename from reflowing the card.        */
+
+.appza-doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--appza-doc-gap, 8px);
+  margin-top: var(--appza-doc-gap, 8px);
+}
+.appza-doc-row {
+  display: flex;
+  align-items: center;
+  gap: var(--appza-doc-row-gap, 10px);
+  min-height: var(--appza-doc-row-height, 38px);
+  padding: var(--appza-doc-row-padding, 0 10px);
+  border: 1px solid var(--appza-doc-border-color, #d7dade);
+  border-radius: var(--appza-doc-radius, 6px);
+  background: var(--appza-doc-bg-color, #ffffff);
+}
+/* Dimmed while a rename or delete is in flight. The row stays in place
+   rather than disappearing optimistically — a failed delete that had
+   already removed the row would look like the file was lost. */
+.appza-doc-row[data-busy='yes'] {
+  opacity: 0.55;
+  pointer-events: none;
+}
+.appza-doc-row-glyph {
+  flex: 0 0 auto;
+  font-size: var(--appza-doc-icon-size, 17px);
+  color: var(--appza-doc-icon-color, #4b5563);
+}
+.appza-doc-row-name,
+.appza-doc-preview-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--appza-doc-text-color, #111827);
+  font-size: var(--appza-doc-size, 0.8125rem);
+}
+.appza-doc-row-rename {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  color: var(--appza-doc-text-color, #111827);
+  font-size: var(--appza-doc-size, 0.8125rem);
+}
+.appza-doc-row-btn {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+.appza-doc-row-btn .appza-doc-row-glyph {
+  font-size: var(--appza-doc-action-size, 17px);
+  color: var(--appza-doc-action-color, #4b5563);
+}
+
+/* ---------- the preview card, design 31 ---------- */
+
+.appza-doc-preview {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--appza-doc-card-border-color, #e5e7eb);
+  border-radius: var(--appza-doc-card-radius, 6px);
+  overflow: hidden;
+}
+.appza-doc-preview-heading {
+  text-align: center;
+  padding: var(--appza-doc-heading-padding, 10px 12px);
+  border-bottom: 1px solid var(--appza-doc-card-border-color, #e5e7eb);
+  color: var(--appza-doc-heading-color, #111827);
+  font-size: var(--appza-doc-heading-size, 0.875rem);
+  font-weight: var(--appza-doc-heading-weight, 500);
+}
+.appza-doc-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--appza-doc-gap, 8px);
+  padding: var(--appza-doc-card-padding, 10px);
+}
+.appza-doc-preview-row {
+  display: flex;
+  align-items: center;
+  gap: var(--appza-doc-row-gap, 10px);
+  min-height: var(--appza-doc-row-height, 38px);
+  padding: var(--appza-doc-row-padding, 0 10px);
+  border: 1px solid var(--appza-doc-border-color, #d7dade);
+  border-radius: var(--appza-doc-radius, 6px);
+  background: var(--appza-doc-bg-color, #ffffff);
+}

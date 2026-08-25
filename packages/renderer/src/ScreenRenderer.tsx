@@ -19,7 +19,7 @@ import { useChatControls } from './chatControls';
 import { useLeaderboardControls } from './leaderboardControls';
 import { useBookmarkControls } from './bookmarkControls';
 import { useSearchControls } from './searchControls';
-import { usePostDraft } from './postDraft';
+import { usePostDraft, postDraftStateEntries } from './postDraft';
 
 type ScreenRendererProps = {
   screen: TemplateScreen;
@@ -157,18 +157,14 @@ export function ScreenRenderer({
       'search_controls.post_scope': searchControls.post_scope,
       'search_controls.query': searchControls.query,
       'search_controls.noun': searchControls.noun,
-      // Create post. `can_announce` is a VERDICT, not a flag the user
-      // sets: FluentCommunity grants the announcement email to a global
-      // moderator OR to a moderator of the space being posted to, so it
-      // can turn on when the destination changes. The checkbox is its own
-      // placement gated on this rather than a child the composer hides,
-      // which is what makes Noor's design 4 — a member seeing neither the
-      // schedule control nor the email row — a catalog decision (P75).
-      'post_draft.can_announce':
-        postDraft.viewer_is_moderator || postDraft.space_can_announce ? 'yes' : 'no',
-      'post_draft.target': postDraft.target,
-      'post_draft.space_slug': postDraft.space_slug,
-      'post_draft.can_upload_documents': postDraft.space_can_upload_documents ? 'yes' : 'no',
+      // Create post. Built by postDraftStateEntries so this bag and the
+      // CHILD-level evaluator in PlacementRenderer describe the draft
+      // identically — two vocabularies for the same fact is how a clause
+      // ends up silently hiding a control (P104). The announcement row is
+      // its own placement gated on `can_announce` rather than a child the
+      // composer hides, which is what makes Noor's design 4 a catalog
+      // decision (P75).
+      ...postDraftStateEntries(postDraft),
     }),
     [
       spacesControls.tab,
@@ -201,11 +197,12 @@ export function ScreenRenderer({
       searchControls.post_scope,
       searchControls.query,
       searchControls.noun,
-      postDraft.viewer_is_moderator,
-      postDraft.space_can_announce,
-      postDraft.target,
-      postDraft.space_slug,
-      postDraft.space_can_upload_documents,
+      // The whole draft, not five of its fields. postDraftStateEntries
+      // derives `has_documents` / `has_other_media` from the attachment
+      // arrays, so a memo keyed on the old five would keep serving a
+      // stale bag the moment a document was attached — and the attach
+      // bar would not change until something else moved.
+      postDraft,
     ],
   );
 

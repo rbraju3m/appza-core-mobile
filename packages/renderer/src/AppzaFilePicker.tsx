@@ -54,9 +54,22 @@ function useDesignTime(): boolean {
   const [designTime, setDesignTime] = useState(false);
   useEffect(() => {
     if (typeof document === 'undefined') return;
-    const inFrame = Boolean(document.querySelector('.appza-device-viewport'));
-    const inApp = Boolean(document.querySelector('.appza-center-app-mode'));
-    setDesignTime(inFrame && !inApp);
+    const read = () => {
+      const inFrame = Boolean(document.querySelector('.appza-device-viewport'));
+      const inApp = Boolean(document.querySelector('.appza-center-app-mode'));
+      setDesignTime(inFrame && !inApp);
+    };
+    read();
+    // Re-read when the mode changes. Sampling once on mount looks
+    // equivalent and is not: App mode is a class toggled on an ancestor,
+    // so a picker that happened to mount first stays on the design-time
+    // branch for the rest of the session — which reads as "the real data
+    // never arrived" rather than "this is the design-time view" (P110).
+    // It had not bitten here only because this screen is reached after
+    // the mode is set; the composer had the same code and it did.
+    const observer = new MutationObserver(read);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
+    return () => observer.disconnect();
   }, []);
   return designTime;
 }

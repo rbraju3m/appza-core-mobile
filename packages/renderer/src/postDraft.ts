@@ -94,6 +94,30 @@ export type PostDraftPoll = {
   end_date: string;
 };
 
+/**
+ * One attached document — designs 30 and 31.
+ *
+ * Uploaded on pick, the way the portal's own composer does it, so the
+ * shape here is exactly what `Media::getPrivateFileMeta()` returns and
+ * what `document_ids` wants back.
+ *
+ * `id` and `media_key` are both kept because two different endpoints
+ * need different ones: `/documents/update` and `/documents/delete` take
+ * the row `id`, while FluentCommunity matches `document_ids` entries by
+ * `media_key`.
+ */
+export type PostDraftDocument = {
+  /** Media row id — what rename and delete are addressed by. */
+  id: string;
+  /** What `document_ids` is matched on when the post is saved. */
+  media_key: string;
+  /** Display name. Editable: the design's pencil. */
+  title: string;
+  /** FluentCommunity's private download URL, for the preview's glyph. */
+  url: string;
+  type: string;
+};
+
 /** Where the post is going. '' until the user has chosen. */
 export type PostDraftTarget = '' | 'space' | 'profile';
 
@@ -166,6 +190,25 @@ export type PostDraft = {
    * meta regardless.
    */
   poll: PostDraftPoll | null;
+
+  /**
+   * Attached documents — designs 30 and 31.
+   *
+   * Exclusive with EVERYTHING else, which is the strongest rule on this
+   * slice and the only one the designs draw directly: design 30's attach
+   * bar has a paperclip and nothing else.
+   *
+   * The reason is FluentCommunity's, not ours. A request carrying
+   * `content_type: 'document'` runs `validateAndSaveDocuments`, which
+   * sets `content_type = 'document'` AFTER `processFeedMetaData` has
+   * already set it to 'survey' for a poll — so a draft with both posts
+   * as a document and the poll is written to meta where nothing renders
+   * it. Images and video lose the same way. The portal solves it the
+   * same way we do: its composer has a `hasActiveApp` computed that is
+   * true when content_type is 'document', and while it holds, the survey,
+   * audio and image blocks are not rendered at all.
+   */
+  documents: PostDraftDocument[];
 };
 
 const EVENT = 'appza:post-draft-change';
@@ -190,6 +233,7 @@ const DEFAULTS: PostDraft = {
   video: null,
   audios: [],
   poll: null,
+  documents: [],
 };
 
 let current: PostDraft = { ...DEFAULTS };
@@ -233,7 +277,31 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
     video: patch.video !== undefined ? patch.video : current.video,
     audios: Array.isArray(patch.audios) ? patch.audios : current.audios,
     poll: patch.poll !== undefined ? patch.poll : current.poll,
+    documents: Array.isArray(patch.documents) ? patch.documents : current.documents,
   };
+
+  // Documents take the whole post. FluentCommunity resolves exactly one
+  // `content_type`, and the document filter runs last — so a draft
+  // carrying documents plus anything else would post as a document and
+  // drop the rest into meta where nothing draws it. Attaching the first
+  // document clears the others; attaching other media clears the
+  // documents. The attach bar hides the losing half either way
+  // (`has_documents` / `can_attach_documents`), so this only fires for a
+  // caller that got there another way.
+  if (Array.isArray(patch.documents) && patch.documents.length > 0) {
+    next.images = [];
+    next.video = null;
+    next.audios = [];
+    next.poll = null;
+  } else if (
+    next.documents.length > 0 &&
+    ((Array.isArray(patch.images) && patch.images.length > 0) ||
+      (patch.video != null) ||
+      (Array.isArray(patch.audios) && patch.audios.length > 0) ||
+      (patch.poll != null))
+  ) {
+    next.documents = [];
+  }
 
   // A post is one kind of thing. Attaching a video clears the photos and
   // vice versa, because FluentCommunity's `content_type` is a single
@@ -281,7 +349,8 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
     next.images === current.images &&
     next.video === current.video &&
     next.audios === current.audios &&
-    next.poll === current.poll
+    next.poll === current.poll &&
+    next.documents === current.documents
   ) {
     return;
   }
@@ -410,6 +479,88 @@ export function setPostDraftPoll(poll: PostDraftPoll): boolean {
 export function removePostDraftPoll(): void {
   if (current.poll === null) return;
   setPostDraft({ poll: null });
+}
+
+/**
+ * Append uploaded documents.
+ *
+ * No cap: FluentCommunity applies none to `document_ids`, and inventing
+ * one here would refuse a post the server would have accepted. Duplicates
+ * are dropped by `media_key` — the same file picked twice would otherwise
+ * appear twice on the post.
+ */
+export function addPostDraftDocuments(docs: PostDraftDocument[]): void {
+  const have = current.documents;
+  const seen = new Set(have.map((d) => d.media_key));
+  const fresh = docs.filter((d) => d.media_key !== '' && !seen.has(d.media_key));
+  if (fresh.length === 0) return;
+  setPostDraft({ documents: [...have, ...fresh] });
+}
+
+/**
+ * Drop one document from the draft.
+ *
+ * Local only — the SERVER-side removal is the caller's, because unlike
+ * an image or an audio file a document genuinely can be deleted before
+ * it is attached to anything: `/documents/delete` resolves an upload with
+ * no `feed_id` and permits it as long as the media belongs to the asking
+ * user. The shells make that call and then come here, so a failed delete
+ * leaves the row visible rather than silently losing the user's file.
+ */
+export function removePostDraftDocument(id: string): void {
+  if (!current.documents.some((d) => d.id === id)) return;
+  setPostDraft({ documents: current.documents.filter((d) => d.id !== id) });
+}
+
+/** Rename one document locally, after `/documents/update` has agreed. */
+export function renamePostDraftDocument(id: string, title: string): void {
+  const trimmed = title.trim();
+  if (trimmed === '') return;
+  if (!current.documents.some((d) => d.id === id)) return;
+  setPostDraft({
+    documents: current.documents.map((d) => (d.id === id ? { ...d, title: trimmed } : d)),
+  });
+}
+
+/**
+ * The draft as flat `state.*` keys.
+ *
+ * ONE builder, used by both the screen's placement-level `visible_when`
+ * bag and the child-level evaluator, because the two would otherwise
+ * describe the same fact in two vocabularies — and a clause written
+ * against the wrong one fails silently in the direction that hides a
+ * control (P104).
+ *
+ * Everything is 'yes' / 'no' rather than a boolean: placements have
+ * always been authored that way, and one shape across both levels is
+ * worth more than matching the slice's own types.
+ */
+export function postDraftStateEntries(draft: PostDraft): Record<string, unknown> {
+  const hasOtherMedia =
+    draft.images.length > 0 ||
+    draft.video !== null ||
+    draft.audios.length > 0 ||
+    draft.poll !== null;
+  const hasDocuments = draft.documents.length > 0;
+  return {
+    // A VERDICT, not a flag the user sets: FluentCommunity grants the
+    // announcement email to a global moderator OR to a moderator of the
+    // space being posted to, so it can turn on when the destination does.
+    'post_draft.can_announce':
+      draft.viewer_is_moderator || draft.space_can_announce ? 'yes' : 'no',
+    'post_draft.target': draft.target,
+    'post_draft.space_slug': draft.space_slug,
+    'post_draft.can_upload_documents': draft.space_can_upload_documents ? 'yes' : 'no',
+    'post_draft.has_documents': hasDocuments ? 'yes' : 'no',
+    'post_draft.has_other_media': hasOtherMedia ? 'yes' : 'no',
+    // The paperclip's own gate, pre-combined. Two facts — may this
+    // viewer attach documents to this space, and is the draft still free
+    // to become a document post — but one clause, because a control that
+    // needs two conditions is easier to get wrong as two rows in the
+    // catalog than as one derived key here.
+    'post_draft.can_attach_documents':
+      draft.space_can_upload_documents && !hasOtherMedia ? 'yes' : 'no',
+  };
 }
 
 /**

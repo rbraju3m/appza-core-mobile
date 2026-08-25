@@ -6,6 +6,11 @@ import { AppzaDraftVideo } from './VideoSheet';
 import { AppzaDraftAudioList } from './AudioPlayerRow';
 import { AppzaDraftPollStrip, requestPollSheet } from './PollSheet';
 import {
+  AppzaDraftDocumentList,
+  requestDocumentRemove,
+  requestDocumentRename,
+} from './PostDocuments';
+import {
   removePostDraftAudio,
   removePostDraftImage,
   removePostDraftPoll,
@@ -330,6 +335,25 @@ export function AppzaPostComposer({ overrides, action, dispatch }: PostComposerP
           removeIcon={str(overrides, 'remove_icon') || 'close'}
           onEdit={requestPollSheet}
           onRemove={removePostDraftPoll}
+        />
+      )}
+
+      {/* Attached documents — design 30. Rename and delete both go to
+          the server before the row changes, so they ask rather than
+          mutating the draft: the shells own the endpoints and the auth
+          header, exactly as they do for the poll sheet's "Edit". */}
+      {showMedia && draft.documents.length > 0 && (
+        <AppzaDraftDocumentList
+          documents={draft.documents}
+          labels={{
+            fileIcon: str(overrides, 'doc_file_icon') || 'document-outline',
+            renameIcon: str(overrides, 'doc_rename_icon') || 'create-outline',
+            deleteIcon: str(overrides, 'doc_delete_icon') || 'trash-outline',
+            downloadIcon: str(overrides, 'doc_download_icon') || 'download-outline',
+            renamePrompt: str(overrides, 'doc_rename_label') || 'Rename file',
+          }}
+          onRename={requestDocumentRename}
+          onRemove={requestDocumentRemove}
         />
       )}
     </span>

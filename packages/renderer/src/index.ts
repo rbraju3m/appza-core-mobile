@@ -104,6 +104,10 @@ export {
   removePostDraftAudio,
   setPostDraftPoll,
   removePostDraftPoll,
+  addPostDraftDocuments,
+  removePostDraftDocument,
+  renamePostDraftDocument,
+  postDraftStateEntries,
   type PostDraft,
   type PostDraftTopic,
   type PostDraftTarget,
@@ -112,6 +116,7 @@ export {
   type PostDraftAudio,
   type PostDraftPoll,
   type PostDraftPollOption,
+  type PostDraftDocument,
 } from './postDraft';
 export {
   VideoSheet,
@@ -139,6 +144,19 @@ export {
   formatPollEndDate,
   type PollSheetPresentation,
 } from './PollSheet';
+export {
+  AppzaDraftDocumentList,
+  AppzaDocumentsPreview,
+  requestDocumentRename,
+  requestDocumentRemove,
+  onDocumentRequests,
+  setDocumentBusy,
+  useDocumentBusy,
+  uploadDraftDocument,
+  renameDraftDocument,
+  deleteDraftDocument,
+  type DocumentRowLabels,
+} from './PostDocuments';
 export {
   PostSpaceSheet,
   openPostSpaceSheet,

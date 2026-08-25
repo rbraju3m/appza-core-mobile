@@ -64,6 +64,14 @@ import {
   onPollSheetRequest,
   pollSheetPresentation,
   POLL_SHEET_CHILD_COUNT,
+  onDocumentRequests,
+  setDocumentBusy,
+  uploadDraftDocument,
+  renameDraftDocument,
+  deleteDraftDocument,
+  addPostDraftDocuments,
+  removePostDraftDocument,
+  renamePostDraftDocument,
   lookupVideoOembed,
   uploadDraftVideo,
   postSpaceSheetPresentation,
@@ -600,6 +608,12 @@ type ActionDeps = {
   openCommentPanel: (p: CommentPanelState) => void;
   openImagePicker: (target: { endpoint: string; method: string }) => void;
   openAudioPicker: (endpoint: string) => void;
+  openDocumentPicker: (t: {
+    upload: string;
+    rename: string;
+    remove: string;
+    accept: string;
+  }) => void;
   attachVideo: (url: string, target: { endpoint: string; method: string }) => Promise<void>;
   pendingImages: string[];
   clearPendingImages: () => void;
@@ -683,6 +697,12 @@ export function App() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const audioInputRef = useRef<HTMLInputElement | null>(null);
   const audioUploadEndpointRef = useRef<string | null>(null);
+  const docInputRef = useRef<HTMLInputElement | null>(null);
+  // The three document endpoints, stashed together when the paperclip is
+  // tapped. Rename and delete fire from the composer's own rows long
+  // after the picker has closed, so they cannot be read off the action's
+  // args at call time — the ref is where they wait.
+  const docEndpointsRef = useRef<{ upload: string; rename: string; remove: string } | null>(null);
   const uploadEndpointRef = useRef<{ endpoint: string; method: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -734,6 +754,53 @@ export function App() {
   // glyph's action calls, so the two sheets cannot drift.
   useEffect(
     () => onPollSheetRequest(() => openPollSheetFromCatalog('fc-post-poll-sheet')),
+    [],
+  );
+
+  // Rename / remove on the composer's document rows. Both go to the
+  // SERVER first and only then touch the draft, so a refusal leaves the
+  // row where it was rather than losing the user's file from the list
+  // while it still exists on the site.
+  useEffect(
+    () =>
+      onDocumentRequests({
+        onRename: (id, title) => {
+          const endpoints = docEndpointsRef.current;
+          if (!endpoints) return;
+          setDocumentBusy(id);
+          void (async () => {
+            const error = await renameDraftDocument(
+              id,
+              title,
+              absolutizeEndpoint(endpoints.rename),
+              (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? '',
+            );
+            setDocumentBusy('');
+            if (error) setErrorToast(error);
+            else renamePostDraftDocument(id, title);
+          })();
+        },
+        onRemove: (id) => {
+          const endpoints = docEndpointsRef.current;
+          if (!endpoints) return;
+          setDocumentBusy(id);
+          void (async () => {
+            // A real delete, not a local drop. Unlike an image or an
+            // audio file, an uploaded-but-unattached document CAN be
+            // removed — FC Pro permits it when the media has no feed_id
+            // and belongs to the asking user — so the trash icon leaves
+            // nothing behind.
+            const error = await deleteDraftDocument(
+              id,
+              absolutizeEndpoint(endpoints.remove),
+              (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? '',
+            );
+            setDocumentBusy('');
+            if (error) setErrorToast(error);
+            else removePostDraftDocument(id);
+          })();
+        },
+      }),
     [],
   );
 
@@ -1004,6 +1071,19 @@ export function App() {
     uploadEndpointRef.current = target;
     if (fileInputRef.current) fileInputRef.current.click();
   }, []);
+  const openDocumentPicker = useCallback(
+    (t: { upload: string; rename: string; remove: string; accept: string }) => {
+      // Same ref-then-click shape as the image and audio pickers: the
+      // input's onChange fires after this returns, so everything it needs
+      // has to be somewhere it can read synchronously. The rename and
+      // delete endpoints ride along because the composer's rows fire
+      // those long after the picker has closed.
+      docEndpointsRef.current = { upload: t.upload, rename: t.rename, remove: t.remove };
+      if (docInputRef.current) docInputRef.current.accept = t.accept;
+      docInputRef.current?.click();
+    },
+    [],
+  );
   const openAudioPicker = useCallback((endpoint: string) => {
     // Same ref-then-click shape as the image picker, and for the same
     // reason: the input's onChange fires after this returns, so the
@@ -1013,6 +1093,45 @@ export function App() {
   }, []);
   const clearPendingImages = useCallback(() => setPostDraft({ images: [] }), []);
   const clearPendingVideo = useCallback(() => setPendingVideo(null), []);
+
+  /**
+   * Upload the picked documents and put them on the draft.
+   *
+   * Sequential, not parallel: FluentCommunity writes a Media row per
+   * call, and one file at a time is the only version of this whose
+   * failure can be attributed to a file. No cap — FluentCommunity applies
+   * none to `document_ids`, and inventing one here would refuse a post
+   * the server would have accepted.
+   */
+  const uploadDocuments = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
+      const endpoints = docEndpointsRef.current;
+      if (!endpoints) return;
+      const spaceSlug = getPostDraft().space_slug;
+      if (!spaceSlug) {
+        setErrorToast('Choose a space before attaching a file.');
+        return;
+      }
+      const list = Array.from(files);
+      setUploadingCount((c) => c + list.length);
+      const auth = (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? '';
+      const accepted = [];
+      for (const file of list) {
+        const { doc, error } = await uploadDraftDocument(
+          file,
+          spaceSlug,
+          absolutizeEndpoint(endpoints.upload),
+          auth,
+        );
+        setUploadingCount((c) => Math.max(0, c - 1));
+        if (doc) accepted.push(doc);
+        else if (error) setErrorToast(error);
+      }
+      if (accepted.length > 0) addPostDraftDocuments(accepted);
+    },
+    [],
+  );
 
   /**
    * Upload the picked audio files and put them on the draft.
@@ -1210,6 +1329,7 @@ export function App() {
         openCommentPanel,
         openImagePicker,
         openAudioPicker,
+        openDocumentPicker,
         attachVideo,
         pendingImages,
         clearPendingImages,
@@ -1228,6 +1348,7 @@ export function App() {
       openCommentPanel,
       openImagePicker,
       openAudioPicker,
+      openDocumentPicker,
       attachVideo,
       pendingImages,
       clearPendingImages,
@@ -1627,6 +1748,19 @@ export function App() {
           e.target.value = '';
         }}
       />
+      {/* Documents get their own input for the same reason audio does —
+          a different accept list, and no race over swapping it. */}
+      <input
+        ref={docInputRef}
+        type="file"
+        multiple
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const files = e.target.files;
+          void uploadDocuments(files);
+          e.target.value = '';
+        }}
+      />
 
 
       {/* Images, and now the poll, have LEFT this strip — the composer
@@ -1822,6 +1956,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     openCommentPanel,
     openImagePicker,
     openAudioPicker,
+    openDocumentPicker,
     attachVideo,
     screenContextRef,
     screenPrefilledRef,
@@ -2392,6 +2527,22 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
           settings: { src: a.url, title: a.title, viewType: 'audio' },
         }));
       }
+      // Documents take the whole post: FluentCommunity's document
+      // filter runs after everything else and sets content_type itself,
+      // so a draft carrying documents plus other media would post as a
+      // document and drop the rest into meta where nothing draws it. The
+      // draft enforces the exclusivity, so by here it is one or neither.
+      const draftDocs = getPostDraft().documents;
+      if (draftDocs.length > 0) {
+        body.document_ids = draftDocs.map((d) => ({
+          id: d.id,
+          media_key: d.media_key,
+          title: d.title,
+          url: d.url,
+          type: d.type,
+        }));
+        body.content_type = 'document';
+      }
       const draftPoll = getPostDraft().poll;
       if (draftPoll && draftPoll.options.length >= 2) {
         // post.create — the server assigns fresh slugs, so any that
@@ -2658,6 +2809,16 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
           settings: { src: a.url, title: a.title, viewType: 'audio' },
         }));
       }
+      // The composer's documents are deliberately NOT read here.
+      // post.edit already owns documents through the edit screen's own
+      // slice (fc-edit-document-files → documentDraft), which knows what
+      // the post's files WERE and can tell "the user removed them all"
+      // from "we never learned what they were" — a distinction that
+      // matters because an empty document_ids DELETES every file. The
+      // composer draft knows neither, and nav.push does not reset it when
+      // the edit screen opens, so reading it here would let a leftover
+      // create-post draft flip an unrelated post to content_type
+      // 'document' and destroy its real attachments.
       const editPoll = getPostDraft().poll;
       if (editPoll && editPoll.options.length >= 2) {
         // post.edit MUST forward the server-issued slug on every option
@@ -2875,6 +3036,35 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
           ? argRec.endpoint
           : '/wp-json/fcom-mobile/api/v1/fluent-player/video-upload';
       deps.openAudioPicker(absolutizeEndpoint(audioEndpoint));
+      return;
+    }
+
+    case 'picker.file': {
+      if (!auth) {
+        onError('Please sign in to attach a file.');
+        return;
+      }
+      // The glyph is gated on the space allowing documents, so this only
+      // fires without one if the catalog was edited to show it anyway.
+      if (!getPostDraft().space_slug) {
+        onError('Choose a space before attaching a file.');
+        return;
+      }
+      deps.openDocumentPicker({
+        upload:
+          typeof argRec.endpoint === 'string' && argRec.endpoint
+            ? argRec.endpoint
+            : '/wp-json/fcom-mobile/api/v1/spaces/documents/upload',
+        rename:
+          typeof argRec.rename_endpoint === 'string' && argRec.rename_endpoint
+            ? argRec.rename_endpoint
+            : '/wp-json/fcom-mobile/api/v1/documents/update',
+        remove:
+          typeof argRec.delete_endpoint === 'string' && argRec.delete_endpoint
+            ? argRec.delete_endpoint
+            : '/wp-json/fcom-mobile/api/v1/documents/delete',
+        accept: typeof argRec.accept === 'string' ? argRec.accept : '',
+      });
       return;
     }
 

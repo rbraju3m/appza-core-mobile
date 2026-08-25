@@ -22,6 +22,7 @@ import { setBookmarkControls, useBookmarkControls } from './bookmarkControls';
 import { publishSearchFetchView, useSearchControls } from './searchControls';
 import { useDocumentDraft } from './documentDraft';
 import { getFcRuntimeSettings, useFcRuntimeSettings } from './fcRuntimeSettings';
+import { getPostDraft, postDraftStateEntries, usePostDraft } from './postDraft';
 import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
 
 /**
@@ -184,6 +185,12 @@ export function PlacementRenderer({
   // Add-document draft — read unconditionally for stable hook order. Only
   // the topic chips consume it, to mark several chips active at once.
   const documentDraft = useDocumentDraft();
+  // The create-post draft, subscribed to for the same reason: child
+  // `visible_when` clauses now read `state.post_draft.*`, and the attach
+  // bar has to re-evaluate the moment a document is attached. The clause
+  // evaluator reads the store directly; this hook is what makes the
+  // component re-render so it is asked again.
+  const composerDraft = usePostDraft();
   const chatControls = useChatControls();
   // Leaderboard screen controls. Read unconditionally for stable hook
   // order, same as every slice above — the ranking strip needs `range`
@@ -1025,13 +1032,13 @@ export function PlacementRenderer({
   //
   // `data.*` clauses resolve to undefined here, which is the honest
   // answer when there is no item; `settings.*` resolve against the site's
-  // FluentCommunity configuration.
+  // FluentCommunity configuration; `state.*` against the composer draft.
   const singlePathHidden = useMemo(() => {
     const dataHidden = computeDataHiddenIndices(readChildren(ss), null);
     if (dataHidden.size === 0) return hiddenIndices;
     return new Set<number>([...hiddenIndices, ...dataHidden]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ss, hiddenIndices, fcSettings]);
+  }, [ss, hiddenIndices, fcSettings, composerDraft]);
   const childLayoutStyles = computeChildLayoutStyles(appzet, ss, customizations);
 
   // When `children_from_prop` is active AND actually expanded from a
@@ -1440,6 +1447,29 @@ export function PlacementRenderer({
     'poll_votes_color',
     'poll_votes_size',
     'poll_votes_gap',
+    // Attached documents (2026-08-25) — the composer's rows and the
+    // preview's card. Shared names on purpose: a file that looked
+    // different in the preview would defeat the preview.
+    'doc_gap',
+    'doc_row_gap',
+    'doc_row_height',
+    'doc_row_padding',
+    'doc_radius',
+    'doc_bg_color',
+    'doc_border_color',
+    'doc_text_color',
+    'doc_size',
+    'doc_icon_color',
+    'doc_icon_size',
+    'doc_action_color',
+    'doc_action_size',
+    'doc_card_border_color',
+    'doc_card_radius',
+    'doc_card_padding',
+    'doc_heading_color',
+    'doc_heading_size',
+    'doc_heading_weight',
+    'doc_heading_padding',
   ]);
   // Aliases: some knobs also drive Ionic's own CSS custom properties
   // directly. Custom props inherit through shadow DOM (unlike `background`
@@ -2461,11 +2491,22 @@ function renderChild(
 
 type VisibleWhenOp = '==' | '!=' | 'exists' | 'not_exists' | 'in' | 'not_in';
 
-type VisibleWhen = {
+type VisibleWhenClause = {
   binding: string;
   op: VisibleWhenOp;
   value?: unknown;
 };
+
+/**
+ * One clause, or a LIST of clauses that must all hold.
+ *
+ * The list arrived with the attach bar: the audio glyph needs
+ * FluentPlayer's switch AND a draft that has not become a document post,
+ * which is two facts about two different things. Placement-level
+ * `visible_when` has taken an array since the search screen; children now
+ * take the same shape, so there is one grammar rather than two.
+ */
+type VisibleWhen = VisibleWhenClause | VisibleWhenClause[];
 
 type SSChild = {
   slug: string;
@@ -2502,6 +2543,17 @@ type SSChild = {
   download?: boolean;
 };
 
+function parseVisibleWhenClause(raw: unknown): VisibleWhenClause | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const rec = raw as Record<string, unknown>;
+  if (typeof rec.binding !== 'string' || typeof rec.op !== 'string') return null;
+  return {
+    binding: rec.binding,
+    op: rec.op as VisibleWhenOp,
+    value: 'value' in rec ? rec.value : undefined,
+  };
+}
+
 function readChildren(ss: Superstructure): SSChild[] {
   const raw = (ss as unknown as { children?: unknown }).children;
   if (!Array.isArray(raw)) return [];
@@ -2512,15 +2564,17 @@ function readChildren(ss: Superstructure): SSChild[] {
       if (typeof rec.slug !== 'string') return null;
       const out: SSChild = { slug: rec.slug };
       const vw = rec.visible_when;
-      if (vw && typeof vw === 'object' && !Array.isArray(vw)) {
-        const vwRec = vw as Record<string, unknown>;
-        if (typeof vwRec.binding === 'string' && typeof vwRec.op === 'string') {
-          out.visible_when = {
-            binding: vwRec.binding,
-            op: vwRec.op as VisibleWhenOp,
-            value: 'value' in vwRec ? vwRec.value : undefined,
-          };
-        }
+      if (Array.isArray(vw)) {
+        const clauses = vw
+          .map(parseVisibleWhenClause)
+          .filter((c): c is VisibleWhenClause => c !== null);
+        // An EMPTY list is not "hide this" — it is a catalog row that
+        // says nothing, and saying nothing has always meant show. Same
+        // reading the placement evaluator gives it.
+        if (clauses.length > 0) out.visible_when = clauses;
+      } else {
+        const clause = parseVisibleWhenClause(vw);
+        if (clause) out.visible_when = clause;
       }
       if (typeof rec.on_click_open_url === 'string') {
         out.on_click_open_url = rec.on_click_open_url;
@@ -2852,22 +2906,41 @@ function computeChildOpenUrls(children: SSChild[], item: unknown): Record<number
  * and returns the union of indices to hide. Runs on TOP of the static
  * `computeHiddenIndices` result (which is bool-prop-based, per DC#17/#18).
  *
- * Grammar v1 — single clause per child, no AND/OR nesting. Ops: `==`, `!=`,
- * `exists`, `not_exists`, `in`, `not_in`. Binding: `data.<path>` (same
- * grammar as `field_mappings`). Unparseable clauses fail-open (child shown)
- * — same silent-no-op posture as the rest of the renderer.
+ * Grammar v2 — one clause per child, or a LIST that must all hold (AND;
+ * no OR nesting). Ops: `==`, `!=`, `exists`, `not_exists`, `in`,
+ * `not_in`. Bindings: `data.<path>` (the bound row), `settings.<path>`
+ * (the site's FluentCommunity configuration), `state.<path>` (the flat
+ * bag below). Unparseable clauses fail-open (child shown) — same
+ * silent-no-op posture as the rest of the renderer.
  */
 function computeDataHiddenIndices(children: SSChild[], item: unknown): Set<number> {
   const hidden = new Set<number>();
   for (let i = 0; i < children.length; i++) {
     const vw = children[i]?.visible_when;
     if (!vw) continue;
-    if (!evaluateVisibleWhen(vw, item)) hidden.add(i);
+    const holds = Array.isArray(vw)
+      ? vw.every((clause) => evaluateVisibleWhen(clause, item))
+      : evaluateVisibleWhen(vw, item);
+    if (!holds) hidden.add(i);
   }
   return hidden;
 }
 
-function evaluateVisibleWhen(vw: VisibleWhen, item: unknown): boolean {
+/**
+ * The `state.*` bag a CHILD clause can read.
+ *
+ * Only the composer draft so far, and built by the slice's own exported
+ * function so this and the screen's placement-level bag cannot describe
+ * the same fact differently. Read fresh on every evaluation rather than
+ * memoised: the caller already re-runs when the draft changes, and a
+ * stale copy here would leave the attach bar showing a glyph the draft
+ * has ruled out.
+ */
+function childStateBag(): Record<string, unknown> {
+  return postDraftStateEntries(getPostDraft());
+}
+
+function evaluateVisibleWhen(vw: VisibleWhenClause, item: unknown): boolean {
   // `settings.*` reads the site's FluentCommunity configuration rather
   // than the bound row. A glyph that exists only where a plugin switch
   // allows it — the audio one needs FluentPlayer with audio on, the poll
@@ -2880,9 +2953,20 @@ function evaluateVisibleWhen(vw: VisibleWhen, item: unknown): boolean {
   // swapped rather than stripped. Stripping it returns undefined for every
   // clause, which fails CLOSED for `== true` — the glyph disappears and
   // looks like the setting is off.
+  //
+  // `state.*` is the third root, and it reads a FLAT bag rather than
+  // dot-walking: `state.post_draft.has_documents` is one key, the way
+  // placement-level clauses have always been written. It exists because
+  // some gates are facts about the DRAFT rather than about the site or a
+  // row — the paperclip needs a space that takes documents, and the other
+  // four glyphs have to disappear once a document is attached, because
+  // FluentCommunity resolves exactly one content_type and the document
+  // filter runs last.
   const resolved = vw.binding.startsWith('settings.')
     ? readDataPath(getFcRuntimeSettings(), vw.binding.replace(/^settings\./, 'data.'))
-    : readDataPath(item, vw.binding);
+    : vw.binding.startsWith('state.')
+      ? childStateBag()[vw.binding.slice('state.'.length)]
+      : readDataPath(item, vw.binding);
   switch (vw.op) {
     case 'exists':
       return resolved !== undefined && resolved !== null && resolved !== '';
