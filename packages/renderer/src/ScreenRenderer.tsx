@@ -20,6 +20,7 @@ import { useLeaderboardControls } from './leaderboardControls';
 import { useBookmarkControls } from './bookmarkControls';
 import { useSearchControls } from './searchControls';
 import { usePostDraft, postDraftStateEntries } from './postDraft';
+import { useDocumentDraft } from './documentDraft';
 
 type ScreenRendererProps = {
   screen: TemplateScreen;
@@ -93,6 +94,10 @@ export function ScreenRenderer({
   const bookmarkControls = useBookmarkControls();
   const searchControls = useSearchControls();
   const postDraft = usePostDraft();
+  // Subscribed, not read directly: postDraftStateEntries consults the
+  // document draft for the attach bar's gate, so the bag has to be
+  // rebuilt when that slice moves.
+  const documentDraft = useDocumentDraft();
   // Placement-level visible_when reads out of this bag via
   // `binding.slice(6)` (i.e. `state.<key>` → `<key>`). Register nested
   // paths as flat keys so `state.space_detail_controls.active_subtab`
@@ -203,6 +208,7 @@ export function ScreenRenderer({
       // stale bag the moment a document was attached — and the attach
       // bar would not change until something else moved.
       postDraft,
+      documentDraft,
     ],
   );
 

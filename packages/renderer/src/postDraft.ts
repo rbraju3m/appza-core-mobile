@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { getFcComposerSettings } from './fcRuntimeSettings';
+import { getDocumentDraft } from './documentDraft';
 
 // The create-post composer's draft — what the user has typed, where it
 // is going, and what the space they chose allows.
@@ -124,6 +125,18 @@ export type PostDraftDocument = {
 export type PostDraftTarget = '' | 'space' | 'profile';
 
 export type PostDraft = {
+  /**
+   * The post being EDITED, or null when composing a new one.
+   *
+   * Set by the prefill, cleared by `resetPostDraft` — which `nav.push`
+   * runs on entry to BOTH composer screens, so it cannot survive into a
+   * fresh compose.
+   *
+   * Two gates need it: documents live in a different slice while
+   * editing, and the composer's own paperclip writes somewhere
+   * `post.edit` deliberately does not read.
+   */
+  edit_feed_id: number | null;
   target: PostDraftTarget;
   space_slug: string;
   space_title: string;
@@ -230,6 +243,7 @@ export type PostDraft = {
 const EVENT = 'appza:post-draft-change';
 
 const DEFAULTS: PostDraft = {
+  edit_feed_id: null,
   target: '',
   space_slug: '',
   space_title: '',
@@ -271,6 +285,8 @@ function bool(patch: Partial<PostDraft>, key: keyof PostDraft, fallback: boolean
 
 export function setPostDraft(patch: Partial<PostDraft>): void {
   const next: PostDraft = {
+    edit_feed_id:
+      patch.edit_feed_id !== undefined ? patch.edit_feed_id : current.edit_feed_id,
     target: (typeof patch.target === 'string' ? patch.target : current.target) as PostDraftTarget,
     space_slug: str(patch, 'space_slug', current.space_slug),
     space_title: str(patch, 'space_title', current.space_title),
@@ -355,6 +371,7 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
   }
 
   if (
+    next.edit_feed_id === current.edit_feed_id &&
     next.target === current.target &&
     next.space_slug === current.space_slug &&
     next.space_title === current.space_title &&
@@ -566,7 +583,26 @@ export function postDraftStateEntries(draft: PostDraft): Record<string, unknown>
     draft.video !== null ||
     draft.audios.length > 0 ||
     draft.poll !== null;
-  const hasDocuments = draft.documents.length > 0;
+  // Documents live in TWO slices, and the gate has to see both.
+  //
+  // Creating a post puts them on this draft. EDITING one puts them in
+  // `documentDraft`, behind `fc-edit-document-files` — a split chunk 7
+  // made deliberately, because only that slice can tell "the user
+  // removed them all" from "we never learned what they were", and an
+  // empty `document_ids` DELETES every file. Merging the slices would
+  // throw that distinction away.
+  //
+  // So the gate reads both instead. Without this the attach bar showed
+  // all five glyphs while editing a document post, where creating one
+  // leaves only the paperclip — an edit could reach a draft state that
+  // create refuses.
+  //
+  // Scoped to `edit_feed_id`: the add-document screen uses the same
+  // slice, and its files are not an attachment on THIS composer.
+  const editing = draft.edit_feed_id !== null;
+  const editDoc = getDocumentDraft();
+  const editingDocuments = editing && editDoc.edit_feed_id !== null && editDoc.files.length > 0;
+  const hasDocuments = draft.documents.length > 0 || editingDocuments;
   // The moderator verdict: a global community moderator, or a moderator
   // of the space being posted to. FluentCommunity resolves the two the
   // same way for BOTH the announcement email and scheduling
@@ -591,8 +627,20 @@ export function postDraftStateEntries(draft: PostDraft): Record<string, unknown>
     // to become a document post — but one clause, because a control that
     // needs two conditions is easier to get wrong as two rows in the
     // catalog than as one derived key here.
+    // ...and never while EDITING. The composer's paperclip writes to
+    // this draft, and `post.edit` deliberately does not read it — the
+    // edit screen's own file block owns documents there, because only
+    // that slice can tell "removed them all" from "never knew what they
+    // were". A glyph that uploads into a slice nobody reads is worse
+    // than no glyph, so it is not drawn.
+    //
+    // ⚠ The consequence, stated plainly: a NON-document post cannot gain
+    // its first document on the edit screen, because the edit file block
+    // renders only for posts that already have some. That gap is older
+    // than this gate and is not closed by it.
     'post_draft.can_attach_documents':
-      draft.space_can_upload_documents && !hasOtherMedia ? 'yes' : 'no',
+      draft.space_can_upload_documents && !hasOtherMedia && !editing ? 'yes' : 'no',
+    'post_draft.is_editing': editing ? 'yes' : 'no',
     'post_draft.can_schedule': isModerator ? 'yes' : 'no',
     'post_draft.has_schedule': draft.scheduled_at !== '' ? 'yes' : 'no',
     'post_draft.can_post': isPostable(draft) ? 'yes' : 'no',

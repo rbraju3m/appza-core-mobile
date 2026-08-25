@@ -115,7 +115,15 @@ export function prefillPostInformationFromContext(
   // written through the DOM. The fields live on the slice, so write the
   // slice. No polling, no mount race — the composer reads whatever is
   // there whenever it renders.
-  setPostDraft({ title, body: message });
+  // Which post this is. Two gates read it — see PostDraft.edit_feed_id —
+  // and `resetPostDraft` on nav.push clears it, so it cannot leak into a
+  // fresh compose.
+  const feedId = Number.parseInt(String(data.id ?? ''), 10);
+  setPostDraft({
+    edit_feed_id: Number.isFinite(feedId) ? feedId : null,
+    title,
+    body: message,
+  });
 
   // The space is the one thing that cannot be set from the post alone: a
   // destination is a chip, a topic list, a document permission and an

@@ -1058,7 +1058,10 @@ export function PlacementRenderer({
     if (dataHidden.size === 0) return hiddenIndices;
     return new Set<number>([...hiddenIndices, ...dataHidden]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ss, hiddenIndices, fcSettings, composerDraft]);
+    // documentDraft is in here because the attach bar's document-mode
+    // gate reads BOTH slices: creating a post keeps files on the
+    // composer draft, editing one keeps them in the document draft.
+  }, [ss, hiddenIndices, fcSettings, composerDraft, documentDraft]);
   const childLayoutStyles = computeChildLayoutStyles(appzet, ss, customizations);
 
   // When `children_from_prop` is active AND actually expanded from a
