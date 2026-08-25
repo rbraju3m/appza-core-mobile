@@ -134,6 +134,7 @@ export {
   AppzaDraftVideo,
   lookupVideoOembed,
   uploadDraftVideo,
+  buildVideoMediaPayload,
   type VideoSheetPresentation,
   type VideoOembedResult,
 } from './VideoSheet';

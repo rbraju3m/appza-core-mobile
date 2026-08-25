@@ -28,21 +28,25 @@
  * that one retries until an option matching the target slug exists.
  */
 
-import { setPostDraft } from './postDraft';
+import { setPostDraft, type PostDraftVideo, type PostDraftAudio } from './postDraft';
 
 export type PrefillMediaSetters = {
   /**
-   * Called with the post's space SLUG. The caller resolves it against the
-   * picker payload (`hydratePostDraftSpace`) — the prefill deliberately
-   * does not fetch.
+   * Called with the post's space SLUG and its topic ids. The caller
+   * resolves them against the picker payload (`hydratePostDraftSpace`) —
+   * the prefill deliberately does not fetch.
+   *
+   * The topics ride ALONG with the space rather than being written here,
+   * and that is not tidiness. `setPostDraft` clears `topic_ids` whenever
+   * the destination changes, because a selection carried across spaces
+   * submits ids the new space has never heard of. The space resolves
+   * asynchronously, so topics written before it arrive are wiped by it —
+   * which is exactly what was happening: the post's topic vanished about
+   * a second after the edit screen opened.
    */
-  setSpace?: (slug: string) => void;
+  setSpace?: (slug: string, topicIds: string[]) => void;
   /** Called with image URLs when the post has uploaded images. */
   setImages?: (urls: string[]) => void;
-  /** Called with the video oembed preview when the post is a video. */
-  setVideo?: (
-    v: { url: string; title?: string; image?: string; provider?: string } | null,
-  ) => void;
   /**
    * Called with poll config when the post is a survey. Each option
    * carries its slug when it existed on the server — FC's edit endpoint
@@ -92,11 +96,10 @@ export function prefillPostInformationFromContext(
       ? ((data.space as Record<string, unknown>).slug as string)
       : '';
 
-  // Topic id from data.terms[0].pivot.term_id. FC returns terms as an
-  // array (a post can carry multiple), and topic_options binds by id
-  // (the option-loader emits {value: String(rec.id)}). fc-post-information
-  // is single-select today, so pick the first term.
-  const topicId = extractFirstTopicId(data);
+  // Every topic on the post, from `data.terms[*].pivot.term_id`. The
+  // composer's chips are multi-select, so restoring only the first would
+  // silently drop the rest on save.
+  const topicIds = extractTopicIds(data);
 
   // ── The text, straight onto the DRAFT ──────────────────────────────
   //
@@ -112,13 +115,14 @@ export function prefillPostInformationFromContext(
   // written through the DOM. The fields live on the slice, so write the
   // slice. No polling, no mount race — the composer reads whatever is
   // there whenever it renders.
-  setPostDraft({ title, body: message, topic_ids: topicId ? [topicId] : [] });
+  setPostDraft({ title, body: message });
 
   // The space is the one thing that cannot be set from the post alone: a
   // destination is a chip, a topic list, a document permission and an
   // announcement verdict, all of which live in the picker's payload. The
-  // caller supplies the lookup because it owns the fetch seam.
-  if (space && media?.setSpace) media.setSpace(space);
+  // caller supplies the lookup because it owns the fetch seam — and the
+  // topics go with it, for the ordering reason on setSpace above.
+  if (space && media?.setSpace) media.setSpace(space, topicIds);
 
   // ── Media ──────────────────────────────────────────────────────────
   // Media hydration is best-effort. Shape checks are defensive because
@@ -137,16 +141,6 @@ export function prefillPostInformationFromContext(
       if (urls.length > 0) media.setImages(urls);
     }
 
-    // Video (oembed). NOTE: content_type is 'text' on these posts, NOT
-    // 'oembed'. The oembed marker lives inside meta.media_preview.type
-    // — extractVideoPreview handles the shape sniff so callers don't
-    // need to guess. Feed row 2 shape:
-    //   meta.media_preview = { type: 'oembed', provider: 'youtube',
-    //   url: 'https://…', html: '<iframe…', image: '…thumb.jpg' }
-    if (media.setVideo) {
-      const v = extractVideoPreview(meta);
-      if (v) media.setVideo(v);
-    }
 
     // Poll (survey). meta.survey_config carries {type, options: [{label, slug}]}.
     if (media.setPoll) {
@@ -154,30 +148,51 @@ export function prefillPostInformationFromContext(
       if (p) media.setPoll(p);
     }
   }
+
+  // ── Video and audio, straight onto the draft ───────────────────────
+  //
+  // Both used to go out through a setter the shells wired to their own
+  // legacy state — `setPendingVideo` — while the composer draws
+  // `draft.video`. So editing a post with a video showed no video, and
+  // audio had no setter at all: `meta.audio_medias` was never read, so
+  // the players simply were not there. Same shape of mistake as the text
+  // prefill, one layer along.
+  //
+  // Outside the `if (media)` block on purpose: neither needs anything
+  // from the caller, so neither should depend on the caller passing a
+  // setters object.
+  const meta = isPlainObject(data.meta) ? (data.meta as Record<string, unknown>) : null;
+  const video = extractDraftVideo(meta);
+  if (video) setPostDraft({ video });
+  const audios = extractDraftAudios(meta);
+  if (audios.length > 0) setPostDraft({ audios });
 }
 
 /**
- * The post's first topic id, from `data.terms[0].pivot.term_id`.
+ * Every topic id on the post, from `data.terms[*].pivot.term_id`.
  *
  * FluentCommunity returns terms as an array because a post can carry
- * several; the composer's chips are multi-select now, but an edit only
- * ever needs to restore what the post has — and every FC response so far
- * carries at most one.
+ * several, and the composer's chips are multi-select — so taking only
+ * the first would drop the rest the next time the post is saved.
+ *
+ * Preferred shape is `pivot.term_id`, which is what the feed returns.
+ * The fallbacks handle flatter responses that expose id/term_id at the
+ * top level.
  */
-function extractFirstTopicId(data: Record<string, unknown>): string {
+function extractTopicIds(data: Record<string, unknown>): string[] {
   const terms = Array.isArray(data.terms) ? data.terms : null;
-  if (!terms || terms.length === 0) return '';
-  const first = terms[0];
-  if (!isPlainObject(first)) return '';
-  // Preferred: pivot.term_id (FC's shape on read). Fallbacks handle
-  // occasional flat responses that expose id/term_id at the top level.
-  const pivot = isPlainObject(first.pivot) ? (first.pivot as Record<string, unknown>) : null;
-  const raw =
-    (pivot && (pivot.term_id ?? pivot.id)) ??
-    (first as Record<string, unknown>).term_id ??
-    (first as Record<string, unknown>).id;
-  if (raw == null) return '';
-  return String(raw);
+  if (!terms) return [];
+  const out: string[] = [];
+  for (const term of terms) {
+    if (!isPlainObject(term)) continue;
+    const rec = term as Record<string, unknown>;
+    const pivot = isPlainObject(rec.pivot) ? (rec.pivot as Record<string, unknown>) : null;
+    const raw = (pivot && (pivot.term_id ?? pivot.id)) ?? rec.term_id ?? rec.id;
+    if (raw == null) continue;
+    const id = String(raw);
+    if (id !== '' && !out.includes(id)) out.push(id);
+  }
+  return out;
 }
 
 function extractImageUrls(meta: Record<string, unknown> | null): string[] {
@@ -205,32 +220,84 @@ function extractImageUrls(meta: Record<string, unknown> | null): string[] {
   return urls;
 }
 
-function extractVideoPreview(
-  meta: Record<string, unknown> | null,
-): { url: string; title?: string; image?: string; provider?: string } | null {
+/**
+ * The post's video, in the shape the composer draft holds.
+ *
+ * Three cases, and the discriminator is NOT the same field each time:
+ *
+ *  - a FluentPlayer upload has `player: 'fluent_player'` — that key, not
+ *    the type, which is 'oembed' for uploads too;
+ *  - a pasted iframe has `type: 'iframe_html'`;
+ *  - everything else with `type: 'oembed'` is a provider embed.
+ *
+ * An IMAGE post also lives in media_preview (type 'meta_data', provider
+ * 'uploader'), which extractImageUrls handles — so the type sniff has to
+ * come first or an image would be restored as a video.
+ */
+function extractDraftVideo(meta: Record<string, unknown> | null): PostDraftVideo | null {
   if (!meta) return null;
   const mp = isPlainObject(meta.media_preview)
     ? (meta.media_preview as Record<string, unknown>)
     : null;
   if (!mp) return null;
-  // Sniff on media_preview.type — image posts have type='meta_data' +
-  // provider='uploader' (handled by extractImageUrls). Video posts
-  // have type='oembed' (all providers) OR type='iframe_html'.
+
   const type = typeof mp.type === 'string' ? mp.type : '';
   if (type !== 'oembed' && type !== 'iframe_html') return null;
-  const url =
-    typeof mp.url === 'string' && mp.url
-      ? mp.url
-      : typeof mp.embed_url === 'string' && mp.embed_url
-        ? mp.embed_url
-        : '';
+
+  const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+  const url = str(mp.url) || str(mp.embed_url);
+
+  if (str(mp.player) === 'fluent_player') {
+    if (!url) return null;
+    return {
+      kind: 'upload',
+      media_id: mp.media_id == null ? '' : String(mp.media_id),
+      media_url: url,
+      title: str(mp.title),
+    };
+  }
+
+  if (type === 'iframe_html') {
+    const html = str(mp.html);
+    return html ? { kind: 'html', html } : null;
+  }
+
   if (!url) return null;
   return {
+    kind: 'oembed',
     url,
-    title: typeof mp.title === 'string' ? mp.title : undefined,
-    image: typeof mp.image === 'string' ? mp.image : undefined,
-    provider: typeof mp.provider === 'string' ? mp.provider : undefined,
+    html: str(mp.html),
+    image: str(mp.image),
+    provider: str(mp.provider),
+    title: str(mp.title),
   };
+}
+
+/**
+ * The post's attached audio, from `meta.audio_medias`.
+ *
+ * This had no reader at all: audio was written on create and never read
+ * back, so the edit screen showed none of it. The stored entries carry
+ * more than the draft needs (player, content_type, settings) — those are
+ * rebuilt on submit from the same three fields kept here.
+ */
+function extractDraftAudios(meta: Record<string, unknown> | null): PostDraftAudio[] {
+  if (!meta) return [];
+  const raw = Array.isArray(meta.audio_medias) ? meta.audio_medias : [];
+  const out: PostDraftAudio[] = [];
+  for (const entry of raw) {
+    if (!isPlainObject(entry)) continue;
+    const rec = entry as Record<string, unknown>;
+    const url = typeof rec.url === 'string' ? rec.url : '';
+    const mediaId = rec.media_id == null ? '' : String(rec.media_id);
+    if (url === '' || mediaId === '') continue;
+    out.push({
+      media_id: mediaId,
+      url,
+      title: typeof rec.title === 'string' ? rec.title : '',
+    });
+  }
+  return out;
 }
 
 function extractPoll(

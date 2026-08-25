@@ -472,6 +472,60 @@ export function AppzaDraftVideo({
   );
 }
 
+/**
+ * The `media` payload for a post, built from the draft's video.
+ *
+ * ⚠ FluentCommunity accepts exactly two shapes here, and neither is
+ * obvious from the field names:
+ *
+ *  - **oEmbed**: `type: 'oembed'` with a `url` it re-parses server-side.
+ *    Its branch explicitly EXCLUDES `player == 'fluent_player'`.
+ *  - **Pasted iframe**: `type: 'iframe_html'` — not `custom_html`, which
+ *    is what we sent and which matches no branch at all. Moderators only;
+ *    FeedsHelper::canEmbedRawHtml drops it for anyone else.
+ *
+ * A FluentPlayer UPLOAD is neither. It is picked up by a different
+ * plugin entirely — FluentCommunity's FluentPlayer module hooks
+ * `new_feed_data` and looks for `media.player == 'fluent_player'`, the
+ * PLAYER key, not the type. We were sending `type: 'fluent_player'` with
+ * no `player` key, so FluentCommunity's branch skipped it (wrong type)
+ * and FluentPlayer's skipped it too (no player) — the upload vanished
+ * between them, silently, and the post published with no video.
+ *
+ * The shape below is copied from what the portal actually stored for an
+ * uploaded video on this site, field for field, rather than inferred.
+ *
+ * Returns null when the draft's video has nothing usable, so the caller
+ * can leave `media` off the body entirely.
+ */
+export function buildVideoMediaPayload(
+  video: PostDraftVideo,
+): Record<string, unknown> | null {
+  if (video.kind === 'oembed' && video.url) {
+    return { type: 'oembed', url: video.url };
+  }
+  if (video.kind === 'html' && video.html) {
+    return { type: 'iframe_html', html: video.html };
+  }
+  if (video.kind === 'upload' && video.media_id && video.media_url) {
+    const title = video.title ?? '';
+    return {
+      // 'oembed' is right even for an upload: that is the type
+      // FluentPlayer stores, and `player` is what routes it away from
+      // FluentCommunity's own oEmbed parser.
+      type: 'oembed',
+      url: video.media_url,
+      content_type: 'video',
+      player: 'fluent_player',
+      provider: 'upload',
+      title,
+      media_id: video.media_id,
+      settings: { src: video.media_url, title, viewType: 'video' },
+    };
+  }
+  return null;
+}
+
 function envelopeItems(json: unknown): Record<string, unknown> | null {
   if (!json || typeof json !== 'object') return null;
   const rec = json as Record<string, unknown>;
@@ -557,7 +611,15 @@ export async function uploadDraftVideo(
     if (!res.ok || !items) return null;
     const mediaUrl = s(items.public_url) || s(items.url) || s(items.media_url);
     if (mediaUrl === '') return null;
-    return { kind: 'upload', media_id: s(items.id) || s(items.media_id), media_url: mediaUrl };
+    return {
+      kind: 'upload',
+      media_id: s(items.id) || s(items.media_id),
+      media_url: mediaUrl,
+      // The portal stores the filename on the media_preview, and the
+      // player shows it. Prefer whatever the server named the file;
+      // fall back to what was picked.
+      title: s(items.title) || file.name,
+    };
   } catch {
     return null;
   }

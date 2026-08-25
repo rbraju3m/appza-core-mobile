@@ -76,6 +76,7 @@ import {
   hydratePostDraftSpace,
   lookupVideoOembed,
   uploadDraftVideo,
+  buildVideoMediaPayload,
   postSpaceSheetPresentation,
   POST_SPACE_SHEET_CHILD_COUNT,
   fetchPostSpacePayload,
@@ -990,7 +991,6 @@ export function App() {
     screenPrefilledRef.current[slug] = true;
     prefillPostInformationFromContext(ctx, {
       setImages: setImagesFromUrls,
-      setVideo: setPendingVideo,
       // The poll goes onto the DRAFT, not into shell state — the strip
       // in the composer and the block in the preview both read it from
       // there, so an edit that seeded shell state would open a composer
@@ -999,11 +999,12 @@ export function App() {
       // The destination is a chip, a topic list, a document permission
       // and an announcement verdict — all of which live in the picker's
       // payload, not on the post. Resolve it the same way a tap does.
-      setSpace: (slug) => {
+      setSpace: (slug, topicIds) => {
         void hydratePostDraftSpace(
           readAppzetActionsFromCatalog('fc-post-information')?.on_tap_space?.args
             ?.data_source as string ?? 'fc-post-space-picker',
           slug,
+          topicIds,
         );
       },
     });
@@ -2532,18 +2533,19 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       // two shapes its own composer sends.
       const draftVideo = getPostDraft().video;
       if (draftVideo) {
-        if (draftVideo.kind === 'oembed' && draftVideo.url) {
-          body.media = { type: 'oembed', url: draftVideo.url };
-        } else if (draftVideo.kind === 'html' && draftVideo.html) {
-          body.media = { type: 'custom_html', html: draftVideo.html };
-        } else if (draftVideo.kind === 'upload' && draftVideo.media_id) {
-          body.media = {
-            type: 'fluent_player',
-            media_id: draftVideo.media_id,
-            url: draftVideo.media_url,
-          };
-        }
-        if (body.media) body.content_type = 'oembed';
+        // ONE builder for both shells and both verbs. The three shapes
+        // FluentCommunity accepts are not guessable from the field names
+        // — see the note on buildVideoMediaPayload — and a payload
+        // written out four times is a payload that drifts (P100).
+        //
+        // No `content_type` is set: FeedsHelper::sanitizeAndValidateData
+        // rebuilds the payload from scratch and discards the request's,
+        // so 'oembed' was a no-op on create. On EDIT it is worse than a
+        // no-op — a content_type that differs from the post's fires
+        // `updating_content_type_old_<existing>`, and for a document post
+        // that hook DELETES its files.
+        const mediaPayload = buildVideoMediaPayload(draftVideo);
+        if (mediaPayload) body.media = mediaPayload;
       }
       // Audio rides alongside whatever else is attached rather than
       // replacing it: FluentCommunity stores meta.audio_medias
@@ -2822,18 +2824,19 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       // two shapes its own composer sends.
       const draftVideo = getPostDraft().video;
       if (draftVideo) {
-        if (draftVideo.kind === 'oembed' && draftVideo.url) {
-          body.media = { type: 'oembed', url: draftVideo.url };
-        } else if (draftVideo.kind === 'html' && draftVideo.html) {
-          body.media = { type: 'custom_html', html: draftVideo.html };
-        } else if (draftVideo.kind === 'upload' && draftVideo.media_id) {
-          body.media = {
-            type: 'fluent_player',
-            media_id: draftVideo.media_id,
-            url: draftVideo.media_url,
-          };
-        }
-        if (body.media) body.content_type = 'oembed';
+        // ONE builder for both shells and both verbs. The three shapes
+        // FluentCommunity accepts are not guessable from the field names
+        // — see the note on buildVideoMediaPayload — and a payload
+        // written out four times is a payload that drifts (P100).
+        //
+        // No `content_type` is set: FeedsHelper::sanitizeAndValidateData
+        // rebuilds the payload from scratch and discards the request's,
+        // so 'oembed' was a no-op on create. On EDIT it is worse than a
+        // no-op — a content_type that differs from the post's fires
+        // `updating_content_type_old_<existing>`, and for a document post
+        // that hook DELETES its files.
+        const mediaPayload = buildVideoMediaPayload(draftVideo);
+        if (mediaPayload) body.media = mediaPayload;
       }
       // Audio rides alongside whatever else is attached rather than
       // replacing it: FluentCommunity stores meta.audio_medias

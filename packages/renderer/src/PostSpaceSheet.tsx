@@ -504,6 +504,7 @@ export async function preparePostComposer(dataSourceSlug: string): Promise<void>
 export async function hydratePostDraftSpace(
   dataSourceSlug: string,
   spaceSlug: string,
+  topicIds: string[] = [],
 ): Promise<boolean> {
   if (spaceSlug === '') return false;
   const payload = await fetchPostSpacePayload(dataSourceSlug);
@@ -511,6 +512,11 @@ export async function hydratePostDraftSpace(
     for (const row of group.spaces) {
       if (row.slug === spaceSlug) {
         applySpaceDestination(row, payload.viewerIsModerator);
+        // AFTER the destination, never before: setPostDraft clears
+        // topic_ids on a destination change, so topics written first are
+        // wiped by the space landing. Two writes, and the second one
+        // moves nothing — so the selection sticks.
+        if (topicIds.length > 0) setPostDraft({ topic_ids: topicIds });
         return true;
       }
     }
