@@ -9483,3 +9483,463 @@ audio.appza-video-embed-native {
 .appza-post-preview-media .appza-draft-audio-list {
   margin-top: 0;
 }
+
+/* ============================================================
+   fc-post-poll-sheet — "Create poll", Noor's designs 24, 25 and 26.
+
+   Absolute rather than fixed, like the video sheet: overlays mount
+   inside `.appza-device-viewport`, so the simulated phone frame keeps
+   them aligned without any measuring.
+
+   The footer sits OUTSIDE the scroll region. Design 26 fills the screen
+   with the calendar open, and a Done button that scrolls away with the
+   month grid is a Done button the user has to hunt for.               */
+
+.appza-poll-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: var(--appza-backdrop-color, rgba(17, 24, 39, 0.35));
+}
+.appza-poll-sheet {
+  width: 100%;
+  max-height: var(--appza-sheet-max-height, 92%);
+  display: flex;
+  flex-direction: column;
+  background: var(--appza-sheet-bg-color, #ffffff);
+  border-top-left-radius: var(--appza-sheet-radius, 16px);
+  border-top-right-radius: var(--appza-sheet-radius, 16px);
+  overflow: hidden;
+}
+.appza-poll-sheet-grabber {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 4px;
+  margin: 8px auto 4px;
+  border-radius: 2px;
+  background: var(--appza-handle-color, #d1d5db);
+}
+.appza-poll-sheet-scroll {
+  overflow-y: auto;
+  padding: 4px var(--appza-sheet-padding-x, 16px) 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.appza-poll-sheet-eyebrow {
+  color: var(--appza-eyebrow-color, #6b7280);
+  font-size: var(--appza-eyebrow-size, 0.6875rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.appza-poll-sheet-title {
+  color: var(--appza-title-color, #111827);
+  font-size: var(--appza-title-size, 1.1875rem);
+  font-weight: var(--appza-title-weight, 700);
+  margin-top: -6px;
+}
+
+/* ---------- the option rows ---------- */
+
+.appza-poll-sheet-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--appza-field-gap, 8px);
+}
+.appza-poll-sheet-optionrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.appza-poll-sheet-field {
+  flex: 1;
+  min-width: 0;
+  height: var(--appza-field-height, 38px);
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 0.875rem;
+  color: var(--appza-field-text-color, #111827);
+  background: var(--appza-field-bg-color, #ffffff);
+  border: 1px solid var(--appza-field-border-color, #d7dade);
+  border-radius: var(--appza-field-radius, 6px);
+  outline: none;
+}
+.appza-poll-sheet-field::placeholder {
+  color: var(--appza-field-placeholder-color, #9ca3af);
+}
+/* An option the server already knows about cannot be left empty —
+   FluentCommunity refuses the whole edit. Saying so at the field beats
+   a Done button that is pale for no visible reason. */
+.appza-poll-sheet-field[data-blanked='yes'] {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+.appza-poll-sheet-optionremove {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--appza-option-remove-color, #6b7280);
+  font-size: var(--appza-option-remove-size, 18px);
+}
+.appza-poll-sheet-optionremove ion-icon {
+  font-size: var(--appza-option-remove-size, 18px);
+  color: var(--appza-option-remove-color, #6b7280);
+}
+
+.appza-poll-sheet-add {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--appza-add-color, #2f57ef);
+  font-size: var(--appza-add-size, 0.875rem);
+  font-weight: var(--appza-add-weight, 600);
+}
+.appza-poll-sheet-add ion-icon {
+  font-size: calc(var(--appza-add-size, 0.875rem) + 6px);
+  color: var(--appza-add-color, #2f57ef);
+}
+
+/* ---------- Single / Multiple ----------
+
+   Two separate pills rather than one segmented track: the design draws
+   a gap between them and gives the inactive half its own border, which
+   a shared track cannot express.                                      */
+
+.appza-poll-sheet-segment {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--appza-segment-gap, 10px);
+}
+.appza-poll-sheet-segbtn {
+  height: var(--appza-segment-height, 34px);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  border-radius: var(--appza-segment-radius, 6px);
+  background: var(--appza-segment-bg-color, #ffffff);
+  color: var(--appza-segment-text-color, #6b7280);
+  border: 1px solid var(--appza-segment-border-color, #d7dade);
+}
+.appza-poll-sheet-segbtn[data-active='yes'] {
+  background: var(--appza-segment-active-bg-color, #e6e9fd);
+  color: var(--appza-segment-active-text-color, #2f57ef);
+  border-color: var(--appza-segment-active-border-color, #2f57ef);
+  font-weight: 600;
+}
+
+/* ---------- end date ---------- */
+
+.appza-poll-sheet-enddate {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--appza-end-date-color, #4b5563);
+  font-size: var(--appza-end-date-size, 0.8125rem);
+}
+.appza-poll-sheet-enddate ion-icon {
+  font-size: calc(var(--appza-end-date-size, 0.8125rem) + 5px);
+  color: var(--appza-end-date-icon-color, #6b7280);
+}
+
+.appza-poll-sheet-monthbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+.appza-poll-sheet-month {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--appza-month-color, #111827);
+}
+.appza-poll-sheet-caret {
+  font-size: 14px;
+}
+.appza-poll-sheet-nav {
+  display: flex;
+  gap: 18px;
+}
+.appza-poll-sheet-navbtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+.appza-poll-sheet-navbtn ion-icon {
+  font-size: 20px;
+  color: var(--appza-nav-color, #4b5563);
+}
+.appza-poll-sheet-monthpicker {
+  border: 1px solid var(--appza-field-border-color, #d7dade);
+  border-radius: 8px;
+  padding: 8px;
+}
+.appza-poll-sheet-yearrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px 6px;
+  font-size: 0.875rem;
+  color: var(--appza-month-color, #111827);
+}
+.appza-poll-sheet-yearrow button {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  display: inline-flex;
+}
+.appza-poll-sheet-yearrow ion-icon {
+  font-size: 18px;
+  color: var(--appza-nav-color, #4b5563);
+}
+.appza-poll-sheet-monthgrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.appza-poll-sheet-monthgrid button {
+  padding: 6px 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  color: var(--appza-day-color, #111827);
+}
+.appza-poll-sheet-monthgrid button.is-current {
+  background: var(--appza-ring-color, #2f57ef);
+  color: #ffffff;
+}
+.appza-poll-sheet-weekdays,
+.appza-poll-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+}
+.appza-poll-sheet-weekdays {
+  color: var(--appza-weekday-color, #9ca3af);
+  font-size: 0.8125rem;
+}
+.appza-poll-sheet-grid {
+  gap: 2px 0;
+}
+.appza-poll-sheet-day {
+  aspect-ratio: 1 / 1;
+  max-height: 40px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  color: var(--appza-day-color, #111827);
+  justify-self: center;
+  width: 100%;
+  max-width: 40px;
+}
+.appza-poll-sheet-day.is-past {
+  color: var(--appza-day-muted-color, #b6bcc6);
+  cursor: default;
+}
+.appza-poll-sheet-day.is-selected {
+  border-color: var(--appza-ring-color, #2f57ef);
+  color: var(--appza-selected-color, #2f57ef);
+}
+.appza-poll-sheet-timerow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+.appza-poll-sheet-timelabel {
+  color: var(--appza-time-label-color, #111827);
+  font-size: 1rem;
+}
+.appza-poll-sheet-time {
+  border: 0;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  padding: 8px 12px;
+  border-radius: var(--appza-time-radius, 6px);
+  background: var(--appza-time-bg, #eef0f2);
+  color: var(--appza-time-color, #111827);
+}
+
+/* ---------- footer ---------- */
+
+.appza-poll-sheet-footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+  padding: 10px var(--appza-sheet-padding-x, 16px) 16px;
+}
+.appza-poll-sheet-remove {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--appza-remove-color, #2f57ef);
+  font-size: var(--appza-remove-size, 0.875rem);
+  font-weight: 600;
+}
+.appza-poll-sheet-done {
+  min-width: 68px;
+  height: var(--appza-done-height, 32px);
+  padding: 0 18px;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: var(--appza-done-radius, 4px);
+  color: var(--appza-done-text-color, #ffffff);
+  background: var(--appza-done-bg-color, #2f57ef);
+}
+/* Pale until two options survive — design 24 draws exactly this state,
+   and it is the same rule FluentCommunity applies server-side. */
+.appza-poll-sheet-done[data-ready='no'] {
+  background: var(--appza-done-disabled-bg-color, #a5b0f5);
+  cursor: default;
+}
+
+/* ============================================================
+   The collapsed poll strip in the composer — design 27.          */
+
+.appza-draft-poll {
+  display: flex;
+  align-items: center;
+  gap: var(--appza-poll-gap, 8px);
+  margin-top: var(--appza-poll-gap, 8px);
+  padding: var(--appza-poll-padding, 8px 10px);
+  border-radius: var(--appza-poll-radius, 4px);
+  background: var(--appza-poll-bg-color, #e9eaec);
+}
+.appza-draft-poll-icon {
+  flex: 0 0 auto;
+  font-size: var(--appza-poll-icon-size, 16px);
+  color: var(--appza-poll-icon-color, #4b5563);
+}
+.appza-draft-poll-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--appza-poll-text-color, #4b5563);
+  font-size: var(--appza-poll-size, 0.8125rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-draft-poll-edit {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--appza-poll-edit-color, #2f57ef);
+  font-size: var(--appza-poll-edit-size, 0.8125rem);
+  font-weight: var(--appza-poll-edit-weight, 600);
+}
+.appza-draft-poll-remove {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  color: var(--appza-poll-remove-color, #6b7280);
+  font-size: var(--appza-poll-remove-size, 14px);
+}
+.appza-draft-poll-remove ion-icon {
+  font-size: var(--appza-poll-remove-size, 14px);
+  color: var(--appza-poll-remove-color, #6b7280);
+}
+
+/* ============================================================
+   The poll as the preview draws it — designs 28 and 29.
+
+   The mark is a drawn box rather than an ion-radio / ion-checkbox: the
+   preview is a picture, nothing here is tappable, and an Ionic control
+   in a non-interactive card invites a tap that does nothing.        */
+
+.appza-poll-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--appza-poll-row-gap, 8px);
+}
+.appza-poll-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--appza-poll-row-height, 34px);
+  padding: var(--appza-poll-row-padding, 0 12px);
+  border: 1px solid var(--appza-poll-row-border-color, #d7dade);
+  border-radius: var(--appza-poll-row-radius, 6px);
+  background: var(--appza-poll-row-bg-color, transparent);
+}
+.appza-poll-preview-mark {
+  flex: 0 0 auto;
+  width: var(--appza-poll-mark-size, 16px);
+  height: var(--appza-poll-mark-size, 16px);
+  border: 1px solid var(--appza-poll-mark-color, #9ca3af);
+}
+.appza-poll-preview-mark[data-shape='circle'] {
+  border-radius: 50%;
+}
+.appza-poll-preview-mark[data-shape='box'] {
+  border-radius: var(--appza-poll-mark-radius, 3px);
+}
+.appza-poll-preview-label {
+  flex: 1;
+  min-width: 0;
+  color: var(--appza-poll-label-color, #111827);
+  font-size: var(--appza-poll-label-size, 0.8125rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-poll-preview-pct {
+  flex: 0 0 auto;
+  color: var(--appza-poll-pct-color, #6b7280);
+  font-size: var(--appza-poll-pct-size, 0.75rem);
+}
+.appza-poll-preview-votes {
+  margin-top: var(--appza-poll-votes-gap, 2px);
+  color: var(--appza-poll-votes-color, #6b7280);
+  font-size: var(--appza-poll-votes-size, 0.75rem);
+}

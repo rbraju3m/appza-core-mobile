@@ -13,6 +13,7 @@ import type { OptionsSheetPresentation } from './OptionsSheet';
 import type { PostMenuSheetPresentation } from './PostOptionsPopover';
 import type { PostSpaceSheetPresentation } from './PostSpaceSheet';
 import type { VideoSheetPresentation } from './VideoSheet';
+import type { PollSheetPresentation } from './PollSheet';
 
 // Maps an overlay AppZet's authored props (snake_case, as stored in
 // default_props_override) onto the camelCase payload its component
@@ -670,5 +671,98 @@ export function videoSheetPresentation(props: Record<string, unknown>): VideoShe
     uploadRadius: size(props.upload_radius),
     iconColor: str(props.icon_color),
     iconSize: size(props.icon_size),
+  };
+}
+
+/**
+ * "Create poll" — designs 24 to 29.
+ *
+ * Shares the calendar's knobs with `schedulePresentation` by name but
+ * not by mapping: the two sheets have different Superstructures and
+ * therefore different props rows, and folding them together would mean
+ * one sheet's Properties panel silently editing the other's.
+ */
+export function pollSheetPresentation(props: Record<string, unknown>): PollSheetPresentation {
+  return {
+    eyebrow: str(props.eyebrow) ?? 'ASK THE SPACE',
+    title: str(props.title) ?? 'Create poll',
+    optionPlaceholder: str(props.option_placeholder) ?? 'Option',
+    addOptionLabel: str(props.add_option_label) ?? 'Add option',
+    singleLabel: str(props.single_label) ?? 'Single choice',
+    multipleLabel: str(props.multiple_label) ?? 'Multiple choice',
+    addEndDateLabel: str(props.add_end_date_label) ?? 'Add end date',
+    timeLabel: str(props.time_label) ?? 'Time',
+    removeLabel: str(props.remove_label) ?? 'Remove',
+    doneLabel: str(props.done_label) ?? 'Done',
+    addIcon: str(props.add_icon) ?? 'add',
+    removeOptionIcon: str(props.remove_option_icon) ?? 'close',
+    calendarIcon: str(props.calendar_icon) ?? 'calendar-outline',
+    prevIcon: str(props.prev_icon) ?? 'chevron-back',
+    nextIcon: str(props.next_icon) ?? 'chevron-forward',
+    monthCaretIcon: str(props.month_caret_icon) ?? 'chevron-down',
+    weekdays: weekdayList(props.weekday_labels),
+    endDateFormat: str(props.end_date_format) ?? '{d} {mon} at {HH}:{mm}',
+    hidden: bool(props.hidden, false),
+    showHandle: bool(props.show_handle, true),
+    showEyebrow: bool(props.show_eyebrow, true),
+    showTitle: bool(props.show_title, true),
+    showEndDate: bool(props.show_end_date, true),
+    showRemove: bool(props.show_remove, true),
+    // FluentCommunity's own picker greys nothing, so this is ours: a
+    // poll that closed before its post existed is not a state an author
+    // can mean. One switch back to the portal's behaviour.
+    allowPastEndDate: bool(props.allow_past_end_date, false),
+    sheetBgColor: str(props.sheet_bg_color),
+    sheetRadius: size(props.sheet_radius),
+    sheetMaxHeight: str(props.sheet_max_height),
+    backdropColor: str(props.backdrop_color),
+    handleColor: str(props.handle_color),
+    eyebrowColor: str(props.eyebrow_color),
+    eyebrowSize: size(props.eyebrow_size),
+    titleColor: str(props.title_color),
+    titleSize: size(props.title_size),
+    titleWeight: str(props.title_weight),
+    fieldBgColor: str(props.field_bg_color),
+    fieldTextColor: str(props.field_text_color),
+    fieldPlaceholderColor: str(props.field_placeholder_color),
+    fieldBorderColor: str(props.field_border_color),
+    fieldRadius: size(props.field_radius),
+    fieldHeight: size(props.field_height),
+    fieldGap: size(props.field_gap),
+    optionRemoveColor: str(props.option_remove_color),
+    optionRemoveSize: size(props.option_remove_size),
+    addColor: str(props.add_color),
+    addSize: size(props.add_size),
+    addWeight: str(props.add_weight),
+    segmentBgColor: str(props.segment_bg_color),
+    segmentTextColor: str(props.segment_text_color),
+    segmentBorderColor: str(props.segment_border_color),
+    segmentRadius: size(props.segment_radius),
+    segmentHeight: size(props.segment_height),
+    segmentGap: size(props.segment_gap),
+    segmentActiveBgColor: str(props.segment_active_bg_color),
+    segmentActiveTextColor: str(props.segment_active_text_color),
+    segmentActiveBorderColor: str(props.segment_active_border_color),
+    endDateColor: str(props.end_date_color),
+    endDateSize: size(props.end_date_size),
+    endDateIconColor: str(props.end_date_icon_color),
+    monthColor: str(props.month_color),
+    navIconColor: str(props.nav_icon_color),
+    weekdayColor: str(props.weekday_color),
+    dayColor: str(props.day_color),
+    dayMutedColor: str(props.day_muted_color),
+    selectedRingColor: str(props.selected_ring_color),
+    selectedTextColor: str(props.selected_text_color),
+    timeLabelColor: str(props.time_label_color),
+    timeBgColor: str(props.time_bg_color),
+    timeTextColor: str(props.time_text_color),
+    timeRadius: size(props.time_radius),
+    removeColor: str(props.remove_color),
+    removeSize: size(props.remove_size),
+    doneBgColor: str(props.done_bg_color),
+    doneDisabledBgColor: str(props.done_disabled_bg_color),
+    doneTextColor: str(props.done_text_color),
+    doneRadius: size(props.done_radius),
+    doneHeight: size(props.done_height),
   };
 }

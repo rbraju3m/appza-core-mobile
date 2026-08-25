@@ -4,9 +4,11 @@ import { IonIcon } from '@ionic/react';
 import { resolveIcon } from './PrimitiveRenderer';
 import { AppzaDraftVideo } from './VideoSheet';
 import { AppzaDraftAudioList } from './AudioPlayerRow';
+import { AppzaDraftPollStrip, requestPollSheet } from './PollSheet';
 import {
   removePostDraftAudio,
   removePostDraftImage,
+  removePostDraftPoll,
   removePostDraftVideo,
   setPostDraft,
   togglePostDraftTopic,
@@ -310,6 +312,25 @@ export function AppzaPostComposer({ overrides, action, dispatch }: PostComposerP
             </span>
           ))}
         </span>
+      )}
+
+      {/* The attached poll — design 27. A strip rather than a rendering
+          of the poll itself: what the composer needs to say is that one
+          is attached and how many options it has, and the preview is
+          where the author goes to see it drawn. Sits after the images
+          because a poll is the thing you add last. */}
+      {showMedia && draft.poll && (
+        <AppzaDraftPollStrip
+          poll={draft.poll}
+          label={str(overrides, 'poll_label') || 'Poll'}
+          optionsLabel={str(overrides, 'poll_options_label') || '{n} options'}
+          separator={str(overrides, 'poll_separator') || ' . '}
+          editLabel={str(overrides, 'poll_edit_label') || 'Edit'}
+          icon={str(overrides, 'poll_strip_icon') || 'stats-chart-outline'}
+          removeIcon={str(overrides, 'remove_icon') || 'close'}
+          onEdit={requestPollSheet}
+          onRemove={removePostDraftPoll}
+        />
       )}
     </span>
   );

@@ -102,12 +102,16 @@ export {
   removePostDraftVideo,
   addPostDraftAudios,
   removePostDraftAudio,
+  setPostDraftPoll,
+  removePostDraftPoll,
   type PostDraft,
   type PostDraftTopic,
   type PostDraftTarget,
   type PostDraftImage,
   type PostDraftVideo,
   type PostDraftAudio,
+  type PostDraftPoll,
+  type PostDraftPollOption,
 } from './postDraft';
 export {
   VideoSheet,
@@ -121,6 +125,20 @@ export {
   type VideoSheetPresentation,
   type VideoOembedResult,
 } from './VideoSheet';
+export {
+  PollSheet,
+  openPollSheet,
+  closePollSheet,
+  patchPollSheet,
+  requestPollSheet,
+  onPollSheetRequest,
+  POLL_SHEET_APPZET_SLUG,
+  POLL_SHEET_CHILD_COUNT,
+  AppzaDraftPollStrip,
+  AppzaPollPreview,
+  formatPollEndDate,
+  type PollSheetPresentation,
+} from './PollSheet';
 export {
   PostSpaceSheet,
   openPostSpaceSheet,
@@ -266,6 +284,7 @@ export {
   postMenuSheetPresentation,
   postSpaceSheetPresentation,
   videoSheetPresentation,
+  pollSheetPresentation,
   profileLinkRowVars,
 } from './modalPresentation';
 export {

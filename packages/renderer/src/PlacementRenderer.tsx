@@ -1406,6 +1406,40 @@ export function PlacementRenderer({
     'audio_gap',
     'audio_remove_bg_color',
     'audio_remove_color',
+    // The poll strip on the composer and the poll block in the preview
+    // (2026-08-25). Both are drawn by bespoke primitives on PLACED
+    // AppZets, so unlike the sheet's own knobs — which travel through
+    // pollSheetPresentation — these have to be stamped as CSS variables
+    // here, or the Properties panel edits nothing.
+    'poll_bg_color',
+    'poll_text_color',
+    'poll_size',
+    'poll_radius',
+    'poll_padding',
+    'poll_gap',
+    'poll_icon_color',
+    'poll_icon_size',
+    'poll_edit_color',
+    'poll_edit_size',
+    'poll_edit_weight',
+    'poll_remove_color',
+    'poll_remove_size',
+    'poll_row_bg_color',
+    'poll_row_border_color',
+    'poll_row_radius',
+    'poll_row_height',
+    'poll_row_gap',
+    'poll_row_padding',
+    'poll_label_color',
+    'poll_label_size',
+    'poll_mark_color',
+    'poll_mark_size',
+    'poll_mark_radius',
+    'poll_pct_color',
+    'poll_pct_size',
+    'poll_votes_color',
+    'poll_votes_size',
+    'poll_votes_gap',
   ]);
   // Aliases: some knobs also drive Ionic's own CSS custom properties
   // directly. Custom props inherit through shadow DOM (unlike `background`

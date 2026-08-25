@@ -57,6 +57,13 @@ export type PrefillMediaSetters = {
     p: {
       type: 'single_choice' | 'multi_choice';
       options: Array<{ label: string; slug?: string }>;
+      /**
+       * '' when the poll never closes. FluentCommunity stores it that
+       * way and re-sends it that way, so an edit that dropped the field
+       * would quietly give every re-saved poll an end date of nothing —
+       * which is the same value, but only by luck.
+       */
+      end_date: string;
     } | null,
   ) => void;
 };
@@ -335,6 +342,7 @@ function extractPoll(
   | {
       type: 'single_choice' | 'multi_choice';
       options: Array<{ label: string; slug?: string }>;
+      end_date: string;
     }
   | null {
   if (!meta) return null;
@@ -358,7 +366,10 @@ function extractPoll(
     }
   }
   if (options.length === 0) return null;
-  return { type, options };
+  // Stored as 'YYYY-MM-DD HH:MM:SS' by FeedsHelper, or '' for a poll
+  // with no closing time.
+  const endDate = typeof sc.end_date === 'string' ? sc.end_date : '';
+  return { type, options, end_date: endDate };
 }
 
 function stripHtml(html: string): string {

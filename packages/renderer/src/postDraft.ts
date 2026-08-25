@@ -56,6 +56,44 @@ export type PostDraftAudio = {
   title: string;
 };
 
+/**
+ * One poll option.
+ *
+ * `slug` is present only for an option that already exists on the server
+ * — a post being EDITED. FluentCommunity refuses an edit that drops an
+ * existing option or blanks its label
+ * (`FeedsHelper::getSurveyOptionsUpdateError`), because votes are
+ * recorded against the slug and removing it would orphan them. So a
+ * slug'd row is neither removable nor blankable, and the sheet has to
+ * know which rows those are. A newly-added option omits it; the server
+ * issues one on save.
+ */
+export type PostDraftPollOption = {
+  label: string;
+  slug?: string;
+};
+
+/**
+ * The attached poll — FluentCommunity calls it a survey.
+ *
+ * NOT exclusive with the other media, unlike images and video. A survey
+ * is the only thing that sets `content_type = 'survey'`; an image or
+ * video post stays `'text'` and carries its media in `meta`, verified
+ * against this site's own rows. FluentCommunity's SurveyRenderer even
+ * takes a `hasTopMedia` prop for the case where a post has both. So a
+ * poll rides alongside whatever else is attached.
+ */
+export type PostDraftPoll = {
+  type: 'single_choice' | 'multi_choice';
+  options: PostDraftPollOption[];
+  /**
+   * 'YYYY-MM-DD HH:MM:SS' in the site's wall-clock, or '' for a poll
+   * that never closes — which is what the portal's "Leave blank for not
+   * end" means, and what FluentCommunity stores when the field is empty.
+   */
+  end_date: string;
+};
+
 /** Where the post is going. '' until the user has chosen. */
 export type PostDraftTarget = '' | 'space' | 'profile';
 
@@ -119,6 +157,15 @@ export type PostDraft = {
    * video — which is why the exclusivity rule above names only those two.
    */
   audios: PostDraftAudio[];
+
+  /**
+   * The attached poll, or null. Designs 24 to 29.
+   *
+   * Rides alongside the rest for the reason given on PostDraftPoll: a
+   * survey is the only content_type a poll claims, and media lives in
+   * meta regardless.
+   */
+  poll: PostDraftPoll | null;
 };
 
 const EVENT = 'appza:post-draft-change';
@@ -142,6 +189,7 @@ const DEFAULTS: PostDraft = {
   images: [],
   video: null,
   audios: [],
+  poll: null,
 };
 
 let current: PostDraft = { ...DEFAULTS };
@@ -184,6 +232,7 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
     images: Array.isArray(patch.images) ? patch.images : current.images,
     video: patch.video !== undefined ? patch.video : current.video,
     audios: Array.isArray(patch.audios) ? patch.audios : current.audios,
+    poll: patch.poll !== undefined ? patch.poll : current.poll,
   };
 
   // A post is one kind of thing. Attaching a video clears the photos and
@@ -231,7 +280,8 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
     next.announcement === current.announcement &&
     next.images === current.images &&
     next.video === current.video &&
-    next.audios === current.audios
+    next.audios === current.audios &&
+    next.poll === current.poll
   ) {
     return;
   }
@@ -317,6 +367,49 @@ export function removePostDraftAudio(mediaId: string): void {
 export function removePostDraftVideo(): void {
   if (current.video === null) return;
   setPostDraft({ video: null });
+}
+
+/**
+ * Attach or replace the poll, dropping the rows the server would drop
+ * anyway.
+ *
+ * FluentCommunity skips any option with an empty label when it formats
+ * the survey (`FeedsHelper::processFeedContent`), so a draft that kept
+ * them would show the author a count the post is not going to have. The
+ * trailing blank row the sheet keeps for typing is exactly such a row,
+ * which is why this is filtered here rather than in the sheet.
+ *
+ * Returns false — and attaches nothing — when fewer than two options
+ * survive, because a one-option poll is not a poll and FluentCommunity
+ * would store it as one.
+ */
+export function setPostDraftPoll(poll: PostDraftPoll): boolean {
+  const options = poll.options
+    .map((o) => ({ ...o, label: o.label.trim() }))
+    .filter((o) => o.label !== '');
+  if (options.length < 2) return false;
+  setPostDraft({
+    poll: {
+      type: poll.type === 'multi_choice' ? 'multi_choice' : 'single_choice',
+      options,
+      end_date: poll.end_date,
+    },
+  });
+  return true;
+}
+
+/**
+ * Drop the poll.
+ *
+ * Local only and, unlike the media, genuinely free: a poll that was
+ * never posted has no server-side row at all. Editing a post that
+ * already HAS one is a different matter — FluentCommunity keeps the
+ * existing survey unless the whole content type changes — so the sheet
+ * offers this only where it can be honoured.
+ */
+export function removePostDraftPoll(): void {
+  if (current.poll === null) return;
+  setPostDraft({ poll: null });
 }
 
 /**

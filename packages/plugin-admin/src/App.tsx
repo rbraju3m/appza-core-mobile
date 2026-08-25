@@ -53,6 +53,11 @@ import {
   openVideoSheet,
   videoSheetPresentation,
   VIDEO_SHEET_CHILD_COUNT,
+  PollSheet,
+  openPollSheet,
+  onPollSheetRequest,
+  pollSheetPresentation,
+  POLL_SHEET_CHILD_COUNT,
   lookupVideoOembed,
   uploadDraftVideo,
   postSpaceSheetPresentation,
@@ -348,13 +353,6 @@ export function App() {
   // FC's FeedsHelper::getSurveyOptionsUpdateError sees every prior slug
   // present + non-empty (otherwise the update is rejected). Options added
   // during this edit session have no slug — FC assigns one.
-  type PendingPollOption = { label: string; slug?: string };
-  type PendingPoll = {
-    type: 'single_choice' | 'multi_choice';
-    options: PendingPollOption[];
-  };
-  const [pendingPoll, setPendingPoll] = useState<PendingPoll | null>(null);
-  const [pollModalOpen, setPollModalOpen] = useState(false);
   // Pending feed delete confirmation. Set by the post.delete dispatcher when
   // the user taps the overflow menu on a post card; cleared by the modal's
   // Cancel button OR by a successful delete. Holds everything the modal
@@ -414,8 +412,7 @@ export function App() {
     if (!auth) {
       setPostDraft({ images: [] });
       setPendingVideo(null);
-      setPendingPoll(null);
-      setPollModalOpen(false);
+      resetPostDraft();
       setPendingDelete(null);
       setDeleteInFlight(false);
       uploadEndpointRef.current = null;
@@ -655,9 +652,22 @@ export function App() {
     prefillPostInformationFromContext(ctx, {
       setImages: setImagesFromUrls,
       setVideo: setPendingVideo,
-      setPoll: setPendingPoll,
+      // The poll goes onto the DRAFT, not into shell state — the strip
+      // in the composer and the block in the preview both read it from
+      // there, so an edit that seeded shell state would open a composer
+      // showing no poll on a post that has one.
+      setPoll: (poll) => setPostDraft({ poll }),
     });
   }, [uiMode, currentScreen]);
+
+  // "Edit" on the composer's collapsed poll strip. The strip is drawn
+  // inside a primitive with no child index of its own, so it asks rather
+  // than dispatching — and the answer is the same function the poll
+  // glyph's action calls, so the two sheets cannot drift.
+  useEffect(
+    () => onPollSheetRequest(() => openPollSheetFromCatalog('fc-post-poll-sheet')),
+    [],
+  );
 
   // The Leaderboard's levels card expands one way, so arriving on the
   // screen has to put it back in its landing state — otherwise a second
@@ -900,14 +910,12 @@ export function App() {
   }, []);
   const clearPendingImages = useCallback(() => setPostDraft({ images: [] }), []);
   const clearPendingVideo = useCallback(() => setPendingVideo(null), []);
-  const openPollModal = useCallback(() => setPollModalOpen(true), []);
   const openDeleteConfirm = useCallback((next: PendingDelete) => {
     setPendingDelete(next);
   }, []);
   const openCommentPanel = useCallback((next: CommentPanelState) => {
     setCommentPanel(next);
   }, []);
-  const clearPendingPoll = useCallback(() => setPendingPoll(null), []);
 
   /**
    * Fetch oembed preview data for a video URL and stash it in pendingVideo
@@ -1004,9 +1012,6 @@ export function App() {
         attachVideo,
         pendingVideo,
         clearPendingVideo,
-        openPollModal,
-        pendingPoll,
-        clearPendingPoll,
         openDeleteConfirm,
         reactedSet: reactedRef.current,
         openCommentPanel,
@@ -1018,7 +1023,6 @@ export function App() {
       catalog, selectedScreenId, auth, setAuth, uiMode,
       openImagePicker, openAudioPicker, pendingImages, clearPendingImages,
       attachVideo, pendingVideo, clearPendingVideo,
-      openPollModal, pendingPoll, clearPendingPoll,
       openDeleteConfirm, openCommentPanel,
     ],
   );
@@ -1360,6 +1364,7 @@ export function App() {
       <OptionsSheet />
       <PostSpaceSheet />
       <VideoSheet />
+      <PollSheet />
       <PostOptionsPopover />
       <MemberOptionsSheet />
       <MemberRoleSheet />
@@ -1480,78 +1485,6 @@ export function App() {
           }}
         />
       )}
-
-      {uiMode === 'app' && auth && pendingPoll && (
-        <div
-          className="appza-pending-poll"
-          role="region"
-          aria-label="Attached poll"
-          style={{
-            position: 'fixed',
-            bottom: 250,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            gap: 8,
-            alignItems: 'center',
-            background: '#eff6ff',
-            padding: '8px 12px',
-            borderRadius: 8,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            zIndex: 30,
-            maxWidth: 320,
-            fontSize: 12,
-          }}
-        >
-          <span aria-hidden="true">📊</span>
-          <span>
-            Poll:{' '}
-            {pendingPoll.type === 'single_choice' ? 'single choice' : 'multi choice'} ·{' '}
-            {pendingPoll.options.filter((o) => o.label.trim()).length} options
-          </span>
-          <button
-            type="button"
-            onClick={() => setPollModalOpen(true)}
-            style={{
-              border: 'none',
-              background: '#dbeafe',
-              padding: '2px 8px',
-              borderRadius: 999,
-              cursor: 'pointer',
-              fontSize: 11,
-            }}
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            onClick={() => setPendingPoll(null)}
-            aria-label="Remove poll"
-            style={{
-              border: 'none',
-              background: '#dbeafe',
-              padding: '2px 8px',
-              borderRadius: 999,
-              cursor: 'pointer',
-              fontSize: 12,
-            }}
-          >
-            ×
-          </button>
-        </div>
-      )}
-
-      {uiMode === 'app' && pollModalOpen && (
-        <PollBuilderModal
-          initial={pendingPoll}
-          onCancel={() => setPollModalOpen(false)}
-          onSave={(next) => {
-            setPendingPoll(next);
-            setPollModalOpen(false);
-          }}
-        />
-      )}
-
 
       {uiMode === 'app' && auth && (pendingVideo || videoLoading) && (
         <div
@@ -2308,6 +2241,32 @@ function readAppzetPropsFromCatalog(slug: string): Record<string, unknown> {
   return isRecord(resolved) ? resolved : base;
 }
 
+/**
+ * Open the "Create poll" sheet with the catalog's own copy and colours.
+ *
+ * Module-level rather than a callback because it has two callers that
+ * live in different worlds: the `picker.poll` action, dispatched from a
+ * plain function, and the composer strip's "Edit", which arrives as a
+ * window event. One implementation means the sheet the glyph opens and
+ * the sheet Edit opens cannot drift.
+ */
+function openPollSheetFromCatalog(sheetSlug: string): void {
+  const poll = getPostDraft().poll;
+  openPollSheet({
+    appzetSlug: sheetSlug,
+    presentation: pollSheetPresentation(readAppzetPropsFromCatalog(sheetSlug)),
+    childStyles: childStylesFromCustomizations(
+      sheetSlug,
+      POLL_SHEET_CHILD_COUNT,
+      currentCustomizations,
+    ),
+    value: poll,
+    // An option carrying a server-issued slug is one the post already
+    // has votes against, which is what "existing" means here: the type
+    // freezes and those rows stop being removable.
+    existing: !!poll && poll.options.some((o) => !!o.slug),
+  });
+}
 
 /**
  * Finds the action wiring that opens `slug`, so selecting an
@@ -2454,14 +2413,6 @@ type AppModeActionDeps = {
   attachVideo: (url: string, target: { endpoint: string; method: string }) => Promise<void>;
   pendingVideo: { url: string; title?: string; image?: string; provider?: string } | null;
   clearPendingVideo: () => void;
-  openPollModal: () => void;
-  pendingPoll: {
-    type: 'single_choice' | 'multi_choice';
-    // Options carry their server-issued slug when they existed prior to
-    // an edit — see PendingPollOption above. Newly-added options omit slug.
-    options: Array<{ label: string; slug?: string }>;
-  } | null;
-  clearPendingPoll: () => void;
   openDeleteConfirm: (next: {
     feedId: number;
     endpoint: string;
@@ -2763,6 +2714,30 @@ function resolveFeedIdFromContext(ctx: unknown, feedIdPath: string): number | nu
  * so the server sees them (and returns its own validation error) rather
  * than us hiding the field entirely.
  */
+/**
+ * Read one `param_map` source.
+ *
+ * Two vocabularies, because the composer has two kinds of field. A
+ * `children[i].prop` path reads the rendered DOM, which is right for a
+ * form built out of generic primitives. A `draft.<field>` path reads the
+ * postDraft slice, which is the only thing that works for the create-post
+ * composer: chunk 1 replaced its eleven loose primitives with one bespoke
+ * one, so there is no `children[3]` input to read the message out of any
+ * more — `readFormFieldValue` finds the audio BUTTON at that index and
+ * answers null.
+ *
+ * That is what had been happening. The param_map still named the old
+ * indices, so `message` collected as '' and every Post short-circuited on
+ * "Write something to post." with no request made.
+ */
+function readParamSource(appzetSlug: string, path: string): unknown {
+  if (path.startsWith('draft.')) {
+    const draft = getPostDraft() as unknown as Record<string, unknown>;
+    return draft[path.slice('draft.'.length)];
+  }
+  return readFormFieldValue(appzetSlug, path);
+}
+
 function collectParams(
   appzetSlug: string,
   paramMap: Record<string, unknown> | undefined,
@@ -2771,7 +2746,10 @@ function collectParams(
   if (!paramMap) return out;
   for (const [name, path] of Object.entries(paramMap)) {
     if (typeof path !== 'string') continue;
-    const v = readFormFieldValue(appzetSlug, path);
+    const v = readParamSource(appzetSlug, path);
+    // `?? ''` and not `|| ''`: an empty topic list is a real answer and
+    // has to stay an array, or FC receives the string '' where it
+    // expects one and rejects the post.
     out[name] = v ?? '';
   }
   return out;
@@ -2865,8 +2843,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     clearPendingImages,
     pendingVideo,
     clearPendingVideo,
-    pendingPoll,
-    clearPendingPoll,
     openDeleteConfirm,
     reactedSet,
     openCommentPanel,
@@ -3181,12 +3157,15 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       // are present — polls are their own post shape in FC's model.
       // post.create doesn't have existing slugs so we omit them; the
       // create endpoint doesn't care and would just re-assign anyway.
-      if (pendingPoll && pendingPoll.options.filter((o) => o.label.trim()).length >= 2) {
+      const draftPoll = getPostDraft().poll;
+      if (draftPoll && draftPoll.options.length >= 2) {
         body.survey = {
-          type: pendingPoll.type,
-          options: pendingPoll.options
-            .filter((o) => o.label.trim().length > 0)
-            .map((o) => ({ label: o.label.trim() })),
+          type: draftPoll.type,
+          options: draftPoll.options.map((o) => ({ label: o.label })),
+          // '' is meaningful: FluentCommunity stores an empty end_date
+          // as "this poll never closes", which is what the sheet's
+          // untouched "Add end date" row means.
+          end_date: draftPoll.end_date,
         };
         body.content_type = 'survey';
       }
@@ -3229,7 +3208,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           // attachments so the next draft starts empty.
           clearPendingImages();
           clearPendingVideo();
-          clearPendingPoll();
           setScreenStack((prev) => {
             if (prev.length === 0) return prev;
             const rest = prev.slice(0, -1);
@@ -3428,7 +3406,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       // post that had images / video / poll would drop them because the
       // update endpoint reads the same shape as create. On edit-post-page
       // the prefill effect already hydrated pendingImages / pendingVideo
-      // / pendingPoll from the item's meta, so submitting untouched
+      // from the item's meta (the poll goes onto the draft), so submitting untouched
       // round-trips the existing media. Precedence: survey > oembed >
       // image > text (matches post.create).
       if (pendingImages.length > 0) {
@@ -3469,16 +3447,20 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           settings: { src: a.url, title: a.title, viewType: 'audio' },
         }));
       }
-      if (pendingPoll && pendingPoll.options.filter((o) => o.label.trim()).length >= 2) {
+      const editPoll = getPostDraft().poll;
+      if (editPoll && editPoll.options.length >= 2) {
         // post.edit MUST forward the server-issued slug on every option
         // that had one, else FC's FeedsHelper::getSurveyOptionsUpdateError
         // returns "Existing poll options cannot be removed or left empty."
-        // Newly-added options omit slug (server assigns one on save).
+        // The sheet will not let those rows be removed or emptied, so by
+        // the time a poll reaches here the slugs are intact. Options
+        // added during this edit carry none; the server assigns them.
         body.survey = {
-          type: pendingPoll.type,
-          options: pendingPoll.options
-            .filter((o) => o.label.trim().length > 0)
-            .map((o) => (o.slug ? { label: o.label.trim(), slug: o.slug } : { label: o.label.trim() })),
+          type: editPoll.type,
+          options: editPoll.options.map((o) =>
+            o.slug ? { label: o.label, slug: o.slug } : { label: o.label },
+          ),
+          end_date: editPoll.end_date,
         };
         body.content_type = 'survey';
       }
@@ -3550,7 +3532,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           // Success → clear pending media + pop back to feed + force refresh.
           clearPendingImages();
           clearPendingVideo();
-          clearPendingPoll();
           setScreenStack((prev) => {
             if (prev.length === 0) return prev;
             const rest = prev.slice(0, -1);
@@ -4009,7 +3990,11 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         onLoginError('Please sign in to create a poll.');
         return;
       }
-      deps.openPollModal();
+      openPollSheetFromCatalog(
+        typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
+          ? argRec.sheet_appzet_slug
+          : 'fc-post-poll-sheet',
+      );
       return;
     }
 
@@ -5808,237 +5793,8 @@ function pickString(
 }
 
 /**
- * Modal for building a FC survey/poll to attach to a create-post draft.
- * The composer's message body doubles as the poll question (matching FC's
- * portal UX), so this modal only configures the type + options list.
- *
- * Options auto-expand — the last option always shows an empty input so
- * the user can keep typing. Empty options get filtered out on Save. FC
- * requires at least 2 non-empty options.
- */
-function PollBuilderModal({
-  initial,
-  onCancel,
-  onSave,
-}: {
-  initial: {
-    type: 'single_choice' | 'multi_choice';
-    options: Array<{ label: string; slug?: string }>;
-  } | null;
-  onCancel: () => void;
-  onSave: (v: {
-    type: 'single_choice' | 'multi_choice';
-    options: Array<{ label: string; slug?: string }>;
-  }) => void;
-}) {
-  const [type, setType] = useState<'single_choice' | 'multi_choice'>(
-    initial?.type ?? 'single_choice',
-  );
-  const [options, setOptions] = useState<Array<{ label: string; slug?: string }>>(
-    () => {
-      const base = initial?.options ?? [{ label: '' }, { label: '' }];
-      // Always render one blank trailing input so the user can add more.
-      return base.length && base[base.length - 1]!.label === ''
-        ? base
-        : [...base, { label: '' }];
-    },
-  );
-
-  // Options with a slug came from the server (existing poll being
-  // edited). FC's edit endpoint rejects updates that drop them or blank
-  // their label, so:
-  //   - the ✕ remove button is hidden for these rows (add-only edits);
-  //   - Save is blocked if any slug'd row has an empty label.
-  const missingExistingLabel = options.some(
-    (o) => !!o.slug && o.label.trim().length === 0,
-  );
-  const nonEmptyCount = options.filter((o) => o.label.trim().length > 0).length;
-  const canSave = nonEmptyCount >= 2 && !missingExistingLabel;
-
-  function updateOption(idx: number, value: string) {
-    setOptions((prev) => {
-      const next = [...prev];
-      next[idx] = { ...next[idx]!, label: value };
-      // Grow: if the user typed into the last input, add a new blank one.
-      if (idx === next.length - 1 && value.trim().length > 0) {
-        next.push({ label: '' });
-      }
-      return next;
-    });
-  }
-  function removeOption(idx: number) {
-    setOptions((prev) => {
-      // Guard: never remove an option that has a slug (would fail on
-      // save — server rejects dropped slugs). Should be unreachable
-      // because the button is hidden for those rows, but defense-in-depth.
-      if (prev[idx]?.slug) return prev;
-      const next = prev.filter((_, i) => i !== idx);
-      if (next.length === 0 || next[next.length - 1]!.label !== '') {
-        next.push({ label: '' });
-      }
-      while (next.length < 2) next.push({ label: '' });
-      return next;
-    });
-  }
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Poll builder"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(15,23,42,0.55)',
-        display: 'grid',
-        placeItems: 'center',
-        zIndex: 40,
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCancel();
-      }}
-    >
-      <div
-        style={{
-          background: '#fff',
-          borderRadius: 12,
-          padding: 20,
-          width: 'min(420px, 90vw)',
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
-        }}
-      >
-        <h3 style={{ margin: 0, fontSize: 16 }}>Create poll</h3>
-        <p style={{ margin: '4px 0 12px', fontSize: 12, color: '#6b7280' }}>
-          Your message body becomes the poll question. Add 2+ options.
-        </p>
-
-        <fieldset style={{ border: 'none', padding: 0, margin: '0 0 12px' }}>
-          <legend style={{ fontSize: 12, color: '#374151', marginBottom: 6 }}>Type</legend>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12 }}>
-            <input
-              type="radio"
-              name="polltype"
-              checked={type === 'single_choice'}
-              onChange={() => setType('single_choice')}
-            />
-            <span>Single choice</span>
-          </label>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <input
-              type="radio"
-              name="polltype"
-              checked={type === 'multi_choice'}
-              onChange={() => setType('multi_choice')}
-            />
-            <span>Multi choice</span>
-          </label>
-        </fieldset>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {options.map((opt, idx) => {
-            const isExisting = !!opt.slug;
-            // ✕ shown only for freshly-added options; existing (slug'd)
-            // options can't be removed (FC edit rule).
-            const removable =
-              !isExisting && options.length > 2 && idx < options.length - 1;
-            return (
-              <div key={opt.slug ?? `new:${idx}`} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <input
-                  type="text"
-                  value={opt.label}
-                  placeholder={`Option ${idx + 1}`}
-                  onChange={(e) => updateOption(idx, e.target.value)}
-                  style={{
-                    flex: 1,
-                    padding: '8px 10px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: 6,
-                    fontSize: 13,
-                    background: isExisting && opt.label.trim() === '' ? '#fef2f2' : '#fff',
-                  }}
-                />
-                {removable && (
-                  <button
-                    type="button"
-                    onClick={() => removeOption(idx)}
-                    aria-label={`Remove option ${idx + 1}`}
-                    style={{
-                      border: 'none',
-                      background: '#f3f4f6',
-                      borderRadius: 999,
-                      width: 24,
-                      height: 24,
-                      cursor: 'pointer',
-                      fontSize: 14,
-                    }}
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-        {missingExistingLabel && (
-          <p style={{ margin: '8px 0 0', fontSize: 12, color: '#dc2626' }}>
-            Existing options can't be left empty — restore the label or the poll can't be saved.
-          </p>
-        )}
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-          <button
-            type="button"
-            onClick={onCancel}
-            style={{
-              border: '1px solid #e5e7eb',
-              background: '#fff',
-              padding: '8px 14px',
-              borderRadius: 6,
-              cursor: 'pointer',
-              fontSize: 13,
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={!canSave}
-            onClick={() => {
-              // Drop trailing empty rows from the saved shape but keep
-              // existing (slug'd) rows even if their label is somehow
-              // still empty — canSave already blocks that path, but the
-              // defensive filter uses "empty AND no slug" so we never
-              // lose an existing option to the sanitizer.
-              const cleaned = options.filter(
-                (o) => o.slug || o.label.trim().length > 0,
-              );
-              onSave({ type, options: cleaned });
-            }}
-            style={{
-              border: 'none',
-              background: canSave ? '#3b82f6' : '#93c5fd',
-              color: '#fff',
-              padding: '8px 14px',
-              borderRadius: 6,
-              cursor: canSave ? 'pointer' : 'not-allowed',
-              fontSize: 13,
-              fontWeight: 600,
-            }}
-          >
-            Save poll
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
  * Confirm-delete modal for the post.delete action. Kept intentionally
- * lean — same overlay/card styling as PollBuilderModal so the two feel
- * like siblings. Cancel + confirm buttons; confirm is a red "Delete" CTA
+ * lean. Cancel + confirm buttons; confirm is a red "Delete" CTA
  * that disables while the request is in flight so a double-tap can't
  * fire two DELETEs.
  */

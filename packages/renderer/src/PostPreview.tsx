@@ -5,6 +5,7 @@ import { resolveIcon } from './PrimitiveRenderer';
 import { usePostDraft } from './postDraft';
 import { AppzaDraftVideo } from './VideoSheet';
 import { AppzaDraftAudioList } from './AudioPlayerRow';
+import { AppzaPollPreview } from './PollSheet';
 import { useFcRuntimeSettings } from './fcRuntimeSettings';
 
 /**
@@ -119,6 +120,19 @@ export function AppzaPostPreview({ overrides }: PostPreviewProps) {
   const meta =
     showSpace && spaceName ? `${nowLabel}${metaSeparator}${spaceName}` : nowLabel;
 
+  // "Nothing to preview yet" answers an EMPTY draft, so every kind of
+  // attachment has to count — a poll with no caption is very much
+  // something to preview, and so is a photo. Before this the label was
+  // keyed on the title alone, which is why a draft carrying only images
+  // announced it had nothing in it, directly above the images.
+  const nothingToPreview =
+    title === '' &&
+    draft.body === '' &&
+    draft.poll === null &&
+    draft.video === null &&
+    draft.images.length === 0 &&
+    draft.audios.length === 0;
+
   // Images now; video, audio, a poll and attached files join them as
   // their chunks land. The design-time sample keeps both layouts
   // stylable when the draft carries nothing.
@@ -185,9 +199,25 @@ export function AppzaPostPreview({ overrides }: PostPreviewProps) {
       {title !== '' && <span className="appza-post-preview-title">{title}</span>}
       {body !== '' ? (
         <span className="appza-post-preview-body">{body}</span>
-      ) : title === '' ? (
+      ) : nothingToPreview ? (
         <span className="appza-post-preview-empty">{emptyBodyLabel}</span>
       ) : null}
+
+      {/* The poll — designs 28 and 29. It sits under the body and ABOVE
+          the classic media block, and it stays there in the modern
+          layout while the photos move to the top: FluentCommunity's own
+          SurveyRenderer takes a `hasTopMedia` prop precisely because the
+          survey does not travel with the media. It is also not exclusive
+          with it — a survey is the only thing that claims `content_type`,
+          and media rides in `meta` either way. */}
+      {draft.poll && (
+        <AppzaPollPreview
+          poll={draft.poll}
+          percentFormat={str(overrides, 'poll_percent_format') || '{whole}%.{decimal}'}
+          votesLabel={str(overrides, 'poll_votes_label') || '{n} Vote'}
+          showVotes={bool(overrides, 'show_poll_votes', true)}
+        />
+      )}
 
       {layout !== 'modern' && media && (
         <span className="appza-post-preview-media" data-position="bottom">
