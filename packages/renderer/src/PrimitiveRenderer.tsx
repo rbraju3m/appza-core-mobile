@@ -634,7 +634,13 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
 
     case 'AppzaRichText': {
       const html = readString(overrides, 'text') ?? '';
-      return <AppzaRichText html={html} />;
+      return (
+        <AppzaRichText
+          html={html}
+          moreLabel={readString(overrides, 'more_label')}
+          lessLabel={readString(overrides, 'less_label')}
+        />
+      );
     }
 
     case 'AppzaImageGallery':
@@ -1028,7 +1034,7 @@ function directMediaKind(src: string): 'video' | 'audio' | null {
 const videoEmbedPlayingCache = new Map<string, boolean>();
 
 /**
- * Rich-text body with a "See more" / "See less" toggle.
+ * Rich-text body with a "Show More" / "Show Less" toggle.
  *
  * On mount + on html change, measures whether the content's natural
  * height exceeds the collapsed clamp (via scrollHeight vs clientHeight).
@@ -1038,7 +1044,16 @@ const videoEmbedPlayingCache = new Map<string, boolean>();
  * same wp_kses-sanitized payload from PreviewProxyController — safe to
  * dangerouslySetInnerHTML.
  */
-function AppzaRichText({ html }: { html: string }) {
+function AppzaRichText({
+  html,
+  moreLabel,
+  lessLabel,
+}: {
+  html: string;
+  /** Builder-controlled; Noor's designs 14 and 15 say "Show More". */
+  moreLabel?: string;
+  lessLabel?: string;
+}) {
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [overflowing, setOverflowing] = useState(false);
@@ -1069,7 +1084,7 @@ function AppzaRichText({ html }: { html: string }) {
             setExpanded((v) => !v);
           }}
         >
-          {expanded ? 'See less' : 'See more'}
+          {expanded ? (lessLabel || 'Show Less') : (moreLabel || 'Show More')}
         </button>
       )}
     </div>

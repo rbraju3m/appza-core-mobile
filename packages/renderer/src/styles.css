@@ -6,7 +6,6 @@
    Capacitor mobile app) provide only the outer bezel / window.
 */
 
-
 .appza-renderer-app {
   --ion-background-color: #ffffff;
   --ion-text-color: #111827;
@@ -1075,96 +1074,40 @@
 .appza-renderer-ss[data-slug="drawer-shell"] [data-child-index="1"] { grid-area: name; align-self: center; font-weight: 600; }
 .appza-renderer-ss[data-slug="drawer-shell"] [data-child-index="2"] { grid-area: list; }
 
-/* fc-post-card: feed post layout
-   topic row:   [15 topic-pill]                                                (visible_when data.terms[0])
-   header row:  [0 avatar] [1 name + 23 verified + 2 time + 3 mood] [4 menu]
+/* fc-post-card — ONE grid, for every screen that draws a post.
+   topic row:   [15 topic-pill]
+   header row:  [0 avatar] [1 name + 23 verified] [4 menu]
+   byline:      [2 time] · [3 space]
    body:        [5 title] then [6 content]
-   media:       [7 image] or [8 video-thumb] (mutually exclusive via visible_when)
-   poll:        [9 poll_display] (visible_when content_type=survey)
+   media:       [7 images] or [8 video] (mutually exclusive via visible_when)
+   poll:        [9], audio: [29], docs: [28]
    reactions:   [10 like] [11 comment] [12 bookmark] [13 likes] [14 comments]
-   Children [16..22, 24..27] are Space-Detail-only extras (featured image, inline
-   first comment, "View more comments", Reply, comment-like) — hidden on Feed.   */
-/* ⚠ THIS CARD HAS TWO GRIDS. This one serves feed, home and post-detail;
-   space-detail overrides it further down with a seven-column version
-   (search `"pill    pill"`). They are separate `grid-template-areas`
-   blocks and nothing keeps them in step.
+   comments:    [16..22, 24..27]
 
-   So: a new FULL-WIDTH child needs a row in BOTH, and its own
-   `grid-area` assignment in both scopes. Miss the space-detail one and
-   the child does not fall back — the browser cannot find the area name,
-   invents an implicit column for it, and squeezes the child into a
-   sliver against the card's right edge while the feed looks perfect.
-   That is exactly what happened to the audio player (child 29), which
-   shipped with a row here and none there.
+   ⚠ THIS USED TO BE A PAIR. There were two `grid-template-areas` blocks
+   — a 5-column one here for feed / home / post-detail, and a 7-column
+   one further down for space-detail — and nothing kept them in step. A
+   new full-width child needed a row in BOTH; miss one and the child did
+   not fall back, it collapsed into an implicit column against the card's
+   right edge on that screen alone. The audio player shipped that way.
 
-   All thirty children are styled twice already. Merging the two is a
-   real option — the space-detail geometry is the superset, since its
-   14px gutter COLUMNS let a row be inset or edge-to-edge while this
-   card's padding forces one answer for everything — but it is a
-   ~200-line mechanical refactor across four screens. Deferred until the
-   next full-width child arrives, so the merge and the child get
-   verified in one pass. */
-.appza-renderer-ss[data-slug="fc-post-card"] {
-  display: grid;
-  grid-template-columns: 40px auto auto 1fr auto;
-  grid-template-areas:
-    'topic  topic  topic  topic  topic'
-    'avatar name   verify .      menu'
-    'avatar byline byline byline byline'
-    'title  title  title  title  title'
-    'body   body   body   body   body'
-    'media  media  media  media  media'
-    'audio  audio  audio  audio  audio'
-    'poll   poll   poll   poll   poll'
-    'docs   docs   docs   docs   docs'
-    'actions actions actions actions actions';
-  gap: 4px 10px;
-  padding: 14px;
-  margin: 8px 0;
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
-}
-/* MODERN — FluentCommunity's Rich Media Post Layout, stamped on the app
-   root by ScreenRenderer. The ONLY thing that moves is the media: it
-   lifts above the topic row and runs to the card's edges. Poll,
-   documents and audio stay under the body, because a survey does not
-   travel with the media (FC's own SurveyRenderer takes a `hasTopMedia`
-   prop for exactly that reason) and a document post has no rich media to
-   lift. Same rule PostPreview follows, which is the point — the preview
-   and the card have to agree. Verified against FC's own portal on this
-   site, 2026-08-27.
+   They are now ONE grid: the seven-column geometry that lived in the
+   space-detail block, unscoped. It won because it is the superset —
+   its 14px gutter COLUMNS let a row be inset (body, actions) or run
+   edge-to-edge (media, topic pill) on the same card, where padding
+   forces a single answer for everything. It was also already the
+   design-correct half: it drew the byline as `4h · Appza Community`
+   while the feed card drew the space name in orange, 30px of padding
+   to the right of the timestamp.
 
-   ⚠ THE PAIR AGAIN. space-detail needs the same override further down,
-   or the feed honours the setting and the space detail does not. */
-.appza-renderer-app[data-fc-rich-post-layout="modern"] .appza-renderer-ss[data-slug="fc-post-card"] {
-  grid-template-areas:
-    'media  media  media  media  media'
-    'topic  topic  topic  topic  topic'
-    'avatar name   verify .      menu'
-    'avatar byline byline byline byline'
-    'title  title  title  title  title'
-    'body   body   body   body   body'
-    'audio  audio  audio  audio  audio'
-    'poll   poll   poll   poll   poll'
-    'docs   docs   docs   docs   docs'
-    'actions actions actions actions actions';
-  /* Edge-to-edge media means cancelling the card's padding with a
-     negative margin, so the corners have to be clipped to the card's. */
-  overflow: hidden;
-}
-/* [7] gallery and [8] video-thumb are the two children that ride `media`,
-   mutually exclusive via visible_when. -14px cancels the card's padding
-   on three sides; the top one lifts the media to the card's edge.
+   The grid itself now lives near the old space-detail block; search
+   `"pill    pill"`. Per-child rules from the old base grid are still
+   below and still apply — the merged block simply comes later and wins
+   where the two disagree.
 
-   Excluded on space-detail — that card has zero padding and gutter
-   COLUMNS instead, so its media is already edge-to-edge and this margin
-   would pull it 14px past the card on every side. Same `:not()` guard
-   the feed-only children below use. */
-.appza-renderer-app[data-fc-rich-post-layout="modern"]:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="7"],
-.appza-renderer-app[data-fc-rich-post-layout="modern"]:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="8"] {
-  margin: -14px -14px 0;
-}
+   Noor's item 4 is what forced this: one post has to look identical on
+   the feed, space-detail POSTS, bookmarks, search, profile POSTS and
+   post-detail. Two grids cannot promise that. */
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="0"] { grid-area: avatar; }
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="1"] {
   grid-area: name;
@@ -1222,57 +1165,31 @@
   line-height: 1.4;
   color: #374151;
 }
+/* The media children. `grid-area: media` is a leftover NAME from the old
+   five-column grid and resolves to nothing now — the merged grid places
+   them by `image`, further down. Kept only because an unknown area name
+   is inert, and removing it would be a second change to verify.
+
+   The `margin-top: 4px` that used to be here is GONE. It was invisible
+   while space-detail had its own scope, and reappeared the moment the
+   grids merged: it outranks the merged block's `> * { margin: 0 }` on
+   specificity, so every card on every screen grew a 4px gap above its
+   media and 4px of height. Caught by measuring space-detail before and
+   after — every child had moved down by exactly 4px. */
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="7"],
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="8"] {
   grid-area: media;
-  margin-top: 4px;
 }
 
-/* Feed variant: topic pill [15] at top of card, verified badge [23] inline
-   with author name. Both are gated by SS-level visible_when so they only
-   render when the post has terms / author is verified. Space-Detail already
-   has its own tuned block below (line 2826+) — these unscoped rules keep the
-   two visuals available on Feed too. Extras [16..22, 24..27] are hidden on
-   Feed since they only make sense inside the Space-Detail comment strip. */
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] {
-  grid-area: topic;
-  align-self: start;
-  justify-self: start;
-}
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] ion-chip {
-  --background: #f3f4f6;
-  --color: #374151;
-  background: #f3f4f6 !important;
-  color: #374151 !important;
-  border: 0 !important;
-  padding: 4px 10px !important;
-  font-size: 0.78rem !important;
-  font-weight: 600 !important;
-  min-height: 0 !important;
-  height: auto !important;
-  border-radius: 6px !important;
-  margin: 0 !important;
-}
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] ion-chip::before {
-  content: "#\00a0";
-  color: #374151;
-  font-weight: 700;
-}
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="23"] {
-  grid-area: verify;
-  align-self: end;
-  display: inline-flex;
-  align-items: center;
-  color: #1d4ed8 !important;
-}
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="23"] ion-icon {
-  color: #1d4ed8 !important;
-  font-size: 16px !important;
-  width: 16px !important;
-  height: 16px !important;
-  min-width: 16px !important;
-  min-height: 16px !important;
-}
+/* The old "Feed variant" block for the topic pill [15] and the verified
+   badge [23] used to sit here. It was the five-column grid's half of the
+   pair, and it is gone with that grid: the merged block styles both
+   children once, further down, and this copy only ever won by accident
+   of source order. It still carried the pre-design grey pill
+   (#f3f4f6 / #374151) after the merged one had moved to the tinted blue
+   of design 14 — two answers to one question, which is how the stale
+   `margin-top: 4px` on the media survived unnoticed for a month. */
+
 /* Hide Space-Detail-only children on every screen EXCEPT space-detail
    (feed, home, post-detail, etc.): featured image, redundant likes
    summary, inline first-comment block + reply row. The Space-Detail
@@ -1293,25 +1210,30 @@
    Every child here is already gated by `visible_when data.comments[0]`
    (child 16 by data.featured_image), so CSS never had to be the thing
    that hid them.                                                      */
-.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="16"],
-.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="17"],
-.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"],
-.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="19"],
-.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="20"],
-.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="21"],
-.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="22"],
-.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="24"],
-.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"],
-.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="26"],
-.appza-renderer-app:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"] {
-  display: none !important;
-}
-/* Belt-and-suspenders: also hide by default using the fc-post-card
-   inherent class (works even when the screen slug is missing). The
-   space-detail rules that assign `grid-area` override this via higher
-   specificity (attribute selector on ancestor).                        */
+
+/* The two blanket `display: none` blocks that used to sit here are GONE.
+   They hid children [16..22, 24..27] — the featured image, the likes +
+   comments summary and the whole inline first-comment strip — on every
+   screen except space-detail, back when the card had two grids and only
+   one of them placed those children.
+
+   Both reasons for them have expired. The card has ONE grid now, so
+   there is no screen where those children have nowhere to land; and
+   every one of them is already gated by `visible_when data.comments[0]`
+   (child 16 by `data.featured_image`), so CSS never had to be the thing
+   that hid them — which the second block's own comment admitted.
+
+   Leaving them in would have been an active bug rather than dead code:
+   `display: none !important` beats a later `grid-area`, so unscoping the
+   merged block underneath them would have blanked the comment strip on
+   space-detail — the exact regression that made it invisible there from
+   2026-08-04 to 2026-08-19.
+
+   Child [17] is still hidden, deliberately and on its own, further down:
+   it is a bare reactions count that duplicates child [13]. */
+
+/* Space-detail re-shows them with explicit display (grid child). */
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="16"],
-.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="17"],
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"],
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="19"],
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="20"],
@@ -1321,19 +1243,6 @@
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"],
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="26"],
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"] {
-  display: none;
-}
-/* Space-detail re-shows them with explicit display (grid child). */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="16"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="19"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="20"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="21"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="22"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="24"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="26"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"] {
   display: block;
 }
 
@@ -1758,6 +1667,22 @@
 .appza-rich-text-expanded {
   display: block;
 }
+/* The clamp toggle sits ON the last line of the clamped text, at its
+   right edge — designs 14 and 15 read "…brings an.. Show More", not a
+   link on a line of its own.
+
+   It is absolutely positioned rather than inlined because
+   `-webkit-line-clamp` truncates its own content: a button placed inside
+   the clamped box would be cut off with the overflowing text. Sitting
+   over the end of the last line, with a matching background behind it,
+   is how FluentCommunity's portal draws the same control.
+
+   Only while COLLAPSED. Once expanded there is no last line to sit on,
+   so "Show Less" returns to its own line under the body. */
+.appza-rich-text-wrap {
+  min-width: 0;
+  position: relative;
+}
 .appza-rich-text-toggle {
   border: none;
   background: transparent;
@@ -1769,11 +1694,17 @@
   cursor: pointer;
   text-align: left;
 }
+.appza-rich-text-wrap:has(> .appza-rich-text-clamped) > .appza-rich-text-toggle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  padding: 0 0 0 6px;
+  /* The card's own surface, so the text it covers does not show
+     through. Falls back to white where the token is unset. */
+  background: var(--appza-card-bg, #ffffff);
+}
 .appza-rich-text-toggle:hover {
   text-decoration: underline;
-}
-.appza-rich-text-wrap {
-  min-width: 0;
 }
 
 /* appza-image-gallery primitive — Instagram-style collage. Layout is grid;
@@ -3165,7 +3096,7 @@
   background-color: #2563eb !important;
 }
 .appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="11"] ion-button {
-  --background: #f3f4f6 !important;
+  --background: #eef2ff !important;
   --background-hover: #e5e7eb !important;
   --background-activated: #d1d5db !important;
   --background-focused: #d1d5db !important;
@@ -3570,7 +3501,7 @@
    space-detail alone. A full-width child needs a row in both, or it
    renders correctly on one screen and collapses into an implicit column
    on the other — see the note on the base grid. */
-[data-screen-slug="space-detail"] .appza-renderer-appzet-list[data-slug="fc-post-card"] .appza-renderer-ss[data-slug="fc-post-card"] {
+.appza-renderer-ss[data-slug="fc-post-card"] {
   display: grid;
   grid-template-columns: 14px 40px auto auto 1fr auto 14px;
   grid-template-areas:
@@ -3607,8 +3538,7 @@
 
    `chdr`/`ctime`/`cbody`/`cfoot`/`viewmore` are the inline-comment
    footer, which is space-detail-only; they stay last in both layouts. */
-.appza-renderer-app[data-screen-slug="space-detail"][data-fc-rich-post-layout="modern"]
-  .appza-renderer-appzet-list[data-slug="fc-post-card"]
+.appza-renderer-app[data-fc-rich-post-layout="modern"]
   .appza-renderer-ss[data-slug="fc-post-card"] {
   grid-template-areas:
     "image   image   image   image   image   image   image"
@@ -3636,23 +3566,20 @@
    ON TOP of the media, both measuring top:0 inside the card. An area
    name never overrides a line-based placement — grep this scope for
    `grid-row:` before adding a row to the areas string. */
-.appza-renderer-app[data-screen-slug="space-detail"][data-fc-rich-post-layout="modern"]
-  .appza-renderer-appzet-list[data-slug="fc-post-card"]
+.appza-renderer-app[data-fc-rich-post-layout="modern"]
   .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] {
   grid-row: 2;
 }
 /* [2] time and [3] mood ride the byline row, which was 3 and is now 4.
    Their `grid-column: name-start / verify-end` still resolves — those
    implicit line names come from the area names, which modern keeps. */
-.appza-renderer-app[data-screen-slug="space-detail"][data-fc-rich-post-layout="modern"]
-  .appza-renderer-appzet-list[data-slug="fc-post-card"]
+.appza-renderer-app[data-fc-rich-post-layout="modern"]
   .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="2"],
-.appza-renderer-app[data-screen-slug="space-detail"][data-fc-rich-post-layout="modern"]
-  .appza-renderer-appzet-list[data-slug="fc-post-card"]
+.appza-renderer-app[data-fc-rich-post-layout="modern"]
   .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="3"] {
   grid-row: 4;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] > * {
+.appza-renderer-ss[data-slug="fc-post-card"] > * {
   grid-area: unset;
   margin: 0;
   min-width: 0;
@@ -3663,14 +3590,14 @@
    embed [8], and poll block [9] were left with implicit-row placement,
    which pushed them into random grid tracks (they'd render but not where
    the "image"/"poll" areas expect them).                                */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="7"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="8"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="7"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="8"] {
   grid-area: image;
   padding: 0 14px;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="7"] ion-img,
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="7"] img,
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="8"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="7"] ion-img,
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="7"] img,
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="8"] {
   width: 100%;
   border-radius: 8px;
   display: block;
@@ -3678,16 +3605,16 @@
 
 /* Topic pill row — style the ion-chip directly. Prepend "# " via chip
    ::before. Ionic exposes ion-chip appearance via CSS custom props. */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] {
   grid-row: 1;
   grid-column: 1 / -1;
   padding: 14px 14px 4px 14px;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] ion-chip {
-  --background: #f3f4f6 !important;
-  --color: #374151 !important;
-  background: #f3f4f6 !important;
-  color: #374151 !important;
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] ion-chip {
+  --background: #eef2ff !important;
+  --color: #4f46e5 !important;
+  background: #eef2ff !important;
+  color: #4f46e5 !important;
   border: 0 !important;
   padding: 4px 10px !important;
   font-size: 0.78rem !important;
@@ -3699,18 +3626,18 @@
   opacity: 1 !important;
   visibility: visible !important;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] ion-chip::part(native) {
-  background: #f3f4f6 !important;
-  color: #374151 !important;
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] ion-chip::part(native) {
+  background: #eef2ff !important;
+  color: #4f46e5 !important;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] ion-chip::before {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] ion-chip::before {
   content: "#\00a0";
-  color: #374151;
+  color: #4f46e5;
   font-weight: 700;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] ion-chip {
-  --background: #f3f4f6 !important;
-  --color: #374151 !important;
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] ion-chip {
+  --background: #eef2ff !important;
+  --color: #4f46e5 !important;
   border: 0 !important;
   padding: 4px 10px !important;
   font-size: 0.78rem !important;
@@ -3725,17 +3652,17 @@
    so avatar sits neatly next to the name row, byline below. Previously
    avatar was 44×44 + align:center which pushed it above the name and
    made the two look off — the user's #1 space-detail complaint.       */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="0"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="0"] {
   grid-area: avatar;
   width: 40px;
   height: 40px;
   align-self: start;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="0"] ion-avatar {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="0"] ion-avatar {
   width: 40px;
   height: 40px;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="1"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="1"] {
   grid-area: name;
   font-weight: 700;
   font-size: 0.95rem;
@@ -3752,13 +3679,13 @@
   text-overflow: clip !important;
   min-width: max-content !important;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="1"] > * {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="1"] > * {
   white-space: nowrap;
   overflow: visible !important;
   text-overflow: clip !important;
   min-width: max-content !important;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="23"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="23"] {
   grid-area: verify;
   align-self: start;
   display: inline-flex;
@@ -3766,14 +3693,14 @@
   padding-top: 4px;
   min-width: 18px;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="23"] ion-icon {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="23"] ion-icon {
   color: #1d4ed8;
   font-size: 16px;
   width: 16px;
   height: 16px;
   min-width: 16px;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="4"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="4"] {
   grid-area: menu;
   align-self: center;
   justify-self: end;
@@ -3781,7 +3708,7 @@
 }
 
 /* Byline: time + " · " + space name (small gray) */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="2"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="2"] {
   grid-column: name-start / verify-end;
   grid-row: 3;
   font-size: 0.75rem;
@@ -3789,7 +3716,7 @@
   align-self: start;
   display: inline;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="3"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="3"] {
   grid-column: name-start / menu-end;
   grid-row: 3;
   font-size: 0.75rem;
@@ -3800,15 +3727,15 @@
 /* Force the byline space-name to gray — some Source Integrations
    render it as an <a> that inherits the app's link color (orange in
    FC). Override on the child + any nested anchor.                     */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="3"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="3"] a,
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="3"] * {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="3"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="3"] a,
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="3"] * {
   color: #6b7280 !important;
   text-decoration: none !important;
 }
 
 /* Title + body */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="5"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="5"] {
   grid-area: title;
   font-weight: 700;
   font-size: 1.05rem;
@@ -3816,7 +3743,7 @@
   padding-top: 10px;
   padding-bottom: 4px;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="6"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="6"] {
   grid-area: body;
   color: #4b5563;
   font-size: 0.9rem;
@@ -3827,21 +3754,21 @@
 /* Poll block (child[9]) — sits between body and image on poll posts.
    The `poll` grid area collapses to zero height when the child is
    absent (regular text/image posts).                                  */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="9"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="9"] {
   grid-area: poll;
   padding: 4px 14px 10px 14px;
 }
 
 /* Featured image (full-bleed) */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="16"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="16"] {
   grid-area: image;
   padding: 0;
   background: #e5e7eb;
   aspect-ratio: 16 / 9;
   overflow: hidden;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="16"] img,
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="16"] ion-img {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="16"] img,
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="16"] ion-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -3862,17 +3789,32 @@
    the like/comment strip landed ON the `docs` row and drew on top of
    the attached files of a document post, while `react` sat empty. The
    named lines move with the area.                                     */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="13"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="14"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="17"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="13"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="14"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="17"] {
   grid-row: react-start / react-end;
   align-self: center;
   padding-top: 10px;
   padding-bottom: 10px;
 }
+/* The strip's three glyphs are all NEUTRAL GREY at rest (designs 1-6).
+   The comment button had no colour of its own, so it fell through to
+   Ionic's `primary` and drew blue next to two grey siblings — visible in
+   every screenshot of the feed since the card shipped. Like and bookmark
+   are bound to `_like_color` / `_bookmark_color`, which resolve to
+   `medium` at rest and to the brand blue once the viewer has reacted
+   (design 18); the comment glyph has no reacted state, so it is simply
+   pinned grey here. */
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] ion-button {
+  --color: #6b7280 !important;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] ion-button ion-icon {
+  color: #6b7280 !important;
+}
+
 /* Three icon buttons (heart, comment, bookmark) sit LEFT as a tight cluster
    in cols 2-3. Summary text ("N likes", "N Comments") sits RIGHT in cols
    4-5 on a single line each. Reset the feed-variant `margin-left` values
@@ -3881,9 +3823,9 @@
    (44+40+40=124px). Each icon has a hard `width` cap so the ion-button
    host + its bordered ::part(native) can never bleed past the icon
    slot into cols 4-5 where the "N likes" / "N comments" labels sit.  */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] {
   grid-row: react-start / react-end;
   grid-column: 2 / 4;
   justify-self: start;
@@ -3897,21 +3839,55 @@
   overflow: hidden;
   box-sizing: border-box;
 }
+/* The hairline ABOVE the action strip (every design from 1 onward).
+   Drawn on the leftmost reaction child rather than on a pseudo-element of
+   the card, because the card is a grid and the strip's row number moves
+   with the post's content — a poll, documents or audio each add a row.
+   Hanging it off the child that always starts the row means it follows
+   whatever lands above it.
+
+   It spans the full card width, gutters included, so it meets both
+   edges the way the designs draw it; the 14px insets are re-applied to
+   the icons themselves below. */
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"]::before {
+  content: '';
+  position: absolute;
+  /* Deliberately far wider than the card on both sides. The pseudo is
+     positioned against child [10], which is a 36px icon — `left: 0;
+     right: 0` drew a 36px stub over the heart alone. Over-spilling and
+     letting the card's own `overflow: hidden` do the clipping is what
+     makes this a full-bleed rule with no number tied to the icon's
+     position in the row. */
+  left: -100vw;
+  right: -100vw;
+  top: 0;
+  height: 1px;
+  background: #e5e7eb;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"] {
+  position: relative;
+  /* The shared rule above sets `overflow: hidden` on all three glyph
+     children to stop their hitboxes stretching across the grid cell —
+     which the explicit width / max-width already does. Here it also
+     clipped the divider back to the heart's own 36px box, so it is
+     lifted for this child alone. */
+  overflow: visible;
+}
 /* Stagger the three via left-margin offsets since they all share the
    same grid cell.                                                     */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"] { margin-left: 4px !important; }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] { margin-left: 44px !important; }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] { margin-left: 84px !important; }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"] { margin-left: 4px !important; }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] { margin-left: 44px !important; }
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] { margin-left: 84px !important; }
 /* The ion-button host also needs a width cap for the same reason. */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"] ion-button,
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] ion-button,
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] ion-button {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"] ion-button,
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] ion-button,
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] ion-button {
   width: 36px !important;
   max-width: 36px !important;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"] ion-button,
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] ion-button,
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] ion-button {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="10"] ion-button,
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="11"] ion-button,
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="12"] ion-button {
   --border-color: transparent !important;
   --background: transparent !important;
   --box-shadow: none !important;
@@ -3921,55 +3897,63 @@
   height: 28px !important;
   margin: 0 !important;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="13"] {
+/* The two counts — "2 likes" then "3 comments", right-aligned, likes on
+   the LEFT (designs 14, 18, 19).
+
+   They used to share one cell (`grid-column: 5 / 7`) with the left one
+   pushed off the right edge by `padding-right: 60px`. That is a magic
+   number standing in for the width of the text beside it: "3 comments"
+   fits, "13 comments" overlaps.
+
+   Each now owns a column. [14] takes column 6 — the same auto column the
+   ⋮ menu sits in, which is free on this row. The column grows to fit the
+   wider of the two, and because the menu button is `justify-self: end`
+   inside it the button does not move; the 1fr column 5 absorbs the
+   difference. [13] sits at the end of column 5, so the gap between them
+   is the grid's own column-gap and nothing has to be guessed. */
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="13"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="14"] {
   grid-row: react-start / react-end;
-  grid-column: 5 / 7;
-  justify-self: end;
   align-self: center;
+  justify-self: end;
   font-size: 0.78rem;
   color: #6b7280;
-  padding: 0 14px 0 0;
   margin: 0 !important;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="14"] {
-  grid-row: react-start / react-end;
-  grid-column: 5 / 7;
-  justify-self: end;
-  align-self: center;
-  font-size: 0.78rem;
-  color: #6b7280;
-  padding: 0 60px 0 0;
-  margin: 0 !important;
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="13"] {
+  grid-column: 5;
+  padding: 0;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="14"] {
+  grid-column: 6 / 8;
+  padding: 0 14px 0 0;
 }
 /* child[17] is a redundant likes-count number ("24"); the "N likes"
    summary already appears in child[13]. Hide it to avoid overlap. */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="17"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="17"] {
   display: none !important;
 }
 
 /* Inline comment block: each row of the block lives on its own grid-row
    with a shared background. Left/right insets are faked with box-shadow
    so a single continuous gray box appears across rows without gaps.   */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="19"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="20"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="21"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="24"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="26"],
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="19"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="20"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="21"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="24"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="26"],
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"] {
   background: #f3f4f6;
 }
 /* Header row: avatar left, name right of it. The avatar sits in a
    col-1/-1 full-width bg strip; the name overlays it via z-index and
    left padding. Same for time and body rows below.                   */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"] {
   grid-row: chdr-start / chdr-end;
   grid-column: 1 / -1;
   padding: 12px 0 0 20px;
@@ -3980,13 +3964,13 @@
   height: 44px;
   box-sizing: border-box;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"] ion-avatar,
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"] img {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"] ion-avatar,
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="18"] img {
   width: 32px;
   height: 32px;
   border-radius: 999px;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="19"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="19"] {
   grid-row: chdr-start / chdr-end;
   grid-column: 1 / -1;
   font-weight: 700;
@@ -3998,7 +3982,7 @@
   align-self: start;
   z-index: 1;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="20"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="20"] {
   grid-row: ctime-start / ctime-end;
   grid-column: 1 / -1;
   font-size: 0.72rem;
@@ -4007,7 +3991,7 @@
   margin-left: 14px;
   margin-right: 14px;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="21"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="21"] {
   grid-row: cbody-start / cbody-end;
   grid-column: 1 / -1;
   font-size: 0.85rem;
@@ -4018,11 +4002,11 @@
   line-height: 1.4;
 }
 /* Strip any stray <p> wrapper margins */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="21"] p {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="21"] p {
   margin: 0;
 }
 /* Comment footer row: Reply | blue heart+(1) on left, "1 Reply" right */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="24"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="24"] {
   grid-row: cfoot-start / cfoot-end;
   grid-column: 1 / 4;
   font-size: 0.78rem;
@@ -4034,7 +4018,7 @@
   display: inline-flex;
   align-items: center;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"] {
   grid-row: cfoot-start / cfoot-end;
   grid-column: 1 / 4;
   padding: 4px 0 12px 90px;
@@ -4044,7 +4028,7 @@
   display: inline-flex;
   align-items: center;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"] ion-button {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="25"] ion-button {
   --color: #1d4ed8 !important;
   --border-color: transparent !important;
   --background: transparent !important;
@@ -4055,7 +4039,7 @@
   height: 24px !important;
   margin: 0 !important;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="26"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="26"] {
   grid-row: cfoot-start / cfoot-end;
   grid-column: 1 / 4;
   font-size: 0.78rem;
@@ -4065,7 +4049,7 @@
   align-self: center;
   justify-self: start;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"] {
   grid-row: cfoot-start / cfoot-end;
   grid-column: 4 / -1;
   font-size: 0.78rem;
@@ -4078,17 +4062,17 @@
   border-radius: 0 0 8px 0;
 }
 /* Add " Reply" suffix so raw count reads like "1 Reply" */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"]::after {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="27"]::after {
   content: " Reply";
   color: #6b7280;
 }
 /* Bottom-left rounded corner on the last-row of comment box */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="24"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="24"] {
   border-radius: 0 0 0 8px;
 }
 
 /* View more comments link */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="22"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="22"] {
   grid-area: viewmore;
   padding: 10px 0 14px 0;
   font-size: 0.82rem;
@@ -5023,7 +5007,6 @@
   color: #ffffff;
   cursor: not-allowed;
 }
-
 
 /* ---------------------------------------------------------------
  * Invite User modal (fc-invite-user-modal)
@@ -6184,7 +6167,7 @@
   grid-area: docs;
   min-width: 0;
 }
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="28"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="28"] {
   grid-area: docs;
   min-width: 0;
   padding: 4px 0 10px;
@@ -6198,7 +6181,7 @@
    45px against the card's right edge — the layout Noor reported.
    Assigning it here as well as adding the row keeps it explicit rather
    than dependent on which rule happens to come later in the file. */
-[data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="29"] {
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="29"] {
   grid-area: audio;
   min-width: 0;
   padding: 4px 0 10px;

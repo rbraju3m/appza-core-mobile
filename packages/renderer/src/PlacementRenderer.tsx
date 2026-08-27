@@ -2116,7 +2116,7 @@ function OptionDataSourceFetcher({
  * user_id — anonymous viewers see the default outline icons.
  *
  * Emitted keys on the item:
- *   _like_icon / _like_color         — 'heart' + 'danger'  when reacted, else defaults
+ *   _like_icon / _like_color         — 'heart' + 'primary' when reacted, else defaults
  *   _bookmark_icon / _bookmark_color — 'bookmark' + 'primary' when reacted, else defaults
  */
 function enrichItemWithMyReactions(item: unknown): unknown {
@@ -2159,7 +2159,10 @@ function enrichItemWithMyReactions(item: unknown): unknown {
   // state so the icon looks quiet. Field mappings ignore null/undefined,
   // so we ALWAYS emit a real string here otherwise un-reacting would
   // leave the previous color stuck on the button.
-  enriched._like_color = myTypes.has('like') ? 'danger' : 'medium';
+  // BLUE when liked, not red. Noor's design 18 draws the filled heart
+  // and the filled bookmark in the same brand blue, which is also what
+  // FluentCommunity's own portal does — `danger` was our invention.
+  enriched._like_color = myTypes.has('like') ? 'primary' : 'medium';
   enriched._bookmark_icon = myTypes.has('bookmark') ? 'bookmark' : 'bookmark-outline';
   enriched._bookmark_color = myTypes.has('bookmark') ? 'primary' : 'medium';
   return enriched;
