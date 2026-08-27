@@ -9218,11 +9218,31 @@ audio.appza-video-embed-native {
   font-style: italic;
 }
 
+/* The modern slot itself keeps the card's padding. Only PHOTOS bleed —
+   see the rule below — because that is what Noor's designs draw:
+
+     design 14 (images) — the grid meets the card's corners, flush
+     design 21 (video)  — a white gutter all round the player
+     design 23 (audio)  — the grey rows float inside the padding
+
+   This is a deliberate departure from FluentCommunity's portal, which
+   bleeds video too (checked on this site, 2026-08-27, in modern). The
+   designs win; the portal is recorded here so the difference reads as a
+   choice rather than a bug the next time someone compares them.
+
+   Audio's POSITION is a second departure the portal does not share: FC
+   leaves audio under the body entirely, design 23 lifts it to where the
+   photo would go. That one lives in PostPreview.tsx. */
 .appza-post-preview-media[data-position='top'] {
-  /* Edge to edge: cancel the card padding on three sides so the media
-     meets the card's own corners. */
-  margin: calc(-1 * var(--appza-card-padding, 14px));
   margin-bottom: var(--appza-media-gap, 10px);
+}
+/* Photos, and the design-time sample that stands in for one, cancel the
+   card padding on three sides so they meet the card's own corners. The
+   card clips (`overflow: hidden`), so they follow its radius. */
+.appza-post-preview-media[data-position='top'] > .appza-post-preview-grid,
+.appza-post-preview-media[data-position='top'] > .appza-post-preview-media-sample {
+  margin: calc(-1 * var(--appza-card-padding, 14px));
+  margin-bottom: 0;
 }
 .appza-post-preview-media[data-position='bottom'] {
   margin-top: var(--appza-media-gap, 4px);
