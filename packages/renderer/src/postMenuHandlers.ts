@@ -45,20 +45,37 @@ export function tryHandlePostMenuAction(
   const { auth, authHeader, onError, onInfo } = deps;
 
   switch (action_slug) {
+    // A COMMENT link is the post's URL with a #comment-<id> anchor,
+    // which the preview proxy builds — FluentCommunity gives a comment no
+    // URL of its own. Same code path, different default path.
+    case 'comment.copy_link':
     case 'post.copy_link': {
       const urlPath =
-        typeof argRec.url_path === 'string' ? argRec.url_path : 'data.permalink';
+        typeof argRec.url_path === 'string'
+          ? argRec.url_path
+          : typeof argRec.link_path === 'string'
+            ? argRec.link_path
+            : 'data.permalink';
       const toastMsg =
         typeof argRec.toast_message === 'string' ? argRec.toast_message : 'Link copied';
       const url = readDataPath(effectiveItem, urlPath);
       if (typeof url !== 'string' || !url) {
-        onError('This post has no shareable link.');
+        onError(
+          action_slug === 'comment.copy_link'
+            ? 'This comment has no shareable link.'
+            : 'This post has no shareable link.',
+        );
         return true;
       }
       void copyToClipboard(String(url), onInfo, onError, toastMsg);
       return true;
     }
 
+    // `comment.pin` is the same request shape as the three post toggles:
+    // flip a flag, send the id, refresh. It differs only in needing a
+    // SECOND id — every fcom-mobile comment route wants the post's id
+    // alongside the comment's — which `parent_body_key` supplies.
+    case 'comment.pin':
     case 'post.pin_top':
     case 'post.pin_sidebar':
     case 'post.disable_comments': {
@@ -110,6 +127,23 @@ export function tryHandlePostMenuAction(
         [bodyKey]: feedId,
         [patchKey]: nextValue,
       };
+      // The parent id, when the action declares one. A comment route is
+      // addressed by BOTH ids; a post route declares neither key and this
+      // is a no-op.
+      const parentBodyKey =
+        typeof argRec.parent_body_key === 'string' && argRec.parent_body_key
+          ? argRec.parent_body_key
+          : null;
+      if (parentBodyKey) {
+        const parentPath =
+          typeof argRec.parent_id_path === 'string' ? argRec.parent_id_path : 'data.post_id';
+        const parentId = resolveFeedId(parentPath, itemRec);
+        if (parentId === null) {
+          onError('Could not identify which post this comment belongs to.');
+          return true;
+        }
+        body[parentBodyKey] = parentId;
+      }
       // Optimistically update the tapped item so if the user immediately
       // reopens the menu (before the refetch lands) the label + toggle
       // direction reflect the new state. FC stores comments_disabled as
@@ -128,6 +162,7 @@ export function tryHandlePostMenuAction(
       return true;
     }
 
+    case 'comment.report':
     case 'post.report': {
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       const method =
@@ -139,7 +174,13 @@ export function tryHandlePostMenuAction(
       const feedIdPath =
         typeof argRec.feed_id_path === 'string' ? argRec.feed_id_path : 'data.id';
       const contentType =
-        typeof argRec.content_type === 'string' ? argRec.content_type : 'post';
+        typeof argRec.content_type === 'string'
+          ? argRec.content_type
+          : typeof argRec.content_type_value === 'string'
+            ? argRec.content_type_value
+            : action_slug === 'comment.report'
+              ? 'comment'
+              : 'post';
       const reasonBodyKey =
         typeof argRec.reason_body_key === 'string' ? argRec.reason_body_key : 'reason';
       const explanationBodyKey =
@@ -156,7 +197,7 @@ export function tryHandlePostMenuAction(
           ? argRec.toast_message
           : 'Report submitted';
       if (!endpoint) {
-        onError('post.report is missing its endpoint.');
+        onError(`${action_slug} is missing its endpoint.`);
         return true;
       }
       if (!auth) {
@@ -186,6 +227,18 @@ export function tryHandlePostMenuAction(
         content_type: contentType,
         [reasonBodyKey]: reason,
       };
+      // Reporting a COMMENT names the post it sits under as well.
+      const reportParentKey =
+        typeof argRec.parent_body_key === 'string' && argRec.parent_body_key
+          ? argRec.parent_body_key
+          : null;
+      if (reportParentKey) {
+        const parentId = resolveFeedId(
+          typeof argRec.parent_id_path === 'string' ? argRec.parent_id_path : 'data.post_id',
+          itemRec,
+        );
+        if (parentId !== null) body[reportParentKey] = parentId;
+      }
       if (explanation.trim()) body[explanationBodyKey] = explanation.trim();
       void sendJson(endpoint, method, body, auth, authHeader).then((result) => {
         if (result.ok) onInfo(toastMsg);

@@ -187,6 +187,8 @@ import {
 import type { PrimitiveRow } from './catalogIndex';
 import { AppzaFilePicker } from './AppzaFilePicker';
 import { AppzaFileList } from './AppzaFileList';
+import { AppzaCommentList } from './CommentList';
+import { AppzaAvatarStack } from './AvatarStack';
 import { AppzaMediaTile } from './MediaTile';
 import { AppzaAudioPlayer, AppzaAudioList } from './AudioPlayerRow';
 import { AppzaChatBubble } from './ChatBubble';
@@ -500,6 +502,9 @@ export const SELF_ACTION_PRIMITIVES: ReadonlySet<string> = new Set([
   // Same reason: the space chip sits inside a card the user types in, so
   // a wrapper click would open the space picker on every tap of the body.
   'appza-post-composer',
+  // Every row carries Reply, a heart and a ⋮ of its own, so a wrapper
+  // click would open the menu whenever anyone tapped a comment's text.
+  'appza-comment-list',
 ]);
 
 /**
@@ -750,6 +755,12 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
 
     case 'AppzaFileList':
       return <AppzaFileList overrides={overrides} />;
+
+    case 'AppzaAvatarStack':
+      return <AppzaAvatarStack overrides={overrides} />;
+
+    case 'AppzaCommentList':
+      return <AppzaCommentList overrides={overrides} action={action} dispatch={dispatch} />;
 
     case 'AppzaMediaTile':
       return <AppzaMediaTile overrides={overrides} />;

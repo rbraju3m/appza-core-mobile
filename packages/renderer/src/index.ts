@@ -203,6 +203,8 @@ export {
   type FcAccessSettings,
   type FcAccessLevel,
 } from './fcRuntimeSettings';
+export { AppzaCommentList, type CommentEntry } from './CommentList';
+export { AppzaAvatarStack, type AvatarStackEntry } from './AvatarStack';
 export {
   getViewer,
   setViewer,

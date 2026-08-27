@@ -586,6 +586,13 @@ type PendingDelete = {
   title: string;
   message: string;
   cta: string;
+  /**
+   * Extra keys merged into the request body. A COMMENT is addressed by
+   * both its own id and its post's — every fcom-mobile comment route
+   * wants the pair — and the confirm dialog is otherwise identical to
+   * the post's, so it carries the second id rather than being forked.
+   */
+  extraBody?: Record<string, unknown>;
 };
 
 type CommentPanelState = {
@@ -1782,7 +1789,10 @@ export function App() {
                   Accept: 'application/json',
                   Authorization: basicAuthHeader(auth),
                 },
-                body: JSON.stringify({ [pendingDelete.bodyKey]: pendingDelete.feedId }),
+                body: JSON.stringify({
+                  [pendingDelete.bodyKey]: pendingDelete.feedId,
+                  ...(pendingDelete.extraBody ?? {}),
+                }),
               });
               const json = await res.json().catch(() => null);
               const status =
@@ -2740,6 +2750,10 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       return;
     }
 
+    // A comment's delete is the post's, with a second id and different
+    // wording. Same confirm dialog on purpose — design 24 shows no
+    // separate one, and two dialogs would drift.
+    case 'comment.delete':
     case 'post.delete': {
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
@@ -2748,7 +2762,11 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       const bodyKey =
         typeof argRec.body_key === 'string' && argRec.body_key ? argRec.body_key : 'feed_id';
       const title =
-        typeof argRec.confirm_title === 'string' ? argRec.confirm_title : 'Delete post?';
+        typeof argRec.confirm_title === 'string'
+          ? argRec.confirm_title
+          : action_slug === 'comment.delete'
+            ? 'Delete comment?'
+            : 'Delete post?';
       const message =
         typeof argRec.confirm_message === 'string'
           ? argRec.confirm_message
@@ -2774,7 +2792,30 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         onError('Could not identify which post to delete.');
         return;
       }
-      openDeleteConfirm({ feedId, endpoint, method, bodyKey, title, message, cta });
+      // The parent id, when the action names one.
+      let extraBody: Record<string, unknown> | undefined;
+      const parentBodyKey =
+        typeof argRec.parent_body_key === 'string' && argRec.parent_body_key
+          ? argRec.parent_body_key
+          : null;
+      if (parentBodyKey) {
+        const parentPath =
+          typeof argRec.parent_id_path === 'string' ? argRec.parent_id_path : 'data.post_id';
+        const pk = parentPath.startsWith('data.') ? parentPath.slice(5) : parentPath;
+        const rawParent = itemRec ? (itemRec as Record<string, unknown>)[pk] : undefined;
+        const parentId =
+          typeof rawParent === 'number'
+            ? rawParent
+            : typeof rawParent === 'string' && rawParent !== '' && !Number.isNaN(Number(rawParent))
+              ? Number(rawParent)
+              : null;
+        if (parentId === null) {
+          onError('Could not identify which post this comment belongs to.');
+          return;
+        }
+        extraBody = { [parentBodyKey]: parentId };
+      }
+      openDeleteConfirm({ feedId, endpoint, method, bodyKey, title, message, cta, extraBody });
       return;
     }
 
@@ -2783,6 +2824,11 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     // We resolve the tapped button's DOM rect via the [data-appza-item-id]
     // ancestor and open PostOptionsPopover with the catalog-defined items.
     // Each menu row's click routes back through this dispatcher.
+    // The COMMENT menu (designs 24, 25) is the same popover with a
+    // different list. Identical code because the popover is about GATED
+    // ROWS, not about posts — every row's visible_when resolves against
+    // whatever item was bound, and the comment strip binds a comment.
+    case 'comment.options':
     case 'post.options': {
       const rawItems = Array.isArray(argRec.items) ? argRec.items : [];
       const items = rawItems
@@ -2790,7 +2836,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         .map((i) => i as unknown as PostMenuItem)
         .filter((i) => typeof i.action_slug === 'string' && i.action_slug);
       if (items.length === 0) {
-        onError('The post options menu has no entries wired.');
+        onError(`The ${action_slug} menu has no entries wired.`);
         return;
       }
       const itemId =
@@ -2825,6 +2871,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
               appzetSlug: menuSheetSlug,
               presentation: postMenuSheetPresentation(
                 readAppzetPropsFromCatalog(menuSheetSlug),
+                typeof argRec.sheet_title === 'string' ? argRec.sheet_title : undefined,
               ),
               childStyles: childStylesFromCustomizations(
                 menuSheetSlug,
@@ -2837,6 +2884,9 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       return;
     }
 
+    case 'comment.copy_link':
+    case 'comment.pin':
+    case 'comment.report':
     case 'post.copy_link':
     case 'post.pin_top':
     case 'post.pin_sidebar':

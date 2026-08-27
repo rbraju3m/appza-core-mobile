@@ -3496,11 +3496,17 @@
    inline comment footer) while other children span the full width.
    Scoped strictly to cards that carry child[15] (the topic pill), so
    ordinary Feed cards keep the original grid.                          */
-/* ⚠ THE OTHER HALF OF THE PAIR. The base card grid is near the top of
-   this file; feed, home and post-detail use it, this one serves
-   space-detail alone. A full-width child needs a row in both, or it
-   renders correctly on one screen and collapses into an implicit column
-   on the other — see the note on the base grid. */
+/* THE card grid — one, for every screen that draws a post. The
+   five-column half that used to live near the top of this file is gone;
+   see the note there for why this geometry won.
+
+   ⚠ A NEW FULL-WIDTH CHILD STILL NEEDS A ROW HERE, in BOTH the classic
+   areas string and the modern one below. Miss it and the child does not
+   fall back: the browser cannot find an area name, invents an implicit
+   column, and squeezes it against the card's right edge. `comments` and
+   `faces` were added for children[30] and [31]; the comment strip
+   shipped for ten minutes without them and its author names wrapped one
+   word per line. */
 .appza-renderer-ss[data-slug="fc-post-card"] {
   display: grid;
   grid-template-columns: 14px 40px auto auto 1fr auto 14px;
@@ -3515,12 +3521,13 @@
     ".       audio   audio   audio   audio   audio   ."
     ".       docs    docs    docs    docs    docs    ."
     ".       react   react   react   react   react   ."
+    "comments comments comments comments comments comments comments"
     "chdr    chdr    chdr    chdr    chdr    chdr    chdr"
     "ctime   ctime   ctime   ctime   ctime   ctime   ctime"
     "cbody   cbody   cbody   cbody   cbody   cbody   cbody"
     "cfoot   cfoot   cfoot   cfoot   cfoot   cfoot   cfoot"
     ".       viewmore viewmore viewmore viewmore viewmore .";
-  grid-template-rows: auto auto auto auto auto auto auto auto auto auto auto auto auto auto auto;
+  grid-template-rows: auto auto auto auto auto auto auto auto auto auto auto auto auto auto auto auto;
   column-gap: 8px;
   row-gap: 0;
   padding: 0;
@@ -3551,6 +3558,7 @@
     ".       audio   audio   audio   audio   audio   ."
     ".       docs    docs    docs    docs    docs    ."
     ".       react   react   react   react   react   ."
+    "comments comments comments comments comments comments comments"
     "chdr    chdr    chdr    chdr    chdr    chdr    chdr"
     "ctime   ctime   ctime   ctime   ctime   ctime   ctime"
     "cbody   cbody   cbody   cbody   cbody   cbody   cbody"
@@ -10219,3 +10227,192 @@ audio.appza-video-embed-native {
    the authored colour does. `data-appza-can-post` stays on the wrapper
    because it is what makes the state visible to a test and to anyone
    reading the DOM.                                                     */
+
+/* ==========================================================
+ * appza-comment-list — the inline comment strip under a feed
+ * post (Noor's designs 19, 25, 26).
+ *
+ * One grid per ROW rather than one per strip, so a row sizes
+ * to its own text and the strip can grow to `max_rows`
+ * without the card's grid learning anything about comments.
+ *
+ * Plain on the card's own surface. The old per-child block it
+ * replaces drew a grey box behind the whole strip, faked with
+ * box-shadow to bridge the gaps between rows; the designs draw
+ * no fill at all.
+ * ========================================================== */
+.appza-comment-list {
+  display: block;
+  padding: 10px 14px 4px;
+  /* The hairline between the action strip and the comments
+     (designs 19, 26). Full-bleed like the one above the
+     actions, so the two read as the same rule. */
+  border-top: 1px solid #e5e7eb;
+  margin-top: 2px;
+}
+.appza-comment-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  grid-template-areas:
+    'avatar name    actions'
+    'avatar time    actions'
+    '.      body    body'
+    '.      foot    foot';
+  column-gap: 8px;
+  row-gap: 1px;
+  padding: 6px 0 8px;
+}
+.appza-comment-avatar {
+  grid-area: avatar;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  align-self: start;
+  margin-top: 2px;
+}
+.appza-comment-avatar-empty {
+  background: #e5e7eb;
+  display: inline-block;
+}
+.appza-comment-name {
+  grid-area: name;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #111827;
+  align-self: center;
+}
+.appza-comment-time {
+  grid-area: time;
+  font-size: 0.7rem;
+  color: #9ca3af;
+}
+.appza-comment-actions {
+  grid-area: actions;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 2px;
+}
+/* The pin sits LEFT of the ⋮ on a pinned comment (design 26). */
+.appza-comment-pin {
+  color: #2563eb;
+  font-size: 15px;
+  margin-top: 4px;
+}
+.appza-comment-menu {
+  border: 0;
+  background: transparent;
+  padding: 0 2px;
+  margin: 0;
+  color: #6b7280;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.appza-comment-body {
+  grid-area: body;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #374151;
+  min-width: 0;
+  padding-top: 2px;
+}
+/* The proxy hands the body through as sanitized HTML, so it arrives
+   wrapped in <p>. Those margins would double the row's height. */
+.appza-comment-body p {
+  margin: 0;
+}
+.appza-comment-body p + p {
+  margin-top: 6px;
+}
+.appza-comment-foot {
+  grid-area: foot;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding-top: 4px;
+}
+.appza-comment-reply {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+}
+.appza-comment-like {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #6b7280;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.appza-comment-like ion-icon {
+  font-size: 15px;
+}
+.appza-comment-view-all {
+  border: 0;
+  background: transparent;
+  padding: 6px 0 8px;
+  margin: 0;
+  display: block;
+  font-size: 0.8rem;
+  color: #374151;
+  cursor: pointer;
+  text-align: left;
+}
+
+/* Overlapping faces beside the counts (designs 14, 19, 26). */
+.appza-avatar-stack {
+  display: inline-flex;
+  align-items: center;
+  flex-direction: row-reverse;
+  /* Reversed so the FIRST face ends up on top without z-index per
+     child — the natural paint order already stacks later siblings
+     above earlier ones. */
+}
+.appza-avatar-stack-face {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid #ffffff;
+  margin-right: -6px;
+}
+.appza-avatar-stack-face:first-child {
+  margin-right: 0;
+}
+
+
+/* children[30] — the inline comment strip. Full width, edge to edge: its
+   own padding supplies the 14px inset, and its top border has to meet
+   both card edges the way the action strip's hairline does. */
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="30"] {
+  grid-area: comments;
+  min-width: 0;
+}
+/* children[31] — the reaction faces (designs 14, 19), immediately left
+   of the like count on the action strip's row.
+
+   Placed by explicit ROW and COLUMN, not by area name, because that is
+   how children 13 and 14 are placed and an area name never overrides a
+   line-based placement (P125). Naming a `faces` area first put the stack
+   in column 6, directly on top of "2 comments".
+
+   Column 4 is the verified-badge column — auto-width and unused on this
+   row, so the stack sizes it and the 1fr at column 5 absorbs the
+   difference. Nothing above moves: the author name owns column 3. */
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="31"] {
+  grid-row: react-start / react-end;
+  grid-column: 4 / 5;
+  align-self: center;
+  justify-self: end;
+  padding-right: 6px;
+}

@@ -506,9 +506,20 @@ export function optionsSheetPresentation(
  */
 export function postMenuSheetPresentation(
   props: Record<string, unknown>,
+  /**
+   * The ACTION's own `sheet_title`, when it has one, and it WINS.
+   *
+   * One sheet AppZet frames both the post menu and the comment menu, so
+   * its authored eyebrow can only say one thing — it says POST. Design
+   * 24's comment sheet says COMMENT. The action knows which menu it is
+   * opening and the shared frame cannot, so the more specific value has
+   * to win; reading the AppZet first just returns 'POST' forever, which
+   * is what it did on the first attempt.
+   */
+  eyebrowOverride?: string,
 ): PostMenuSheetPresentation {
   return {
-    eyebrow: str(props.eyebrow) ?? 'POST',
+    eyebrow: eyebrowOverride ?? str(props.eyebrow) ?? 'POST',
     hidden: bool(props.hidden, false),
     showHandle: bool(props.show_handle, true),
     showEyebrow: bool(props.show_eyebrow, true),

@@ -379,6 +379,13 @@ export function App() {
     title: string;
     message: string;
     cta: string;
+    /**
+     * Extra keys merged into the request body. A COMMENT is addressed by
+     * both its own id and its post's — every fcom-mobile comment route
+     * wants the pair — and the confirm dialog is otherwise identical to
+     * the post's, so it carries the second id rather than being forked.
+     */
+    extraBody?: Record<string, unknown>;
   };
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [deleteInFlight, setDeleteInFlight] = useState(false);
@@ -2062,7 +2069,10 @@ export function App() {
                               Accept: 'application/json',
                               Authorization: basicAuthHeader(auth),
                             },
-                            body: JSON.stringify({ [pendingDelete.bodyKey]: pendingDelete.feedId }),
+                            body: JSON.stringify({
+                  [pendingDelete.bodyKey]: pendingDelete.feedId,
+                  ...(pendingDelete.extraBody ?? {}),
+                }),
                           });
                           const json = await res.json().catch(() => null);
                           const status = (json && typeof json === 'object' && 'response' in json)
@@ -2657,6 +2667,8 @@ type AppModeActionDeps = {
     title: string;
     message: string;
     cta: string;
+    /** Extra body keys — a comment carries its post's id too. */
+    extraBody?: Record<string, unknown>;
   }) => void;
   // Session-scoped tracker of (feed_id, react_type) pairs the viewer has
   // toggled on. Passed as a mutable Set so the dispatcher can add/delete
@@ -3503,6 +3515,10 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
+    // A comment's delete is the post's, with a second id and different
+    // wording. Same confirm dialog on purpose — design 24 shows no
+    // separate one, and two dialogs would drift.
+    case 'comment.delete':
     case 'post.delete': {
       // Overflow-menu → delete. Read feed_id off the tapped item using the
       // action's `feed_id_path` binding (defaults to `data.id`) and open the
@@ -3548,7 +3564,30 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         onLoginError('Could not identify which post to delete.');
         return;
       }
-      openDeleteConfirm({ feedId, endpoint, method, bodyKey, title, message, cta });
+      // The parent id, when the action names one.
+      let extraBody: Record<string, unknown> | undefined;
+      const parentBodyKey =
+        typeof argRec.parent_body_key === 'string' && argRec.parent_body_key
+          ? argRec.parent_body_key
+          : null;
+      if (parentBodyKey) {
+        const parentPath =
+          typeof argRec.parent_id_path === 'string' ? argRec.parent_id_path : 'data.post_id';
+        const pk = parentPath.startsWith('data.') ? parentPath.slice(5) : parentPath;
+        const rawParent = itemRec ? (itemRec as Record<string, unknown>)[pk] : undefined;
+        const parentId =
+          typeof rawParent === 'number'
+            ? rawParent
+            : typeof rawParent === 'string' && rawParent !== '' && !Number.isNaN(Number(rawParent))
+              ? Number(rawParent)
+              : null;
+        if (parentId === null) {
+          onLoginError('Could not identify which post this comment belongs to.');
+          return;
+        }
+        extraBody = { [parentBodyKey]: parentId };
+      }
+      openDeleteConfirm({ feedId, endpoint, method, bodyKey, title, message, cta, extraBody });
       return;
     }
 
@@ -3558,6 +3597,11 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     // disable_comments) are handled fully in the mobile shell. Tapping
     // an item in the simulator will log a no-op warning — that's fine
     // for preview UX, and matches what post.delete already does here.
+    // The COMMENT menu (designs 24, 25) — same popover, different list.
+    // The popover is about GATED ROWS, not about posts: every row's
+    // visible_when resolves against whatever item was bound, and the
+    // comment strip binds a comment.
+    case 'comment.options':
     case 'post.options': {
       const rawItems = Array.isArray(argRec.items) ? argRec.items : [];
       const items = rawItems
@@ -3594,6 +3638,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
               appzetSlug: menuSheetSlug,
               presentation: postMenuSheetPresentation(
                 readAppzetPropsFromCatalog(menuSheetSlug),
+                typeof argRec.sheet_title === 'string' ? argRec.sheet_title : undefined,
               ),
               childStyles: childStylesFromCustomizations(
                 menuSheetSlug,
@@ -3611,6 +3656,9 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     // with the mobile shell via @appza/renderer's tryHandlePostMenuAction.
     // Edit is NOT in this set — it now dispatches from the appbar CTA on
     // edit-post-page (a full form flow), see the post.edit case below.
+    case 'comment.copy_link':
+    case 'comment.pin':
+    case 'comment.report':
     case 'post.copy_link':
     case 'post.pin_top':
     case 'post.pin_sidebar':
