@@ -22,6 +22,7 @@ import { useSearchControls } from './searchControls';
 import { usePostDraft, postDraftStateEntries } from './postDraft';
 import { useDocumentDraft } from './documentDraft';
 import { useFcRuntimeSettings } from './fcRuntimeSettings';
+import { useViewer, viewerStateEntries } from './viewer';
 
 type ScreenRendererProps = {
   screen: TemplateScreen;
@@ -100,6 +101,10 @@ export function ScreenRenderer({
   // rebuilt when that slice moves.
   const documentDraft = useDocumentDraft();
   const fcSettings = useFcRuntimeSettings();
+  // Who is looking. Subscribed here so every placement gate re-evaluates
+  // on sign-in and sign-out — a guest feed and a member feed are not the
+  // same screen, and the difference must not wait for another render.
+  const viewer = useViewer();
   // Placement-level visible_when reads out of this bag via
   // `binding.slice(6)` (i.e. `state.<key>` → `<key>`). Register nested
   // paths as flat keys so `state.space_detail_controls.active_subtab`
@@ -172,6 +177,11 @@ export function ScreenRenderer({
       // composer hides, which is what makes Noor's design 4 a catalog
       // decision (P75).
       ...postDraftStateEntries(postDraft),
+      // The viewer. `viewer.is_guest` is the key a screen branches on —
+      // signed out AND allowed to be here — rather than a bare
+      // !is_logged_in, which is also true on a locked site where the
+      // screen should never have rendered. See viewer.ts.
+      ...viewerStateEntries(viewer),
     }),
     [
       spacesControls.tab,
@@ -211,6 +221,11 @@ export function ScreenRenderer({
       // bar would not change until something else moved.
       postDraft,
       documentDraft,
+      // The whole viewer, not its two fields: viewerStateEntries also
+      // derives `is_guest` from the SITE's access level, so the bag has
+      // to be rebuilt when the settings land as well.
+      viewer,
+      fcSettings,
     ],
   );
 

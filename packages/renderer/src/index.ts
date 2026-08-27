@@ -194,7 +194,23 @@ export {
   type FcPostTitlePref,
   type FcRichPostLayout,
   type FcVideoUploadRole,
+  getFcFeedSettings,
+  getFcAccessSettings,
+  resolveFeedSortOptions,
+  type FcFeedSettings,
+  type FcFeedLayout,
+  type FcFeedSortOption,
+  type FcAccessSettings,
+  type FcAccessLevel,
 } from './fcRuntimeSettings';
+export {
+  getViewer,
+  setViewer,
+  useViewer,
+  canBrowseAsGuest,
+  viewerStateEntries,
+  type ViewerState,
+} from './viewer';
 export {
   MemberOptionsSheet,
   openMemberOptionsSheet,

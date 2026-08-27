@@ -25,6 +25,8 @@ import {
   INVITE_USER_CHILD_COUNT,
   setCatalogGlobal,
   setFcRuntimeSettings,
+  setViewer,
+  canBrowseAsGuest,
   getFcRuntimeSettings,
   setFeedControls,
   setRouteParams,
@@ -1426,16 +1428,35 @@ export function App() {
     [auth],
   );
 
+  // Publish the viewer into the renderer's state bag. The simulator has
+  // its own auth state (the in-app sign-in inside the device frame), and
+  // it has to reach the same slice the mobile shell writes — otherwise a
+  // `state.viewer.*` gate answers differently on the two surfaces, which
+  // is exactly the seam P86 warns about.
+  useEffect(() => {
+    setViewer({
+      is_logged_in: !!auth,
+      user_id: auth && typeof auth.user_id === 'number' ? auth.user_id : null,
+    });
+  }, [auth]);
+
   // App-mode gate: when the user has no stored auth token, force the
   // login-page screen so they can't reach the composer / feed writes
   // before authenticating. Applies only when the App-mode preview is
   // active (Edit mode is a design-time surface — the auth gate would be
   // annoying and pointless there). Runs whenever uiMode flips to 'app'
   // or the catalog is loaded, and gets deferred until screens exist.
+  //
+  // Guest arc: on a site whose access level is `public` there is nothing
+  // to force — a signed-out viewer reads the feed, and the login screen
+  // is somewhere they GO when they try to write. Asking
+  // canBrowseAsGuest() here is safe because applyFcRuntimeSettings runs
+  // with the envelope, before any of this can fire.
   useEffect(() => {
     if (uiMode !== 'app') return;
     if (!catalog) return;
     if (auth) return;
+    if (canBrowseAsGuest()) return;
     const login = catalog.template_screens?.find(
       (s) => s.app_map_screen_slug === 'login-page',
     );

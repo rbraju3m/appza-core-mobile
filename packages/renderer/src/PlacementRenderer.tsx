@@ -22,6 +22,7 @@ import { setBookmarkControls, useBookmarkControls } from './bookmarkControls';
 import { publishSearchFetchView, useSearchControls } from './searchControls';
 import { useDocumentDraft } from './documentDraft';
 import { getFcRuntimeSettings, useFcRuntimeSettings } from './fcRuntimeSettings';
+import { useViewer, viewerStateEntries } from './viewer';
 import { getPostDraft, postDraftStateEntries, usePostDraft } from './postDraft';
 import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
 
@@ -197,6 +198,11 @@ export function PlacementRenderer({
   // to mark its active tab, and the two verdicts are published from
   // here after the levels and ranks fetches land.
   const leaderboardControls = useLeaderboardControls();
+  // The viewer. Read unconditionally for stable hook order, same as
+  // every slice above — a child's visible_when can gate on
+  // `state.viewer.is_logged_in`, which is how the composer teaser
+  // disappears on a logged-out feed (design 17).
+  const viewer = useViewer();
   // Saved Posts controls. Read unconditionally for stable hook order,
   // same as every slice above — the toolbar reflects sort and layout,
   // fc-bookmarks binds search and sort as query params, and the
@@ -378,6 +384,11 @@ export function PlacementRenderer({
   // Adding a state slice here is enough — grows the same way as
   // ScreenRenderer's stateBag.
   const localStateBag: Record<string, unknown> = {
+    // The viewer, keyed the same way ScreenRenderer keys it so a CHILD
+    // gate and a PLACEMENT gate read one vocabulary (P104).
+    ...Object.fromEntries(
+      Object.entries(viewerStateEntries(viewer)).map(([k, v]) => [`state.${k}`, v]),
+    ),
     'state.spaces_tab': spacesTab,
     'state.spaces_search': spacesSearch,
     'state.spaces_sort': spacesSort,

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { IonIcon } from '@ionic/react';
 
 import { resolveIcon } from './PrimitiveRenderer';
-import { usePostDraft } from './postDraft';
+import { usePostDraft, removePostDraftAudio, removePostDraftVideo } from './postDraft';
 import { AppzaDraftVideo } from './VideoSheet';
 import { AppzaDraftAudioList } from './AudioPlayerRow';
 import { AppzaPollPreview } from './PollSheet';
@@ -140,6 +140,21 @@ export function AppzaPostPreview({ overrides }: PostPreviewProps) {
   // stylable when the draft carries nothing.
   const images = draft.images;
   const audios = draft.audios;
+  // The discard badge, designs 21 and 23 — a `×` on the video and on
+  // each audio row, INSIDE the preview. Noor's call 2026-08-27: it
+  // discards exactly the way the composer's does, writing the same
+  // draft actions, so the two screens cannot disagree about what is
+  // attached.
+  //
+  // Photos deliberately have none: design 14 draws the tiles bare, and
+  // a `+2` tile is not a file you could remove anyway — it stands for
+  // several. Discarding an image stays a composer job.
+  //
+  // Design time draws it too, so the builder can style the badge.
+  const showRemove = bool(overrides, 'show_remove', true);
+  const removeIcon = str(overrides, 'remove_icon') || 'close';
+  const onRemoveAudio = showRemove ? removePostDraftAudio : undefined;
+  const onRemoveVideo = showRemove ? removePostDraftVideo : undefined;
   let media: React.ReactNode = null;
   if (audios.length > 0) {
     // Audio wins the media slot when it is the only thing attached, and
@@ -147,12 +162,25 @@ export function AppzaPostPreview({ overrides }: PostPreviewProps) {
     // where the photo would go.
     media = (
       <>
-        <AppzaDraftAudioList audios={audios} overrides={overrides} />
-        {draft.video ? <AppzaDraftVideo video={draft.video} /> : null}
+        <AppzaDraftAudioList
+          audios={audios}
+          overrides={overrides}
+          onRemove={onRemoveAudio}
+          removeIcon={removeIcon}
+        />
+        {draft.video ? (
+          <AppzaDraftVideo
+            video={draft.video}
+            onRemove={onRemoveVideo}
+            removeIcon={removeIcon}
+          />
+        ) : null}
       </>
     );
   } else if (draft.video) {
-    media = <AppzaDraftVideo video={draft.video} />;
+    media = (
+      <AppzaDraftVideo video={draft.video} onRemove={onRemoveVideo} removeIcon={removeIcon} />
+    );
   } else if (images.length > 0) {
     const shown = images.length > gridTiles ? images.slice(0, gridTiles) : images;
     const hidden = images.length - shown.length;

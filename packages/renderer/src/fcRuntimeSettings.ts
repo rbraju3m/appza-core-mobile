@@ -60,9 +60,58 @@ export type FcComposerSettings = {
   fluent_player: FcFluentPlayerSettings;
 };
 
+/** Settings → Customization → Default Feed Layout. */
+export type FcFeedLayout = 'timeline' | 'list' | 'card';
+
+export type FcFeedSortOption = { value: string; label: string };
+
+export type FcFeedSettings = {
+  /** The layout a viewer who has never chosen one starts on. */
+  default_layout: FcFeedLayout;
+  /** "Disable Layout Style Change" — the picker is not offered at all. */
+  layout_change_disabled: boolean;
+  /**
+   * The sort a viewer starts on. EMPTY STRING is a real answer meaning
+   * "the admin expressed no preference"; the shells fall back to
+   * `latest` the way the portal does, but the two are not the same
+   * stored value and must not be collapsed here.
+   */
+  default_sort_by: string;
+  /** "Disable Feed Sort By Options" — the picker is not offered at all. */
+  sort_change_disabled: boolean;
+  /**
+   * The site's sort rows, in FluentCommunity's own order. Does NOT
+   * include `following`: that row is per-viewer (Pro appends it only for
+   * a signed-in user) and is composed at render from
+   * `followers_module_enabled` + the auth state.
+   */
+  sort_options: FcFeedSortOption[];
+  followers_module_enabled: boolean;
+  /** Features → Content Moderation. Gates the whole In-Review surface. */
+  content_moderation_enabled: boolean;
+  /** Topics → "Show topics on post card" — the # pill. */
+  show_topic_on_post_card: boolean;
+};
+
+/** FluentCommunity's `access.acess_level` — their spelling, their key. */
+export type FcAccessLevel = 'public' | 'logged_in' | 'role_based';
+
+export type FcAccessSettings = {
+  access_level: FcAccessLevel;
+  /** Raw per-surface privacy answers; resolved against the viewer. */
+  privacy: {
+    members_page_status: string;
+    profile_page_visibility: string;
+    user_space_visibility: string;
+    leaderboard_members_visibility: string;
+  };
+};
+
 export type FcRuntimeSettings = {
   member_list_layout: FcMemberListLayout;
   composer: FcComposerSettings;
+  feed: FcFeedSettings;
+  access: FcAccessSettings;
 };
 
 const EVENT = 'appza:fc-runtime-settings-change';
@@ -95,9 +144,41 @@ const COMPOSER_DEFAULTS: FcComposerSettings = {
   fluent_player: PLAYER_DEFAULTS,
 };
 
+// FluentCommunity's own defaults, from Utility::getCustomizationSetting's
+// $defaults array — a site that has never opened the Customization screen
+// behaves in the app the way it behaves in the portal.
+const FEED_DEFAULTS: FcFeedSettings = {
+  default_layout: 'timeline',
+  layout_change_disabled: false,
+  default_sort_by: '',
+  sort_change_disabled: false,
+  sort_options: [],
+  followers_module_enabled: false,
+  content_moderation_enabled: false,
+  show_topic_on_post_card: true,
+};
+
+// Defaults to PUBLIC because that is FluentCommunity's default, and
+// because the failure modes are asymmetric: defaulting to locked would
+// bounce every guest to a login screen on a site that never asked for
+// one, on nothing more than a slow or partial envelope. The API is the
+// real gate — a guest who reaches a screen they may not read gets an
+// empty payload, not someone else's data.
+const ACCESS_DEFAULTS: FcAccessSettings = {
+  access_level: 'public',
+  privacy: {
+    members_page_status: '',
+    profile_page_visibility: '',
+    user_space_visibility: '',
+    leaderboard_members_visibility: '',
+  },
+};
+
 const DEFAULTS: FcRuntimeSettings = {
   member_list_layout: 'classic',
   composer: COMPOSER_DEFAULTS,
+  feed: FEED_DEFAULTS,
+  access: ACCESS_DEFAULTS,
 };
 
 let current: FcRuntimeSettings = DEFAULTS;
@@ -109,6 +190,32 @@ export function getFcRuntimeSettings(): FcRuntimeSettings {
 /** Convenience for the many composer call sites. */
 export function getFcComposerSettings(): FcComposerSettings {
   return current.composer;
+}
+
+/** Convenience for the feed toolbar + post card. */
+export function getFcFeedSettings(): FcFeedSettings {
+  return current.feed;
+}
+
+export function getFcAccessSettings(): FcAccessSettings {
+  return current.access;
+}
+
+/**
+ * The sort rows to actually draw, which is a question about the SITE and
+ * the VIEWER at once — the split P105 describes, composed at the one
+ * point where both halves are known.
+ *
+ * FluentCommunity Pro's FollowHandler appends `Following` to the portal's
+ * own list when the followers module is on AND someone is signed in. It
+ * cannot be pre-resolved into bootstrap (cached, public-read), so it is
+ * added here instead, in the same last position the filter puts it.
+ */
+export function resolveFeedSortOptions(isLoggedIn: boolean): FcFeedSortOption[] {
+  const base = current.feed.sort_options;
+  if (!current.feed.followers_module_enabled || !isLoggedIn) return base;
+  if (base.some((o) => o.value === 'following')) return base;
+  return [...base, { value: 'following', label: 'Following' }];
 }
 
 function pickString<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
@@ -147,6 +254,61 @@ function normalizePlayer(raw: unknown, base: FcFluentPlayerSettings): FcFluentPl
     audio_upload_enabled: pickBool(raw.audio_upload_enabled, base.audio_upload_enabled),
     max_audios_per_post: pickCount(raw.max_audios_per_post, base.max_audios_per_post),
     play_embedded_videos: pickBool(raw.play_embedded_videos, base.play_embedded_videos),
+  };
+}
+
+function normalizeFeed(raw: unknown, base: FcFeedSettings): FcFeedSettings {
+  if (!isRecord(raw)) return base;
+
+  // A malformed or absent list keeps the current one. An EMPTY list is
+  // kept too rather than treated as absent: a site whose sort options
+  // were all filtered away has genuinely no rows, and substituting the
+  // previous list there would offer sorts the API will not honour.
+  const options = Array.isArray(raw.sort_options)
+    ? raw.sort_options
+        .filter(isRecord)
+        .filter((o) => typeof o.value === 'string' && typeof o.label === 'string')
+        .map((o) => ({ value: o.value as string, label: o.label as string }))
+    : base.sort_options;
+
+  return {
+    default_layout: pickString(
+      raw.default_layout,
+      ['timeline', 'list', 'card'] as const,
+      base.default_layout,
+    ),
+    layout_change_disabled: pickBool(raw.layout_change_disabled, base.layout_change_disabled),
+    // Not run through pickString against the option list — '' is the
+    // "no preference" answer and has to survive.
+    default_sort_by: typeof raw.default_sort_by === 'string' ? raw.default_sort_by : base.default_sort_by,
+    sort_change_disabled: pickBool(raw.sort_change_disabled, base.sort_change_disabled),
+    sort_options: options,
+    followers_module_enabled: pickBool(raw.followers_module_enabled, base.followers_module_enabled),
+    content_moderation_enabled: pickBool(
+      raw.content_moderation_enabled,
+      base.content_moderation_enabled,
+    ),
+    show_topic_on_post_card: pickBool(raw.show_topic_on_post_card, base.show_topic_on_post_card),
+  };
+}
+
+function normalizeAccess(raw: unknown, base: FcAccessSettings): FcAccessSettings {
+  if (!isRecord(raw)) return base;
+  const privacy = isRecord(raw.privacy) ? raw.privacy : {};
+  const pick = (k: keyof FcAccessSettings['privacy']) =>
+    typeof privacy[k] === 'string' ? (privacy[k] as string) : base.privacy[k];
+  return {
+    access_level: pickString(
+      raw.access_level,
+      ['public', 'logged_in', 'role_based'] as const,
+      base.access_level,
+    ),
+    privacy: {
+      members_page_status: pick('members_page_status'),
+      profile_page_visibility: pick('profile_page_visibility'),
+      user_space_visibility: pick('user_space_visibility'),
+      leaderboard_members_visibility: pick('leaderboard_members_visibility'),
+    },
   };
 }
 
@@ -195,6 +357,8 @@ export function setFcRuntimeSettings(patch: Record<string, unknown>): void {
       current.member_list_layout,
     ),
     composer: normalizeComposer(patch.composer, current.composer),
+    feed: normalizeFeed(patch.feed, current.feed),
+    access: normalizeAccess(patch.access, current.access),
   };
 
   if (JSON.stringify(next) === JSON.stringify(current)) return;

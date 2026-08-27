@@ -141,6 +141,8 @@ import {
   type MemberRoleOption,
   type PostMenuItem,
   type ViewModeOption,
+  setViewer,
+  canBrowseAsGuest,
 } from '@appza/renderer';
 import {
   BootstrapEnvelopeSchema,
@@ -629,6 +631,10 @@ type ActionDeps = {
   // Cleared by nav.push so a fresh Edit tap re-prefills; read by the
   // prefill useEffect to skip when already done for this visit.
   screenPrefilledRef: React.MutableRefObject<Record<string, true>>;
+  // The guest write guard. Navigates to the login screen and returns
+  // false when nobody is signed in; see the definition in App() for why
+  // this is a guard at write time rather than a gate on the control.
+  requireAuthOrLogin: () => boolean;
 };
 
 export function App() {
@@ -737,6 +743,17 @@ export function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Publish the viewer into the renderer's state bag, in the SAME effect
+  // shape the window globals use — every sign-in and sign-out has to
+  // reach both, or a placement gate and a fetch header disagree about
+  // who is asking.
+  useEffect(() => {
+    setViewer({
+      is_logged_in: !!auth,
+      user_id: auth && typeof auth.user_id === 'number' ? auth.user_id : null,
+    });
+  }, [auth]);
 
   // Clear session state on logout.
   useEffect(() => {
@@ -856,17 +873,38 @@ export function App() {
             ),
           },
         };
-        // Guest boots to first screen; unauthenticated users see the
-        // login-page screen (if one exists) so write actions have credentials.
         const catalog = gated.catalog;
         const storedAuth = readStoredAuth();
+
+        // Settings FIRST, screen SECOND. The boot decision below asks
+        // canBrowseAsGuest(), which reads the site's access level out of
+        // the runtime settings — asking before they are hydrated would
+        // answer from the defaults every time and send a guest to the
+        // feed on a locked-down site.
+        applyFcRuntimeSettings(gated);
+        setViewer({
+          is_logged_in: !!storedAuth,
+          user_id: storedAuth && typeof storedAuth.user_id === 'number' ? storedAuth.user_id : null,
+        });
+
+        // Where a signed-out visitor lands.
+        //
+        // This used to be "login-page, always". Noor's guest arc changes
+        // it to follow the PORTAL: on a site whose access level is
+        // `public` a guest reads the feed like anyone else, and the login
+        // screen is somewhere they GO when they try to write (design 17).
+        // On a `logged_in` or `role_based` site nothing has changed —
+        // they still land on login, because there is nothing to read.
+        //
+        // A signed-in viewer always lands on the first screen; being
+        // signed in is what the login screen was for.
         const login = catalog.template_screens?.find(
           (s) => s.app_map_screen_slug === 'login-page',
         );
         const first = catalog.template_screens?.[0];
-        const target = !storedAuth && login ? login : first;
+        const needsLogin = !storedAuth && !canBrowseAsGuest();
+        const target = needsLogin && login ? login : first;
         setSelectedScreenId(target ? target.id : null);
-        applyFcRuntimeSettings(gated);
         setState({ kind: 'ok', envelope: gated });
       })
       .catch((err) => {
@@ -1334,6 +1372,40 @@ export function App() {
     [auth],
   );
 
+  /**
+   * The guest write guard.
+   *
+   * Noor's call for the guest arc: a signed-out viewer who taps like,
+   * comment or bookmark is taken to the LOGIN SCREEN, not told off by a
+   * toast. The action strip still draws on a logged-out feed (design 17),
+   * so this is a guard at the moment of writing rather than a gate on the
+   * control — hiding the icons would deviate from the design.
+   *
+   * Returns true when the caller may proceed. When it returns false it
+   * has ALREADY navigated, so the caller must simply stop.
+   *
+   * The current screen is pushed onto the stack before leaving, so the
+   * back arrow — and the post-login pop — return the viewer to the thing
+   * they were trying to act on rather than to the top of the feed.
+   */
+  const requireAuthOrLogin = useCallback((): boolean => {
+    if (auth) return true;
+    const login = catalog?.template_screens?.find(
+      (s) => s.app_map_screen_slug === 'login-page',
+    );
+    if (!login) {
+      // A template with no login screen cannot ask anyone to sign in.
+      // Say so rather than swallowing the tap in silence.
+      setErrorToast('Please sign in to do that.');
+      return false;
+    }
+    if (selectedScreenId != null && selectedScreenId !== login.id) {
+      setScreenStack((prev) => [...prev, selectedScreenId]);
+    }
+    setSelectedScreenId(login.id);
+    return false;
+  }, [auth, catalog, selectedScreenId]);
+
   const dispatchAction = useCallback<ActionDispatch>(
     (inv: ActionInvocation) => {
       handleAction(inv, {
@@ -1358,6 +1430,7 @@ export function App() {
         clearPendingVideo,
         screenContextRef,
         screenPrefilledRef,
+        requireAuthOrLogin,
       });
     },
     [
@@ -1365,6 +1438,7 @@ export function App() {
       selectedScreenId,
       auth,
       setAuth,
+      requireAuthOrLogin,
       openDeleteConfirm,
       openCommentPanel,
       openImagePicker,
@@ -1977,6 +2051,7 @@ function seedEditDraftFromPost(item: unknown): void {
 
 function handleAction(inv: ActionInvocation, deps: ActionDeps) {
   const {
+    requireAuthOrLogin,
     catalog,
     currentScreenId,
     setSelectedScreenId,
@@ -2244,8 +2319,13 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         onError(`${action_slug} is missing its endpoint.`);
         return;
       }
+      // A guest tapping the heart or the bookmark goes to the login
+      // screen and comes back — the strip is drawn for them (design 17),
+      // so the tap has to lead somewhere. Written as a check on `auth`
+      // rather than on the guard's return so the narrowing below still
+      // holds; the guard is what NAVIGATES.
       if (!auth) {
-        onError('Please sign in to react.');
+        requireAuthOrLogin();
         return;
       }
       const key = feedIdPath.startsWith('data.') ? feedIdPath.slice(5) : feedIdPath;
@@ -2367,7 +2447,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         return;
       }
       if (!auth) {
-        onError('Please sign in to comment.');
+        requireAuthOrLogin();
         return;
       }
       const key = feedIdPath.startsWith('data.') ? feedIdPath.slice(5) : feedIdPath;
@@ -2417,7 +2497,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         return;
       }
       if (!auth) {
-        onError('Please sign in to vote.');
+        requireAuthOrLogin();
         return;
       }
       // AppzaPollBlock puts vote_indexes on the item it dispatches with;
