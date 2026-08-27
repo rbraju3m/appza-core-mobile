@@ -1087,9 +1087,38 @@ export function App() {
     },
     [auth],
   );
+  /**
+   * The guest write guard — the simulator's copy of the mobile shell's.
+   *
+   * Noor's call: a signed-out viewer who taps like, comment or bookmark
+   * goes to the LOGIN SCREEN rather than getting a toast. The action
+   * strip still draws for them (design 17), so the tap has to lead
+   * somewhere.
+   *
+   * Kept behaviourally identical to `requireAuthOrLogin` in
+   * packages/mobile — the two surfaces sharing a renderer but not a
+   * shell is exactly the seam that hides a whole class of bug (P86).
+   */
+  const requireAuthOrLogin = useCallback((): boolean => {
+    if (auth) return true;
+    const login = catalog?.template_screens?.find(
+      (s) => s.app_map_screen_slug === 'login-page',
+    );
+    if (!login) {
+      setAuthMessage('Please sign in to do that.');
+      return false;
+    }
+    if (selectedScreenId != null && selectedScreenId !== login.id) {
+      setScreenStack((prev) => [...prev, selectedScreenId]);
+    }
+    setSelectedScreenId(login.id);
+    return false;
+  }, [auth, catalog, selectedScreenId]);
+
   const dispatchAction = useCallback<ActionDispatch>(
     (inv: ActionInvocation) => {
       handleAppModeAction(inv, {
+        requireAuthOrLogin,
         catalog: catalog ?? null,
         currentScreenId: selectedScreenId,
         setSelectedScreenId,
@@ -2601,6 +2630,9 @@ type AppModeActionDeps = {
   auth: StoredAuth | null;
   setAuth: (a: StoredAuth | null) => void;
   onLoginError: (message: string) => void;
+  // The guest write guard. Navigates to the login screen and returns
+  // false when nobody is signed in.
+  requireAuthOrLogin: () => boolean;
   onLoginSuccess: () => void;
   onMenuInfo: (message: string) => void;
   onMenuError: (message: string) => void;
@@ -3040,6 +3072,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     auth,
     setAuth,
     onLoginError,
+    requireAuthOrLogin,
     onLoginSuccess,
     onMenuInfo,
     onMenuError,
@@ -3819,7 +3852,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         return;
       }
       if (!auth) {
-        onLoginError('Please sign in to react.');
+        requireAuthOrLogin();
         return;
       }
       const key = feedIdPath.startsWith('data.') ? feedIdPath.slice(5) : feedIdPath;
@@ -3957,7 +3990,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         return;
       }
       if (!auth) {
-        onLoginError('Please sign in to comment.');
+        requireAuthOrLogin();
         return;
       }
       const key = feedIdPath.startsWith('data.') ? feedIdPath.slice(5) : feedIdPath;
@@ -4005,7 +4038,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         return;
       }
       if (!auth) {
-        onLoginError('Please sign in to vote.');
+        requireAuthOrLogin();
         return;
       }
       const voteIndexesRaw =
