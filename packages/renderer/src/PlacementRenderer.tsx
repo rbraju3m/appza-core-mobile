@@ -871,33 +871,42 @@ export function PlacementRenderer({
             // the catalog gated — DOCUMENTS drew there even with the
             // space's document library switched off.
             //
-            // Carry the gate across by matching on `value`. An entry
-            // that names its own requires_permission keeps it.
+            // `on_click_action` is the same kind of key. It names the
+            // EVENT an entry fires, which the AppZet's actions map
+            // resolves — CHAT uses it to PUSH the conversation screen
+            // instead of switching a sub-tab. The sanitizer drops it
+            // too, so an override of a list containing CHAT would leave
+            // that tab switching to a sub-tab nothing renders.
+            //
+            // Carry both across by matching on `value`. An entry that
+            // names its own keeps it.
+            const CATALOG_OWNED_ENTRY_KEYS = ['requires_permission', 'on_click_action'] as const;
             const baseEntries = (appzet.default_props_override ?? {})[propName];
             let nextValue: unknown = configValue;
             if (Array.isArray(nextValue) && Array.isArray(baseEntries)) {
-              const gates = new Map<string, string>();
+              // value → { key → catalog value }, for the keys above only.
+              const owned = new Map<string, Record<string, string>>();
               for (const base of baseEntries) {
-                if (
-                  isRecord(base) &&
-                  typeof base.value === 'string' &&
-                  typeof base.requires_permission === 'string' &&
-                  base.requires_permission !== ''
-                ) {
-                  gates.set(base.value, base.requires_permission);
+                if (!isRecord(base) || typeof base.value !== 'string') continue;
+                const keep: Record<string, string> = {};
+                for (const key of CATALOG_OWNED_ENTRY_KEYS) {
+                  const v = base[key];
+                  if (typeof v === 'string' && v !== '') keep[key] = v;
                 }
+                if (Object.keys(keep).length > 0) owned.set(base.value, keep);
               }
-              if (gates.size > 0) {
+              if (owned.size > 0) {
                 nextValue = nextValue.map((entry) => {
                   if (!isRecord(entry) || typeof entry.value !== 'string') return entry;
-                  if (
-                    typeof entry.requires_permission === 'string' &&
-                    entry.requires_permission !== ''
-                  ) {
-                    return entry;
+                  const keep = owned.get(entry.value);
+                  if (keep === undefined) return entry;
+                  const add: Record<string, string> = {};
+                  for (const key of CATALOG_OWNED_ENTRY_KEYS) {
+                    const own = entry[key];
+                    if (typeof own === 'string' && own !== '') continue;
+                    if (keep[key] !== undefined) add[key] = keep[key];
                   }
-                  const gate = gates.get(entry.value);
-                  return gate === undefined ? entry : { ...entry, requires_permission: gate };
+                  return Object.keys(add).length > 0 ? { ...entry, ...add } : entry;
                 });
               }
             }
