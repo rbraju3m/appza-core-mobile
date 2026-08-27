@@ -258,7 +258,12 @@ export function ScreenRenderer({
   // the feed's hamburger + search). NULL/empty falls back to template.
   const screenAppbar = readScreenAppbar(screen);
   const appbarPlacements = screenAppbar.length > 0 ? screenAppbar : templateChrome.appbar;
-  const navPlacements = templateChrome.nav;
+  // Per-screen nav override. Deliberately NOT the appbar's rule: here an
+  // EMPTY list is an answer, not a miss. null = inherit the template's
+  // nav; [] = this screen has none, which is what post-preview says
+  // (design 9 draws the preview with no footer).
+  const screenNav = readScreenNav(screen);
+  const navPlacements = screenNav ?? templateChrome.nav;
 
   const screenTitle = readScreenTitle(screen);
 
@@ -465,6 +470,30 @@ function readTemplateChrome(catalog: Catalog): {
 function readScreenAppbar(screen: TemplateScreen): ChromePlacement[] {
   const raw = (screen as unknown as Record<string, unknown>)['appbar_placements'];
   if (!Array.isArray(raw)) return [];
+  const out: ChromePlacement[] = [];
+  for (const entry of raw) {
+    if (entry && typeof entry === 'object' && 'appzet_slug' in entry) {
+      const slug = (entry as Record<string, unknown>)['appzet_slug'];
+      if (typeof slug === 'string' && slug.length > 0) {
+        out.push({ appzet_slug: slug });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Per-screen bottom-nav override.
+ *
+ * Returns null when the screen says nothing (inherit the template's nav)
+ * and an ARRAY when it does — including an empty one, which means this
+ * screen has no nav at all. That third state is the whole reason this
+ * exists and is why it cannot share readScreenAppbar's shape: the appbar
+ * falls back on an empty list, so it can never express "none".
+ */
+function readScreenNav(screen: TemplateScreen): ChromePlacement[] | null {
+  const raw = (screen as unknown as Record<string, unknown>)['nav_placements'];
+  if (!Array.isArray(raw)) return null;
   const out: ChromePlacement[] = [];
   for (const entry of raw) {
     if (entry && typeof entry === 'object' && 'appzet_slug' in entry) {
