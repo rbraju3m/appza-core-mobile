@@ -21,6 +21,7 @@ import { useBookmarkControls } from './bookmarkControls';
 import { useSearchControls } from './searchControls';
 import { usePostDraft, postDraftStateEntries } from './postDraft';
 import { useDocumentDraft } from './documentDraft';
+import { useFcRuntimeSettings } from './fcRuntimeSettings';
 
 type ScreenRendererProps = {
   screen: TemplateScreen;
@@ -98,6 +99,7 @@ export function ScreenRenderer({
   // document draft for the attach bar's gate, so the bag has to be
   // rebuilt when that slice moves.
   const documentDraft = useDocumentDraft();
+  const fcSettings = useFcRuntimeSettings();
   // Placement-level visible_when reads out of this bag via
   // `binding.slice(6)` (i.e. `state.<key>` → `<key>`). Register nested
   // paths as flat keys so `state.space_detail_controls.active_subtab`
@@ -264,6 +266,15 @@ export function ScreenRenderer({
     <IonApp
       className="appza-renderer-app"
       data-screen-slug={screen.app_map_screen_slug}
+      // FluentCommunity's Rich Media Post Layout, stamped on the root so
+      // the FEED card can honour it the way the preview already does.
+      // The preview reads the setting in TSX because it composes its own
+      // markup; fc-post-card is a Superstructure whose order is CSS, so
+      // the setting has to reach a selector. Modern lifts the media above
+      // the author block and runs it edge to edge; nothing else moves —
+      // poll and documents stay under the body in both layouts, which is
+      // the same rule PostPreview follows.
+      data-fc-rich-post-layout={fcSettings.composer.rich_post_layout}
       style={cssVars as React.CSSProperties}
     >
       <IonPage className="appza-renderer-page">

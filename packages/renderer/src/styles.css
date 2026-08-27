@@ -1125,6 +1125,46 @@
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
+/* MODERN — FluentCommunity's Rich Media Post Layout, stamped on the app
+   root by ScreenRenderer. The ONLY thing that moves is the media: it
+   lifts above the topic row and runs to the card's edges. Poll,
+   documents and audio stay under the body, because a survey does not
+   travel with the media (FC's own SurveyRenderer takes a `hasTopMedia`
+   prop for exactly that reason) and a document post has no rich media to
+   lift. Same rule PostPreview follows, which is the point — the preview
+   and the card have to agree. Verified against FC's own portal on this
+   site, 2026-08-27.
+
+   ⚠ THE PAIR AGAIN. space-detail needs the same override further down,
+   or the feed honours the setting and the space detail does not. */
+.appza-renderer-app[data-fc-rich-post-layout="modern"] .appza-renderer-ss[data-slug="fc-post-card"] {
+  grid-template-areas:
+    'media  media  media  media  media'
+    'topic  topic  topic  topic  topic'
+    'avatar name   verify .      menu'
+    'avatar byline byline byline byline'
+    'title  title  title  title  title'
+    'body   body   body   body   body'
+    'audio  audio  audio  audio  audio'
+    'poll   poll   poll   poll   poll'
+    'docs   docs   docs   docs   docs'
+    'actions actions actions actions actions';
+  /* Edge-to-edge media means cancelling the card's padding with a
+     negative margin, so the corners have to be clipped to the card's. */
+  overflow: hidden;
+}
+/* [7] gallery and [8] video-thumb are the two children that ride `media`,
+   mutually exclusive via visible_when. -14px cancels the card's padding
+   on three sides; the top one lifts the media to the card's edge.
+
+   Excluded on space-detail — that card has zero padding and gutter
+   COLUMNS instead, so its media is already edge-to-edge and this margin
+   would pull it 14px past the card on every side. Same `:not()` guard
+   the feed-only children below use. */
+.appza-renderer-app[data-fc-rich-post-layout="modern"]:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="7"],
+.appza-renderer-app[data-fc-rich-post-layout="modern"]:not([data-screen-slug="space-detail"]) .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="8"] {
+  margin: -14px -14px 0;
+}
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="0"] { grid-area: avatar; }
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="1"] {
   grid-area: name;
@@ -3558,6 +3598,59 @@
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
   margin: 8px 0;
+}
+/* MODERN, space-detail half. Same single change as the base grid: the
+   `image` row lifts to the top, everything else keeps its place. This
+   card's media is already edge-to-edge — its row spans the two 14px
+   gutter columns — so unlike the feed card it needs no negative margin,
+   and the card already clips (`overflow: hidden` above).
+
+   `chdr`/`ctime`/`cbody`/`cfoot`/`viewmore` are the inline-comment
+   footer, which is space-detail-only; they stay last in both layouts. */
+.appza-renderer-app[data-screen-slug="space-detail"][data-fc-rich-post-layout="modern"]
+  .appza-renderer-appzet-list[data-slug="fc-post-card"]
+  .appza-renderer-ss[data-slug="fc-post-card"] {
+  grid-template-areas:
+    "image   image   image   image   image   image   image"
+    "pill    pill    pill    pill    pill    pill    pill"
+    ".       avatar  name    verify  .       menu    ."
+    ".       avatar  byline  byline  byline  byline  ."
+    ".       title   title   title   title   title   ."
+    ".       body    body    body    body    body    ."
+    "poll    poll    poll    poll    poll    poll    poll"
+    ".       audio   audio   audio   audio   audio   ."
+    ".       docs    docs    docs    docs    docs    ."
+    ".       react   react   react   react   react   ."
+    "chdr    chdr    chdr    chdr    chdr    chdr    chdr"
+    "ctime   ctime   ctime   ctime   ctime   ctime   ctime"
+    "cbody   cbody   cbody   cbody   cbody   cbody   cbody"
+    "cfoot   cfoot   cfoot   cfoot   cfoot   cfoot   cfoot"
+    ".       viewmore viewmore viewmore viewmore viewmore .";
+}
+/* ⚠ Three children in this scope are pinned by explicit ROW NUMBER
+   rather than by area name, so the areas string above does not move
+   them and they have to be shifted by hand. Lifting `image` to row 1
+   pushes each of them down exactly one row.
+
+   Found the honest way: the topic pill kept its `grid-row: 1` and drew
+   ON TOP of the media, both measuring top:0 inside the card. An area
+   name never overrides a line-based placement — grep this scope for
+   `grid-row:` before adding a row to the areas string. */
+.appza-renderer-app[data-screen-slug="space-detail"][data-fc-rich-post-layout="modern"]
+  .appza-renderer-appzet-list[data-slug="fc-post-card"]
+  .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] {
+  grid-row: 2;
+}
+/* [2] time and [3] mood ride the byline row, which was 3 and is now 4.
+   Their `grid-column: name-start / verify-end` still resolves — those
+   implicit line names come from the area names, which modern keeps. */
+.appza-renderer-app[data-screen-slug="space-detail"][data-fc-rich-post-layout="modern"]
+  .appza-renderer-appzet-list[data-slug="fc-post-card"]
+  .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="2"],
+.appza-renderer-app[data-screen-slug="space-detail"][data-fc-rich-post-layout="modern"]
+  .appza-renderer-appzet-list[data-slug="fc-post-card"]
+  .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="3"] {
+  grid-row: 4;
 }
 [data-screen-slug="space-detail"] .appza-renderer-ss[data-slug="fc-post-card"] > * {
   grid-area: unset;
