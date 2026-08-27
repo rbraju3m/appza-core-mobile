@@ -861,9 +861,49 @@ export function PlacementRenderer({
         } else if (mergeIntoRaw.startsWith('prop:')) {
           const propName = mergeIntoRaw.slice('prop:'.length);
           if (propName.length > 0) {
+            // A `prop:` config REPLACES the catalog list wholesale, which
+            // is right for labels, order and hidden — those are the
+            // customer's call. It is wrong for `requires_permission`: a
+            // gate is catalog POLICY, and the admin API cannot even
+            // write one (SpaceConfigController's subtab sanitizer allows
+            // only value/label/hidden/icon/target_screen). So a space
+            // that saved a subtabs override silently un-gated every tab
+            // the catalog gated — DOCUMENTS drew there even with the
+            // space's document library switched off.
+            //
+            // Carry the gate across by matching on `value`. An entry
+            // that names its own requires_permission keeps it.
+            const baseEntries = (appzet.default_props_override ?? {})[propName];
+            let nextValue: unknown = configValue;
+            if (Array.isArray(nextValue) && Array.isArray(baseEntries)) {
+              const gates = new Map<string, string>();
+              for (const base of baseEntries) {
+                if (
+                  isRecord(base) &&
+                  typeof base.value === 'string' &&
+                  typeof base.requires_permission === 'string' &&
+                  base.requires_permission !== ''
+                ) {
+                  gates.set(base.value, base.requires_permission);
+                }
+              }
+              if (gates.size > 0) {
+                nextValue = nextValue.map((entry) => {
+                  if (!isRecord(entry) || typeof entry.value !== 'string') return entry;
+                  if (
+                    typeof entry.requires_permission === 'string' &&
+                    entry.requires_permission !== ''
+                  ) {
+                    return entry;
+                  }
+                  const gate = gates.get(entry.value);
+                  return gate === undefined ? entry : { ...entry, requires_permission: gate };
+                });
+              }
+            }
             (appzet as { default_props_override: Record<string, unknown> }).default_props_override = {
               ...(appzet.default_props_override ?? {}),
-              [propName]: configValue,
+              [propName]: nextValue,
             };
           }
         }
