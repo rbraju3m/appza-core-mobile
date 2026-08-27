@@ -143,6 +143,8 @@ import {
   type ViewModeOption,
   setViewer,
   canBrowseAsGuest,
+  PollVotersSheet,
+  openPollVotersSheet,
 } from '@appza/renderer';
 import {
   BootstrapEnvelopeSchema,
@@ -1719,6 +1721,7 @@ export function App() {
         <ChatMembersSheet />
         <ChatUserCard />
         <LeaderboardPointsSheet />
+        <PollVotersSheet />
       </ActionProvider>
 
       {errorToast && (
@@ -2828,6 +2831,40 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     // different list. Identical code because the popover is about GATED
     // ROWS, not about posts — every row's visible_when resolves against
     // whatever item was bound, and the comment strip binds a comment.
+    // The chevron on a voted poll row (designs 8, 9, 11, 12). Reads the
+    // endpoint out of the action's args like every other dispatcher —
+    // the action itself declares no write metadata, because
+    // ActionHttpMethod is writes-only by decision (DC#12 Q6).
+    case 'poll.voters': {
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      if (!endpoint) {
+        onError('poll.voters is missing its endpoint.');
+        return;
+      }
+      const feedIdPath =
+        typeof argRec.feed_id_path === 'string' ? argRec.feed_id_path : 'data.id';
+      const fk = feedIdPath.startsWith('data.') ? feedIdPath.slice(5) : feedIdPath;
+      const feedId = itemRec ? (itemRec as Record<string, unknown>)[fk] : undefined;
+      const optionSlug =
+        itemRec && typeof itemRec.option_slug === 'string' ? itemRec.option_slug : '';
+      if ((typeof feedId !== 'number' && typeof feedId !== 'string') || !optionSlug) {
+        onError('Could not identify which poll option to open.');
+        return;
+      }
+      openPollVotersSheet({
+        endpoint,
+        feedId,
+        optionSlug,
+        optionLabel:
+          itemRec && typeof itemRec.option_label === 'string' ? itemRec.option_label : undefined,
+        title: typeof argRec.sheet_title === 'string' ? argRec.sheet_title : 'Voters',
+        emptyMessage:
+          typeof argRec.empty_message === 'string' ? argRec.empty_message : 'No votes yet.',
+        authHeader: auth ? basicAuthHeader(auth) : undefined,
+      });
+      return;
+    }
+
     case 'comment.options':
     case 'post.options': {
       const rawItems = Array.isArray(argRec.items) ? argRec.items : [];

@@ -1541,47 +1541,54 @@
    count, each row overlaid on a progress bar reflecting its share of
    votes. Rows stay tappable at all times (change or clear the vote).
    Scoped to the primitive class so it's reusable across any SS. */
+/* No box. The poll used to sit in a tinted, bordered panel of its own;
+   designs 7 to 12 draw the rows directly on the card, and the card's
+   own gutters supply the inset. A box around a box read as a nested
+   card and pushed the rows 12px narrower than the body above them. */
 .appza-poll-block {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 8px;
-  padding: 12px;
+  gap: 6px;
+  background: transparent;
+  border: 0;
+  padding: 0;
 }
 .appza-poll-block-empty {
   color: #6b7280;
   font-size: 0.85rem;
   font-style: italic;
 }
+/* A poll row is a WHITE pill with a grey hairline, and the only colour
+   is the bar (designs 7 to 12). It used to be filled light blue on every
+   row, voted or not, which made design 7 — a poll nobody has answered —
+   look like one where every option had won. */
 .appza-poll-row {
   position: relative;
   display: block;
-  min-height: 34px;
+  min-height: 36px;
   padding: 0;
   border-radius: 6px;
   overflow: hidden;
-  background: #dbeafe;
+  background: #ffffff;
+  border: 1px solid #d8dce3;
   cursor: pointer;
-  font-size: 0.9rem;
-  color: #1e293b;
+  font-size: 0.85rem;
+  color: #1f2937;
 }
+/* The viewer's own pick reads through the CONTROL, not the row fill —
+   that is the single pixel that separates design 8 from design 9, and
+   giving the row its own tint would erase it. */
 .appza-poll-row-voted {
-  background: #bfdbfe;
-  font-weight: 600;
+  border-color: #a9c0f0;
 }
 .appza-poll-row-bar {
   position: absolute;
   top: 0;
   left: 0;
   bottom: 0;
-  background: #93c5fd;
+  background: #c2d4f7;
   transition: width 0.3s ease-out;
   z-index: 0;
-}
-.appza-poll-row-voted .appza-poll-row-bar {
-  background: #60a5fa;
 }
 .appza-poll-row-content {
   position: relative;
@@ -1596,9 +1603,43 @@
   flex: 1;
   line-height: 1.35;
 }
-.appza-poll-pct {
+.appza-poll-tally {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  font-size: 0.78rem;
+  color: #4b5563;
+  white-space: nowrap;
+}
+.appza-poll-pct,
+.appza-poll-count {
   font-variant-numeric: tabular-nums;
-  color: #1e40af;
+  color: #4b5563;
+}
+.appza-poll-dot {
+  color: #9ca3af;
+}
+/* The chevron into the voter list. Only drawn where somebody voted, and
+   it swallows the tap so opening the list cannot cast a vote — on a
+   single-choice poll that would move the viewer's pick. */
+.appza-poll-voters {
+  border: 0;
+  background: transparent;
+  padding: 0 0 0 2px;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  color: #4b5563;
+  cursor: pointer;
+}
+.appza-poll-voters ion-icon {
+  font-size: 13px;
+}
+/* "N Vote" under the options (every poll design). */
+.appza-poll-total {
+  font-size: 0.78rem;
+  color: #6b7280;
+  padding: 6px 2px 2px;
 }
 .appza-poll-block ion-radio,
 .appza-poll-block ion-checkbox {
@@ -10415,4 +10456,65 @@ audio.appza-video-embed-native {
   align-self: center;
   justify-self: end;
   padding-right: 6px;
+}
+
+/* The poll voters sheet (behind a voted row's chevron). */
+.appza-poll-voters-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  display: flex;
+  align-items: flex-end;
+  z-index: 60;
+}
+.appza-poll-voters-sheet {
+  width: 100%;
+  max-height: 60%;
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 14px 14px 0 0;
+  padding: 8px 0 16px;
+}
+.appza-poll-voters-handle {
+  display: block;
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: #d1d5db;
+  margin: 4px auto 10px;
+}
+.appza-poll-voters-title {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7280;
+  padding: 0 18px 10px;
+}
+.appza-poll-voters-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.appza-poll-voters-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+}
+.appza-poll-voters-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #e5e7eb;
+  flex: none;
+}
+.appza-poll-voters-name {
+  font-size: 0.86rem;
+  color: #111827;
+}
+.appza-poll-voters-empty {
+  padding: 12px 18px 18px;
+  font-size: 0.85rem;
+  color: #6b7280;
 }

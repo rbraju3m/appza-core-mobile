@@ -206,6 +206,11 @@ export {
 export { AppzaCommentList, type CommentEntry } from './CommentList';
 export { AppzaAvatarStack, type AvatarStackEntry } from './AvatarStack';
 export {
+  PollVotersSheet,
+  openPollVotersSheet,
+  type PollVotersOpenDetail,
+} from './PollVotersSheet';
+export {
   getViewer,
   setViewer,
   useViewer,

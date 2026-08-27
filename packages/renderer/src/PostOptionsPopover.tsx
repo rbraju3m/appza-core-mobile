@@ -140,42 +140,14 @@ function readPath(root: unknown, path: string): unknown {
   return readDataPath(root, path);
 }
 
-/**
- * Read an action's `param_schema.<field>.default` values from the catalog
- * cached on `window.__appzaCatalog` (published by both the mobile shell +
- * plugin-admin at bootstrap time). Returns `null` when the catalog is
- * unavailable or the action isn't listed. The dispatcher shells that use
- * this popover set the global via `setCatalogGlobal()` below.
- */
-export function readActionDefaultsFromCatalog(
-  actionSlug: string,
-): Record<string, unknown> | null {
-  if (typeof window === 'undefined') return null;
-  const cat = (window as unknown as { __appzaCatalog?: { actions?: unknown } })
-    .__appzaCatalog;
-  const actions = cat?.actions;
-  if (!Array.isArray(actions)) return null;
-  const row = actions.find(
-    (a): a is Record<string, unknown> =>
-      typeof a === 'object' &&
-      a !== null &&
-      (a as Record<string, unknown>).slug === actionSlug,
-  );
-  if (!row) return null;
-  const ps = row.param_schema;
-  if (typeof ps !== 'object' || ps === null) return null;
-  const defaults: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(ps as Record<string, unknown>)) {
-    if (
-      v &&
-      typeof v === 'object' &&
-      'default' in (v as Record<string, unknown>)
-    ) {
-      defaults[k] = (v as Record<string, unknown>).default;
-    }
-  }
-  return defaults;
-}
+// `readActionDefaultsFromCatalog` used to live here. It is catalog
+// access, not popover code, and PrimitiveRenderer needs it too — which
+// it cannot have while this module imports `resolveIcon` from
+// PrimitiveRenderer. Moved to catalogIndex (a leaf), re-exported here so
+// existing importers are untouched.
+export { readActionDefaultsFromCatalog } from './catalogIndex';
+import { readActionDefaultsFromCatalog } from './catalogIndex';
+
 
 /**
  * Publish the current catalog snapshot on `window.__appzaCatalog` so the

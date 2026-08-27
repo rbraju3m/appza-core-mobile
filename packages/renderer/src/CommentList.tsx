@@ -224,7 +224,11 @@ export function AppzaCommentList({
             dispatch({
               action_slug: slug,
               args: readActionDefaultsFromCatalog(slug) ?? undefined,
-              item: (overrides?.post as Record<string, unknown>) ?? undefined,
+              // The POST's id, bound as a scalar. A field_mapping of
+              // bare `data` resolves to nothing — mappings walk a PATH
+              // under the row — so binding the whole object arrived
+              // undefined and "View all" opened nothing.
+              item: { id: overrides?.post_id },
             });
           }}
         >

@@ -82,3 +82,40 @@ export function indexCatalog(catalog: Catalog): CatalogIndex {
     dataSourceBySlug,
   };
 }
+
+/**
+ * Read an action's `param_schema.<field>.default` values from the catalog
+ * cached on `window.__appzaCatalog` (published by both the mobile shell +
+ * plugin-admin at bootstrap time). Returns `null` when the catalog is
+ * unavailable or the action isn't listed. The dispatcher shells that use
+ * this popover set the global via `setCatalogGlobal()` below.
+ */
+export function readActionDefaultsFromCatalog(
+  actionSlug: string,
+): Record<string, unknown> | null {
+  if (typeof window === 'undefined') return null;
+  const cat = (window as unknown as { __appzaCatalog?: { actions?: unknown } })
+    .__appzaCatalog;
+  const actions = cat?.actions;
+  if (!Array.isArray(actions)) return null;
+  const row = actions.find(
+    (a): a is Record<string, unknown> =>
+      typeof a === 'object' &&
+      a !== null &&
+      (a as Record<string, unknown>).slug === actionSlug,
+  );
+  if (!row) return null;
+  const ps = row.param_schema;
+  if (typeof ps !== 'object' || ps === null) return null;
+  const defaults: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(ps as Record<string, unknown>)) {
+    if (
+      v &&
+      typeof v === 'object' &&
+      'default' in (v as Record<string, unknown>)
+    ) {
+      defaults[k] = (v as Record<string, unknown>).default;
+    }
+  }
+  return defaults;
+}

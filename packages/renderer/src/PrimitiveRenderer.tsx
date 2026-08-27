@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ComponentProps, type CSSProperties } from 'react';
 import { useActionDispatch, type ActionInvocation } from './actionContext';
+import { readActionDefaultsFromCatalog } from './catalogIndex';
 import {
   IonAvatar,
   IonButton,
@@ -634,6 +635,13 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
           options={readOptions(overrides, 'options')}
           action={action}
           dispatch={dispatch}
+          totalLabel={readString(overrides, 'total_label') ?? 'Vote'}
+          votersSlug={readString(overrides, 'voters_action_slug') ?? 'poll.voters'}
+          postId={
+            typeof overrides?.post_id === 'number' || typeof overrides?.post_id === 'string'
+              ? (overrides.post_id as number | string)
+              : undefined
+          }
         />
       );
 
@@ -1704,11 +1712,20 @@ function AppzaPollBlock({
   options,
   action,
   dispatch,
+  totalLabel,
+  votersSlug,
+  postId,
 }: {
   type: string | undefined;
   options: PollOption[];
   action?: ActionInvocation;
   dispatch: (inv: ActionInvocation) => void;
+  /** "Vote" — the word after the count. Builder-controlled. */
+  totalLabel: string;
+  /** Action fired by a row's chevron; empty disables the chevron. */
+  votersSlug: string;
+  /** The bound POST's id, so the voters call can name its feed_id. */
+  postId?: number | string;
 }) {
   const isMulti = type === 'multi_choice';
   const [optionState, setOptionState] = useState<PollOption[]>(options);
@@ -1780,14 +1797,33 @@ function AppzaPollBlock({
     });
   };
 
+  // Designs 7 to 12. Six pictures, three variables:
+  //
+  //   the BAR      width is the option's share of the vote. 0% draws
+  //                nothing, which is why designs 7 and 10 are plain rows.
+  //   the CONTROL  filled only for options THIS viewer picked. That is
+  //                the whole difference between designs 8 and 9 (and 11
+  //                and 12) — both draw the same bar, and only the
+  //                viewer's own vote fills the circle or the box.
+  //   the TALLY    "{pct}% · {count}" plus a chevron into the voter list,
+  //                and the chevron only where somebody actually voted.
+  //
+  // A multi-choice poll nobody has voted on shows NO tally at all
+  // (design 10), where the single-choice equivalent shows "0% · 0"
+  // (design 7). That asymmetry is in the designs; it also matches a
+  // multi poll being a form you fill in before submitting, where a
+  // column of 0% is noise.
+  const showTally = !isMulti || totalVotes > 0;
+
   const rows = optionState.map((opt) => {
     const pctRaw =
       typeof opt.percentage === 'number'
         ? opt.percentage
         : totalVotes > 0
-          ? Math.round(((opt.vote_counts ?? 0) / totalVotes) * 1000) / 10
+          ? Math.round(((opt.vote_counts ?? 0) / totalVotes) * 100)
           : 0;
     const pct = Math.max(0, Math.min(100, pctRaw));
+    const votes = opt.vote_counts ?? 0;
     const checked = !!opt.voted;
     return (
       <label
@@ -1809,16 +1845,59 @@ function AppzaPollBlock({
             <IonRadio value={opt.slug} />
           )}
           <span className="appza-poll-label">{opt.label}</span>
-          <span className="appza-poll-pct">{pct}%</span>
+          {showTally && (
+            <span className="appza-poll-tally">
+              <span className="appza-poll-pct">{pct}%</span>
+              <span className="appza-poll-dot"> · </span>
+              <span className="appza-poll-count">{votes}</span>
+              {votes > 0 && votersSlug && (
+                <button
+                  type="button"
+                  className="appza-poll-voters"
+                  aria-label={`Who voted for ${opt.label ?? 'this option'}`}
+                  onClick={(e) => {
+                    // Stop the label's toggle: opening the voter list is
+                    // not a vote, and on a single-choice poll it would
+                    // otherwise move the viewer's pick.
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dispatch({
+                      action_slug: votersSlug,
+                      args: readActionDefaultsFromCatalog(votersSlug) ?? undefined,
+                      // `id` is the POST's id, bound as a scalar. A
+                      // field_mapping of bare `data` resolves to nothing
+                      // — mappings walk a PATH under the row — so the
+                      // whole-object binding this first used arrived
+                      // undefined and the dispatcher had no feed to ask
+                      // about.
+                      item: { id: postId, option_slug: opt.slug, option_label: opt.label },
+                    });
+                  }}
+                >
+                  <IonIcon icon={resolveIcon('chevron-forward') ?? undefined} />
+                </button>
+              )}
+            </span>
+          )}
         </div>
       </label>
     );
   });
 
+  // "N Vote" under the options, then the hairline the action strip sits
+  // below. Counts VOTES, not voters — a multi-choice poll lets one
+  // person cast several, and design 11 reads 3 for two people's picks.
+  const tally = (
+    <div className="appza-poll-total">
+      {totalVotes} {totalLabel}
+    </div>
+  );
+
   if (isMulti) {
     return (
       <div className="appza-poll-block" data-appza-inline-click="true">
         {rows}
+        {tally}
       </div>
     );
   }
@@ -1830,6 +1909,7 @@ function AppzaPollBlock({
   return (
     <div className="appza-poll-block" data-appza-inline-click="true">
       <IonRadioGroup value={pickedSlug}>{rows}</IonRadioGroup>
+      {tally}
     </div>
   );
 }
