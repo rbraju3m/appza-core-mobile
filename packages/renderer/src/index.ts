@@ -39,6 +39,13 @@ export {
   type ModerationReport,
 } from './ModerationReviewSheet';
 export {
+  getProfileControls,
+  setProfileControls,
+  useProfileControls,
+  profileStateEntries,
+  type ProfileControls,
+} from './profileControls';
+export {
   getBannerControls,
   setBannerControls,
   useBannerControls,

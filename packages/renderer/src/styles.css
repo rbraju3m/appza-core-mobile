@@ -11260,3 +11260,110 @@ audio.appza-video-embed-native {
   font-weight: 500;
   color: #0f172a;
 }
+
+/* ── fc-basic-profile — the profile header ──────────────────────────
+   It had no stylesheet at all, which is half of why the screen read
+   "Image / Text / Text / BUTTON ×4": the other half was no data source
+   and no field mappings, so the primitives drew their own names.
+
+   FluentCommunity's portal is the reference — Noor has no profile
+   design — and its header is a cover band with the avatar straddling
+   the bottom edge, then the display name and a muted byline. */
+.appza-renderer-ss[data-slug="fc-basic-profile"] {
+  display: grid;
+  grid-template-columns: 16px auto 1fr 16px;
+  grid-template-areas:
+    "cover cover cover cover"
+    ".     avatar name  ."
+    ".     avatar byline ."
+    ".     counts counts .";
+  grid-template-rows: 128px auto auto auto;
+  background: #ffffff;
+  padding-bottom: 14px;
+  margin-bottom: 8px;
+}
+/* The band is on the GRID AREA, not on the child — children[0] is gated
+   on the member having a cover, so on a profile without one there is no
+   element here to paint. The row still needs its height. */
+.appza-renderer-ss[data-slug="fc-basic-profile"] {
+  background-image: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+  background-size: 100% 128px;
+  background-repeat: no-repeat;
+}
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="0"] {
+  grid-area: cover;
+  height: 128px;
+  overflow: hidden;
+}
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="0"] img {
+  width: 100%;
+  height: 128px;
+  object-fit: cover;
+  display: block;
+}
+/* The avatar straddles the cover's bottom edge, which is why it needs a
+   negative top margin and a ring: it sits on TWO backgrounds. */
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="1"] {
+  grid-area: avatar;
+  width: 76px;
+  height: 76px;
+  margin: -38px 12px 0 0;
+  border-radius: 50%;
+  border: 3px solid #ffffff;
+  overflow: hidden;
+  background: #e5e7eb;
+}
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="1"] ion-avatar,
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="1"] img {
+  width: 100%;
+  height: 100%;
+}
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="2"] {
+  grid-area: name;
+  align-self: end;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="3"] {
+  grid-area: byline;
+  align-self: start;
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+/* The three count buttons are off by default — see the catalog note.
+   Styled anyway so switching one on does not produce the old mess. */
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="4"],
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="5"],
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="6"] {
+  grid-area: counts;
+  display: inline-flex;
+}
+
+/* ── fc-profile-tabs — the profile's nav strip ──────────────────────
+   One tab today. The strip is the N-tab shape, so a second is a catalog
+   edit; the underline marks the active one the way the search and
+   space-detail strips do. */
+.appza-renderer-ss[data-slug="fc-profile-tabs"] {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  padding: 0 14px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+.appza-renderer-ss[data-slug="fc-profile-tabs"] ion-button {
+  margin: 0;
+  height: 40px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  --background: transparent;
+  --background-hover: transparent;
+  --background-activated: transparent;
+  --color: #1d4ed8;
+  --box-shadow: none;
+  --border-radius: 0;
+  border-bottom: 2px solid #1d4ed8;
+}

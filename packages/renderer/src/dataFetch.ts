@@ -6,6 +6,7 @@ import { getChatControls } from './chatControls';
 import { getLeaderboardControls } from './leaderboardControls';
 import { getBookmarkControls } from './bookmarkControls';
 import { getSearchControls } from './searchControls';
+import { getProfileControls } from './profileControls';
 
 /**
  * useDataSource(slug, params) — fetch a list payload for an AppZet's
@@ -106,6 +107,7 @@ const STATE_SLICE_GETTERS: Record<string, () => Record<string, unknown>> = {
   leaderboard_controls: () => getLeaderboardControls() as unknown as Record<string, unknown>,
   bookmark_controls: () => getBookmarkControls() as unknown as Record<string, unknown>,
   search_controls: () => getSearchControls() as unknown as Record<string, unknown>,
+  profile_controls: () => getProfileControls() as unknown as Record<string, unknown>,
 };
 
 /**

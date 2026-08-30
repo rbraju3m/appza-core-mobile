@@ -36,6 +36,7 @@ import {
   getFcRuntimeSettings,
   setFeedControls,
   getFeedControls,
+  setProfileControls,
   getViewer,
   resolveFeedSortRows,
   setBannerControls,
@@ -3224,6 +3225,20 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             }
           }
         }
+      }
+      // Whose profile is being opened. The header and the POSTS tab both
+      // read `profile_controls.member_id`, so one number decides both —
+      // and the two profile screens differ only in where it comes from:
+      // the bottom-nav one is always the VIEWER, a member card carries
+      // the person it was tapped on.
+      if (targetSlug === 'profile') {
+        const me = getViewer().user_id;
+        if (typeof me === 'number' && me > 0) setProfileControls({ member_id: me, tab: 'posts' });
+      } else if (targetSlug === 'profile-page-details') {
+        const ctxRec = isRecord(effectiveItem) ? (effectiveItem as Record<string, unknown>) : null;
+        const raw = ctxRec?.user_id ?? ctxRec?.id;
+        const id = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : NaN;
+        if (Number.isFinite(id) && id > 0) setProfileControls({ member_id: id, tab: 'posts' });
       }
       if (currentScreenId != null) {
         setScreenStack((prev) => [...prev, currentScreenId]);
