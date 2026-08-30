@@ -28,6 +28,16 @@ export {
   type FeedViewMode,
 } from './feedControls';
 export {
+  getBannerControls,
+  setBannerControls,
+  useBannerControls,
+  dismissBanner,
+  refreshBannerDismissal,
+  bannerStateEntries,
+  DEFAULT_DISMISS_DAYS,
+  type BannerControls,
+} from './bannerControls';
+export {
   getSpacesControls,
   setSpacesControls,
   useSpacesControls,

@@ -1262,12 +1262,29 @@
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  /* Positioning root for the close × (children[11]), which sits over the
+     media rather than in the flex flow. `overflow: hidden` is what makes
+     the full-bleed media below take the card's rounded top corners —
+     without it the image squares them off. */
+  position: relative;
+  overflow: hidden;
 }
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="0"],
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="1"],
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="2"],
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="3"] {
   flex: 1 0 100%;
+}
+/* Media is FULL-BLEED — flush to the card's rounded top corners in all
+   three of designs 14, 15 and 16, while the text and buttons below stay
+   inset. The root's 14px padding is cancelled with negative margins on
+   the two media children rather than moved off the root, which would
+   have meant re-inseting five CTA slots whose widths are calc(50% - 4px)
+   of the padded box. `flex-grow: 1` then re-fills the 28px the negative
+   side margins freed, so the image lands exactly edge to edge. */
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="0"],
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="1"] {
+  margin: -14px -14px 6px;
 }
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="2"] {
   font-size: 1.05rem;
@@ -1289,6 +1306,16 @@
   flex: 1 1 calc(50% - 4px);
   min-width: 0;
 }
+/* View More (9) / View Less (10) — ONE full-width row under the buttons.
+   Only ever one of the two is in the DOM: they carry opposite clauses on
+   `state.feed_banner.expanded`, so this is a single row that changes its
+   word, not two stacked. */
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="9"],
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="10"] {
+  flex: 1 0 100%;
+  min-width: 0;
+  margin-top: 2px;
+}
 /* CTA buttons: fill (solid/outline/clear) + color come from the API
    payload via field_mappings (proxy derives them from ctaButtons[N].type).
    Layout only here. Ionic's outline fill draws its own border via
@@ -1301,7 +1328,9 @@
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="5"] ion-button,
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="6"] ion-button,
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="7"] ion-button,
-.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="8"] ion-button {
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="8"] ion-button,
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="9"] ion-button,
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="10"] ion-button {
   width: 100%;
   margin: 0;
   /* min-height (not fixed height) so author padding_y can grow the button. */
@@ -1311,6 +1340,11 @@
   text-transform: uppercase;
   --border-radius: 6px;
   --box-shadow: none;
+  /* Ionic's md outline draws a 2px edge; designs 14 and 15 draw a hairline
+     around BUY NOW. Set as a default rather than with !important so a
+     per-slot `cta_N_border_width` from the properties panel — which lands
+     on ::part(native) with !important — still wins. */
+  --border-width: 1px;
 }
 /* Only zero the ambient box-shadow / focus outline on ::part(native).
    DO NOT force `border: 0` here — that would win over the author's
@@ -1322,7 +1356,9 @@
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="5"] ion-button::part(native),
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="6"] ion-button::part(native),
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="7"] ion-button::part(native),
-.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="8"] ion-button::part(native) {
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="8"] ion-button::part(native),
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="9"] ion-button::part(native),
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="10"] ion-button::part(native) {
   box-shadow: none !important;
   outline: 0 !important;
 }
@@ -1336,7 +1372,9 @@
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="5"],
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="6"],
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="7"],
-.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="8"] {
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="8"],
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="9"],
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="10"] {
   border: 0;
   outline: 0;
   box-shadow: none;
@@ -1362,6 +1400,91 @@
 /* Slot 4 (fifth CTA, if present) — full-row centered link. */
 .appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="8"] {
   flex: 1 0 100%;
+}
+
+/* ── The four CTA types ───────────────────────────────────────────────
+   FluentCommunity offers exactly four (admin_app.js Button Type
+   dropdown: Primary / Secondary / Text / Link) and the proxy turns each
+   into an Ionic fill+color pair. Three of the four need nothing here —
+   Ionic's solid/primary, outline/primary and clear/primary already draw
+   design 15's TRY DEMO, BUY NOW and PRICING.
+
+   `light` is the one that does. Ionic pairs it with a BLACK contrast
+   text colour; design 15's DOWNLOAD FREE is grey-on-pale-grey. Set as a
+   custom property rather than a `color` declaration so a per-slot
+   `text_color` from the properties panel — which lands inline on the
+   host — still wins. */
+.appza-renderer-ss[data-slug="fc-feed-banner"] ion-button[color="light"] {
+  --background: #f1f5f9;
+  --color: #475569;
+}
+
+/* ── View More / View Less ────────────────────────────────────────────
+   Full-width, pale ground, blue label. Not an Ionic `color` because no
+   Ionic palette entry is "grey box, primary text", and inventing one
+   would put the pair in the theme where every other button could reach
+   it. */
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="9"] ion-button,
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="10"] ion-button {
+  --background: #f8fafc;
+  --background-hover: #f1f5f9;
+  --background-activated: #e2e8f0;
+  --color: var(--ion-color-primary, #2563eb);
+  --border-radius: 8px;
+  font-weight: 600;
+}
+
+/* ── The close × ──────────────────────────────────────────────────────
+   Design 16: a small round chip pinned to the media's top-right corner,
+   not a row in the flex flow. Taken OUT of flow rather than given a slot
+   so its presence cannot shift the media, the title, or the gap above
+   the description — the banner draws identically whether `show_close` is
+   on or off. */
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="11"] {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  flex: 0 0 auto;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+}
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="11"] ion-button {
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  --border-radius: 999px;
+  --background: rgba(255, 255, 255, 0.92);
+  --background-hover: #ffffff;
+  --background-activated: #ffffff;
+  --color: #0f172a;
+  --box-shadow: none;
+  font-size: 0.8rem;
+}
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="11"] ion-button::part(native) {
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+.appza-device-viewport
+  .appza-renderer-ss[data-slug="fc-feed-banner"]
+  [data-child-index="11"][data-appza-primitive-path] {
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+/* ── The clamped description ──────────────────────────────────────────
+   `appza-rich-text` clamps to 4 lines site-wide; design 14 shows 3 in
+   the banner, ending "…anything else!……." before View More. The clamp
+   itself is the primitive's, handed here to the banner's state via the
+   `collapsed_state_key` prop so ONE control moves the paragraph and the
+   hidden CTA slots together. */
+.appza-renderer-ss[data-slug="fc-feed-banner"] [data-child-index="3"] .appza-rich-text-clamped {
+  -webkit-line-clamp: 3;
 }
 
 /* fc-post-composer-teaser: avatar + placeholder pill, image-2 style.

@@ -23,6 +23,7 @@ import { usePostDraft, postDraftStateEntries } from './postDraft';
 import { useDocumentDraft } from './documentDraft';
 import { useFcRuntimeSettings } from './fcRuntimeSettings';
 import { useViewer, viewerStateEntries } from './viewer';
+import { useBannerControls, bannerStateEntries } from './bannerControls';
 
 type ScreenRendererProps = {
   screen: TemplateScreen;
@@ -105,6 +106,11 @@ export function ScreenRenderer({
   // on sign-in and sign-out — a guest feed and a member feed are not the
   // same screen, and the difference must not wait for another render.
   const viewer = useViewer();
+  // Feed banner. Subscribed here because the banner PLACEMENT gates on
+  // `feed_banner.dismissed` — the × has to remove the whole card, and a
+  // Superstructure that hides all of its own children still leaves its
+  // padded white box behind.
+  const bannerControls = useBannerControls();
   // Placement-level visible_when reads out of this bag via
   // `binding.slice(6)` (i.e. `state.<key>` → `<key>`). Register nested
   // paths as flat keys so `state.space_detail_controls.active_subtab`
@@ -182,6 +188,12 @@ export function ScreenRenderer({
       // !is_logged_in, which is also true on a locked site where the
       // screen should never have rendered. See viewer.ts.
       ...viewerStateEntries(viewer),
+      // Feed banner. Built by bannerStateEntries for the same reason the
+      // draft is — the CHILD-level evaluator in PlacementRenderer gates
+      // the View More row and the extra CTA slots on these same three
+      // keys, and two spellings of one fact is how a clause ends up
+      // silently hiding a control.
+      ...bannerStateEntries(bannerControls),
     }),
     [
       spacesControls.tab,
@@ -225,6 +237,11 @@ export function ScreenRenderer({
       // derives `is_guest` from the SITE's access level, so the bag has
       // to be rebuilt when the settings land as well.
       viewer,
+      // The whole slice: bannerStateEntries compares dismissedUntil
+      // against the clock, so a memo keyed on its fields alone would
+      // still be right — but the slice is three fields and naming them
+      // buys nothing.
+      bannerControls,
       fcSettings,
     ],
   );

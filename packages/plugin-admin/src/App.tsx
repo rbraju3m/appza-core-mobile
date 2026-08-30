@@ -31,6 +31,9 @@ import {
   openPollVotersSheet,
   getFcRuntimeSettings,
   setFeedControls,
+  setBannerControls,
+  dismissBanner,
+  DEFAULT_DISMISS_DAYS,
   setRouteParams,
   getRouteParams,
   setSpaceDetailControls,
@@ -4431,6 +4434,29 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         '[data-appza-appzet-slug="fc-feed-toolbar"][data-child-index="1"]',
       );
       openViewModePopover(options, anchor);
+      return;
+    }
+
+    // ── Feed banner ──────────────────────────────────────────────────
+    // Two children write this, not one toggle: View More sends 'yes' and
+    // View Less sends 'no', so a double tap cannot leave the description
+    // clamped while the extra buttons are showing.
+    case 'banner.set_expanded': {
+      const value = typeof argRec.value === 'string' ? argRec.value : '';
+      if (value !== 'yes' && value !== 'no') return;
+      setBannerControls({ expanded: value === 'yes' });
+      return;
+    }
+
+    case 'banner.dismiss': {
+      // Days come from the catalog so the window is a wiring decision,
+      // not a constant buried here. Default matches FluentCommunity's own
+      // web dismissal.
+      const days =
+        typeof argRec.dismiss_days === 'number' && Number.isFinite(argRec.dismiss_days)
+          ? argRec.dismiss_days
+          : DEFAULT_DISMISS_DAYS;
+      dismissBanner(days);
       return;
     }
 

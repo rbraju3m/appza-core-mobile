@@ -197,6 +197,7 @@ import { AppzaChatComposer } from './ChatComposer';
 import { AppzaPostComposer, AppzaPostAnnounce } from './PostComposer';
 import { AppzaPostSchedule } from './PostSchedule';
 import { AppzaPostPreview } from './PostPreview';
+import { useBannerControls, setBannerControls } from './bannerControls';
 import { attach, attachOutline, cloudUploadOutline } from 'ionicons/icons';
 
 /**
@@ -652,6 +653,7 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
           html={html}
           moreLabel={readString(overrides, 'more_label')}
           lessLabel={readString(overrides, 'less_label')}
+          collapsedStateKey={readString(overrides, 'collapsed_state_key')}
         />
       );
     }
@@ -1067,34 +1069,62 @@ function AppzaRichText({
   html,
   moreLabel,
   lessLabel,
+  collapsedStateKey,
 }: {
   html: string;
   /** Builder-controlled; Noor's designs 14 and 15 say "Show More". */
   moreLabel?: string;
   lessLabel?: string;
+  /**
+   * Hands the clamp to a state slice instead of this component's own
+   * `expanded`, and suppresses the inline toggle.
+   *
+   * The feed banner needs ONE control governing both the paragraph and
+   * the CTA slots below it, drawn as a full-width row under the buttons
+   * (designs 14, 15) — not a link trailing the text. Only
+   * `feed_banner.expanded` is understood; anything else falls back to the
+   * self-managed behaviour rather than freezing the text clamped, because
+   * a typo in the catalog must not cost the reader the rest of the post.
+   */
+  collapsedStateKey?: string;
 }) {
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [overflowing, setOverflowing] = useState(false);
+  const external = collapsedStateKey === 'feed_banner.expanded';
+  const banner = useBannerControls();
+  const effectiveExpanded = external ? banner.expanded : expanded;
   useEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
+    // Measure ONLY while clamped. Expanded, clientHeight has grown to meet
+    // scrollHeight, so the same check reads "not overflowing" — which
+    // would retract the View Less row and strand the reader open with no
+    // way back. The verdict taken while collapsed is the true one and it
+    // stands until the html changes.
+    if (effectiveExpanded) return;
     // Read the clamped height first. If content exceeds it, show the toggle.
     // Re-measure on html change so a proxy-refreshed post with a longer
     // body re-evaluates.
     const isOverflow = el.scrollHeight - el.clientHeight > 2;
     setOverflowing(isOverflow);
+    if (external) {
+      // Half of the banner's `collapsible` verdict. The other half — more
+      // than two CTA buttons — is published by PlacementRenderer, and the
+      // OR is joined in bannerStateEntries.
+      setBannerControls({ descriptionOverflows: isOverflow });
+    }
     // If html shrank, reset expanded so long → short transitions are clean.
     if (!isOverflow) setExpanded(false);
-  }, [html]);
+  }, [html, effectiveExpanded, external]);
   return (
     <div className="appza-rich-text-wrap">
       <div
         ref={bodyRef}
-        className={`appza-rich-text${expanded ? ' appza-rich-text-expanded' : ' appza-rich-text-clamped'}`}
+        className={`appza-rich-text${effectiveExpanded ? ' appza-rich-text-expanded' : ' appza-rich-text-clamped'}`}
         dangerouslySetInnerHTML={{ __html: html }}
       />
-      {overflowing && (
+      {overflowing && !external && (
         <button
           type="button"
           className="appza-rich-text-toggle"

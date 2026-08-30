@@ -19,6 +19,12 @@ import { setSpaceDetailControls, useSpaceDetailControls } from './spaceDetailCon
 import { setChatControls, useChatControls } from './chatControls';
 import { setLeaderboardControls, useLeaderboardControls } from './leaderboardControls';
 import { setBookmarkControls, useBookmarkControls } from './bookmarkControls';
+import {
+  setBannerControls,
+  useBannerControls,
+  getBannerControls,
+  bannerStateEntries,
+} from './bannerControls';
 import { publishSearchFetchView, useSearchControls } from './searchControls';
 import { useDocumentDraft } from './documentDraft';
 import { getFcRuntimeSettings, useFcRuntimeSettings } from './fcRuntimeSettings';
@@ -203,6 +209,12 @@ export function PlacementRenderer({
   // `state.viewer.is_logged_in`, which is how the composer teaser
   // disappears on a logged-out feed (design 17).
   const viewer = useViewer();
+  // Feed banner. Read unconditionally for stable hook order, same as
+  // every slice above — the View More row and CTA slots 2..4 are children
+  // whose visible_when reads `state.feed_banner.*`, and the clause
+  // evaluator consults the store directly, so this hook is what makes
+  // the component re-render and ask again.
+  const bannerControls = useBannerControls();
   // Saved Posts controls. Read unconditionally for stable hook order,
   // same as every slice above — the toolbar reflects sort and layout,
   // fc-bookmarks binds search and sort as query params, and the
@@ -690,6 +702,28 @@ export function PlacementRenderer({
     dataState.items.length,
     bookmarkControls.search,
   ]);
+
+  // The feed banner's CTA overflow — half of the `collapsible` verdict
+  // the View More row gates on. The other half is the description's
+  // measured height, published by AppzaRichText, and the OR is joined in
+  // bannerStateEntries so neither writer has to know about the other.
+  //
+  // Counted here rather than expressed as a clause because "more than
+  // two" is a comparison the grammar has no operator for; the same
+  // question was answered for the post card's like count by sending an
+  // empty string from the proxy and gating on `exists`, which works for
+  // one boolean and not for a count the renderer also has to act on.
+  const publishesBannerCtas = (dataSource?.slug ?? '') === 'fc-welcome-banner';
+  useEffect(() => {
+    if (!publishesBannerCtas) return;
+    // Hold the last verdict across a refetch, like the verdicts above:
+    // publishing `false` mid-fetch would retract the row under the
+    // reader's finger.
+    if (dataState.loading) return;
+    const first = dataState.items[0];
+    const ctas = isRecord(first) && Array.isArray(first.ctaButtons) ? first.ctaButtons : [];
+    setBannerControls({ hasExtraCtas: ctas.length > 2 });
+  }, [publishesBannerCtas, dataState.loading, dataState.items]);
 
   // Search (2026-08-23). Three DIFFERENT sources publish into ONE key,
   // and that only works because exactly one of them is ever mounted:
@@ -3052,7 +3086,10 @@ function computeDataHiddenIndices(children: SSChild[], item: unknown): Set<numbe
  * has ruled out.
  */
 function childStateBag(): Record<string, unknown> {
-  return postDraftStateEntries(getPostDraft());
+  return {
+    ...postDraftStateEntries(getPostDraft()),
+    ...bannerStateEntries(getBannerControls()),
+  };
 }
 
 function evaluateVisibleWhen(vw: VisibleWhenClause, item: unknown): boolean {
