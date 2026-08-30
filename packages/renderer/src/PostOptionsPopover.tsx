@@ -35,8 +35,15 @@ export type PostMenuItem = {
   /**
    * Dotted path (relative to the tapped item) whose truthiness hides
    * the row when falsy. E.g. `data.permissions.can_edit`.
+   *
+   * A LIST means every path must hold — an AND, the same shape both
+   * clause grammars already use, and no OR for the same reason they
+   * refuse one. Remove Preview (design 22) is what needed it: it is
+   * two facts, and only one of them is about the viewer. Whether the
+   * post HAS a preview is a property of the post, so folding it into
+   * the permissions bag would have made the bag lie about its subject.
    */
-  visible_when?: string;
+  visible_when?: string | string[];
   /**
    * Dotted path resolved against the item to pick label_on vs label_off.
    * Used by pin/disable-comments toggles.
@@ -212,11 +219,20 @@ export function PostOptionsPopover() {
 
   if (!open || !detail) return null;
 
-  // Filter items by their catalog-defined `visible_when` path resolved
-  // against the tapped item's permissions bag (surfaced by fcom-mobile).
+  // Filter items by their catalog-defined `visible_when` path(s) resolved
+  // against the tapped item — the permissions bag surfaced by fcom-mobile
+  // for most rows, and the post's own meta for Remove Preview.
+  //
+  // An EMPTY list is not "hide it": it is a catalog row that says
+  // nothing, and saying nothing has always meant show — the same posture
+  // the placement evaluator takes.
   const visibleItems = detail.items.filter((it) => {
-    if (!it.visible_when) return true;
-    return isTruthy(readPath(detail.item, it.visible_when));
+    const vw = it.visible_when;
+    if (!vw) return true;
+    if (Array.isArray(vw)) {
+      return vw.every((path) => !path || isTruthy(readPath(detail.item, path)));
+    }
+    return isTruthy(readPath(detail.item, vw));
   });
 
   if (visibleItems.length === 0) {

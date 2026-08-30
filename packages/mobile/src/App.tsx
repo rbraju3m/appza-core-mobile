@@ -595,6 +595,13 @@ type PendingDelete = {
   message: string;
   cta: string;
   /**
+   * Names the act in the last-resort failure toast. This dialog is no
+   * longer only about deleting — Remove Preview rides the same path —
+   * and "Delete failed (HTTP 403)" over a preview that is still there
+   * describes the wrong thing.
+   */
+  failLabel?: string;
+  /**
    * Extra keys merged into the request body. A COMMENT is addressed by
    * both its own id and its post's — every fcom-mobile comment route
    * wants the pair — and the confirm dialog is otherwise identical to
@@ -1818,7 +1825,7 @@ export function App() {
                   (json && typeof (json as Record<string, unknown>).message === 'string'
                     ? (json as Record<string, string>).message
                     : null) ||
-                  `Delete failed (HTTP ${res.status})`;
+                  `${pendingDelete.failLabel ?? 'Delete'} failed (HTTP ${res.status})`;
                 setErrorToast(msg);
                 return;
               }
@@ -2762,7 +2769,14 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     // A comment's delete is the post's, with a second id and different
     // wording. Same confirm dialog on purpose — design 24 shows no
     // separate one, and two dialogs would drift.
+    //
+    // Remove Preview rides here too (design 22). It is the same shape all
+    // the way down — confirm, POST the id, refetch — and the same stakes:
+    // FluentCommunity nulls meta.media_preview with no undo. Every word
+    // of its dialog comes from the action's param_schema, so the copy
+    // matching FC's own is a catalog fact rather than a branch here.
     case 'comment.delete':
+    case 'post.remove_preview':
     case 'post.delete': {
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
@@ -2786,7 +2800,11 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         return;
       }
       if (!auth) {
-        onError('Please sign in to delete a post.');
+        onError(
+          action_slug === 'post.remove_preview'
+            ? 'Please sign in to change this post.'
+            : 'Please sign in to delete a post.',
+        );
         return;
       }
       const key = feedIdPath.startsWith('data.') ? feedIdPath.slice(5) : feedIdPath;
@@ -2798,7 +2816,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
             ? Number(raw)
             : null;
       if (feedId === null) {
-        onError('Could not identify which post to delete.');
+        onError('Could not identify which post to change.');
         return;
       }
       // The parent id, when the action names one.
@@ -2824,7 +2842,10 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         }
         extraBody = { [parentBodyKey]: parentId };
       }
-      openDeleteConfirm({ feedId, endpoint, method, bodyKey, title, message, cta, extraBody });
+      openDeleteConfirm({
+        feedId, endpoint, method, bodyKey, title, message, cta, extraBody,
+        failLabel: action_slug === 'post.remove_preview' ? 'Remove preview' : 'Delete',
+      });
       return;
     }
 

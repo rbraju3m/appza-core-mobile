@@ -388,6 +388,13 @@ export function App() {
     message: string;
     cta: string;
     /**
+     * Names the act in the last-resort failure toast. This dialog is no
+     * longer only about deleting — Remove Preview rides the same path —
+     * and "Delete failed (HTTP 403)" over a preview that is still there
+     * describes the wrong thing.
+     */
+    failLabel?: string;
+    /**
      * Extra keys merged into the request body. A COMMENT is addressed by
      * both its own id and its post's — every fcom-mobile comment route
      * wants the pair — and the confirm dialog is otherwise identical to
@@ -2095,7 +2102,7 @@ export function App() {
                               (json && typeof (json as Record<string, unknown>).message === 'string'
                                 ? (json as Record<string, string>).message
                                 : null) ||
-                              `Delete failed (HTTP ${res.status})`;
+                              `${pendingDelete.failLabel ?? 'Delete'} failed (HTTP ${res.status})`;
                             setAuthMessage(msg);
                             return;
                           }
@@ -2678,6 +2685,8 @@ type AppModeActionDeps = {
     cta: string;
     /** Extra body keys — a comment carries its post's id too. */
     extraBody?: Record<string, unknown>;
+    /** Names the act in the failure toast — see PendingDelete. */
+    failLabel?: string;
   }) => void;
   // Session-scoped tracker of (feed_id, react_type) pairs the viewer has
   // toggled on. Passed as a mutable Set so the dispatcher can add/delete
@@ -3527,7 +3536,14 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     // A comment's delete is the post's, with a second id and different
     // wording. Same confirm dialog on purpose — design 24 shows no
     // separate one, and two dialogs would drift.
+    //
+    // Remove Preview rides here too (design 22). It is the same shape all
+    // the way down — confirm, POST the id, refetch — and the same stakes:
+    // FluentCommunity nulls meta.media_preview with no undo. Every word
+    // of its dialog comes from the action's param_schema, so the copy
+    // matching FC's own is a catalog fact rather than a branch here.
     case 'comment.delete':
+    case 'post.remove_preview':
     case 'post.delete': {
       // Overflow-menu → delete. Read feed_id off the tapped item using the
       // action's `feed_id_path` binding (defaults to `data.id`) and open the
@@ -3552,7 +3568,11 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         return;
       }
       if (!auth) {
-        onLoginError('Please sign in to delete a post.');
+        onLoginError(
+        action_slug === 'post.remove_preview'
+          ? 'Please sign in to change this post.'
+          : 'Please sign in to delete a post.',
+      );
         return;
       }
       // readDataPath expects a `data.` prefix but the item passed here is the
@@ -3596,7 +3616,10 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         }
         extraBody = { [parentBodyKey]: parentId };
       }
-      openDeleteConfirm({ feedId, endpoint, method, bodyKey, title, message, cta, extraBody });
+      openDeleteConfirm({
+        feedId, endpoint, method, bodyKey, title, message, cta, extraBody,
+        failLabel: action_slug === 'post.remove_preview' ? 'Remove preview' : 'Delete',
+      });
       return;
     }
 
