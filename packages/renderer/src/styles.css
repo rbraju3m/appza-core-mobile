@@ -3691,6 +3691,9 @@
   display: grid;
   grid-template-columns: 14px 40px auto auto 1fr auto 14px;
   grid-template-areas:
+    ".       flagtxt flagtxt flagtxt flagtxt flagtxt ."
+    ".       flagbtn flagbtn flagbtn flagbtn flagbtn ."
+    ".       review  review  review  review  review  ."
     "pill    pill    pill    pill    pill    pill    pill"
     ".       avatar  name    verify  .       menu    ."
     ".       avatar  byline  byline  byline  byline  ."
@@ -3707,7 +3710,7 @@
     "cbody   cbody   cbody   cbody   cbody   cbody   cbody"
     "cfoot   cfoot   cfoot   cfoot   cfoot   cfoot   cfoot"
     ".       viewmore viewmore viewmore viewmore viewmore .";
-  grid-template-rows: auto auto auto auto auto auto auto auto auto auto auto auto auto auto auto auto;
+  grid-template-rows: auto auto auto auto auto auto auto auto auto auto auto auto auto auto auto auto auto auto auto;
   column-gap: 8px;
   row-gap: 0;
   padding: 0;
@@ -3729,6 +3732,9 @@
   .appza-renderer-ss[data-slug="fc-post-card"] {
   grid-template-areas:
     "image   image   image   image   image   image   image"
+    ".       flagtxt flagtxt flagtxt flagtxt flagtxt ."
+    ".       flagbtn flagbtn flagbtn flagbtn flagbtn ."
+    ".       review  review  review  review  review  ."
     "pill    pill    pill    pill    pill    pill    pill"
     ".       avatar  name    verify  .       menu    ."
     ".       avatar  byline  byline  byline  byline  ."
@@ -3754,19 +3760,10 @@
    ON TOP of the media, both measuring top:0 inside the card. An area
    name never overrides a line-based placement — grep this scope for
    `grid-row:` before adding a row to the areas string. */
-.appza-renderer-app[data-fc-rich-post-layout="modern"]
-  .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] {
-  grid-row: 2;
-}
-/* [2] time and [3] mood ride the byline row, which was 3 and is now 4.
-   Their `grid-column: name-start / verify-end` still resolves — those
-   implicit line names come from the area names, which modern keeps. */
-.appza-renderer-app[data-fc-rich-post-layout="modern"]
-  .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="2"],
-.appza-renderer-app[data-fc-rich-post-layout="modern"]
-  .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="3"] {
-  grid-row: 4;
-}
+/* (The modern pill override that used to sit here is gone: children[15]
+   now names its row, so both layouts place it from the same string.) */
+/* ([2] time and [3] mood used to be re-pinned here by row number for
+   the modern layout. They name their row now, so one rule covers both.) */
 .appza-renderer-ss[data-slug="fc-post-card"] > * {
   grid-area: unset;
   margin: 0;
@@ -3791,10 +3788,97 @@
   display: block;
 }
 
+/* ── Moderation: the In Review chip and the flagged banner ─────────
+   Designs 27 and 28.
+
+   children[32] is an ion-button and not an ion-text because the chip
+   pairs a clock glyph with its label and only a button carries both. It
+   names no action, and pointer-events go with it — a chip that
+   highlights under a finger reads as something you can press. */
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="32"] {
+  grid-area: review;
+  justify-self: start;
+  padding: 12px 14px 0;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="32"] ion-button {
+  margin: 0;
+  height: 24px;
+  pointer-events: none;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  --padding-start: 8px;
+  --padding-end: 10px;
+  --border-radius: 999px;
+  --background: #fff3e8;
+  --color: #f97316;
+  --box-shadow: none;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="32"] ion-button ion-icon {
+  font-size: 13px;
+  margin-inline-end: 4px;
+}
+
+/* The banner is TWO children drawn as one cream box: the sentence
+   (children[33]) and the Review button (children[34]) sit in adjacent
+   grid rows with no gap between them, the first rounding its top
+   corners and the second its bottom. Two children rather than one so
+   both the wording and the label reach the right panel; one box rather
+   than two so it reads the way design 28 draws it. */
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="33"] {
+  grid-area: flagtxt;
+  margin: 12px 0 0;
+  padding: 12px 12px 8px;
+  background: #fdf3e7;
+  border: 1px solid #f6dfc4;
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #7c4a12;
+  text-align: center;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="34"] {
+  grid-area: flagbtn;
+  margin: 0 0 4px;
+  padding: 0 12px 12px;
+  background: #fdf3e7;
+  border: 1px solid #f6dfc4;
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+}
+.appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="34"] ion-button {
+  width: 100%;
+  margin: 0;
+  height: 34px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  --background: #ffffff;
+  --background-hover: #fffaf4;
+  --background-activated: #fdf3e7;
+  --color: #1f2937;
+  --border-radius: 6px;
+  --border-width: 1px;
+  --border-style: solid;
+  --border-color: #eddcc6;
+  --box-shadow: none;
+}
+
 /* Topic pill row — style the ion-chip directly. Prepend "# " via chip
    ::before. Ionic exposes ion-chip appearance via CSS custom props. */
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="15"] {
-  grid-row: 1;
+  /* NAMED, not numbered. This said `grid-row: 1` and the modern layout
+     had to override it to 2 by hand, because it also sets grid-column
+     and that alone defeats `grid-area`. Every row added to the areas
+     string above then had to be paid for here too — which is how the
+     pill once drew ON TOP of the media. The implicit `pill-start` /
+     `pill-end` lines come from the area name itself, so both layouts
+     agree for free and a new row costs nothing. */
+  grid-row: pill-start / pill-end;
   grid-column: 1 / -1;
   padding: 14px 14px 4px 14px;
 }
@@ -3898,7 +3982,9 @@
 /* Byline: time + " · " + space name (small gray) */
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="2"] {
   grid-column: name-start / verify-end;
-  grid-row: 3;
+  /* Named for the same reason as the pill above — these two also set a
+     grid-column, so their `grid-area: byline` cannot place them. */
+  grid-row: byline-start / byline-end;
   font-size: 0.75rem;
   color: #6b7280;
   align-self: start;
@@ -3906,7 +3992,7 @@
 }
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="3"] {
   grid-column: name-start / menu-end;
-  grid-row: 3;
+  grid-row: byline-start / byline-end;
   font-size: 0.75rem;
   color: #6b7280 !important;
   padding-left: 32px;
@@ -10421,6 +10507,58 @@ audio.appza-video-embed-native {
  * box-shadow to bridge the gaps between rows; the designs draw
  * no fill at all.
  * ========================================================== */
+/* ── A comment under review (designs 33, 34) ───────────────────────
+   The same two affordances the card carries, at comment scale: the
+   cream flagged box with its Review button, then the orange chip. They
+   wrap the row rather than sitting inside it, because the row is a grid
+   whose columns are the avatar and the body — a full-width banner in it
+   would take one of those. */
+.appza-comment-entry {
+  display: block;
+}
+.appza-comment-flag {
+  margin: 8px 0 6px;
+  padding: 10px 10px 10px;
+  background: #fdf3e7;
+  border: 1px solid #f6dfc4;
+  border-radius: 8px;
+  text-align: center;
+}
+.appza-comment-flag-text {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #7c4a12;
+  margin-bottom: 8px;
+}
+.appza-comment-flag-btn {
+  width: 100%;
+  height: 32px;
+  border: 1px solid #eddcc6;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.appza-comment-review-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0 6px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px;
+  background: #fff3e8;
+  color: #f97316;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.appza-comment-review-chip ion-icon {
+  font-size: 13px;
+}
+
 .appza-comment-list {
   display: block;
   padding: 10px 14px 4px;

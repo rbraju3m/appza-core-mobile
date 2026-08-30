@@ -44,6 +44,10 @@ export type CommentEntry = {
     user_id?: number;
   };
   permissions?: Record<string, unknown>;
+  /** 'published' | 'pending' — 'pending' is design 33's In Review chip. */
+  status?: string;
+  /** Carries `moderation_banner_text`, derived in the proxy. */
+  meta?: Record<string, unknown> | null;
 };
 
 function str(o: Record<string, unknown> | undefined, k: string): string {
@@ -118,6 +122,42 @@ export function AppzaCommentList({
   const viewAllTemplate = str(overrides, 'view_all_label') || 'View all {count} comments';
   const showViewAll = bool(overrides, 'show_view_all', true) && total > shown.length;
 
+  // ---- Moderation, designs 33 and 34 -------------------------------
+  // The same two affordances the post card carries, on a comment. They
+  // live here rather than as Superstructure children for the reason the
+  // whole strip does: the card is a grid of named areas, and a per-
+  // comment row cannot claim one.
+  const showReviewChip = bool(overrides, 'show_review_chip', true);
+  const showFlagBanner = bool(overrides, 'show_flag_banner', true);
+  const reviewChipLabel = str(overrides, 'review_chip_label') || 'In Review';
+  const reviewChipIcon = resolveIcon(str(overrides, 'review_chip_icon') || 'time-outline');
+  const reviewButtonLabel = str(overrides, 'review_button_label') || 'Review';
+  const reviewSlug = str(overrides, 'review_action_slug') || 'moderation.review';
+
+  const bannerTextOf = (c: CommentEntry): string => {
+    const v = c.meta && typeof c.meta === 'object' ? c.meta['moderation_banner_text'] : undefined;
+    return typeof v === 'string' ? v : '';
+  };
+  const canReviewOf = (c: CommentEntry): boolean =>
+    c.permissions?.['can_review_reports'] === true;
+
+  const fireReview = (comment: CommentEntry) => {
+    dispatch({
+      action_slug: reviewSlug,
+      args: {
+        ...(readActionDefaultsFromCatalog(reviewSlug) ?? {}),
+        // A COMMENT's reports are filtered by parent_id, a post's by
+        // post_id, and FluentCommunity Pro does not error on the wrong
+        // one — it returns every report on the site. The catalog's
+        // default is the post's, so a comment has to say otherwise.
+        content_type: 'comment',
+        id_param: 'parent_id',
+        id_path: 'data.id',
+      },
+      item: comment as unknown as Record<string, unknown>,
+    });
+  };
+
   const fire = (slug: string, comment: CommentEntry) => {
     if (!slug) return;
     dispatch({
@@ -133,8 +173,33 @@ export function AppzaCommentList({
         const profile = c.xprofile ?? {};
         const pinned = isPinned(c);
         const likes = count(c as unknown as Record<string, unknown>, 'reactions_count', 0);
+        const bannerText = bannerTextOf(c);
+        const flagged = showFlagBanner && !!bannerText && canReviewOf(c);
+        const inReview = showReviewChip && c.status === 'pending';
         return (
-          <div className="appza-comment-row" key={c.id ?? idx}>
+          <div className="appza-comment-entry" key={c.id ?? idx}>
+            {flagged && (
+              <div className="appza-comment-flag">
+                <span className="appza-comment-flag-text">{bannerText}</span>
+                <button
+                  type="button"
+                  className="appza-comment-flag-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fireReview(c);
+                  }}
+                >
+                  {reviewButtonLabel}
+                </button>
+              </div>
+            )}
+            {inReview && (
+              <span className="appza-comment-review-chip">
+                {reviewChipIcon && <IonIcon icon={reviewChipIcon} aria-hidden="true" />}
+                {reviewChipLabel}
+              </span>
+            )}
+          <div className="appza-comment-row">
             {profile.avatar ? (
               <img className="appza-comment-avatar" src={profile.avatar} alt="" />
             ) : (
@@ -207,6 +272,7 @@ export function AppzaCommentList({
                 </button>
               )}
             </span>
+          </div>
           </div>
         );
       })}
