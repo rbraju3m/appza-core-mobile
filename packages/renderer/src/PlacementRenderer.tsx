@@ -115,30 +115,33 @@ type HiddenIndices = ReadonlySet<number>;
  * receive no overrides at v1 (scope deferred).
  */
 // Map from timeline appzet slug -> {card, list} variant slugs. When
-// feedControls.viewMode !== 'timeline' and the current placement targets
-// the timeline slug, PlacementRenderer substitutes the variant so its
-// SS + field_mappings + default_props apply per item. Keeps the swap
-// self-contained here; the catalog just needs to ship the variant
-// appzets under these slugs.
+// picking Card or List used to SWAP THE APPZET — fc-post-card became
+// fc-post-grid-item or fc-post-list-item, each its own Superstructure
+// with its own children. It no longer does, and the reason is the whole
+// of chunk 8: those two carried 11 and 9 children against the timeline's
+// 35, so nothing chunks 1 to 7 built ever reached them. A post under
+// review drew no chip in Card view. Every child would have had to be
+// built three times, and twice it never was.
 //
-// `controls` names WHICH slice decides the mode, and `governingDs` the
-// DataSource that slice is authoritative for. Saved Posts has a toolbar
-// of its own writing a slice of its own, so without both fields picking
-// Card there would swap in the FEED's tile — still fetching the feed —
-// and picking Card on the feed would reshape the saved list behind it.
+// One Superstructure now, three LAYOUTS, switched by the `data-view-mode`
+// stamped on the list wrapper below and read by CSS — the same shape
+// `rich_post_layout` already uses to move media above the author row on
+// that same grid. A child added tomorrow appears in all three for free.
+//
+// This map survives for the half that was never about swapping: WHICH
+// slice decides the mode, and the DataSource that slice is authoritative
+// for. Saved Posts has a toolbar of its own writing a slice of its own,
+// so without both fields picking Card on the feed would reshape the
+// saved list behind it.
 const VIEW_MODE_VARIANTS: Record<
   string,
-  { card?: string; list?: string; controls: 'feed' | 'bookmarks'; governingDs: string }
+  { controls: 'feed' | 'bookmarks'; governingDs: string }
 > = {
   'fc-post-card': {
-    card: 'fc-post-grid-item',
-    list: 'fc-post-list-item',
     controls: 'feed',
     governingDs: 'fc-feed',
   },
   'fc-bookmark-card': {
-    card: 'fc-bookmark-grid-item',
-    list: 'fc-bookmark-list-item',
     controls: 'bookmarks',
     governingDs: 'fc-bookmarks',
   },
@@ -255,17 +258,11 @@ export function PlacementRenderer({
         !placementDsForVariant));
   const variantViewMode =
     variantSpec?.controls === 'bookmarks' ? bookmarkControls.viewMode : feedViewMode;
-  const variantSlug =
-    variantSpec && variantGovernedDs
-      ? variantViewMode === 'card'
-        ? variantSpec.card
-        : variantViewMode === 'list'
-          ? variantSpec.list
-          : undefined
-      : undefined;
-  const baseAppzet = variantSlug
-    ? catalogIndex.appzetBySlug.get(variantSlug) ?? requestedAppzet
-    : requestedAppzet;
+  // The layout this list is drawing, or undefined where no slice governs
+  // — space-detail, search and post-detail have no layout control, and an
+  // absent attribute is what the CSS reads as Timeline.
+  const listViewMode = variantGovernedDs ? variantViewMode : undefined;
+  const baseAppzet = requestedAppzet;
 
   // === Option data sources ===
   // AppZets can declare `option_data_sources: { <prop_name>: <ds_slug> }`
@@ -1851,7 +1848,7 @@ export function PlacementRenderer({
         <div
           className="appza-renderer-empty"
           data-slug={appzet.slug}
-          data-view-mode={variantSlug ? feedViewMode : undefined}
+          data-view-mode={listViewMode}
         >
           <p>No posts to show</p>
           <small>Try a different sort or come back later.</small>
@@ -1929,8 +1926,7 @@ export function PlacementRenderer({
       <div
         className="appza-renderer-appzet-list"
         data-slug={appzet.slug}
-        data-view-mode={variantSlug ? feedViewMode : undefined}
-        data-appza-swap-from={variantSlug ? appzetSlug : undefined}
+        data-view-mode={listViewMode}
         data-spaces-active-tab={appzet.slug === 'fc-spaces-tabs' ? spacesTab : undefined}
         data-space-detail-active-subtab={appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab : undefined}
         data-space-detail-active-topic={appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug : undefined}
@@ -2115,9 +2111,9 @@ export function PlacementRenderer({
  * paginated list, one otherwise.
  */
 const SKELETON_COUNTS: Record<string, number> = {
+  // One entry, because there is one card. The grid and list variants are
+  // gone; those layouts are CSS on this same AppZet now.
   'fc-post-card': 3,
-  'fc-post-list-item': 4,
-  'fc-post-grid-item': 4,
   'fc-space-card': 3,
   'fc-member-card': 6,
   'fc-media-tile': 6,
