@@ -2224,8 +2224,12 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       return;
     }
     case 'link.open': {
+      // `permalink` is FluentCommunity's word for a feed link's URL, and
+      // the chip strip binds the row straight through — so the key list
+      // learns it rather than the payload being reshaped to say `url`.
       const url =
-        pickString(argRec, ['url', 'link']) ?? pickString(itemRec, ['url', 'link']);
+        pickString(argRec, ['url', 'link', 'permalink']) ??
+        pickString(itemRec, ['url', 'link', 'permalink']);
       if (!url) {
         console.warn('[appza-mobile] link.open: no url resolved from', {
           args: argRec,

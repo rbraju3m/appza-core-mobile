@@ -11197,3 +11197,66 @@ audio.appza-video-embed-native {
   --padding-end: 0 !important;
   width: 16px;
 }
+
+/* ── fc-feed-links — the chip strip above the banner ────────────────
+   One AppZet per link, so the LIST wrapper is what makes a strip: a
+   horizontal scroller rather than the vertical stack every other list
+   on this screen is. Scoped by slug so no other list inherits it. */
+.appza-renderer-appzet-list[data-slug="fc-feed-links"] {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 10px 14px 6px;
+  margin: 0;
+  /* No visible scrollbar on a chip row — it is a strip you swipe, and a
+     bar under it reads as a divider. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.appza-renderer-appzet-list[data-slug="fc-feed-links"]::-webkit-scrollbar {
+  display: none;
+}
+.appza-renderer-appzet-list[data-slug="fc-feed-links"] .appza-renderer-appzet {
+  flex: 0 0 auto;
+  margin: 0;
+}
+.appza-renderer-ss[data-slug="fc-feed-links"] {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  white-space: nowrap;
+  cursor: pointer;
+}
+/* children[0] emoji · [1] icon · [2] title. The emoji is text and the
+   icon is an image, and only one of the two is ever present — the
+   Superstructure gates each on its own field existing. */
+.appza-renderer-ss[data-slug="fc-feed-links"] [data-child-index="0"] {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+.appza-renderer-ss[data-slug="fc-feed-links"] [data-child-index="1"] {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+.appza-renderer-ss[data-slug="fc-feed-links"] [data-child-index="1"] img {
+  width: 18px;
+  height: 18px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+}
+.appza-renderer-ss[data-slug="fc-feed-links"] [data-child-index="2"] {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #0f172a;
+}
