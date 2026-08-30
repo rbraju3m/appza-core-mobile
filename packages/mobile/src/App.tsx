@@ -33,6 +33,9 @@ import {
   setFcRuntimeSettings,
   getFcRuntimeSettings,
   setFeedControls,
+  getFeedControls,
+  getViewer,
+  resolveFeedSortRows,
   setBannerControls,
   dismissBanner,
   DEFAULT_DISMISS_DAYS,
@@ -3353,46 +3356,55 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       return;
     }
 
-    case 'feed.set_sort': {
-      // Sort button tapped → open the same popover component we use for
-      // view-mode with stateKey='sort'. Popover parses args.options and
-      // calls setFeedControls({sort: value}) on pick. PlacementRenderer's
-      // useFeedControls hook then propagates the new sort → paged refetch
-      // with order_by_type=<value>.
-      const rawOptions = Array.isArray(argRec.options) ? argRec.options : [];
-      const options: ViewModeOption[] = rawOptions
-        .filter((o): o is Record<string, unknown> => isRecord(o))
-        .map((o) => ({
-          value: typeof o.value === 'string' ? o.value : '',
-          label: typeof o.label === 'string' ? o.label : '',
-          icon: typeof o.icon === 'string' ? o.icon : undefined,
-        }))
-        .filter((o) => o.value && o.label);
-      const anchor = document.querySelector(
-        '[data-appza-appzet-slug="fc-feed-toolbar"][data-child-index="0"]',
-      );
-      openViewModePopover(options, anchor, 'sort');
-      return;
-    }
-
+    // ── Feed controls ────────────────────────────────────────────────
+    // Designs 20 and 21 draw both pickers as BOTTOM SHEETS. Which frame
+    // opens is a catalog value rather than a fork here: leaving
+    // `presentation` unset still gives the anchored popover, which is
+    // what keeps this branch safe to point at any screen.
+    case 'feed.set_sort':
     case 'feed.set_view_mode': {
-      // Open a popover anchored to the toolbar's view-toggle button
-      // (children[1] under fc-feed-toolbar's stamped data attrs). The
-      // popover picks options out of args.options — the catalog wiring
-      // decides which modes are offered, we don't hardcode.
-      const rawOptions = Array.isArray(argRec.options) ? argRec.options : [];
-      const options: ViewModeOption[] = rawOptions
-        .filter((o): o is Record<string, unknown> => isRecord(o))
-        .map((o) => ({
-          value: typeof o.value === 'string' ? o.value : '',
-          label: typeof o.label === 'string' ? o.label : '',
-          icon: typeof o.icon === 'string' ? o.icon : undefined,
-        }))
-        .filter((o) => o.value && o.label);
+      const isSort = inv.action_slug === 'feed.set_sort';
+      const catalogRows = readPickerOptions(argRec.options);
+      // Sort rows come from the SITE, wearing the catalog's glyphs:
+      // FluentCommunity owns which sorts exist, because it is the thing
+      // that executes them. Layout rows are ours alone — the three view
+      // modes are renderer variants FC knows nothing about.
+      const options = isSort
+        ? resolveFeedSortRows(catalogRows, getViewer().is_logged_in)
+        : catalogRows;
+      if (options.length === 0) {
+        onError('This control has no options wired.');
+        return;
+      }
+      const stateKey = isSort ? 'sort' : 'viewMode';
+      const current = isSort ? getFeedControls().sort : getFeedControls().viewMode;
+      if (argRec.presentation === 'sheet') {
+        const sheetSlug =
+          typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
+            ? argRec.sheet_appzet_slug
+            : isSort
+              ? 'fc-feed-sort-sheet'
+              : 'fc-feed-layout-sheet';
+        openOptionsSheet({
+          appzetSlug: sheetSlug,
+          presentation: optionsSheetPresentation(readAppzetPropsFromCatalog(sheetSlug)),
+          childStyles: childStylesFromCustomizations(
+            sheetSlug,
+            OPTIONS_SHEET_CHILD_COUNT,
+            currentCustomizations,
+          ),
+          options,
+          stateKey,
+          currentValue: current,
+        });
+        return;
+      }
+      // Popover fallback — anchored to whichever of the toolbar's two
+      // buttons fired.
       const anchor = document.querySelector(
-        '[data-appza-appzet-slug="fc-feed-toolbar"][data-child-index="1"]',
+        `[data-appza-appzet-slug="fc-feed-toolbar"][data-child-index="${isSort ? 0 : 1}"]`,
       );
-      openViewModePopover(options, anchor);
+      openViewModePopover(options, anchor, stateKey);
       return;
     }
 

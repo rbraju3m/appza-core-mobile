@@ -218,6 +218,59 @@ export function resolveFeedSortOptions(isLoggedIn: boolean): FcFeedSortOption[] 
   return [...base, { value: 'following', label: 'Following' }];
 }
 
+/** A sort row as a picker draws it — the site's answer, wearing a glyph. */
+export type FcFeedSortRow = { value: string; label: string; icon?: string };
+
+/**
+ * The rows the sort sheet actually draws.
+ *
+ * Two sources, and neither is right alone. **FluentCommunity owns which
+ * sorts exist** — it is the thing that has to execute them, its admin
+ * can edit the list, and a value the site does not offer would come
+ * back from `/feeds` as whatever FC falls back to. **The catalog owns
+ * the glyphs**, because that is a design decision with a builder
+ * control behind it, and bootstrap carries no icons.
+ *
+ * So: the site's rows, in the site's order, wearing the catalog's icon
+ * for each value. A site row the catalog has no glyph for still draws —
+ * a missing icon is a blemish, a missing row is a feature the admin
+ * turned on and cannot reach.
+ *
+ * `following` never comes from either list directly. The catalog holds
+ * an entry for it ONLY as a glyph, since it is the one row whose
+ * presence depends on the viewer rather than the site; it is stripped
+ * from both inputs and re-appended by `resolveFeedSortOptions`, which
+ * knows both halves of that question.
+ *
+ * Falls back to the catalog rows whole when bootstrap has not landed —
+ * an empty sheet is worse than a briefly stale one.
+ */
+export function resolveFeedSortRows(
+  catalogRows: readonly FcFeedSortRow[],
+  isLoggedIn: boolean,
+): FcFeedSortRow[] {
+  const glyphs = new Map(catalogRows.map((r) => [r.value, r.icon]));
+  const siteRows = resolveFeedSortOptions(isLoggedIn);
+  const rows: FcFeedSortRow[] =
+    siteRows.length > 0
+      ? siteRows.map((r) => ({ value: r.value, label: r.label, icon: glyphs.get(r.value) }))
+      : catalogRows
+          .filter((r) => r.value !== 'following')
+          .map((r) => ({ ...r }));
+  // The catalog fallback has not been through resolveFeedSortOptions, so
+  // its `following` glyph row would appear for a viewer who may not have
+  // it. Stripped above; re-added here on the same terms as the live path.
+  if (
+    siteRows.length === 0 &&
+    isLoggedIn &&
+    current.feed.followers_module_enabled &&
+    glyphs.has('following')
+  ) {
+    rows.push({ value: 'following', label: 'Following', icon: glyphs.get('following') });
+  }
+  return rows;
+}
+
 function pickString<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
   return typeof value === 'string' && (allowed as readonly string[]).includes(value)
     ? (value as T)

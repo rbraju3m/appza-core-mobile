@@ -23,6 +23,8 @@ export { ActionProvider, useActionDispatch, type ActionDispatch, type ActionInvo
 export {
   getFeedControls,
   setFeedControls,
+  seedFeedControls,
+  hasStoredFeedControls,
   useFeedControls,
   type FeedControls,
   type FeedViewMode,
@@ -207,6 +209,8 @@ export {
   getFcFeedSettings,
   getFcAccessSettings,
   resolveFeedSortOptions,
+  resolveFeedSortRows,
+  type FcFeedSortRow,
   type FcFeedSettings,
   type FcFeedLayout,
   type FcFeedSortOption,

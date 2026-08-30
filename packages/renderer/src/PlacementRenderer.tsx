@@ -19,6 +19,7 @@ import { setSpaceDetailControls, useSpaceDetailControls } from './spaceDetailCon
 import { setChatControls, useChatControls } from './chatControls';
 import { setLeaderboardControls, useLeaderboardControls } from './leaderboardControls';
 import { setBookmarkControls, useBookmarkControls } from './bookmarkControls';
+import { seedFeedControls, type FeedViewMode } from './feedControls';
 import {
   setBannerControls,
   useBannerControls,
@@ -27,7 +28,8 @@ import {
 } from './bannerControls';
 import { publishSearchFetchView, useSearchControls } from './searchControls';
 import { useDocumentDraft } from './documentDraft';
-import { getFcRuntimeSettings, useFcRuntimeSettings } from './fcRuntimeSettings';
+import { getFcRuntimeSettings, useFcRuntimeSettings, resolveFeedSortRows } from './fcRuntimeSettings';
+import { readPickerOptions } from './ViewModePopover';
 import { useViewer, viewerStateEntries } from './viewer';
 import { getPostDraft, postDraftStateEntries, usePostDraft } from './postDraft';
 import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
@@ -355,15 +357,20 @@ export function PlacementRenderer({
                   isRecord(sortWiring) && isRecord((sortWiring as Record<string, unknown>).args)
                     ? (((sortWiring as Record<string, unknown>).args as Record<string, unknown>).options)
                     : undefined;
+                // The FEED's button names the row the SHEET will draw, so
+                // it reads the same merged list the dispatcher opens with
+                // — otherwise a sort the admin added in FluentCommunity
+                // would open a sheet that has it and a button that shows
+                // the raw key. Saved Posts keeps the catalog list; its
+                // rows are not site-driven.
+                const catalogRows = readPickerOptions(opts);
+                const rows =
+                  slice === 'feed'
+                    ? resolveFeedSortRows(catalogRows, viewer.is_logged_in)
+                    : catalogRows;
                 let label = sortValue;
-                if (Array.isArray(opts)) {
-                  const match = opts.find(
-                    (o) => isRecord(o) && (o as Record<string, unknown>).value === sortValue,
-                  );
-                  if (match && typeof (match as Record<string, unknown>).label === 'string') {
-                    label = (match as Record<string, unknown>).label as string;
-                  }
-                }
+                const match = rows.find((o) => o.value === sortValue);
+                if (match) label = match.label;
                 // View-toggle icon reflects current view mode so the user
                 // sees immediate feedback of their pick (grid for card,
                 // rows for list, lines for timeline).
@@ -373,11 +380,28 @@ export function PlacementRenderer({
                     : viewValue === 'list'
                       ? 'reorder-four-outline'
                       : 'list-outline';
+                // FluentCommunity's two "Disable ... Change" switches, as
+                // a FORCED-OFF only. Writing `true` when the site allows
+                // the picker would clobber a builder who turned it off in
+                // the panel; writing `false` when the site forbids it is
+                // the one direction where the site has to win. Applied
+                // for the feed only — both switches are feed settings,
+                // and Saved Posts rides the same Superstructure.
+                const siteDisables =
+                  slice === 'feed'
+                    ? {
+                        ...(fcSettings.feed.sort_change_disabled ? { show_sort: false } : {}),
+                        ...(fcSettings.feed.layout_change_disabled
+                          ? { show_view_toggle: false }
+                          : {}),
+                      }
+                    : {};
                 return {
                   sort_button_text: `${prefix} ${label}`,
                   default_sort: sortValue,
                   default_view_mode: viewValue,
                   view_toggle_icon: viewIcon,
+                  ...siteDisables,
                 };
               })()
             : {}),
@@ -702,6 +726,47 @@ export function PlacementRenderer({
     dataState.items.length,
     bookmarkControls.search,
   ]);
+
+  // Admin defaults for the feed's sort and layout, applied ONCE and only
+  // to a viewer who has never chosen. Nothing seeded this slice before:
+  // it started at its own hard `latest` / `timeline`, and the block above
+  // overwrites the toolbar's `default_sort` / `default_view_mode` props
+  // with the CURRENT slice values before they could reach anything — so
+  // the builder's control and the admin's setting were both dead.
+  //
+  // The two settings are asymmetric, and that is FluentCommunity's
+  // asymmetry rather than ours. `default_feed_sort_by` genuinely stores
+  // an empty string for "no preference", so an empty one falls through
+  // to the builder's prop. `default_feed_layout` defaults to `timeline`
+  // in FC's own $defaults array and is never empty, so the site always
+  // has an answer and the site's answer wins — a community admin's
+  // explicit choice outranks the app's, since it is their community.
+  //
+  // `sort_options` is the "bootstrap has landed" signal; it is `[]` until
+  // the envelope arrives, and seeding off pre-envelope defaults would
+  // apply FC's factory settings rather than this site's.
+  const isFeedToolbar = baseAppzet?.slug === 'fc-feed-toolbar';
+  const authoredToolbarProps = (baseAppzet?.default_props_override ?? null) as Record<
+    string,
+    unknown
+  > | null;
+  useEffect(() => {
+    if (!isFeedToolbar) return;
+    const feed = fcSettings.feed;
+    if (feed.sort_options.length === 0) return;
+    const authoredSort =
+      typeof authoredToolbarProps?.default_sort === 'string'
+        ? authoredToolbarProps.default_sort
+        : '';
+    const sort = feed.default_sort_by || authoredSort;
+    // No fallback to the toolbar's `default_view_mode` prop, and not by
+    // oversight: `default_layout` is never empty, so a fallback here
+    // would be a branch that cannot run. The prop stays in the panel as
+    // the pre-envelope default and is otherwise inert — worth saying out
+    // loud rather than leaving as a control that quietly does nothing.
+    const viewMode: FeedViewMode = feed.default_layout;
+    seedFeedControls({ ...(sort ? { sort } : {}), viewMode });
+  }, [isFeedToolbar, fcSettings.feed, authoredToolbarProps]);
 
   // The feed banner's CTA overflow — half of the `collapsible` verdict
   // the View More row gates on. The other half is the description's

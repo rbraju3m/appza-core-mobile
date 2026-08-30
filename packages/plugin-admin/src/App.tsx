@@ -31,6 +31,9 @@ import {
   openPollVotersSheet,
   getFcRuntimeSettings,
   setFeedControls,
+  getFeedControls,
+  getViewer,
+  resolveFeedSortRows,
   setBannerControls,
   dismissBanner,
   DEFAULT_DISMISS_DAYS,
@@ -4396,44 +4399,56 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    case 'feed.set_sort': {
-      // Sort button tapped → open popover with sort options + stateKey='sort'.
-      // Popover writes to feedControls.sort on pick; PlacementRenderer's
-      // useFeedControls hook triggers a paged refetch with order_by_type.
-      const rawOptions = Array.isArray(argRec.options) ? argRec.options : [];
-      const options: ViewModeOption[] = rawOptions
-        .filter((o): o is Record<string, unknown> => isRecord(o))
-        .map((o) => ({
-          value: typeof o.value === 'string' ? o.value : '',
-          label: typeof o.label === 'string' ? o.label : '',
-          icon: typeof o.icon === 'string' ? o.icon : undefined,
-        }))
-        .filter((o) => o.value && o.label);
-      const anchor = document.querySelector(
-        '[data-appza-appzet-slug="fc-feed-toolbar"][data-child-index="0"]',
-      );
-      openViewModePopover(options, anchor, 'sort');
-      return;
-    }
-
+    // ── Feed controls ────────────────────────────────────────────────
+    // Designs 20 and 21 draw both pickers as BOTTOM SHEETS. Which frame
+    // opens is a catalog value rather than a fork here: leaving
+    // `presentation` unset still gives the anchored popover, which is
+    // what keeps this branch safe to point at any screen.
+    case 'feed.set_sort':
     case 'feed.set_view_mode': {
-      // Open popover anchored to the toolbar's view-toggle button. In the
-      // plugin-admin sim the device-viewport is the CSS positioning root,
-      // but ViewModePopover uses position:fixed with viewport coords, so
-      // the anchor resolution is the same as mobile.
-      const rawOptions = Array.isArray(argRec.options) ? argRec.options : [];
-      const options: ViewModeOption[] = rawOptions
-        .filter((o): o is Record<string, unknown> => isRecord(o))
-        .map((o) => ({
-          value: typeof o.value === 'string' ? o.value : '',
-          label: typeof o.label === 'string' ? o.label : '',
-          icon: typeof o.icon === 'string' ? o.icon : undefined,
-        }))
-        .filter((o) => o.value && o.label);
+      const isSort = inv.action_slug === 'feed.set_sort';
+      const catalogRows = readPickerOptions(argRec.options);
+      // Sort rows come from the SITE, wearing the catalog's glyphs:
+      // FluentCommunity owns which sorts exist, because it is the thing
+      // that executes them. Layout rows are ours alone — the three view
+      // modes are renderer variants FC knows nothing about.
+      const options = isSort
+        ? resolveFeedSortRows(catalogRows, getViewer().is_logged_in)
+        : catalogRows;
+      // Silent return, matching the bookmarks case directly below: this
+      // dispatcher has no error channel — the simulator's message slot
+      // belongs to the login screen, so reporting here would put "no
+      // options wired" under a password field (P127's failure shape).
+      if (options.length === 0) return;
+      const stateKey = isSort ? 'sort' : 'viewMode';
+      const current = isSort ? getFeedControls().sort : getFeedControls().viewMode;
+      if (argRec.presentation === 'sheet') {
+        const sheetSlug =
+          typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
+            ? argRec.sheet_appzet_slug
+            : isSort
+              ? 'fc-feed-sort-sheet'
+              : 'fc-feed-layout-sheet';
+        openOptionsSheet({
+          appzetSlug: sheetSlug,
+          presentation: optionsSheetPresentation(readAppzetPropsFromCatalog(sheetSlug)),
+          childStyles: childStylesFromCustomizations(
+            sheetSlug,
+            OPTIONS_SHEET_CHILD_COUNT,
+            currentCustomizations,
+          ),
+          options,
+          stateKey,
+          currentValue: current,
+        });
+        return;
+      }
+      // Popover fallback — anchored to whichever of the toolbar's two
+      // buttons fired.
       const anchor = document.querySelector(
-        '[data-appza-appzet-slug="fc-feed-toolbar"][data-child-index="1"]',
+        `[data-appza-appzet-slug="fc-feed-toolbar"][data-child-index="${isSort ? 0 : 1}"]`,
       );
-      openViewModePopover(options, anchor);
+      openViewModePopover(options, anchor, stateKey);
       return;
     }
 

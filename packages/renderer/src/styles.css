@@ -2421,6 +2421,22 @@
   background: transparent;
 }
 
+/* Both controls gone — FluentCommunity's "Disable Feed Sort By Options"
+   AND "Disable Layout Style Change" are on, or the builder turned both
+   off in the panel. A child that fails its visibility test leaves no
+   element behind (P90), so what remains is an empty strip that still
+   draws its divider and its 16px of padding: a hairline across the feed
+   under nothing.
+
+   Not a placement gate, because the condition is "show if EITHER control
+   survives" — an OR, and both clause grammars refuse OR by design. It is
+   also not something the toolbar can answer about itself, since the two
+   switches are resolved separately. `:has()` asks the only question that
+   is actually being asked: did anything render? */
+.appza-renderer-ss[data-slug="fc-feed-toolbar"]:not(:has(> *)) {
+  display: none;
+}
+
 /* Sort button pushed to the right; view toggle sits after it. */
 .appza-renderer-ss[data-slug="fc-feed-toolbar"] [data-child-index="0"] {
   margin-left: auto;
