@@ -14,6 +14,7 @@ import type { PostMenuSheetPresentation } from './PostOptionsPopover';
 import type { PostSpaceSheetPresentation } from './PostSpaceSheet';
 import type { VideoSheetPresentation } from './VideoSheet';
 import type { PollSheetPresentation } from './PollSheet';
+import type { ModerationReviewPresentation } from './ModerationReviewSheet';
 
 // Maps an overlay AppZet's authored props (snake_case, as stored in
 // default_props_override) onto the camelCase payload its component
@@ -693,6 +694,44 @@ export function videoSheetPresentation(props: Record<string, unknown>): VideoShe
  * therefore different props rows, and folding them together would mean
  * one sheet's Properties panel silently editing the other's.
  */
+/**
+ * fc-moderation-review — the review modal (Noor's designs 29 to 32).
+ *
+ * Every string it draws, including both confirm dialogs, so designs 31
+ * and 32 are catalog text rather than two copies in two shells.
+ *
+ * The unpublish label deliberately keeps Noor's wording rather than
+ * FluentCommunity's. FC's own modal computes it from the content's state
+ * — "Unpublish Post" while live, "Remove Post" once it is not, and
+ * "Approve Post" in place of Dismiss — and design 29 draws one pair
+ * regardless. The designs win; a builder who wants FC's phrasing can
+ * type it here.
+ */
+export function moderationReviewPresentation(
+  props: Record<string, unknown>,
+): ModerationReviewPresentation {
+  return {
+    detailsTabLabel: str(props.details_tab_label) ?? 'Details',
+    reportsTabLabel: str(props.reports_tab_label) ?? 'Reports',
+    dismissLabel: str(props.dismiss_label) ?? 'DISMISS REPORTS',
+    unpublishLabel: str(props.unpublish_label) ?? 'UNPUBLISHED POST',
+    reportedAtPrefix: str(props.reported_at_prefix) ?? 'Reported at',
+    postedInPrefix: str(props.posted_in_prefix) ?? 'Posted in',
+    emptyLabel: str(props.empty_label) ?? 'No reports on this content.',
+    loadingLabel: str(props.loading_label) ?? 'Loading…',
+    dismissConfirmTitle: str(props.dismiss_confirm_title) ?? 'Dismiss Reports',
+    dismissConfirmMessage:
+      str(props.dismiss_confirm_message) ??
+      'This will dismiss all reports and keep the content published.',
+    dismissConfirmCta: str(props.dismiss_confirm_cta) ?? 'YES, DISMISS',
+    unpublishConfirmTitle: str(props.unpublish_confirm_title) ?? 'Unpublished Content',
+    unpublishConfirmMessage:
+      str(props.unpublish_confirm_message) ?? 'This will unpublish the content from public view.',
+    unpublishConfirmCta: str(props.unpublish_confirm_cta) ?? 'YES, UNPUBLISHED',
+    setStatusActionSlug: str(props.set_status_action_slug) ?? 'moderation.set_status',
+  };
+}
+
 export function pollSheetPresentation(props: Record<string, unknown>): PollSheetPresentation {
   return {
     eyebrow: str(props.eyebrow) ?? 'ASK THE SPACE',

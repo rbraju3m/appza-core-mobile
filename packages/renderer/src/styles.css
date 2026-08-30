@@ -10795,3 +10795,179 @@ audio.appza-video-embed-native {
   font-size: 0.85rem;
   color: #6b7280;
 }
+
+/* ── fc-moderation-review — designs 29 and 30 ──────────────────────
+   A CENTRED card, not a bottom sheet. Every other overlay in this app
+   rises from the bottom; this one does not, because it is a decision
+   about someone else's post rather than a picker, and design 29 draws
+   it floating with the feed dimmed behind. */
+.appza-modreview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  background: rgba(13, 17, 26, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+.appza-modreview {
+  width: 100%;
+  max-width: 460px;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 16px 16px 14px;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.24);
+}
+.appza-modreview-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.appza-modreview-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #e5e7eb;
+  flex: 0 0 auto;
+}
+.appza-modreview-who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.appza-modreview-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0e121b;
+}
+.appza-modreview-space {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+/* The red "Reported at now" pill. Left-aligned under the author, which
+   is where design 29 puts it — not beside the name. */
+.appza-modreview-reported {
+  align-self: flex-start;
+  margin: 10px 0 4px 50px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: #fde8e8;
+  color: #d64545;
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+.appza-modreview-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.appza-modreview-tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 10px 4px;
+  font-size: 0.9rem;
+  color: #6b7280;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.appza-modreview-tab.is-active {
+  color: #3b5bfd;
+  font-weight: 600;
+  border-bottom-color: #3b5bfd;
+}
+.appza-modreview-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 180px;
+  padding: 14px 0 4px;
+}
+.appza-modreview-content {
+  background: #e2e2e2;
+  border-radius: 8px;
+  padding: 12px;
+}
+.appza-modreview-content-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #0e121b;
+  margin-bottom: 2px;
+}
+.appza-modreview-content-body {
+  font-size: 0.85rem;
+  color: #374151;
+  line-height: 1.4;
+}
+.appza-modreview-content-body p {
+  margin: 0;
+}
+.appza-modreview-report + .appza-modreview-report {
+  margin-top: 16px;
+}
+.appza-modreview-report-head {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #0e121b;
+}
+.appza-modreview-report-time {
+  font-size: 0.78rem;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+.appza-modreview-report-why {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #e2e2e2;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: #374151;
+}
+.appza-modreview-empty {
+  padding: 24px 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #9ca3af;
+}
+.appza-modreview-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+}
+/* Design 29 inverts FluentCommunity's emphasis: FC draws Unpublish as
+   the secondary and Dismiss as the primary. Here Dismiss is the outline
+   and Unpublish the filled one — the destructive act is the loud one,
+   which is a defensible read and is what the design draws. */
+.appza-modreview-dismiss,
+.appza-modreview-unpublish {
+  appearance: none;
+  width: 100%;
+  height: 44px;
+  border-radius: 6px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.appza-modreview-dismiss {
+  background: #ffffff;
+  color: #1d4ed8;
+  border: 1px solid #93b0fb;
+}
+.appza-modreview-unpublish {
+  background: #1447e6;
+  color: #ffffff;
+  border: 1px solid #1447e6;
+}
+.appza-modreview-dismiss:disabled,
+.appza-modreview-unpublish:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

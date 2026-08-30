@@ -29,6 +29,10 @@ import {
   canBrowseAsGuest,
   PollVotersSheet,
   openPollVotersSheet,
+  ModerationReviewSheet,
+  openModerationReview,
+  announceModerationDone,
+  moderationReviewPresentation,
   getFcRuntimeSettings,
   setFeedControls,
   getFeedControls,
@@ -1576,6 +1580,7 @@ export function App() {
       <ChatUserCard />
       <LeaderboardPointsSheet />
       <PollVotersSheet />
+      <ModerationReviewSheet />
     </>
   );
 
@@ -2107,6 +2112,11 @@ export function App() {
                             return;
                           }
                           setPendingDelete(null);
+                          // The review modal stays open across its own
+                          // confirm — that dialog can be cancelled, so
+                          // closing when the CTA was merely TAPPED would be
+                          // a lie. It closes here, on the write landing.
+                          announceModerationDone();
                           const g = window as unknown as { __appzaForceRefreshUntil?: number };
                           g.__appzaForceRefreshUntil = Date.now() + 3000;
                           setTimeout(() => {
@@ -3544,6 +3554,12 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     // matching FC's own is a catalog fact rather than a branch here.
     case 'comment.delete':
     case 'post.remove_preview':
+    // Both review CTAs (designs 31, 32). Same shape again —
+    // confirm, POST an id, refetch — with the STATUS riding in
+    // extraBody and the id being the report's rather than the
+    // post's. FluentCommunity marks every report on the content
+    // and republishes or unpublishes it from that one call.
+    case 'moderation.set_status':
     case 'post.delete': {
       // Overflow-menu → delete. Read feed_id off the tapped item using the
       // action's `feed_id_path` binding (defaults to `data.id`) and open the
@@ -3616,8 +3632,13 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         }
         extraBody = { [parentBodyKey]: parentId };
       }
+      const moderationStatus =
+        action_slug === 'moderation.set_status' && typeof argRec.status === 'string'
+          ? argRec.status
+          : null;
       openDeleteConfirm({
-        feedId, endpoint, method, bodyKey, title, message, cta, extraBody,
+        feedId, endpoint, method, bodyKey, title, message, cta,
+        extraBody: moderationStatus ? { ...(extraBody ?? {}), status: moderationStatus } : extraBody,
         failLabel: action_slug === 'post.remove_preview' ? 'Remove preview' : 'Delete',
       });
       return;
@@ -3663,6 +3684,81 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         emptyMessage:
           typeof argRec.empty_message === 'string' ? argRec.empty_message : 'No votes yet.',
         authHeader: auth ? basicAuthHeader(auth) : undefined,
+      });
+      return;
+    }
+
+    // ── Moderation review (designs 29 to 32) ─────────────────────────
+    // Opens the modal over the flagged content. The DETAILS tab is drawn
+    // from the item already in hand — the row that showed the banner IS
+    // the post — so only the reports are fetched.
+    case 'moderation.review': {
+      const endpoint =
+        typeof argRec.endpoint === 'string' && argRec.endpoint
+          ? argRec.endpoint
+          : '/wp-json/fcom-mobile/api/v1/moderation/reports';
+      const contentType =
+        typeof argRec.content_type === 'string' ? argRec.content_type : 'post';
+      // post_id for a post, parent_id for a comment. FluentCommunity Pro
+      // does not error on the wrong one — it returns every report on the
+      // site — so this is never guessed here.
+      const idParam = typeof argRec.id_param === 'string' ? argRec.id_param : 'post_id';
+      const idPath = typeof argRec.id_path === 'string' ? argRec.id_path : 'data.id';
+      const idKey = idPath.startsWith('data.') ? idPath.slice(5) : idPath;
+      const contentId = itemRec ? (itemRec as Record<string, unknown>)[idKey] : undefined;
+      if (typeof contentId !== 'number' && typeof contentId !== 'string') {
+        onLoginError('Could not identify which content to review.');
+        return;
+      }
+      const sheetSlug =
+        typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
+          ? argRec.sheet_appzet_slug
+          : 'fc-moderation-review';
+      const presentation = moderationReviewPresentation(readAppzetPropsFromCatalog(sheetSlug));
+      const rec = (itemRec ?? {}) as Record<string, unknown>;
+      const xp = isRecord(rec.xprofile) ? rec.xprofile : undefined;
+      const space = isRecord(rec.space) ? rec.space : undefined;
+      openModerationReview({
+        endpoint,
+        idParam,
+        contentId,
+        contentType,
+        content: {
+          title: typeof rec.title === 'string' ? rec.title : undefined,
+          bodyHtml:
+            typeof rec.message_rendered === 'string' ? rec.message_rendered : undefined,
+          authorName: xp && typeof xp.display_name === 'string' ? xp.display_name : undefined,
+          authorAvatar: xp && typeof xp.avatar === 'string' ? xp.avatar : undefined,
+          spaceTitle: space && typeof space.title === 'string' ? space.title : undefined,
+          reportedAt: typeof rec.created_at === 'string' ? rec.created_at : undefined,
+        },
+        presentation,
+        authHeader: auth ? basicAuthHeader(auth) : undefined,
+        onAct: (status, reportId) => {
+          const isDismiss = status === 'ignored';
+          // Re-enters this same handler, the way media.open_post and the
+          // chat card's actions already do — the admin shell has no
+          // dispatch closure, only this function and its deps bag.
+          handleAppModeAction({
+            action_slug: presentation.setStatusActionSlug,
+            args: {
+              ...(readActionDefaultsFromCatalog(presentation.setStatusActionSlug) ?? {}),
+              status,
+              confirm_title: isDismiss
+                ? presentation.dismissConfirmTitle
+                : presentation.unpublishConfirmTitle,
+              confirm_message: isDismiss
+                ? presentation.dismissConfirmMessage
+                : presentation.unpublishConfirmMessage,
+              confirm_cta: isDismiss
+                ? presentation.dismissConfirmCta
+                : presentation.unpublishConfirmCta,
+            },
+            // The dispatcher resolves the id off the bound item, and the
+            // id it needs is the REPORT's, not the post's.
+            item: { id: reportId },
+          }, deps);
+        },
       });
       return;
     }

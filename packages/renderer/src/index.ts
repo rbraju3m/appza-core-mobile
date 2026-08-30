@@ -30,6 +30,15 @@ export {
   type FeedViewMode,
 } from './feedControls';
 export {
+  ModerationReviewSheet,
+  openModerationReview,
+  announceModerationDone,
+  MODERATION_DONE_EVENT,
+  type ModerationReviewOpenDetail,
+  type ModerationReviewPresentation,
+  type ModerationReport,
+} from './ModerationReviewSheet';
+export {
   getBannerControls,
   setBannerControls,
   useBannerControls,
@@ -351,6 +360,7 @@ export {
   postSpaceSheetPresentation,
   videoSheetPresentation,
   pollSheetPresentation,
+  moderationReviewPresentation,
   profileLinkRowVars,
 } from './modalPresentation';
 export {
