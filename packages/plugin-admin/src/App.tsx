@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { IonIcon } from '@ionic/react';
 import {
   BootstrapEnvelopeSchema,
   type BootstrapEnvelope,
@@ -11,6 +12,7 @@ import {
   ActionProvider,
   PostOptionsPopover,
   ViewModePopover,
+  buildDrawerMenu,
   filterScreensBySurface,
   openPostOptionsPopover,
   openViewModePopover,
@@ -2053,18 +2055,24 @@ export function App() {
                             </div>
                           )}
                           <ul className="appza-sim-menu-list">
-                            {(catalog?.template_screens ?? []).map((s) => (
-                              <li key={s.id}>
+                            {buildDrawerMenu(
+                              catalog?.template_screens ?? [],
+                              catalog?.app_map,
+                            ).map((row) => (
+                              <li key={row.id}>
                                 <button
                                   type="button"
-                                  onClick={() => navigateSimTo(s.id)}
+                                  onClick={() => navigateSimTo(row.id)}
                                   className={
-                                    s.id === selectedScreenId
+                                    row.id === selectedScreenId
                                       ? 'appza-sim-menu-item is-current'
                                       : 'appza-sim-menu-item'
                                   }
                                 >
-                                  {humanizeSlug(s.app_map_screen_slug)}
+                                  {row.icon && (
+                                    <IonIcon icon={row.icon} className="appza-sim-menu-icon" />
+                                  )}
+                                  {row.label}
                                 </button>
                               </li>
                             ))}

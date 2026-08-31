@@ -348,6 +348,7 @@ export {
   type PrefillMediaSetters,
 } from './postInformationPrefill';
 export { filterScreensBySurface } from './surface';
+export { buildDrawerMenu, type DrawerMenuRow } from './drawerMenu';
 export { useInsideDeviceViewport } from './insideDeviceViewport';
 export {
   addMemberPresentation,

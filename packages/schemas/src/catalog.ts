@@ -74,6 +74,20 @@ const TemplateScreenRowSchema = z
     // Per-screen appbar override. Renderer prefers this over the template's
     // default chrome; null/missing → fall back to template.appbar_placements.
     appbar_placements: z.array(ChromePlacementSchema).nullable().optional(),
+    // Side-menu membership + presentation, decided in core.
+    //
+    // Deliberately NOT `surface`: a screen hidden from the menu stays in the
+    // catalog and stays reachable by nav.push. Defaults keep an older
+    // snapshot (and any row core has not spoken about) in the menu, which is
+    // how the menu behaved before these existed.
+    show_in_drawer: z.boolean().default(true),
+    // Falls back to the App Map screen's name, then to the humanised slug.
+    drawer_label: z.string().nullable().optional(),
+    // Ionicon name. Unresolvable names cost the WHOLE menu its icons —
+    // see buildDrawerMenu, and the all-or-none rule it enforces.
+    drawer_icon: z.string().nullable().optional(),
+    // Menu order. Falls back to `position` (the template's screen order).
+    drawer_position: z.number().int().nullable().optional(),
   })
   .passthrough();
 

@@ -585,7 +585,11 @@ body {
 }
 
 .appza-sim-menu-item {
-  display: block;
+  /* Twin of .appza-menu-item — icons are all-or-none, so with none the
+     gap collapses and the row reads exactly as it did. */
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
   text-align: left;
   padding: 10px 14px;
@@ -594,6 +598,16 @@ body {
   font-size: 13px;
   color: #111827;
   cursor: pointer;
+}
+
+.appza-sim-menu-icon {
+  font-size: 18px;
+  flex: 0 0 auto;
+  color: #6b7280;
+}
+
+.appza-sim-menu-item.is-current .appza-sim-menu-icon {
+  color: inherit;
 }
 
 .appza-sim-menu-item:hover {

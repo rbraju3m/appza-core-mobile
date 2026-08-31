@@ -137,7 +137,11 @@ body {
 }
 
 .appza-menu-item {
-  display: block;
+  /* flex, not block: a row may carry an icon. When the menu has no icons
+     (they are all-or-none) the gap collapses and this reads as before. */
+  display: flex;
+  align-items: center;
+  gap: 12px;
   width: 100%;
   text-align: left;
   padding: 12px 16px;
@@ -146,6 +150,16 @@ body {
   font-size: 14px;
   color: #111827;
   cursor: pointer;
+}
+
+.appza-menu-icon {
+  font-size: 20px;
+  flex: 0 0 auto;
+  color: #6b7280;
+}
+
+.appza-menu-item.is-current .appza-menu-icon {
+  color: inherit;
 }
 
 .appza-menu-item:hover {
