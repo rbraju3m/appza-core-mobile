@@ -162,6 +162,83 @@ export function tryHandlePostMenuAction(
       return true;
     }
 
+    // The heart on a comment in the inline strip. Same id-pair shape as
+    // comment.pin, and like it, the direction is the caller's to state.
+    //
+    // No optimistic mutation here — the strip owns that (it flips its own
+    // React state on tap, since a comment has no `data-appza-item-id`
+    // wrapper for the post's DOM-patching path to find). This end just
+    // sends it and refreshes, and the refresh carries FluentCommunity's
+    // `liked` back so a failed call self-corrects.
+    case 'comment.like': {
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      const method =
+        typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+      const bodyKey =
+        typeof argRec.body_key === 'string' && argRec.body_key
+          ? argRec.body_key
+          : 'comment_id';
+      const feedIdPath =
+        typeof argRec.feed_id_path === 'string' ? argRec.feed_id_path : 'data.id';
+      const stateBodyKey =
+        typeof argRec.state_body_key === 'string' && argRec.state_body_key
+          ? argRec.state_body_key
+          : 'state';
+      const currentStatePath =
+        typeof argRec.current_state_path === 'string'
+          ? argRec.current_state_path
+          : 'data.liked';
+      if (!endpoint) {
+        onError('comment.like is missing its endpoint.');
+        return true;
+      }
+      if (!auth) {
+        onError('Please sign in to like a comment.');
+        return true;
+      }
+      const commentId = resolveFeedId(feedIdPath, itemRec);
+      if (commentId === null) {
+        onError('Could not identify which comment to like.');
+        return true;
+      }
+      // Not a toggle, whatever the endpoint is called: FluentCommunity's
+      // toggleReaction reads `state` and REMOVES the reaction when it is
+      // absent, so every like must say which way it is going. `liked` is
+      // set only when the viewer liked it, so absent means "not liked"
+      // and the next state is on.
+      const rawLiked = readDataPath(effectiveItem, currentStatePath);
+      const currentOn =
+        rawLiked === 1 || rawLiked === '1' || rawLiked === true || rawLiked === 'yes';
+      const body: Record<string, unknown> = {
+        [bodyKey]: commentId,
+        [stateBodyKey]: currentOn ? 0 : 1,
+      };
+      const parentBodyKey =
+        typeof argRec.parent_body_key === 'string' && argRec.parent_body_key
+          ? argRec.parent_body_key
+          : 'feed_id';
+      const parentPath =
+        typeof argRec.parent_id_path === 'string' ? argRec.parent_id_path : 'data.post_id';
+      const parentId = resolveFeedId(parentPath, itemRec);
+      if (parentId === null) {
+        // fcom-mobile 400s without it rather than guessing, so failing
+        // here gives the reason instead of a bare HTTP 400.
+        onError('Could not identify which post this comment belongs to.');
+        return true;
+      }
+      body[parentBodyKey] = parentId;
+      void sendJson(endpoint, method, body, auth, authHeader).then((result) => {
+        if (result.ok) {
+          dispatchRefreshFeed();
+        } else {
+          onError(result.error);
+          // Put the heart back: the strip already flipped it on tap.
+          dispatchRefreshFeed();
+        }
+      });
+      return true;
+    }
+
     case 'comment.report':
     case 'post.report': {
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;

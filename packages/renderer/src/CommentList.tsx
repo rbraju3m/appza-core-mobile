@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { IonIcon } from '@ionic/react';
 import { resolveIcon } from './PrimitiveRenderer';
 import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
@@ -48,6 +49,13 @@ export type CommentEntry = {
   status?: string;
   /** Carries `moderation_banner_text`, derived in the proxy. */
   meta?: Record<string, unknown> | null;
+  /**
+   * Set to 1 by FluentCommunity ONLY on a comment this viewer has liked
+   * (`FeedsHelper::tranformFeedData`) — absent means not liked, it is
+   * never sent as 0. Both the feed list and the single-feed path fill it,
+   * so the heart can be honest without us enriching anything.
+   */
+  liked?: number | boolean | string;
 };
 
 function str(o: Record<string, unknown> | undefined, k: string): string {
@@ -83,6 +91,10 @@ function isPinned(c: CommentEntry): boolean {
   return c.is_sticky === 1 || c.is_sticky === true || c.is_sticky === '1';
 }
 
+function isLiked(c: CommentEntry): boolean {
+  return c.liked === 1 || c.liked === true || c.liked === '1';
+}
+
 export function AppzaCommentList({
   overrides,
   action,
@@ -93,6 +105,18 @@ export function AppzaCommentList({
   dispatch: (inv: ActionInvocation) => void;
 }) {
   const comments = readComments(overrides);
+
+  // The tap has to read as ON before the round-trip, and the post's
+  // reaction path cannot be borrowed for it: that one patches the DOM by
+  // `data-appza-item-id`, which addresses a POST. A comment has no such
+  // wrapper, so the strip keeps the toggle in React state instead, keyed
+  // by comment id. The next feed payload carries the server's answer and
+  // takes over (`liked`), so a failed POST self-corrects on refresh
+  // rather than sticking.
+  const [likeFlips, setLikeFlips] = useState<Record<string, boolean>>({});
+
+  // Hooks first, THEN the early return — an empty strip must still call
+  // the same hooks in the same order.
   if (comments.length === 0) return null;
 
   // Settings → Customization has no switch for this; the designs say two.
@@ -111,6 +135,7 @@ export function AppzaCommentList({
 
   const replyLabel = str(overrides, 'reply_label') || 'Reply';
   const likeIcon = resolveIcon(str(overrides, 'like_icon') || 'heart-outline');
+  const likeIconOn = resolveIcon(str(overrides, 'like_icon_on') || 'heart');
   const menuIcon = resolveIcon(str(overrides, 'menu_icon') || 'ellipsis-vertical');
   const pinIcon = resolveIcon(str(overrides, 'pin_icon') || 'pin');
   const showMenu = bool(overrides, 'show_menu', true);
@@ -172,7 +197,14 @@ export function AppzaCommentList({
       {shown.map((c, idx) => {
         const profile = c.xprofile ?? {};
         const pinned = isPinned(c);
-        const likes = count(c as unknown as Record<string, unknown>, 'reactions_count', 0);
+        const key = String(c.id ?? idx);
+        const serverLiked = isLiked(c);
+        const liked = likeFlips[key] ?? serverLiked;
+        // Only ever off by the one tap this viewer made: the server count
+        // already includes their like when `liked` is set.
+        const likes =
+          count(c as unknown as Record<string, unknown>, 'reactions_count', 0) +
+          (liked === serverLiked ? 0 : liked ? 1 : -1);
         const bannerText = bannerTextOf(c);
         const flagged = showFlagBanner && !!bannerText && canReviewOf(c);
         const inReview = showReviewChip && c.status === 'pending';
@@ -260,14 +292,18 @@ export function AppzaCommentList({
               {showLike && likeIcon && (
                 <button
                   type="button"
-                  className="appza-comment-like"
-                  aria-label="Like this comment"
+                  className={
+                    liked ? 'appza-comment-like appza-comment-like-on' : 'appza-comment-like'
+                  }
+                  aria-label={liked ? 'Unlike this comment' : 'Like this comment'}
+                  aria-pressed={liked}
                   onClick={(e) => {
                     e.stopPropagation();
+                    setLikeFlips((prev) => ({ ...prev, [key]: !liked }));
                     fire(likeSlug, c);
                   }}
                 >
-                  <IonIcon icon={likeIcon} />
+                  <IonIcon icon={(liked && likeIconOn) || likeIcon} />
                   {likes > 0 && <span className="appza-comment-like-count">({likes})</span>}
                 </button>
               )}

@@ -10675,6 +10675,11 @@ audio.appza-video-embed-native {
 .appza-comment-like ion-icon {
   font-size: 15px;
 }
+/* Liked reads in the post card's like colour, so one heart means one
+   thing everywhere on the card. */
+.appza-comment-like-on {
+  color: var(--ion-color-danger, #eb445a);
+}
 .appza-comment-view-all {
   border: 0;
   background: transparent;

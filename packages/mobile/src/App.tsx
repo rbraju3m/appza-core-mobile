@@ -625,6 +625,25 @@ type CommentPanelState = {
   panelTitle: string;
   placeholder: string;
   sendLabel: string;
+  /**
+   * Set by comment.reply — the panel opens with the composer already
+   * aimed at this comment, exactly as if the reader had tapped Reply
+   * inside the panel. The panel has had reply since chunk 2; what was
+   * missing was a way in from the strip on the card.
+   */
+  replyTo?: { id: number | string; name: string };
+  /**
+   * Set by comment.edit. The panel opens with this comment's text in the
+   * composer and sends to `endpoint` (PUT /comments/update) instead of
+   * the create route — one composer, two verbs, rather than a second
+   * editor that would drift from this one.
+   */
+  edit?: {
+    commentId: number | string;
+    message: string;
+    parentBodyKey: string;
+    toastMessage: string;
+  };
 };
 
 type ActionDeps = {
@@ -1956,6 +1975,8 @@ export function App() {
           panelTitle={commentPanel.panelTitle}
           placeholder={commentPanel.placeholder}
           sendLabel={commentPanel.sendLabel}
+          initialReplyTo={commentPanel.replyTo}
+          edit={commentPanel.edit}
           auth={auth}
           onClose={() => setCommentPanel(null)}
           onError={setErrorToast}
@@ -2534,6 +2555,160 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       return;
     }
 
+    // Reply and Edit both open the comment panel — the composer that
+    // already exists and already posts — rather than growing a second
+    // editor per verb. What differs is what the panel opens WITH: reply
+    // arms `replyingTo` (which the panel has understood since chunk 2),
+    // edit prefills the draft and swaps the send target.
+    //
+    // The two read their ids from opposite ends. A reply is created
+    // against the POST with the comment as parent; an edit is addressed
+    // to the COMMENT with the post alongside it. The catalog says which
+    // is which through feed_id_path / parent_id_path, so neither is
+    // hardcoded here.
+    case 'comment.reply':
+    case 'comment.edit': {
+      const isEdit = action_slug === 'comment.edit';
+      console.log(`[appza-mobile] dispatch: ${action_slug}`, { argRec, effectiveItem });
+      const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      const listEndpoint =
+        typeof argRec.list_endpoint === 'string' ? argRec.list_endpoint : null;
+      const method =
+        typeof argRec.method === 'string'
+          ? argRec.method.toUpperCase()
+          : isEdit
+            ? 'PUT'
+            : 'POST';
+      const bodyKey =
+        typeof argRec.body_key === 'string' && argRec.body_key
+          ? argRec.body_key
+          : isEdit
+            ? 'comment_id'
+            : 'feed_id';
+      const messageKey =
+        typeof argRec.message_key === 'string' && argRec.message_key
+          ? argRec.message_key
+          : 'comment';
+      const parentBodyKey =
+        typeof argRec.parent_body_key === 'string' && argRec.parent_body_key
+          ? argRec.parent_body_key
+          : isEdit
+            ? 'feed_id'
+            : 'parent_id';
+      const feedIdPath =
+        typeof argRec.feed_id_path === 'string'
+          ? argRec.feed_id_path
+          : isEdit
+            ? 'data.id'
+            : 'data.post_id';
+      const parentIdPath =
+        typeof argRec.parent_id_path === 'string'
+          ? argRec.parent_id_path
+          : isEdit
+            ? 'data.post_id'
+            : 'data.id';
+      const panelTitle =
+        typeof argRec.panel_title === 'string'
+          ? argRec.panel_title
+          : isEdit
+            ? 'Edit comment'
+            : 'Comments';
+      const placeholder =
+        typeof argRec.placeholder === 'string' ? argRec.placeholder : 'Write a comment…';
+      const sendLabel =
+        typeof argRec.send_label === 'string' ? argRec.send_label : isEdit ? 'Save' : 'Reply';
+      if (!endpoint) {
+        onError(`${action_slug} is missing its endpoint.`);
+        return;
+      }
+      if (!listEndpoint) {
+        onError(`${action_slug} is missing its list_endpoint.`);
+        return;
+      }
+      if (!auth) {
+        requireAuthOrLogin();
+        return;
+      }
+      const readId = (path: string): number | null => {
+        const k = path.startsWith('data.') ? path.slice(5) : path;
+        const raw = itemRec ? (itemRec as Record<string, unknown>)[k] : undefined;
+        if (typeof raw === 'number') return raw;
+        if (typeof raw === 'string' && raw !== '' && !Number.isNaN(Number(raw))) {
+          return Number(raw);
+        }
+        return null;
+      };
+      const primaryId = readId(feedIdPath);
+      const parentId = readId(parentIdPath);
+      if (primaryId === null || parentId === null) {
+        onError(
+          isEdit
+            ? 'Could not identify which comment to edit.'
+            : 'Could not identify which comment to reply to.',
+        );
+        return;
+      }
+      // The panel is always mounted against the POST — it lists that
+      // post's comments either way — so the feed id is the parent on an
+      // edit and the primary on a reply.
+      const postId = isEdit ? parentId : primaryId;
+
+      if (isEdit) {
+        // message, not message_rendered: the rendered copy is HTML and
+        // would land in the textarea as tags.
+        const msgPath =
+          typeof argRec.message_path === 'string' ? argRec.message_path : 'data.message';
+        const mk = msgPath.startsWith('data.') ? msgPath.slice(5) : msgPath;
+        const rawMsg = itemRec ? (itemRec as Record<string, unknown>)[mk] : undefined;
+        openCommentPanel({
+          feedId: postId,
+          endpoint,
+          method,
+          listEndpoint,
+          bodyKey,
+          messageKey,
+          panelTitle,
+          placeholder,
+          sendLabel,
+          edit: {
+            commentId: primaryId,
+            message: typeof rawMsg === 'string' ? rawMsg : '',
+            parentBodyKey,
+            toastMessage:
+              typeof argRec.toast_message === 'string'
+                ? argRec.toast_message
+                : 'Comment updated',
+          },
+        });
+        return;
+      }
+
+      // The `data.` prefix is not decoration: readDataPath returns
+      // undefined for any path without it, and the banner then reads
+      // "Replying to @User" for everyone.
+      const authorPath =
+        typeof argRec.author_name_path === 'string'
+          ? argRec.author_name_path
+          : 'data.xprofile.display_name';
+      const author = readDataPath(effectiveItem, authorPath);
+      openCommentPanel({
+        feedId: postId,
+        endpoint,
+        method,
+        listEndpoint,
+        bodyKey,
+        messageKey,
+        panelTitle,
+        placeholder,
+        sendLabel,
+        replyTo: {
+          id: parentId,
+          name: typeof author === 'string' && author ? author : 'User',
+        },
+      });
+      return;
+    }
+
     case 'poll.vote': {
       // Poll submit — AppzaPollBlock grafts the picked option slugs onto
       // inv.item.vote_indexes before dispatching. Read them off the item,
@@ -3067,6 +3242,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
 
     case 'comment.copy_link':
     case 'comment.pin':
+    case 'comment.like':
     case 'comment.report':
     case 'post.copy_link':
     case 'post.pin_top':
@@ -5748,6 +5924,8 @@ function CommentPanel({
   panelTitle,
   placeholder,
   sendLabel,
+  initialReplyTo,
+  edit,
   auth,
   onClose,
   onError,
@@ -5761,15 +5939,26 @@ function CommentPanel({
   panelTitle: string;
   placeholder: string;
   sendLabel: string;
+  initialReplyTo?: { id: number | string; name: string };
+  edit?: {
+    commentId: number | string;
+    message: string;
+    parentBodyKey: string;
+    toastMessage: string;
+  };
   auth: StoredAuth;
   onClose: () => void;
   onError: (msg: string) => void;
 }) {
   const [comments, setComments] = useState<PanelComment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [draft, setDraft] = useState('');
+  // Opened by comment.edit → the composer starts holding the comment.
+  const [draft, setDraft] = useState(edit?.message ?? '');
   const [sending, setSending] = useState(false);
-  const [replyingTo, setReplyingTo] = useState<{ id: number | string; name: string } | null>(null);
+  // Opened by comment.reply → already aimed, banner and all.
+  const [replyingTo, setReplyingTo] = useState<{ id: number | string; name: string } | null>(
+    initialReplyTo ?? null,
+  );
   const listRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -5811,11 +6000,20 @@ function CommentPanel({
     if (!trimmed || sending) return;
     setSending(true);
     try {
-      const body: Record<string, unknown> = {
-        [bodyKey]: feedId,
-        [messageKey]: trimmed,
-      };
-      if (replyingTo) body.parent_id = replyingTo.id;
+      // Editing addresses the COMMENT and names the post alongside it;
+      // creating addresses the POST. /comments/update 400s without both
+      // ids, which is why the edit branch sends the pair.
+      const body: Record<string, unknown> = edit
+        ? {
+            [bodyKey]: edit.commentId,
+            [edit.parentBodyKey]: feedId,
+            [messageKey]: trimmed,
+          }
+        : {
+            [bodyKey]: feedId,
+            [messageKey]: trimmed,
+          };
+      if (!edit && replyingTo) body.parent_id = replyingTo.id;
       const res = await fetch(absolutizeEndpoint(endpoint), {
         method,
         credentials: 'omit',
@@ -5844,6 +6042,14 @@ function CommentPanel({
       }
       setDraft('');
       setReplyingTo(null);
+      // An edit is done when it lands — the panel was opened FOR it, and
+      // leaving it open would offer to save the same text again.
+      if (edit) {
+        await load();
+        triggerFeedRefresh();
+        onClose();
+        return;
+      }
       await load();
       triggerFeedRefresh();
       requestAnimationFrame(() => {
@@ -5855,7 +6061,21 @@ function CommentPanel({
     } finally {
       setSending(false);
     }
-  }, [draft, sending, endpoint, method, auth, bodyKey, messageKey, feedId, replyingTo, load, onError]);
+  }, [
+    draft,
+    sending,
+    endpoint,
+    method,
+    auth,
+    bodyKey,
+    messageKey,
+    feedId,
+    replyingTo,
+    edit,
+    load,
+    onClose,
+    onError,
+  ]);
 
   const startReply = useCallback((c: PanelComment) => {
     if (c.id == null) return;
@@ -5979,6 +6199,37 @@ function CommentPanel({
             ))
           )}
         </div>
+        {edit && (
+          <div
+            style={{
+              padding: '6px 12px',
+              borderTop: '1px solid #e5e7eb',
+              background: '#fef3c7',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: 12,
+              color: '#92400e',
+            }}
+          >
+            <span>Editing your comment</span>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: '#92400e',
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: 600,
+                padding: 4,
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
         {replyingTo && (
           <div
             style={{
