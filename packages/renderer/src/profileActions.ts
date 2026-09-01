@@ -1,5 +1,6 @@
 import { readDataPath, APPZA_REFRESH_EVENT } from './dataFetch';
 import { sendJson, type StoredAuthLike } from './postMenuHandlers';
+import { getProfileControls } from './profileControls';
 import type { ActionInvocation } from './actionContext';
 
 /**
@@ -124,4 +125,98 @@ function resolveMemberId(raw: unknown): number | string | null {
 function dispatchRefresh(): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(APPZA_REFRESH_EVENT));
+}
+
+/**
+ * The profile edit form's Save button.
+ *
+ * Shared for the same reason the follow actions are, and kept beside
+ * them because it is the other half of one screen.
+ *
+ * The form's values are read out of the DOM by the shell — each shell
+ * owns its own `readFormFieldValue`, so the collector arrives as a
+ * dependency rather than being imported. That indirection is the whole
+ * contract: `param_map` names `children[N].value` paths into the form's
+ * Superstructure, and if those indices ever stop matching the SS the
+ * collector returns '' for every field and the save writes empty
+ * strings over real data. A contract test in the core pins them.
+ *
+ * `member_id` comes from the profile_controls slice — the same number
+ * the screen's data source used to fetch the row being edited, so the
+ * write always addresses the profile the form actually loaded.
+ */
+export type ProfileSaveDeps = ProfileActionDeps & {
+  /** Reads `param_map` paths out of the named AppZet's rendered fields. */
+  collect: (
+    appzetSlug: string,
+    paramMap: Record<string, unknown> | undefined,
+  ) => Record<string, unknown>;
+  /** Pop the screen after a successful save. */
+  onSaved?: () => void;
+};
+
+export function tryHandleProfileSave(
+  inv: ActionInvocation,
+  deps: ProfileSaveDeps,
+): boolean {
+  if (inv.action_slug !== 'profile.save') return false;
+
+  const argRec = (inv.args ?? {}) as Record<string, unknown>;
+  const { auth, authHeader, onError, onInfo, collect, onSaved } = deps;
+
+  const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+  const method =
+    typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
+  const formSlug =
+    typeof argRec.form_appzet_slug === 'string' && argRec.form_appzet_slug
+      ? argRec.form_appzet_slug
+      : 'fc-basic-profile-information';
+  const paramMap =
+    argRec.param_map && typeof argRec.param_map === 'object'
+      ? (argRec.param_map as Record<string, unknown>)
+      : undefined;
+  const successMessage =
+    typeof argRec.success_message === 'string'
+      ? argRec.success_message
+      : 'Profile updated';
+  const backOnSuccess = argRec.back_on_success !== false;
+
+  if (!endpoint) {
+    onError('profile.save is missing its endpoint.');
+    return true;
+  }
+  if (!auth) {
+    onError('Please sign in.');
+    return true;
+  }
+  if (!paramMap) {
+    onError('profile.save has no fields to send.');
+    return true;
+  }
+
+  const memberId = getProfileControls().member_id;
+  if (!memberId) {
+    onError('Could not identify whose profile this is.');
+    return true;
+  }
+
+  const body: Record<string, unknown> = {
+    member_id: memberId,
+    ...collect(formSlug, paramMap),
+  };
+
+  // No client-side required check on first_name. FluentCommunity
+  // validates it and answers "First name is required", and a second copy
+  // of that rule here would be a second thing to keep true — the server
+  // is the one that decides whether the write happened.
+  void sendJson(endpoint, method, body, auth, authHeader).then((result) => {
+    if (result.ok) {
+      onInfo(successMessage);
+      dispatchRefresh();
+      if (backOnSuccess) onSaved?.();
+    } else {
+      onError(result.error);
+    }
+  });
+  return true;
 }

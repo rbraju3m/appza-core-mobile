@@ -142,6 +142,7 @@ import {
   setSpacesControls,
   tryHandlePostMenuAction,
   tryHandleProfileAction,
+  tryHandleProfileSave,
   type ActionDispatch,
   type ActionInvocation,
   type AddMemberRoleOption,
@@ -3282,6 +3283,30 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         authHeader: basicAuthHeader,
         onError,
         onInfo,
+      });
+      return;
+    }
+
+    // The profile edit form's Save. The form is a SIBLING placement, so
+    // the values are collected from the AppZet the action names rather
+    // than from the button's own — and they are read out of the DOM,
+    // which is why the inputs seed their value instead of holding it in
+    // React state.
+    case 'profile.save': {
+      tryHandleProfileSave(inv, {
+        auth,
+        authHeader: basicAuthHeader,
+        onError,
+        onInfo,
+        collect: (slug, map) => collectParams(slug, map as Record<string, unknown> | undefined),
+        onSaved: () => {
+          setScreenStack((prev) => {
+            if (prev.length === 0) return prev;
+            const rest = prev.slice(0, -1);
+            setSelectedScreenId(prev[prev.length - 1] ?? null);
+            return rest;
+          });
+        },
       });
       return;
     }

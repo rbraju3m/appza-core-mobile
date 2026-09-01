@@ -167,6 +167,7 @@ import {
   type MemberRoleOption,
   tryHandlePostMenuAction,
   tryHandleProfileAction,
+  tryHandleProfileSave,
   type ActionDispatch,
   type ActionInvocation,
   type PostMenuItem,
@@ -3904,6 +3905,28 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         authHeader: basicAuthHeader,
         onError: onMenuError,
         onInfo: onMenuInfo,
+      });
+      return;
+    }
+
+    // Save on the profile edit form. Kept in step with the phone: same
+    // shared handler, same collector contract, so the form the simulator
+    // shows is the form the device posts.
+    case 'profile.save': {
+      tryHandleProfileSave(inv, {
+        auth,
+        authHeader: basicAuthHeader,
+        onError: onMenuError,
+        onInfo: onMenuInfo,
+        collect: (slug, map) => collectParams(slug, map as Record<string, unknown> | undefined),
+        onSaved: () => {
+          setScreenStack((prev) => {
+            if (prev.length === 0) return prev;
+            const rest = prev.slice(0, -1);
+            setSelectedScreenId(prev[prev.length - 1] ?? null);
+            return rest;
+          });
+        },
       });
       return;
     }

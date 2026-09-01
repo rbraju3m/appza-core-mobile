@@ -488,6 +488,98 @@ function SeededIonToggle({
   return <IonToggle ref={ref} disabled={disabled} onIonChange={onToggle} />;
 }
 
+/**
+ * An input that starts with a value and then belongs to the DOM.
+ *
+ * `IonInput` read no value at all before 2026-09-01 — placeholder, fill,
+ * type and clear_input, nothing else — so no field mapping could fill a
+ * form, and the profile edit screen drew the word "Input" five times
+ * (the placeholder falling back to the primitive's own label).
+ *
+ * Seeded once through a ref rather than passed as a `value` prop, which
+ * is the SeededIonToggle pattern and matters for two reasons. A value
+ * prop re-applied on every render fights the person typing — any refetch
+ * would snap the field back. And the save reads these fields out of the
+ * DOM (`readFormFieldValue`), so the DOM has to be where the current
+ * value actually lives: a controlled field that answered from React
+ * state would be read as whatever it was seeded with (P: a controlled
+ * field cannot be read from the DOM).
+ */
+function SeededIonInput({
+  initialValue,
+  type,
+  placeholder,
+  fill,
+  clearInput,
+  readonly,
+  onInput,
+}: {
+  initialValue?: string;
+  type: 'text' | 'password' | 'email' | 'tel' | 'number' | 'search' | 'url';
+  placeholder?: string;
+  fill?: 'solid' | 'outline';
+  clearInput?: boolean;
+  readonly?: boolean;
+  onInput?: (e: CustomEvent) => void;
+}) {
+  const ref = useRef<HTMLIonInputElement | null>(null);
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current || !ref.current || initialValue === undefined) return;
+    seeded.current = true;
+    ref.current.value = initialValue;
+  }, [initialValue]);
+  return (
+    <IonInput
+      ref={ref}
+      type={type}
+      placeholder={placeholder}
+      fill={fill ?? 'outline'}
+      clearInput={clearInput}
+      readonly={readonly}
+      onIonInput={onInput}
+    />
+  );
+}
+
+/** The textarea half of the same contract. */
+function SeededIonTextarea({
+  initialValue,
+  placeholder,
+  fill,
+  rows,
+  autoGrow,
+  readonly,
+  onInput,
+}: {
+  initialValue?: string;
+  placeholder?: string;
+  fill?: 'solid' | 'outline';
+  rows: number;
+  autoGrow?: boolean;
+  readonly?: boolean;
+  onInput?: (e: CustomEvent) => void;
+}) {
+  const ref = useRef<HTMLIonTextareaElement | null>(null);
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current || !ref.current || initialValue === undefined) return;
+    seeded.current = true;
+    ref.current.value = initialValue;
+  }, [initialValue]);
+  return (
+    <IonTextarea
+      ref={ref}
+      placeholder={placeholder}
+      fill={fill ?? 'outline'}
+      rows={rows}
+      autoGrow={autoGrow}
+      readonly={readonly}
+      onIonInput={onInput}
+    />
+  );
+}
+
 export const SELF_ACTION_PRIMITIVES: ReadonlySet<string> = new Set([
   'ion-select',
   'appza-poll-block',
@@ -693,7 +785,8 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
           }
         : undefined;
       return (
-        <IonInput
+        <SeededIonInput
+          initialValue={readString(overrides, 'value')}
           type={inputType}
           placeholder={readString(overrides, 'placeholder') ?? label}
           fill={(fillProp as 'solid' | 'outline' | undefined) ?? 'outline'}
@@ -702,7 +795,13 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
           // fires onIonInput with '' when tapped, so the wired action clears
           // the state slice without a second child + action.
           clearInput={readBoolean(overrides, 'clear_input')}
-          onIonInput={handleInput}
+          // The profile form's email field: FluentCommunity only lets an
+          // address change for edit_users, or for the owner on a site
+          // whose can_change_email is yes. The proxy publishes that
+          // verdict; an editable field that silently discards the edit
+          // would be worse than a locked one.
+          readonly={readBoolean(overrides, 'readonly')}
+          onInput={handleInput}
         />
       );
     }
@@ -727,12 +826,14 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
           }
         : undefined;
       return (
-        <IonTextarea
+        <SeededIonTextarea
+          initialValue={readString(overrides, 'value')}
           placeholder={readString(overrides, 'placeholder') ?? label}
           fill={(fillProp as 'solid' | 'outline' | undefined) ?? 'outline'}
           rows={Number.isFinite(rowsNum) ? rowsNum : 2}
           autoGrow={readBoolean(overrides, 'auto_grow')}
-          onIonInput={handleInput}
+          readonly={readBoolean(overrides, 'readonly')}
+          onInput={handleInput}
         />
       );
     }

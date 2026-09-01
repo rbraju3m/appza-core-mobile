@@ -343,7 +343,12 @@ export {
   type PostMenuSheetOptions,
 } from './PostOptionsPopover';
 export { tryHandlePostMenuAction, type PostMenuDeps, type StoredAuthLike } from './postMenuHandlers';
-export { tryHandleProfileAction, type ProfileActionDeps } from './profileActions';
+export {
+  tryHandleProfileAction,
+  tryHandleProfileSave,
+  type ProfileActionDeps,
+  type ProfileSaveDeps,
+} from './profileActions';
 export {
   prefillPostInformationFromContext,
   type PrefillMediaSetters,

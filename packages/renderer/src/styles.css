@@ -11383,6 +11383,97 @@ audio.appza-video-embed-native {
   --padding-end: 14px;
 }
 
+/* ── fc-basic-profile-information — the profile edit form ───────────
+   Five label + field pairs on the screen Edit Profile opens. It had no
+   stylesheet, so the ion-labels sat INLINE beside their fields and the
+   screen read "Label Input Label Input"; the fields were empty on top of
+   that, because IonInput read no value until the primitive learned to
+   seed one.
+
+   Stacked here, label above field, full width. FluentCommunity's own
+   profile editor is the reference — Noor has no design for this screen.
+   The odd children are the fields, the even ones their labels. */
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] {
+  display: block;
+  padding: 16px 16px 24px;
+  background: #ffffff;
+}
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="0"],
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="2"],
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="4"],
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="6"],
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="8"] {
+  display: block;
+  margin: 16px 0 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+}
+/* The first label has the container's padding above it already. */
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="0"] {
+  margin-top: 0;
+}
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="1"],
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="3"],
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="5"],
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="7"],
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="9"] {
+  display: block;
+  width: 100%;
+}
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] ion-input,
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] ion-textarea {
+  --background: #ffffff;
+  --color: #111827;
+  --placeholder-color: #9ca3af;
+  --padding-start: 12px;
+  --padding-end: 12px;
+  --padding-top: 10px;
+  --padding-bottom: 10px;
+  --border-radius: 8px;
+  font-size: 0.92rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  min-height: 44px;
+}
+/* A field the viewer may not change reads as one. FluentCommunity only
+   lets an address change for edit_users, or for the owner on a site
+   whose can_change_email is yes; Ionic reflects the prop to a class on
+   the host, which is the only hook a stylesheet gets for a per-viewer
+   verdict. */
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] ion-input.input-readonly,
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] ion-textarea.textarea-readonly {
+  --background: #f3f4f6;
+  --color: #6b7280;
+  border-color: #e5e7eb;
+}
+
+/* ── fc-save-button — the form's footer CTA ─────────────────────────
+   It rides the screen FOOTER slot, above the bottom nav rather than
+   instead of it: persistent chrome is persistent, and a screen you can
+   only leave by a back arrow reads as a different app. */
+.appza-renderer-ss[data-slug="fc-save-button"] {
+  display: block;
+  padding: 10px 16px;
+  background: #ffffff;
+  border-top: 1px solid #e5e7eb;
+}
+.appza-renderer-ss[data-slug="fc-save-button"] ion-button {
+  margin: 0;
+  width: 100%;
+  height: 44px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  --background: #1d4ed8;
+  --background-activated: #1e40af;
+  --background-hover: #1e40af;
+  --color: #ffffff;
+  --border-radius: 8px;
+  --box-shadow: none;
+}
+
 /* ── fc-edit-profile-button — the header's action cluster ───────────
    It had no stylesheet at all: the buttons drew as bare uppercase text
    links stacked under the counts, because Ionic's default is uppercase
