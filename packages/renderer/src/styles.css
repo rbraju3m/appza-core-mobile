@@ -11894,6 +11894,15 @@ audio.appza-video-embed-native {
   font-weight: 500;
   margin-right: 5px;
 }
+/* The name and the reply run together on ONE line in designs 13 and 21.
+   The body arrives as `<p>…</p>` from FluentCommunity, and a block
+   paragraph pushes itself below the name however the span before it is
+   styled — so the FIRST paragraph has to go inline. Later ones stay
+   blocks, because a multi-paragraph reply is still a multi-paragraph
+   reply. */
+.appza-ct-mention + span > p:first-child {
+  display: inline;
+}
 
 /* Reply · heart on the left, the reply count on the right. */
 .appza-ct-foot {
@@ -12146,4 +12155,22 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug='fc-comment-signin'] ion-button::part(native) {
   border: 0;
   box-shadow: none;
+}
+
+/* ── The home button ──────────────────────────────────────────────
+   It rides fc-chat-home-fab's Superstructure, so every rule keyed on the
+   SS slug already dresses it — but the POSITIONING is keyed on the
+   AppZet slug, which is why chat, Saved Posts and search each repeat it
+   and why this one drew in the flow, bottom-LEFT, until it said so too.
+
+   Measured from the top of the COMPOSER rather than the viewport: the
+   bar grows when a reply is pending or an image is attached, and a fixed
+   offset would put the button behind it exactly then. The composer
+   publishes its own footer's height into that variable. */
+.appza-renderer-appzet[data-slug='fc-post-detail-home-fab'] {
+  position: fixed;
+  right: var(--appza-offset-right, 18px);
+  bottom: calc(var(--appza-chat-footer-h, 68px) + var(--appza-offset-bottom, 24px));
+  z-index: 20;
+  padding: 0;
 }
