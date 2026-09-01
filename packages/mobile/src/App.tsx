@@ -2272,8 +2272,8 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       // the chip strip binds the row straight through — so the key list
       // learns it rather than the payload being reshaped to say `url`.
       const url =
-        pickString(argRec, ['url', 'link', 'permalink']) ??
-        pickString(itemRec, ['url', 'link', 'permalink']);
+        pickString(argRec, ['url', 'link', 'permalink', 'website']) ??
+        pickString(itemRec, ['url', 'link', 'permalink', 'website']);
       if (!url) {
         console.warn('[appza-mobile] link.open: no url resolved from', {
           args: argRec,

@@ -11383,6 +11383,77 @@ audio.appza-video-embed-native {
   --padding-end: 14px;
 }
 
+/* ── fc-profile-comment-card — one row of the COMMENTS tab ──────────
+   The comment, then the post it was left on. Whole row is the tap
+   target: both children name the action, so neither half is dead. */
+.appza-renderer-ss[data-slug="fc-profile-comment-card"] {
+  display: block;
+  padding: 12px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+}
+.appza-renderer-ss[data-slug="fc-profile-comment-card"] [data-child-index="0"] {
+  display: block;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: #111827;
+}
+.appza-renderer-ss[data-slug="fc-profile-comment-card"] [data-child-index="1"] {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+/* ── fc-profile-about — the About tab ───────────────────────────────
+   Headline, bio, a stats line and the website link, stacked. Noor has
+   no design for this tab, so FluentCommunity's own portal is the
+   reference: quiet type, the bio as the body, everything else muted. */
+.appza-renderer-ss[data-slug="fc-profile-about"] {
+  display: block;
+  padding: 16px;
+  background: #ffffff;
+}
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="0"] {
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="1"] {
+  display: block;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: #374151;
+}
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="2"] {
+  display: block;
+  margin-top: 12px;
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="3"] {
+  display: block;
+  margin-top: 10px;
+}
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="3"] ion-button {
+  margin: 0;
+  height: 30px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  --background: transparent;
+  --background-hover: transparent;
+  --background-activated: transparent;
+  --color: #1d4ed8;
+  --box-shadow: none;
+  --padding-start: 0;
+  --padding-end: 0;
+}
+
 /* ── fc-basic-profile-information — the profile edit form ───────────
    Five label + field pairs on the screen Edit Profile opens. It had no
    stylesheet, so the ion-labels sat INLINE beside their fields and the
@@ -11547,16 +11618,42 @@ audio.appza-video-embed-native {
 }
 
 /* ── fc-profile-tabs — the profile's nav strip ──────────────────────
-   One tab today. The strip is the N-tab shape, so a second is a catalog
-   edit; the underline marks the active one the way the search and
-   space-detail strips do. */
+   FIVE tabs since 2026-09-01, and they come from FluentCommunity's own
+   profile_navs rather than from us — so this cannot assume how many
+   there are or what they are called.
+
+   Two things that were wrong while there was only one tab: the strip
+   WRAPPED onto a second line at five, and every tab carried the active
+   underline because the rule was on the button rather than on the
+   active one. It scrolls now, and the active child is marked by
+   `data-active`, which the renderer stamps by comparing each entry's
+   value against the live tab — no list of names in the stylesheet. */
+.appza-renderer-appzet-list[data-slug="fc-profile-tabs"],
+.appza-renderer-appzet[data-slug="fc-profile-tabs"] {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+.appza-renderer-appzet-list[data-slug="fc-profile-tabs"]::-webkit-scrollbar,
+.appza-renderer-appzet[data-slug="fc-profile-tabs"]::-webkit-scrollbar { display: none; }
 .appza-renderer-ss[data-slug="fc-profile-tabs"] {
   display: flex;
   flex-direction: row;
-  gap: 4px;
-  padding: 0 14px;
-  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: nowrap;
+  gap: 2px;
+  padding: 0 10px;
   background: #ffffff;
+  min-width: max-content;
+}
+.appza-renderer-ss[data-slug="fc-profile-tabs"] .appza-renderer-ss-child {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+}
+.appza-renderer-ss[data-slug="fc-profile-tabs"] .appza-renderer-ss-child[data-active="true"] {
+  border-bottom-color: #1d4ed8;
 }
 .appza-renderer-ss[data-slug="fc-profile-tabs"] ion-button {
   margin: 0;
@@ -11568,8 +11665,12 @@ audio.appza-video-embed-native {
   --background: transparent;
   --background-hover: transparent;
   --background-activated: transparent;
-  --color: #1d4ed8;
+  --color: #6b7280;
   --box-shadow: none;
   --border-radius: 0;
-  border-bottom: 2px solid #1d4ed8;
+  --padding-start: 10px;
+  --padding-end: 10px;
+}
+.appza-renderer-ss[data-slug="fc-profile-tabs"] .appza-renderer-ss-child[data-active="true"] ion-button {
+  --color: #1d4ed8;
 }

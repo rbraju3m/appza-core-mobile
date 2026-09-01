@@ -3300,8 +3300,8 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       // `permalink` joins them for the feed-link chips, which bind their
       // row straight through and where that is FluentCommunity's word.
       const url =
-        pickString(argRec, ['url', 'link', 'permalink']) ??
-        pickString(itemRec, ['url', 'link', 'permalink']);
+        pickString(argRec, ['url', 'link', 'permalink', 'website']) ??
+        pickString(itemRec, ['url', 'link', 'permalink', 'website']);
       if (!url) {
         console.warn('[appza-admin/app-mode] link.open: no url resolved from', {
           args: argRec,

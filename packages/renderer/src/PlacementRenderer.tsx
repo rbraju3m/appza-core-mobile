@@ -15,6 +15,7 @@ import { layoutStyleToCss } from './layoutStyle';
 import { useActionDispatch, type ActionInvocation } from './actionContext';
 import { useFeedControls } from './feedControls';
 import { useSpacesControls } from './spacesControls';
+import { useProfileControls } from './profileControls';
 import { setSpaceDetailControls, useSpaceDetailControls } from './spaceDetailControls';
 import { setChatControls, useChatControls } from './chatControls';
 import { setLeaderboardControls, useLeaderboardControls } from './leaderboardControls';
@@ -173,6 +174,10 @@ export function PlacementRenderer({
   // hook order stays stable; only applied below when the current AppZet's
   // data source is spaces-scoped.
   const { tab: spacesTab, search: spacesSearch, sort: spacesSort } = useSpacesControls();
+  // The profile's tab strip marks its active entry the same way the
+  // space sub-tabs do — an attribute on the AppZet root plus the entry's
+  // own data-value — so ONE tab is underlined rather than all five.
+  const { tab: profileTab } = useProfileControls();
   // spaceDetailControls drives the Space Detail screen (active sub-tab,
   // topic filter, sort). Read unconditionally to keep hook order stable —
   // fc-space-feeds' query_params bind against these values, and per-child
@@ -1756,6 +1761,7 @@ export function PlacementRenderer({
           }
           data-spaces-active-tab={appzet.slug === 'fc-spaces-tabs' ? spacesTab : undefined}
           data-space-detail-active-subtab={appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab : undefined}
+          data-profile-active-tab={appzet.slug === 'fc-profile-tabs' ? profileTab : undefined}
           data-space-detail-active-topic={appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug : undefined}
           data-space-detail-active-space={appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug : undefined}
           data-media-active-type={appzet.slug === 'fc-media-tabs' ? spaceDetailMediaType : undefined}
@@ -1775,6 +1781,7 @@ export function PlacementRenderer({
             childActions={staticActions}
             appzetSlugForPath={appzet.slug}
             activeChildValue={
+              appzet.slug === 'fc-profile-tabs' ? profileTab :
               appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab :
               appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug :
               appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug :
@@ -1929,6 +1936,7 @@ export function PlacementRenderer({
         data-view-mode={listViewMode}
         data-spaces-active-tab={appzet.slug === 'fc-spaces-tabs' ? spacesTab : undefined}
         data-space-detail-active-subtab={appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab : undefined}
+          data-profile-active-tab={appzet.slug === 'fc-profile-tabs' ? profileTab : undefined}
         data-space-detail-active-topic={appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug : undefined}
         data-space-detail-active-space={appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug : undefined}
         data-media-active-type={appzet.slug === 'fc-media-tabs' ? spaceDetailMediaType : undefined}
@@ -2054,7 +2062,8 @@ export function PlacementRenderer({
               childActions={childActions}
               appzetSlugForPath={appzet.slug}
               activeChildValue={
-                appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab :
+                appzet.slug === 'fc-profile-tabs' ? profileTab :
+              appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab :
                 appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug :
                 appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug :
                 appzet.slug === 'fc-spaces-tabs' ? spacesTab :
