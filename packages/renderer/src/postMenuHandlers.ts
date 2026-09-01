@@ -350,7 +350,13 @@ function resolveFeedId(
 
 type SendResult = { ok: true; body: unknown } | { ok: false; error: string };
 
-async function sendJson(
+/**
+ * fcom-mobile's envelope-aware POST. Exported so the profile cluster's
+ * four follow actions send exactly what the post menu sends — the
+ * envelope reports its own status INSIDE a 200, so a caller reading
+ * only res.ok calls a rejected write a success.
+ */
+export async function sendJson(
   endpoint: string,
   method: string,
   body: Record<string, unknown>,

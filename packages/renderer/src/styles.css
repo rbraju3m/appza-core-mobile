@@ -11276,12 +11276,19 @@ audio.appza-video-embed-native {
    the bottom edge, then the display name and a muted byline. */
 .appza-renderer-ss[data-slug="fc-basic-profile"] {
   display: grid;
-  grid-template-columns: 16px auto 1fr 16px;
+  /* Five columns, not four, since 2026-09-01. The counts row used to be
+     one area holding all three count buttons, which STACKED them — three
+     items in one cell overlap, and nobody saw it because the buttons were
+     off. Each count now owns a column, and they sit under the NAME rather
+     than under the avatar so that a four-digit follower count widens a
+     column the name does not depend on: the name spans cols 3-4 and the
+     1fr in col 4 absorbs the difference. */
+  grid-template-columns: 16px auto auto 1fr 16px;
   grid-template-areas:
-    "cover cover cover cover"
-    ".     avatar name  ."
-    ".     avatar byline ."
-    ".     counts counts .";
+    "cover cover  cover  cover  cover"
+    ".     avatar name   name   ."
+    ".     avatar byline byline ."
+    ".     .      count1 count2 .";
   grid-template-rows: 128px auto auto auto;
   background: #ffffff;
   padding-bottom: 14px;
@@ -11336,13 +11343,116 @@ audio.appza-video-embed-native {
   font-size: 0.82rem;
   color: #6b7280;
 }
-/* The three count buttons are off by default — see the catalog note.
-   Styled anyway so switching one on does not produce the old mess. */
-.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="4"],
-.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="5"],
+/* Followers and followings are ON since 2026-09-01; the third (blocked)
+   stays off because FluentCommunity has no such count to bind. Each is a
+   phrase the proxy composed — "0 Followers" — not a bare number.
+
+   They read as text rather than as links on purpose: neither list has a
+   screen yet, so nothing should look tappable. The day those screens
+   exist this is where the affordance comes back. */
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="4"] {
+  grid-area: count1;
+}
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="5"] {
+  grid-area: count2;
+  justify-self: start;
+}
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="6"] {
-  grid-area: counts;
+  display: none;
+}
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="4"],
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="5"] {
   display: inline-flex;
+  align-items: center;
+  margin-top: 6px;
+}
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="4"] ion-button,
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="5"] ion-button {
+  margin: 0;
+  height: 22px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  --background: transparent;
+  --background-hover: transparent;
+  --background-activated: transparent;
+  --box-shadow: none;
+  --color: #374151;
+  --padding-start: 0;
+  --padding-end: 14px;
+}
+
+/* ── fc-edit-profile-button — the header's action cluster ───────────
+   It had no stylesheet at all: the buttons drew as bare uppercase text
+   links stacked under the counts, because Ionic's default is uppercase
+   and nothing had ever been visible here to notice it.
+
+   Noor has no design for this cluster, so FluentCommunity's portal is
+   the reference: one row under the header, the primary action filled and
+   everything else outlined, in sentence case. Only ever two buttons draw
+   at once — the catalog gates them against each other. */
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 12px;
+  background: #ffffff;
+  margin-bottom: 8px;
+}
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] ion-button {
+  margin: 0;
+  height: 34px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  --border-radius: 8px;
+  --box-shadow: none;
+  --padding-start: 16px;
+  --padding-end: 16px;
+}
+/* Follow is the primary action — the only filled button in the row. */
+.appza-renderer-ss[data-slug="fc-edit-profile-button"]
+  [data-child-index="2"] ion-button {
+  --background: #1d4ed8;
+  --background-activated: #1e40af;
+  --background-hover: #1e40af;
+  --color: #ffffff;
+}
+/* Edit profile, Following, Notify, Notifying, Message: outlined. The
+   border has to be set on the host AND on ::part(native) — Ionic paints
+   its own and the CSS vars do not reach it. */
+.appza-renderer-ss[data-slug="fc-edit-profile-button"]
+  [data-child-index="0"] ion-button,
+.appza-renderer-ss[data-slug="fc-edit-profile-button"]
+  [data-child-index="1"] ion-button,
+.appza-renderer-ss[data-slug="fc-edit-profile-button"]
+  [data-child-index="3"] ion-button,
+.appza-renderer-ss[data-slug="fc-edit-profile-button"]
+  [data-child-index="4"] ion-button,
+.appza-renderer-ss[data-slug="fc-edit-profile-button"]
+  [data-child-index="5"] ion-button {
+  --background: transparent;
+  --background-activated: #f1f5f9;
+  --background-hover: #f8fafc;
+  --color: #1f2937;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+.appza-renderer-ss[data-slug="fc-edit-profile-button"]
+  [data-child-index="0"] ion-button::part(native),
+.appza-renderer-ss[data-slug="fc-edit-profile-button"]
+  [data-child-index="1"] ion-button::part(native),
+.appza-renderer-ss[data-slug="fc-edit-profile-button"]
+  [data-child-index="3"] ion-button::part(native),
+.appza-renderer-ss[data-slug="fc-edit-profile-button"]
+  [data-child-index="4"] ion-button::part(native),
+.appza-renderer-ss[data-slug="fc-edit-profile-button"]
+  [data-child-index="5"] ion-button::part(native) {
+  border: 0;
+  background: transparent;
 }
 
 /* ── fc-profile-tabs — the profile's nav strip ──────────────────────

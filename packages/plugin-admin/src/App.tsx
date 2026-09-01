@@ -166,6 +166,7 @@ import {
   type MemberMenuItem,
   type MemberRoleOption,
   tryHandlePostMenuAction,
+  tryHandleProfileAction,
   type ActionDispatch,
   type ActionInvocation,
   type PostMenuItem,
@@ -3887,6 +3888,23 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         onInfo: onMenuInfo,
       });
       if (handled) return;
+      return;
+    }
+
+    // The profile header cluster's four follow actions. Real HTTP here,
+    // not a sim log: the simulator signs in the same way and these are
+    // the same fcom-mobile routes the phone calls, so keeping them
+    // shared is what stops the two shells drifting.
+    case 'user.follow':
+    case 'user.unfollow':
+    case 'user.notify_subscribe':
+    case 'user.notify_unsubscribe': {
+      tryHandleProfileAction(inv, {
+        auth,
+        authHeader: basicAuthHeader,
+        onError: onMenuError,
+        onInfo: onMenuInfo,
+      });
       return;
     }
 

@@ -141,6 +141,7 @@ import {
   prepareDocumentEdit,
   setSpacesControls,
   tryHandlePostMenuAction,
+  tryHandleProfileAction,
   type ActionDispatch,
   type ActionInvocation,
   type AddMemberRoleOption,
@@ -3264,6 +3265,24 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         onInfo,
       });
       if (handled) return;
+      return;
+    }
+
+    // The profile header cluster's four follow actions, shared with the
+    // simulator through @appza/renderer for the same reason the post menu
+    // is. They had been seeded since the profile chunk and dispatched
+    // NOWHERE — no shell had a case for them, so every tap fell through
+    // to the default log-only branch.
+    case 'user.follow':
+    case 'user.unfollow':
+    case 'user.notify_subscribe':
+    case 'user.notify_unsubscribe': {
+      tryHandleProfileAction(inv, {
+        auth,
+        authHeader: basicAuthHeader,
+        onError,
+        onInfo,
+      });
       return;
     }
 
