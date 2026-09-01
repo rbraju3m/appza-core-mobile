@@ -5045,6 +5045,27 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
+    // The profile's tab strip. Same shape as space_detail.set_subtab:
+    // the variadic child template stamps the entry's value onto
+    // inv.item, with an args fallback for a direct-fire caller.
+    //
+    // The strip's entries come from the profile ROW — FluentCommunity's
+    // own profile_navs — so the values here are whatever that mapped to,
+    // and a tab with no placement answering it simply renders an empty
+    // body rather than breaking.
+    case 'profile.set_tab': {
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      const picked = runtimeValue ?? itemValue ?? '';
+      if (picked) {
+        setProfileControls({ tab: picked });
+      } else {
+        console.warn('[appza] profile.set_tab: no picked value', { argRec, item });
+      }
+      return;
+    }
+
     case 'space_detail.set_subtab': {
       // fc-space-subtabs children_from_prop strip. Same shape as
       // spaces.set_tab above — value flows through inv.item.value.

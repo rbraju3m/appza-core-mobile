@@ -24,6 +24,7 @@ import { useDocumentDraft } from './documentDraft';
 import { useFcRuntimeSettings } from './fcRuntimeSettings';
 import { useViewer, viewerStateEntries } from './viewer';
 import { useBannerControls, bannerStateEntries } from './bannerControls';
+import { useProfileControls } from './profileControls';
 
 type ScreenRendererProps = {
   screen: TemplateScreen;
@@ -111,6 +112,12 @@ export function ScreenRenderer({
   // Superstructure that hides all of its own children still leaves its
   // padded white box behind.
   const bannerControls = useBannerControls();
+  // Whose profile, and which of its tabs. The five tab bodies are
+  // PLACEMENTS on one screen gated on `profile_controls.tab`, the way
+  // space-detail's sub-tabs are — so this slice has to be in the bag or
+  // every one of those gates compares against undefined and the screen
+  // renders a header and nothing else.
+  const profileControls = useProfileControls();
   // Placement-level visible_when reads out of this bag via
   // `binding.slice(6)` (i.e. `state.<key>` → `<key>`). Register nested
   // paths as flat keys so `state.space_detail_controls.active_subtab`
@@ -150,6 +157,11 @@ export function ScreenRenderer({
       // | 'empty' | 'loading' (P75). `search` is here so the difference
       // between the two empty designs stays readable from a placement
       // if it ever needs to be.
+      // The profile's five tabs. `member_id` rides along so a placement
+      // can tell "no profile chosen yet" from a chosen one without a
+      // second subscription.
+      'profile_controls.tab': profileControls.tab,
+      'profile_controls.member_id': profileControls.member_id,
       'bookmark_controls.view': bookmarkControls.view,
       'bookmark_controls.search': bookmarkControls.search,
       'bookmark_controls.sort': bookmarkControls.sort,
@@ -216,6 +228,8 @@ export function ScreenRenderer({
       leaderboardControls.levels_scope,
       leaderboardControls.levels_view,
       leaderboardControls.ranks_view,
+      profileControls.tab,
+      profileControls.member_id,
       bookmarkControls.view,
       bookmarkControls.search,
       bookmarkControls.sort,
