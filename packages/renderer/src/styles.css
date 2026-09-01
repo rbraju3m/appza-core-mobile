@@ -11674,3 +11674,476 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-profile-tabs"] .appza-renderer-ss-child[data-active="true"] ion-button {
   --color: #1d4ed8;
 }
+
+/* ==========================================================
+ * POST DETAIL — the comment thread, its sort row, the empty
+ * state and the footer composer.
+ *
+ * The 28 designs in ~/Desktop/appza/FeedPostDetails/, built
+ * 2026-09-01. Everything below is the SCREEN's furniture; the
+ * post itself is fc-post-card, unchanged, with its inline
+ * comment strip switched off at the placement.
+ * ========================================================== */
+
+/* ── The screen ───────────────────────────────────────────────────
+   Grey behind, white cards on it. The post card already draws
+   itself; the thread below it sits directly on the grey, which is
+   what makes the bubbles read as bubbles. */
+.appza-renderer-screen[data-screen-slug='post-detail'] {
+  --appza-ct-bubble-bg: #e4e4e4;
+}
+
+/* ── The sort row (design 12) ─────────────────────────────────────
+   A hairline with the current order sitting on its right-hand end.
+   The rule runs the full width and the label interrupts it, which is
+   why the label carries the page background rather than the rule
+   being two segments. */
+.appza-renderer-ss[data-slug='fc-comment-sort'] {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+}
+/* The hairline the label sits at the end of. A flex sibling rather than
+   an ::before behind the label — a rule drawn UNDER the text has to be
+   masked by giving the label the page's own background, which is a
+   second place the screen's colour would have to be kept true. This one
+   simply stops where the label starts. */
+.appza-renderer-ss[data-slug='fc-comment-sort']::before {
+  content: '';
+  flex: 1 1 auto;
+  height: 1px;
+  background: #d9d9de;
+}
+.appza-renderer-ss[data-slug='fc-comment-sort'] .appza-renderer-ss-child {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+}
+.appza-renderer-ss[data-slug='fc-comment-sort'] ion-button {
+  --background: transparent;
+  --background-hover: transparent;
+  --background-activated: transparent;
+  --box-shadow: none;
+  --border-width: 0;
+  --color: #111827;
+  --padding-start: 8px;
+  --padding-end: 4px;
+  --border-radius: 0;
+  height: 22px;
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+/* Ionic paints a default border on the ion-button HOST that the CSS
+   vars above never reach — override the host and ::part(native)
+   both, or a hairline box appears round the label. */
+.appza-renderer-ss[data-slug='fc-comment-sort'] ion-button::part(native) {
+  border: 0;
+  box-shadow: none;
+}
+
+/* The SS wrapper is a flex row, so its single child shrinks to the text
+   it holds and the whole thread draws at half the screen width. It has
+   to be told to take the line. */
+.appza-renderer-ss[data-slug='fc-post-comment-thread'],
+.appza-renderer-ss[data-slug='fc-comment-composer'] {
+  display: block;
+}
+.appza-renderer-ss[data-slug='fc-post-comment-thread'] > .appza-renderer-ss-child,
+.appza-renderer-ss[data-slug='fc-comment-composer'] > .appza-renderer-ss-child {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+/* ── The thread ───────────────────────────────────────────────────
+   One grid per ROW, as the inline strip does, so a comment sizes to
+   its own text. Unlike the strip, the name / time / body sit inside a
+   filled bubble and the Reply + heart row sits OUTSIDE it — which is
+   the whole visual difference between a preview of a thread and a
+   thread. */
+.appza-comment-thread {
+  display: block;
+  padding: 4px 16px 12px;
+}
+.appza-ct-group {
+  display: block;
+  margin-bottom: 14px;
+}
+.appza-ct-entry {
+  display: block;
+}
+/* A reply is indented past the parent's avatar column, not nested in
+   a container — the proxy flattens every descendant onto its
+   top-level ancestor, so there is exactly ONE indent and no
+   staircase to build. */
+.appza-ct-entry-reply {
+  margin-left: 44px;
+  margin-top: 10px;
+}
+
+.appza-ct-row {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  grid-template-areas:
+    'avatar bubble'
+    '.      foot';
+  column-gap: 10px;
+  row-gap: 6px;
+}
+.appza-ct-entry-reply .appza-ct-row {
+  grid-template-columns: 28px 1fr;
+}
+/* The composer is aimed at this comment. A tint rather than a border,
+   so the row does not change size when it is targeted. */
+.appza-ct-row-replying .appza-ct-bubble {
+  outline: 2px solid rgba(59, 91, 219, 0.35);
+  outline-offset: 1px;
+}
+
+.appza-ct-avatar {
+  grid-area: avatar;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  align-self: start;
+  background: #e6e6ea;
+}
+.appza-ct-entry-reply .appza-ct-avatar {
+  width: 28px;
+  height: 28px;
+}
+.appza-ct-avatar-empty {
+  display: block;
+}
+
+/* The bubble. Its own grid so the ⋮ can pin to the top-right corner
+   while the name, the time and the body stack down the left. */
+.appza-ct-bubble {
+  grid-area: bubble;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  grid-template-areas:
+    'name time-pin menu'
+    'time time     menu'
+    'body body     body';
+  align-items: start;
+  column-gap: 6px;
+  padding: 8px 10px 10px;
+  border-radius: 8px;
+  background: var(--appza-ct-bubble-bg, #e4e4e4);
+  min-width: 0;
+}
+.appza-ct-name {
+  grid-area: name;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #111827;
+  overflow-wrap: anywhere;
+}
+.appza-ct-pin {
+  grid-area: time-pin;
+  font-size: 13px;
+  color: #6b7280;
+  align-self: center;
+}
+.appza-ct-menu {
+  grid-area: menu;
+  border: 0;
+  background: transparent;
+  padding: 0 0 0 4px;
+  margin: 0;
+  line-height: 1;
+  color: #6b7280;
+  cursor: pointer;
+  align-self: start;
+}
+.appza-ct-menu ion-icon {
+  font-size: 16px;
+}
+.appza-ct-time {
+  grid-area: time;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: #8b8b93;
+}
+.appza-ct-body {
+  grid-area: body;
+  margin-top: 6px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: #374151;
+  overflow-wrap: anywhere;
+}
+.appza-ct-body p {
+  margin: 0;
+}
+.appza-ct-body p + p {
+  margin-top: 6px;
+}
+/* The blue name in front of a reply's body — who is being answered.
+   Inline with the text, with one space after it, because the design
+   runs them together on one line. */
+.appza-ct-mention {
+  color: #3b5bdb;
+  font-weight: 500;
+  margin-right: 5px;
+}
+
+/* Reply · heart on the left, the reply count on the right. */
+.appza-ct-foot {
+  grid-area: foot;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-left: 2px;
+}
+.appza-ct-reply,
+.appza-ct-like {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1;
+}
+.appza-ct-like ion-icon {
+  font-size: 16px;
+  color: #374151;
+}
+.appza-ct-like-on ion-icon {
+  color: #e03131;
+}
+.appza-ct-like-on .appza-ct-like-count {
+  color: #e03131;
+}
+.appza-ct-like-count {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+/* Pushed to the far end of the footer row. `margin-left: auto` rather
+   than a spacer element, so it disappears cleanly when a comment has
+   no replies. */
+.appza-ct-reply-count {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: #4b5563;
+}
+
+/* A comment under review (designs 16, 17) — the same two affordances
+   the post carries, at comment scale. They wrap the row rather than
+   sitting inside it: the row is a grid whose columns are the avatar
+   and the bubble, and a full-width banner in it would take one. */
+.appza-ct-flag {
+  margin: 2px 0 8px;
+  padding: 12px 12px;
+  background: #fdf3e7;
+  border: 1px solid #f6dfc4;
+  border-radius: 8px;
+  text-align: center;
+}
+.appza-ct-flag-text {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #7c4a12;
+  margin-bottom: 10px;
+}
+.appza-ct-flag-btn {
+  width: 100%;
+  height: 34px;
+  border: 1px solid #eddcc6;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.appza-ct-review-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 8px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px;
+  background: #fff3e8;
+  color: #f97316;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.appza-ct-review-chip ion-icon {
+  font-size: 13px;
+}
+
+/* ── The footer composer ──────────────────────────────────────────
+   Attach glyph in a rounded box, then the field. No send button until
+   there is something to send — the designs draw the resting bar with
+   two elements and nothing else. */
+.appza-comment-composer {
+  display: block;
+  background: #ffffff;
+  padding: 10px 16px;
+  border-top: 1px solid #ececf0;
+}
+.appza-cc-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px 8px;
+}
+.appza-cc-target-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.78rem;
+  color: #4b5563;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-cc-target-close {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #6b7280;
+  cursor: pointer;
+  line-height: 1;
+}
+.appza-cc-attachments {
+  display: flex;
+  gap: 8px;
+  padding: 0 2px 8px;
+  overflow-x: auto;
+}
+.appza-cc-attachment {
+  position: relative;
+  flex: 0 0 auto;
+}
+.appza-cc-attachment img {
+  width: 52px;
+  height: 52px;
+  border-radius: 6px;
+  object-fit: cover;
+  display: block;
+}
+.appza-cc-attachment button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(17, 24, 39, 0.78);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+.appza-cc-attachment button ion-icon {
+  font-size: 12px;
+}
+
+.appza-cc-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.appza-cc-attach {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 34px;
+  border: 1px solid #d9d9de;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #4b5563;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+.appza-cc-attach ion-icon {
+  font-size: 19px;
+}
+.appza-cc-attach:disabled {
+  opacity: 0.5;
+}
+.appza-cc-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: block;
+  background: #e4e4e4;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.appza-cc-input {
+  width: 100%;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  color: #111827;
+  display: block;
+}
+.appza-cc-input::placeholder {
+  color: #8b8b93;
+}
+.appza-cc-send {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: #3b5bdb;
+  padding: 0 2px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.appza-cc-send ion-icon {
+  font-size: 22px;
+}
+
+/* ── SIGN IN TO COMMENT (design 11) ───────────────────────────────
+   The guest's footer. Full-width, square-ish, uppercase — nothing
+   like the app's other primary buttons, which is what the design
+   draws. */
+.appza-renderer-ss[data-slug='fc-comment-signin'] {
+  display: block;
+  background: #ffffff;
+  padding: 12px 16px;
+  border-top: 1px solid #ececf0;
+}
+.appza-renderer-ss[data-slug='fc-comment-signin'] ion-button {
+  --background: #1657d8;
+  --background-activated: #1247b4;
+  --background-hover: #1247b4;
+  --color: #ffffff;
+  --border-radius: 6px;
+  --box-shadow: none;
+  --border-width: 0;
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.appza-renderer-ss[data-slug='fc-comment-signin'] ion-button::part(native) {
+  border: 0;
+  box-shadow: none;
+}

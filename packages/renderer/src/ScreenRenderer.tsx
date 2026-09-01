@@ -16,6 +16,7 @@ import { tokensToCssVars } from './tokens';
 import { useSpacesControls } from './spacesControls';
 import { useSpaceDetailControls } from './spaceDetailControls';
 import { useChatControls } from './chatControls';
+import { usePostDetailControls } from './postDetailControls';
 import { useLeaderboardControls } from './leaderboardControls';
 import { useBookmarkControls } from './bookmarkControls';
 import { useSearchControls } from './searchControls';
@@ -94,6 +95,7 @@ export function ScreenRenderer({
   const spacesControls = useSpacesControls();
   const spaceDetailControls = useSpaceDetailControls();
   const chatControls = useChatControls();
+  const postDetailControls = usePostDetailControls();
   const leaderboardControls = useLeaderboardControls();
   const bookmarkControls = useBookmarkControls();
   const searchControls = useSearchControls();
@@ -192,6 +194,19 @@ export function ScreenRenderer({
       // second subscription.
       'profile_controls.tab': profileControls.tab,
       'profile_controls.member_id': profileControls.member_id,
+      // Post detail. Two VERDICTS and nothing else a placement gates on:
+      // `comments_view` decides between the thread's sort row and the
+      // empty state, `can_comment` between the composer and design 11's
+      // SIGN IN TO COMMENT. Both are published by the fetch, not authored
+      // by a tap — a placement can read state but cannot count rows or
+      // read a permission bag (P75).
+      //
+      // `comment_sort` rides along so the sort ROW can read back what it
+      // is currently showing without a second subscription.
+      'post_detail_controls.comments_view': postDetailControls.comments_view,
+      'post_detail_controls.can_comment': postDetailControls.can_comment,
+      'post_detail_controls.comment_sort': postDetailControls.comment_sort,
+      'post_detail_controls.reply_to_id': postDetailControls.reply_to_id,
       'bookmark_controls.view': bookmarkControls.view,
       'bookmark_controls.search': bookmarkControls.search,
       'bookmark_controls.sort': bookmarkControls.sort,
@@ -254,6 +269,10 @@ export function ScreenRenderer({
       chatControls.reply_to_id,
       chatControls.thread_id,
       chatControls.space_slug,
+      postDetailControls.comments_view,
+      postDetailControls.can_comment,
+      postDetailControls.comment_sort,
+      postDetailControls.reply_to_id,
       leaderboardControls.range,
       leaderboardControls.levels_scope,
       leaderboardControls.levels_view,

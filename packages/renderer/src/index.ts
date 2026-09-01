@@ -234,6 +234,18 @@ export {
   type FcAccessLevel,
 } from './fcRuntimeSettings';
 export { AppzaCommentList, type CommentEntry } from './CommentList';
+export { AppzaCommentThread, publishCommentsView, type ThreadComment } from './CommentThread';
+export { AppzaCommentComposer } from './CommentComposer';
+export {
+  getPostDetailControls,
+  setPostDetailControls,
+  usePostDetailControls,
+  clearCommentReply,
+  commentSortLabel,
+  normalizeCommentSort,
+  COMMENT_SORT_LABELS,
+  type PostDetailControls,
+} from './postDetailControls';
 export { AppzaAvatarStack, type AvatarStackEntry } from './AvatarStack';
 export {
   PollVotersSheet,

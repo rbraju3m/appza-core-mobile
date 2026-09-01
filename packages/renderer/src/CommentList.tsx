@@ -326,11 +326,18 @@ export function AppzaCommentList({
             dispatch({
               action_slug: slug,
               args: readActionDefaultsFromCatalog(slug) ?? undefined,
-              // The POST's id, bound as a scalar. A field_mapping of
-              // bare `data` resolves to nothing — mappings walk a PATH
-              // under the row — so binding the whole object arrived
-              // undefined and "View all" opened nothing.
-              item: { id: overrides?.post_id },
+              // The POST's id AND slug, both bound as scalars. A
+              // field_mapping of bare `data` resolves to nothing —
+              // mappings walk a PATH under the row — so binding the whole
+              // object arrived undefined and "View all" opened nothing.
+              //
+              // The slug is not optional. post-detail's DataSource binds
+              // `route.post_slug` and post.open fills that bag from this
+              // item, so an id-only dispatch landed on the screen with
+              // nothing to look up: the card drew "Text / Text" while the
+              // comment list underneath it (which binds route.id) was
+              // perfectly correct. P149's shape, one key lower down.
+              item: { id: overrides?.post_id, slug: overrides?.post_slug },
             });
           }}
         >

@@ -31,7 +31,15 @@ import { publishSearchFetchView, useSearchControls } from './searchControls';
 import { useDocumentDraft } from './documentDraft';
 import { getFcRuntimeSettings, useFcRuntimeSettings, resolveFeedSortRows } from './fcRuntimeSettings';
 import { readPickerOptions } from './ViewModePopover';
-import { useViewer, viewerStateEntries } from './viewer';
+import { getViewer, useViewer, viewerStateEntries } from './viewer';
+import {
+  commentSortLabel,
+  getPostDetailControls,
+  normalizeCommentSort,
+  setPostDetailControls,
+  usePostDetailControls,
+} from './postDetailControls';
+import { publishCommentsView } from './CommentThread';
 import { getPostDraft, postDraftStateEntries, usePostDraft } from './postDraft';
 import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
 
@@ -230,6 +238,7 @@ export function PlacementRenderer({
   // fc-bookmarks binds search and sort as query params, and the
   // three-way empty verdict is published from here after each fetch.
   const bookmarkControls = useBookmarkControls();
+  const postDetailControls = usePostDetailControls();
   // Search screen controls. Read unconditionally for stable hook order,
   // same as every slice above — both strips read it to mark their active
   // entry, three DataSources bind it as query params, and the fetch
@@ -320,9 +329,33 @@ export function PlacementRenderer({
             'default_props_override',
             baseAppzet.default_props_override ?? {},
           ) as Record<string, unknown>),
+          // The PLACEMENT's own props, which until now were read for
+          // `data_source_slug` and nothing else — so a key called
+          // props_override silently did nothing unless it happened to be
+          // that one.
+          //
+          // It is what lets one screen dress a shared AppZet without
+          // cloning it: post-detail places fc-post-card with
+          // `show_comments: false`, because the card's inline strip of
+          // two comments plus a "View all N" link is right in a feed and
+          // absurd on the screen that link opens. Sits ABOVE the
+          // customization layer deliberately — a placement is authored in
+          // the catalog, and an admin's own edit to the AppZet should not
+          // be overruled by it... which is why it goes here, before the
+          // per-screen customization merge below rather than after.
+          ...(propsOverride ?? {}),
           // Fetched option lists override any static default for the same
           // prop — the live catalog value is the truer one.
           ...optionData,
+          // The comment sort row names the order it is currently in
+          // (design 12's "Earliest first"). Same shape as the toolbar's
+          // sort_button_text below, and here for the same reason: the
+          // label is STATE, and no field_mapping can bind state — it
+          // walks a path under a data row, and this control has no data
+          // source at all.
+          ...(baseAppzet.slug === 'fc-comment-sort'
+            ? { label: commentSortLabel(postDetailControls.comment_sort) }
+            : {}),
           // A sort/layout toolbar reflects the persisted preference in its
           // own controls — the sort button reads "<sort_label> <label>",
           // where <label> comes from scanning the action wiring's
@@ -838,6 +871,76 @@ export function PlacementRenderer({
     setChatControls({ can_send: canSend ? 'yes' : 'no' });
   }, [publishesThreadState, dataState.loading, dataState.items]);
 
+  // ── Post detail (2026-09-01) ───────────────────────────────────────
+  //
+  // Two publishes, from the two DataSources the screen binds. Both live
+  // here for P149's reason: the verdicts belong to RENDERING the screen,
+  // not to the tap that led there. Published from the tap alone, a deep
+  // link, the simulator's screen picker or a back-navigation would all
+  // arrive with a stale gate and draw the wrong footer.
+  //
+  // The POST decides two of them. `can_comment` is three-valued because
+  // "no composer, sign in" and "no composer at all" are different
+  // screens (design 11 versus nothing), and a boolean cannot say which.
+  // `comment_sort` is SEEDED, not set: FluentCommunity puts the space's
+  // "Default Comment Sort By" on every feed row it renders, and it is a
+  // default — once the reader picks an order themselves it stands, which
+  // is what `comment_sort_touched` guards.
+  const publishesPostDetail = (dataSource?.slug ?? '') === 'fc-post-detail';
+  const postDetailRow = publishesPostDetail ? dataState.items[0] : undefined;
+  const postDetailRowKey =
+    publishesPostDetail && isRecord(postDetailRow)
+      ? [
+          String(postDetailRow.id ?? ''),
+          String(postDetailRow.slug ?? ''),
+          String(postDetailRow.default_comment_sort_by ?? ''),
+          String(isRecord(postDetailRow.meta) ? postDetailRow.meta.comments_disabled ?? '' : ''),
+        ].join('|')
+      : '';
+  useEffect(() => {
+    if (!publishesPostDetail) return;
+    if (dataState.loading) return;
+    const row = postDetailRow;
+    if (!isRecord(row)) {
+      setPostDetailControls({ can_comment: 'no' });
+      return;
+    }
+    const meta = isRecord(row.meta) ? row.meta : {};
+    // FluentCommunity's own switch, off the post's 3-dot menu. When it
+    // is on NOBODY comments — not the author, not a moderator — so it
+    // outranks the viewer question entirely.
+    const commentsOff = meta.comments_disabled === 'yes';
+    const canComment = commentsOff ? 'no' : getViewer().is_logged_in ? 'yes' : 'signin';
+
+    const patch: Record<string, unknown> = {
+      can_comment: canComment,
+      post_id: row.id == null ? '' : String(row.id),
+      post_slug: typeof row.slug === 'string' ? row.slug : '',
+    };
+    if (!getPostDetailControls().comment_sort_touched) {
+      patch.comment_sort = normalizeCommentSort(row.default_comment_sort_by);
+    }
+    setPostDetailControls(patch as Partial<ReturnType<typeof getPostDetailControls>>);
+    // Keyed on the row's IDENTITY, not the items array: `items` is a new
+    // array on every render, and an effect that writes state on every
+    // render is a loop with a fetch in it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [publishesPostDetail, dataState.loading, postDetailRowKey]);
+
+  // The THREAD decides whether there is one. `stale` as well as
+  // `loading` — P99: in the commit where the post changes, `loading`
+  // still reads false beside the PREVIOUS post's comments, and a verdict
+  // taken there would flash the old thread's answer over the new post.
+  const publishesCommentsView = (dataSource?.slug ?? '') === 'fc-post-comments';
+  useEffect(() => {
+    if (!publishesCommentsView) return;
+    if (dataState.loading || dataState.stale) {
+      publishCommentsView('loading');
+      return;
+    }
+    publishCommentsView(dataState.items.length > 0 ? 'list' : 'empty');
+  }, [publishesCommentsView, dataState.loading, dataState.stale, dataState.items.length]);
+
   // A conversation is the one screen where the other side changes it
   // while you are looking at it. FluentCommunity ships realtime OFF by
   // default (`realtime_enabled: no`), so without this the only way a
@@ -893,6 +996,10 @@ export function PlacementRenderer({
   // Runs BEFORE readExpandedChildren so children_from_prop sees the
   // mirrored array on the same render pass — no second commit needed.
   const dpoBag = (appzet.default_props_override ?? null) as Record<string, unknown> | null;
+  // Set when the mirror below hands the WHOLE items array to a prop.
+  // The AppZet has then consumed the list itself, and the row loop far
+  // below must not ALSO repeat over it — see `isWholeListMirrored`.
+  let wholeListMirrored = false;
   const mirrorSpecRaw = dpoBag ? dpoBag['_data_prop_mirror'] : undefined;
   const mirrorSpec =
     mirrorSpecRaw && typeof mirrorSpecRaw === 'object' && !Array.isArray(mirrorSpecRaw)
@@ -913,6 +1020,7 @@ export function PlacementRenderer({
       if (!dataPath) {
         // Whole items array (list DS → prop expects a list of records).
         mirrored = dataState.items;
+        wholeListMirrored = true;
       } else if (dataPath.startsWith('data.') && dataState.items.length > 0) {
         // Nested read from the first item (single-object DS shape).
         mirrored = readDataPath(dataState.items[0], dataPath);
@@ -1247,6 +1355,21 @@ export function PlacementRenderer({
   // stayed false.
   const isVariadicFromItem =
     typeof cfpProp === 'string' && cfpProp.length > 0 && !isVariadicFromDs;
+
+  // The same collapse, for an AppZet that consumes the whole list
+  // WITHOUT children_from_prop.
+  //
+  // fc-space-switcher expands one child per row, so the variadic check
+  // above catches it. The comment thread does not: it has exactly one
+  // child, and that child is handed the entire array — because a thread
+  // has to be reordered and nested as a whole, which a per-row render
+  // can never do. Left to the row loop below, the whole thread would
+  // draw once per comment.
+  //
+  // Guarded on the mirror having actually FIRED (an author-set prop
+  // wins, and an empty result mirrors nothing), so an AppZet whose
+  // mirror did not apply still repeats per row as it always did.
+  const isWholeListMirrored = wholeListMirrored;
 
   // Pull spacing override (Properties-panel-edited values) and apply
   // as inline style on the AppZet wrapper.
@@ -1915,7 +2038,7 @@ export function PlacementRenderer({
   // each chip twice → NxN duplication). Collapse to a single virtual
   // item so the list wrapper stays (keeping the -list CSS selectors +
   // data-* attributes) but the strip renders exactly once.
-  const items = isVariadicFromDs
+  const items = isVariadicFromDs || isWholeListMirrored
     ? [{}]
     : filteredItems.length > 0
     ? filteredItems

@@ -45,6 +45,8 @@ import {
   setRouteParams,
   getRouteParams,
   setSpaceDetailControls,
+  getPostDetailControls,
+  setPostDetailControls,
   setChatControls,
   getChatControls,
   sendChatMessage,
@@ -242,6 +244,27 @@ function writeStoredAuth(a: StoredAuth | null): void {
     /* localStorage unavailable — app just runs unauthenticated */
   }
 }
+
+/**
+ * What the shared image picker needs to know for one open.
+ *
+ * `sink` is what makes it shared. Without one the URLs land on the post
+ * draft, which is where every caller before post detail wanted them;
+ * with one they go to the caller instead, because a comment's pending
+ * images belong to a comment that does not exist yet and must not be
+ * mixed into whatever the composer is holding.
+ */
+type ImagePickerTarget = {
+  endpoint: string;
+  method: string;
+  /** The file input's accept list. Defaults to images. */
+  accept?: string;
+  onStart?: () => void;
+  /** Takes the uploaded URLs instead of the post draft. */
+  sink?: (urls: string[]) => void;
+  /** Called when the upload produced nothing usable. */
+  onFail?: () => void;
+};
 
 function basicAuthHeader(auth: StoredAuth): string {
   return 'Basic ' + window.btoa(`${auth.username}:${auth.token}`);
@@ -662,7 +685,7 @@ type ActionDeps = {
   reactedSet: Set<string>;
   openDeleteConfirm: (p: PendingDelete) => void;
   openCommentPanel: (p: CommentPanelState) => void;
-  openImagePicker: (target: { endpoint: string; method: string }) => void;
+  openImagePicker: (target: ImagePickerTarget) => void;
   openAudioPicker: (endpoint: string) => void;
   openDocumentPicker: (t: {
     upload: string;
@@ -763,7 +786,7 @@ export function App() {
   // after the picker has closed, so they cannot be read off the action's
   // args at call time — the ref is where they wait.
   const docEndpointsRef = useRef<{ upload: string; rename: string; remove: string } | null>(null);
-  const uploadEndpointRef = useRef<{ endpoint: string; method: string } | null>(null);
+  const uploadEndpointRef = useRef<ImagePickerTarget | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
@@ -1172,13 +1195,18 @@ export function App() {
 
   const openDeleteConfirm = useCallback((p: PendingDelete) => setPendingDelete(p), []);
   const openCommentPanel = useCallback((p: CommentPanelState) => setCommentPanel(p), []);
-  const openImagePicker = useCallback((target: { endpoint: string; method: string }) => {
+  const openImagePicker = useCallback((target: ImagePickerTarget) => {
     // Stash the endpoint in a ref so the file input's onChange (which fires
     // async after the user picks) reads the right one. A state setter would
     // race the onChange since state updates aren't guaranteed to be visible
     // in the very next event tick.
     uploadEndpointRef.current = target;
-    if (fileInputRef.current) fileInputRef.current.click();
+    // The picker is shared, so its `accept` has to be set per open —
+    // a comment takes images only, a post composer may not.
+    if (fileInputRef.current) {
+      fileInputRef.current.accept = target.accept ?? 'image/*';
+      fileInputRef.current.click();
+    }
   }, []);
   const openDocumentPicker = useCallback(
     (t: { upload: string; rename: string; remove: string; accept: string }) => {
@@ -1301,7 +1329,12 @@ export function App() {
       // keeping the first N leaves the rest on the server as orphaned
       // inactive Media rows that nothing will ever attach or clean up —
       // and there is no endpoint to remove them (see removePostDraftImage).
-      const max = getFcRuntimeSettings().composer.max_media_per_post;
+      // The post composer's cap does not apply to a sink: it counts
+      // images already on the POST DRAFT, and a comment's attachments
+      // are not on it. FluentCommunity applies no cap of its own to
+      // comment media, so inventing one here would refuse an upload the
+      // server would have taken.
+      const max = target.sink ? 0 : getFcRuntimeSettings().composer.max_media_per_post;
       const room = max > 0 ? Math.max(0, max - getPostDraft().images.length) : files.length;
       const picked = Array.from(files);
       const list = picked.slice(0, room);
@@ -1312,6 +1345,7 @@ export function App() {
         );
       }
       if (list.length === 0) return;
+      target.onStart?.();
       setUploadingCount((c) => c + list.length);
       const uploads = list.map(async (file) => {
         try {
@@ -1357,6 +1391,14 @@ export function App() {
         }
       });
       const urls = (await Promise.all(uploads)).filter((u): u is string => !!u);
+      // A sink takes the URLs instead of the post draft — the comment
+      // composer holds its own pending list, because the images belong
+      // to a comment that does not exist yet.
+      if (target.sink) {
+        if (urls.length > 0) target.sink(urls);
+        else target.onFail?.();
+        return;
+      }
       // The cap is applied again here, against the draft as it stands
       // now: two picks can be in flight at once, and the slice above only
       // knew about the images that existed when IT started.
@@ -2112,6 +2154,21 @@ function seedEditDraftFromPost(item: unknown): void {
   seedDraftForEdit(feedId, spaceSlug, files);
 }
 
+/**
+ * HTML back to the plain text a textarea can hold.
+ *
+ * Only reached when a comment carries `message_rendered` and no
+ * `message` — FluentCommunity stores both, but a row that has been
+ * through a transformer may only keep the rendered one, and prefilling
+ * an edit with markup shows the reader their own paragraph tags.
+ */
+function stripHtml(html: string): string {
+  if (typeof document === 'undefined') return html;
+  const el = document.createElement('div');
+  el.innerHTML = html;
+  return (el.textContent ?? '').trim();
+}
+
 function handleAction(inv: ActionInvocation, deps: ActionDeps) {
   const {
     requireAuthOrLogin,
@@ -2137,6 +2194,21 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
   const argRec = (args ?? {}) as Record<string, unknown>;
   const effectiveItem = binding_root ? readDataPath(item, binding_root) ?? item : item;
   const itemRec = isRecord(effectiveItem) ? (effectiveItem as Record<string, unknown>) : null;
+
+  /**
+   * Is the reader looking at post detail?
+   *
+   * Three handlers ask, because three verbs mean something different
+   * there than in a feed: Reply and Edit re-target the footer composer
+   * instead of opening the bottom panel, and a post cannot be opened
+   * onto itself. Resolved from the CATALOG's screen row rather than a
+   * stored slug so it stays true however the screen was reached.
+   */
+  const isPostDetailScreen = (): boolean => {
+    if (currentScreenId == null) return false;
+    const screen = catalog?.template_screens?.find((sc) => sc.id === currentScreenId);
+    return screen?.app_map_screen_slug === 'post-detail';
+  };
 
   switch (action_slug) {
     case 'nav.push': {
@@ -2502,6 +2574,195 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       return;
     }
 
+    // ── Post detail (2026-09-01) ──────────────────────────────────
+    case 'comments.set_sort': {
+      const options = readPickerOptions(argRec.options);
+      if (options.length === 0) {
+        onError('This control has no options wired.');
+        return;
+      }
+      const sheetSlug =
+        typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
+          ? argRec.sheet_appzet_slug
+          : 'fc-comment-sort-sheet';
+      openOptionsSheet({
+        appzetSlug: sheetSlug,
+        presentation: optionsSheetPresentation(readAppzetPropsFromCatalog(sheetSlug)),
+        childStyles: childStylesFromCustomizations(
+          sheetSlug,
+          OPTIONS_SHEET_CHILD_COUNT,
+          currentCustomizations,
+        ),
+        options,
+        stateKey: 'post_detail_comment_sort',
+        currentValue: getPostDetailControls().comment_sort,
+      });
+      return;
+    }
+
+    case 'comment.attach': {
+      if (!auth) {
+        requireAuthOrLogin();
+        return;
+      }
+      const endpoint =
+        typeof argRec.endpoint === 'string' && argRec.endpoint
+          ? argRec.endpoint
+          : '/wp-json/fcom-mobile/api/v1/feeds/media-upload';
+      const errorMessage =
+        typeof argRec.error_message === 'string'
+          ? argRec.error_message
+          : 'The image could not be uploaded.';
+      // The URL is held until the comment carrying it is sent —
+      // FluentCommunity has nothing to attach a media row to until the
+      // comment exists, and resolves each entry back with
+      // Helper::getMediaFromUrl at create time.
+      openImagePicker({
+        endpoint,
+        method: typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST',
+        accept: typeof argRec.accept === 'string' ? argRec.accept : 'image/*',
+        onStart: () => setPostDetailControls({ uploading: true }),
+        sink: (urls: string[]) => {
+          const next = [...getPostDetailControls().attachments, ...urls];
+          setPostDetailControls({ attachments: next, uploading: false });
+        },
+        onFail: () => {
+          setPostDetailControls({ uploading: false });
+          onError(errorMessage);
+        },
+      });
+      return;
+    }
+
+    case 'comment.discard_attachment': {
+      // Local only, and deliberately. The upload created a Media row
+      // with no comment attached; FluentCommunity sweeps unattached
+      // media itself, and there is no comment-scoped discard endpoint to
+      // call — the chat one refuses anything that is not a chat medium.
+      const url = itemRec && typeof itemRec.url === 'string' ? itemRec.url : '';
+      if (!url) return;
+      setPostDetailControls({
+        attachments: getPostDetailControls().attachments.filter((u: string) => u !== url),
+      });
+      return;
+    }
+
+    case 'auth.require_signin': {
+      requireAuthOrLogin();
+      return;
+    }
+
+    // ONE slug for three writes, because the footer is one field: a
+    // comment, a reply (the same create with parent_id) and an edit (a
+    // PUT). Which one it is comes from postDetailControls rather than
+    // from the args — the composer already knows, and a second copy of
+    // that fact in the catalog would be a second thing to get wrong.
+    case 'comment.send': {
+      if (!auth) {
+        requireAuthOrLogin();
+        return;
+      }
+      const pd = getPostDetailControls();
+      const body = pd.draft.trim();
+      if (body === '' && pd.attachments.length === 0) return;
+
+      const feedId = Number(pd.post_id);
+      if (!Number.isFinite(feedId) || feedId <= 0) {
+        onError('Could not identify which post to comment on.');
+        return;
+      }
+
+      const editing = pd.editing_id !== '';
+      const endpoint = editing
+        ? (typeof argRec.update_endpoint === 'string' && argRec.update_endpoint) ||
+          '/wp-json/fcom-mobile/api/v1/feeds/comments/update'
+        : (typeof argRec.endpoint === 'string' && argRec.endpoint) ||
+          '/wp-json/fcom-mobile/api/v1/feeds/comments/create';
+      const method = editing
+        ? (typeof argRec.update_method === 'string' && argRec.update_method.toUpperCase()) || 'PUT'
+        : (typeof argRec.method === 'string' && argRec.method.toUpperCase()) || 'POST';
+      const feedIdKey = typeof argRec.feed_id_key === 'string' ? argRec.feed_id_key : 'feed_id';
+      const commentIdKey =
+        typeof argRec.comment_id_key === 'string' ? argRec.comment_id_key : 'comment_id';
+      const parentIdKey =
+        typeof argRec.parent_id_key === 'string' ? argRec.parent_id_key : 'parent_id';
+      const messageKey =
+        typeof argRec.message_key === 'string' ? argRec.message_key : 'comment';
+      const mediaKey = typeof argRec.media_key === 'string' ? argRec.media_key : 'media_images';
+
+      const payload: Record<string, unknown> = {
+        [feedIdKey]: feedId,
+        [messageKey]: body,
+      };
+      if (editing) payload[commentIdKey] = Number(pd.editing_id);
+      else if (pd.reply_to_id !== '') payload[parentIdKey] = Number(pd.reply_to_id);
+      if (pd.attachments.length > 0) payload[mediaKey] = pd.attachments;
+
+      // Cleared BEFORE the round-trip, not after. A comment field that
+      // keeps its text while the request is in flight invites a second
+      // tap, and FluentCommunity refuses the duplicate with a sentence
+      // about duplicates rather than posting twice — so the reader is
+      // told off for the app's latency. On failure the text is put back.
+      setPostDetailControls({
+        draft: '',
+        attachments: [],
+        reply_to_id: '',
+        reply_to_name: '',
+        editing_id: '',
+      });
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      };
+      headers.Authorization = basicAuthHeader(auth);
+      fetch(absolutizeEndpoint(endpoint), {
+        method,
+        headers,
+        credentials: 'omit',
+        body: JSON.stringify(payload),
+      })
+        .then(async (res) => {
+          const data = await res.json().catch(() => null);
+          // fcom-mobile answers 200 with its own status inside the
+          // envelope, so `res.ok` is not the question — P-shaped trap
+          // the profile save already paid for.
+          const inner =
+            data && typeof data === 'object' && isRecord((data as Record<string, unknown>).response)
+              ? ((data as Record<string, unknown>).response as Record<string, unknown>)
+              : null;
+          const status = inner && typeof inner.status === 'number' ? inner.status : res.status;
+          if (!res.ok || status >= 400) {
+            const message =
+              inner && typeof inner.message === 'string' && inner.message !== 'Success'
+                ? inner.message
+                : 'The comment could not be posted.';
+            throw new Error(message);
+          }
+          const g = window as unknown as { __appzaForceRefreshUntil?: number };
+          g.__appzaForceRefreshUntil = Date.now() + 3000;
+          window.dispatchEvent(
+            new CustomEvent('appza:refresh-data', {
+              detail: {
+                data_source:
+                  typeof argRec.refetch_data_source === 'string'
+                    ? argRec.refetch_data_source
+                    : 'fc-post-comments',
+              },
+            }),
+          );
+        })
+        .catch((err: unknown) => {
+          // Hand the words back rather than losing them. The reply
+          // target is not restored: by now the thread may have moved,
+          // and a reply silently re-aimed is worse than one the reader
+          // re-aims themselves.
+          setPostDetailControls({ draft: body });
+          onError(err instanceof Error ? err.message : String(err));
+        });
+      return;
+    }
+
     case 'comment.create': {
       console.log('[appza-mobile] dispatch: comment.create', { argRec, effectiveItem });
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
@@ -2575,6 +2836,59 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     case 'comment.edit': {
       const isEdit = action_slug === 'comment.edit';
       console.log(`[appza-mobile] dispatch: ${action_slug}`, { argRec, effectiveItem });
+
+      // On POST DETAIL the composer is already on screen, in the footer,
+      // and opening the panel over it would put two comment fields in
+      // front of the reader — the lower one covering the thread they
+      // just tapped Reply on.
+      //
+      // So the same two slugs re-target the footer here instead. The
+      // branch is on the SCREEN rather than on an argument because the
+      // difference is entirely about which composer is mounted, and a
+      // catalog flag would be a second place for that fact to be wrong.
+      if (isPostDetailScreen()) {
+        if (!auth) {
+          requireAuthOrLogin();
+          return;
+        }
+        const rec = (itemRec ?? {}) as Record<string, unknown>;
+        if (isEdit) {
+          // `message`, not `message_rendered` — the rendered copy is
+          // HTML, and putting it in a plain textarea shows the reader
+          // their own paragraph tags.
+          const body =
+            typeof rec.message === 'string'
+              ? rec.message
+              : typeof rec.message_rendered === 'string'
+                ? stripHtml(rec.message_rendered)
+                : '';
+          setPostDetailControls({
+            editing_id: rec.id == null ? '' : String(rec.id),
+            reply_to_id: '',
+            reply_to_name: '',
+            draft: body,
+          });
+          return;
+        }
+        // Replying to a REPLY answers its thread, not the reply: the
+        // proxy flattens every descendant onto its top-level ancestor,
+        // so a parent_id pointing at a reply produces a row drawn at the
+        // same indent anyway. The thread component grafts the root on as
+        // `reply_parent_id`; falling back to the comment's own id covers
+        // a top-level one, which is its own root.
+        const parent = rec.reply_parent_id ?? rec.id;
+        const name =
+          rec.xprofile && typeof rec.xprofile === 'object'
+            ? String((rec.xprofile as Record<string, unknown>).display_name ?? '')
+            : '';
+        setPostDetailControls({
+          reply_to_id: parent == null ? '' : String(parent),
+          reply_to_name: name,
+          editing_id: '',
+        });
+        return;
+      }
+
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       const listEndpoint =
         typeof argRec.list_endpoint === 'string' ? argRec.list_endpoint : null;
@@ -5013,6 +5327,17 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       if (!target) {
         console.warn('[appza-mobile] post.open: post-detail not in catalog');
         return;
+      }
+      // The card is placed on post-detail as well as in every list, and
+      // its title and body now open a post. Tapping them on the screen
+      // that is already showing that post must not push it onto itself —
+      // it would grow the back stack one screen per tap with nothing
+      // visibly changing. Same post only: a DIFFERENT post opened from
+      // here (a mention, a quoted row) still pushes.
+      if (target.id === currentScreenId) {
+        const openSlug = isRecord(effectiveItem) ? effectiveItem.slug : undefined;
+        const shownSlug = getRouteParams()?.post_slug;
+        if (typeof openSlug === 'string' && openSlug !== '' && openSlug === shownSlug) return;
       }
       if (effectiveItem != null) {
         screenContextRef.current['post-detail'] = effectiveItem;

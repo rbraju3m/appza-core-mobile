@@ -4,6 +4,7 @@ import { setFeedControls, type FeedViewMode } from './feedControls';
 import { setSpacesControls, type SpacesSort } from './spacesControls';
 import { setSpaceDetailControls } from './spaceDetailControls';
 import { setBookmarkControls, type BookmarkViewMode } from './bookmarkControls';
+import { setPostDetailControls } from './postDetailControls';
 import { resolveIcon } from './PrimitiveRenderer';
 
 // Floating popover anchored to a DOM element, with a small list of
@@ -47,7 +48,8 @@ export type PopoverStateKey =
   | 'spaces_sort'
   | 'space_detail_sort'
   | 'bookmarks_sort'
-  | 'bookmarks_view_mode';
+  | 'bookmarks_view_mode'
+  | 'post_detail_comment_sort';
 
 /**
  * Write a picked option into whichever control slice the key names.
@@ -81,6 +83,17 @@ export function applyControlPick(stateKey: PopoverStateKey, value: string): void
     // fc-bookmarks binds order_by_type to this key, so the pick is a
     // refetch — same contract as space_detail_sort above.
     if (value.length > 0) setBookmarkControls({ sort: value });
+    return;
+  }
+  if (stateKey === 'post_detail_comment_sort') {
+    // The one pick here that is NOT a refetch. FluentCommunity's
+    // getComments is hardcoded to created_at ASC and takes no sort
+    // parameter, so the thread component reorders rows it already holds
+    // — see postDetailControls.comment_sort. `touched` is what stops the
+    // next payload's space default overwriting the choice.
+    if (value.length > 0) {
+      setPostDetailControls({ comment_sort: value, comment_sort_touched: true });
+    }
     return;
   }
   if (stateKey === 'bookmarks_view_mode') {

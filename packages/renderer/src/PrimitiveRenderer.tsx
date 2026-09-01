@@ -103,6 +103,7 @@ import {
   lockClosedOutline,
   trophy,
   trophyOutline,
+  waterOutline,
   link,
   linkOutline,
   pencilOutline,
@@ -189,6 +190,8 @@ import type { PrimitiveRow } from './catalogIndex';
 import { AppzaFilePicker } from './AppzaFilePicker';
 import { AppzaFileList } from './AppzaFileList';
 import { AppzaCommentList } from './CommentList';
+import { AppzaCommentThread } from './CommentThread';
+import { AppzaCommentComposer } from './CommentComposer';
 import { AppzaAvatarStack } from './AvatarStack';
 import { AppzaMediaTile } from './MediaTile';
 import { AppzaAudioPlayer, AppzaAudioList } from './AudioPlayerRow';
@@ -317,6 +320,11 @@ const ICON_REGISTRY: Record<string, string> = {
   // viewer card's points cell, and the empty state's outline variant.
   trophy,
   'trophy-outline': trophyOutline,
+  // The droplet beside "Newest first" in design 18's sort sheet. The
+  // registry is EXPLICIT — a dynamic ionicons lookup gets tree-shaken
+  // away, so an unregistered name draws nothing at all (P100), which is
+  // exactly how this row shipped iconless the first time.
+  'water-outline': waterOutline,
   'pencil-outline': pencilOutline,
   'pin-outline': pinOutline,
   // Saved Posts sort sheet + 3-dot sheet (designs 4 and 5).
@@ -599,6 +607,12 @@ export const SELF_ACTION_PRIMITIVES: ReadonlySet<string> = new Set([
   // Every row carries Reply, a heart and a ⋮ of its own, so a wrapper
   // click would open the menu whenever anyone tapped a comment's text.
   'appza-comment-list',
+  // Same, over a whole thread rather than two rows of it.
+  'appza-comment-thread',
+  // The attach glyph and the send glyph both sit inside the bar, so a
+  // wrapper click would post the comment whenever anyone tapped the
+  // field to type in it.
+  'appza-comment-composer',
 ]);
 
 /**
@@ -872,6 +886,12 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
 
     case 'AppzaCommentList':
       return <AppzaCommentList overrides={overrides} action={action} dispatch={dispatch} />;
+
+    case 'AppzaCommentThread':
+      return <AppzaCommentThread overrides={overrides} action={action} dispatch={dispatch} />;
+
+    case 'AppzaCommentComposer':
+      return <AppzaCommentComposer overrides={overrides} action={action} dispatch={dispatch} />;
 
     case 'AppzaMediaTile':
       return <AppzaMediaTile overrides={overrides} />;
