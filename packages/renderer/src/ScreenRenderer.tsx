@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   IonApp,
   IonContent,
@@ -24,7 +24,7 @@ import { useDocumentDraft } from './documentDraft';
 import { useFcRuntimeSettings } from './fcRuntimeSettings';
 import { useViewer, viewerStateEntries } from './viewer';
 import { useBannerControls, bannerStateEntries } from './bannerControls';
-import { useProfileControls } from './profileControls';
+import { useProfileControls, setProfileControls } from './profileControls';
 
 type ScreenRendererProps = {
   screen: TemplateScreen;
@@ -118,6 +118,36 @@ export function ScreenRenderer({
   // every one of those gates compares against undefined and the screen
   // renders a header and nothing else.
   const profileControls = useProfileControls();
+
+  // The bottom-nav profile screen IS the viewer's own, so it should say
+  // so however you arrive at it.
+  //
+  // `member_id` used to be published only by the navigation dispatcher —
+  // the branch that runs when a tap NAVIGATES to this screen. The
+  // simulator's screen picker selects a screen directly and never
+  // dispatches, so previewing the profile left member_id at 0: the
+  // source was called with no member, /members/profile answered "User is
+  // not found", and every AppZet on the screen fell back to its
+  // primitives' placeholder labels — the "Text / Text / Button" preview
+  // Noor reported on 2026-09-01. The same gap hit any deep link.
+  //
+  // Here rather than in the two shells because the picker exists in one
+  // of them and the nav path in both, and a fix in one dispatcher is a
+  // fix the other silently lacks.
+  //
+  // Only fires when the screen is not ALREADY showing this viewer, so
+  // switching tabs does not reset the tab. A guest publishes nothing:
+  // a signed-out viewer has no profile, and an empty screen is the
+  // truthful answer there.
+  const screenSlug = screen.app_map_screen_slug;
+  const viewerId = viewer.user_id;
+  const shownMemberId = profileControls.member_id;
+  useEffect(() => {
+    if (screenSlug !== 'profile') return;
+    if (typeof viewerId !== 'number' || viewerId <= 0) return;
+    if (shownMemberId === viewerId) return;
+    setProfileControls({ member_id: viewerId, tab: 'posts' });
+  }, [screenSlug, viewerId, shownMemberId]);
   // Placement-level visible_when reads out of this bag via
   // `binding.slice(6)` (i.e. `state.<key>` → `<key>`). Register nested
   // paths as flat keys so `state.space_detail_controls.active_subtab`
