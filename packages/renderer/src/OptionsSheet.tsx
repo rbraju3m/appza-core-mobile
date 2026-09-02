@@ -69,6 +69,17 @@ type OpenDetail = {
   stateKey: PopoverStateKey;
   /** The value currently in that slice — the row that wears the check. */
   currentValue: string;
+  /**
+   * When present, the pick is handed here INSTEAD of being written into a
+   * control slice.
+   *
+   * The space picker behind "Add To Space/Course" is a pick that performs
+   * an HTTP write, and `applyControlPick` is state-only by design — it is
+   * the one place both frames of a choice agree about what a pick MEANS,
+   * and teaching it to make requests would end that. So the sheet stays
+   * presentation and the shell keeps the effect.
+   */
+  onPick?: (value: string, label: string) => void;
   childStyles?: Record<number, CSSProperties>;
 };
 
@@ -140,7 +151,12 @@ export function OptionsSheet() {
   };
 
   const handlePick = (value: string) => {
-    applyControlPick(detail.stateKey, value);
+    if (detail.onPick) {
+      const picked = detail.options.find((o) => o.value === value);
+      detail.onPick(value, picked?.label ?? value);
+    } else {
+      applyControlPick(detail.stateKey, value);
+    }
     closeOptionsSheet();
   };
 

@@ -4,8 +4,8 @@ import { getProfileControls } from './profileControls';
 import type { ActionInvocation } from './actionContext';
 
 /**
- * The profile header cluster's four follow actions — follow, unfollow,
- * and the two halves of the email-notification toggle.
+ * The profile header cluster's writes — follow, unfollow, the two halves
+ * of the email-notification toggle, and the ⋯ menu's block and unblock.
  *
  * Shared between the Capacitor shell and the WP-admin simulator for the
  * same reason the post menu is: two dispatchers implementing one action
@@ -47,6 +47,15 @@ const HANDLED = new Set([
   'user.unfollow',
   'user.notify_subscribe',
   'user.notify_unsubscribe',
+  // The ⋯ menu's two block rows (2026-09-02). Same request in every
+  // respect — POST an fcom-mobile route with the profile's user id under
+  // `member_id` — so they belong here rather than in a branch of their
+  // own. Blocking is level 0 in the SAME followers table a follow writes
+  // to, which is why blocking someone you follow also stops following
+  // them; that is FluentCommunity's behaviour, and the refetch below is
+  // what makes the cluster show it.
+  'profile.block',
+  'profile.unblock',
 ]);
 
 /**

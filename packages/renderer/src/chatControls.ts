@@ -60,6 +60,20 @@ export type ChatControls = {
    */
   can_send: string;
   /**
+   * The member a conversation is INTENDED with, before any thread
+   * exists.
+   *
+   * FluentCommunity cannot open an empty one-to-one thread —
+   * `POST /chat/threads` validates `message` as required and creates the
+   * thread WITH its first message — so the profile's Message button can
+   * only carry an intent. The portal does the same thing: its button
+   * links to `/portal/chat?user_id=N`.
+   *
+   * Set, the send handler creates the thread instead of posting to one,
+   * and adopts the id that comes back so every later send is ordinary.
+   */
+  intent_user_id: string;
+  /**
    * Composer text. Held here rather than in the DOM because other
    * actions write it — clearing after a send, and restoring a draft when
    * a reply is cancelled — and an uncontrolled field cannot be written
@@ -82,6 +96,7 @@ const DEFAULTS: ChatControls = {
   space_slug: '',
   messages_view: 'loading',
   can_send: 'no',
+  intent_user_id: '',
   reply_to_id: '',
   reply_to_name: '',
   reply_to_text: '',
@@ -104,6 +119,8 @@ export function setChatControls(patch: Partial<ChatControls>): void {
     messages_view:
       typeof patch.messages_view === 'string' ? patch.messages_view : current.messages_view,
     can_send: typeof patch.can_send === 'string' ? patch.can_send : current.can_send,
+    intent_user_id:
+      typeof patch.intent_user_id === 'string' ? patch.intent_user_id : current.intent_user_id,
     reply_to_id: typeof patch.reply_to_id === 'string' ? patch.reply_to_id : current.reply_to_id,
     reply_to_name:
       typeof patch.reply_to_name === 'string' ? patch.reply_to_name : current.reply_to_name,
@@ -124,8 +141,13 @@ export function setChatControls(patch: Partial<ChatControls>): void {
   // the same invariant spaceDetailControls enforces when the sub-tab or
   // the space changes, and for the same reason: the state outlives the
   // screen that produced it.
+  // A changed INTENT counts as a switch too — writing to a different
+  // person is a different conversation even when neither has a thread
+  // yet, and without this the draft meant for one arrives in the other.
   const switched =
-    next.thread_id !== current.thread_id || next.space_slug !== current.space_slug;
+    next.thread_id !== current.thread_id ||
+    next.space_slug !== current.space_slug ||
+    next.intent_user_id !== current.intent_user_id;
   if (switched) {
     next.messages_view =
       typeof patch.messages_view === 'string' ? patch.messages_view : 'loading';
@@ -144,6 +166,7 @@ export function setChatControls(patch: Partial<ChatControls>): void {
   if (
     next.thread_id === current.thread_id &&
     next.space_slug === current.space_slug &&
+    next.intent_user_id === current.intent_user_id &&
     next.messages_view === current.messages_view &&
     next.can_send === current.can_send &&
     next.reply_to_id === current.reply_to_id &&

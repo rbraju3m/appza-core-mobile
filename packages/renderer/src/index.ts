@@ -354,7 +354,15 @@ export {
   type PostMenuSheetPresentation,
   type PostMenuSheetOptions,
 } from './PostOptionsPopover';
-export { tryHandlePostMenuAction, type PostMenuDeps, type StoredAuthLike } from './postMenuHandlers';
+export {
+  tryHandlePostMenuAction,
+  // Exported for the shells' own writes — the profile ⋯ menu's
+  // add-to-space is a POST with an auth header and an envelope to read,
+  // which is exactly what this already does for every menu row.
+  sendJson,
+  type PostMenuDeps,
+  type StoredAuthLike,
+} from './postMenuHandlers';
 export {
   tryHandleProfileAction,
   tryHandleProfileSave,

@@ -65,6 +65,9 @@ import {
   resetLeaderboardControls,
   OptionsSheet,
   openOptionsSheet,
+  sendJson,
+  closeOptionsSheet,
+  fetchDataSourceOnce,
   PostSpaceSheet,
   openPostSpaceSheet,
   VideoSheet,
@@ -3820,6 +3823,11 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'comment.options':
+    // The profile ⋯ (2026-09-02). Identical code for the same reason the
+    // comment menu is: this popover is about GATED ROWS, not about posts.
+    // Every row's visible_when resolves against whatever item was bound,
+    // and here that is the profile row.
+    case 'profile.options':
     case 'post.options': {
       const rawItems = Array.isArray(argRec.items) ? argRec.items : [];
       const items = rawItems
@@ -3900,7 +3908,12 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     case 'user.follow':
     case 'user.unfollow':
     case 'user.notify_subscribe':
-    case 'user.notify_unsubscribe': {
+    case 'user.notify_unsubscribe':
+    // Block and unblock are the same request in every respect — POST an
+    // fcom-mobile route with the profile's user id — so they ride the
+    // shared handler rather than a branch of their own.
+    case 'profile.block':
+    case 'profile.unblock': {
       tryHandleProfileAction(inv, {
         auth,
         authHeader: basicAuthHeader,
@@ -5719,6 +5732,18 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         endpoint,
         method: typeof argRec.method === 'string' ? argRec.method : 'POST',
         authHeader: auth ? basicAuthHeader(auth) : '',
+        createThreadEndpoint:
+          typeof argRec.create_thread_endpoint === 'string' && argRec.create_thread_endpoint
+            ? argRec.create_thread_endpoint
+            : '/wp-json/fcom-mobile/api/v1/chat/threads/create',
+        // The thread now exists. Adopt its id — into the slice AND the
+        // route bag, because the message list reads the route and the
+        // composer reads the slice — and drop the intent, so the next
+        // send is an ordinary message rather than a second create.
+        onThreadCreated: (threadId: number) => {
+          setRouteParams({ thread_id: threadId });
+          setChatControls({ thread_id: String(threadId), intent_user_id: '', can_send: 'yes' });
+        },
         onError: onLoginError,
         onSuccess: () => {
           const g = window as unknown as { __appzaForceRefreshUntil?: number };
@@ -5892,6 +5917,145 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         setScreenStack((prev) => [...prev, currentScreenId]);
       }
       setSelectedScreenId(target.id);
+      return;
+    }
+
+    case 'chat.open_dm': {
+      // A conversation that may not exist yet (2026-09-02).
+      //
+      // FluentCommunity cannot open an empty one-to-one thread — its
+      // create endpoint validates `message` as required and makes the
+      // thread WITH the first message — so this carries an INTENT and
+      // nothing else. The portal's own Message button does the same,
+      // linking to /portal/chat?user_id=N.
+      //
+      // The proxy answers the thread source for an intent with a
+      // synthesised row: the member's name and face, id 0, can_send true.
+      // So the screen draws the person, the composer exists, and the
+      // send handler creates the thread on the first message — after
+      // which this is an ordinary conversation.
+      const targetSlug =
+        typeof argRec.target_screen_slug === 'string'
+          ? argRec.target_screen_slug
+          : 'chat-page-details';
+      const target = catalog?.template_screens?.find(
+        (s) => s.app_map_screen_slug === targetSlug,
+      );
+      if (!target) {
+        console.warn('[appza] chat.open_dm: target not in catalog', targetSlug);
+        return;
+      }
+      const memberPath =
+        typeof argRec.member_id_path === 'string' ? argRec.member_id_path : 'data.user_id';
+      const rawMember = readDataPath(effectiveItem, memberPath);
+      const memberId =
+        typeof rawMember === 'number' || (typeof rawMember === 'string' && rawMember !== '')
+          ? String(rawMember)
+          : '';
+      if (memberId === '') {
+        onLoginError('Could not identify who to message.');
+        return;
+      }
+
+      // Clearing thread_id and space_slug is what makes this an intent
+      // rather than a stale conversation wearing a new name — the slice's
+      // switch guard then resets the draft and the reply target too.
+      setChatControls({ thread_id: '', space_slug: '', intent_user_id: memberId });
+      setRouteParams({
+        ...getRouteParams(),
+        thread_id: '',
+        space_slug: '',
+        intent_user_id: memberId,
+      });
+
+      if (currentScreenId != null) {
+        setScreenStack((prev) => [...prev, currentScreenId]);
+      }
+      setSelectedScreenId(target.id);
+      return;
+    }
+
+    case 'profile.add_to_space': {
+      // The portal's "Add To Space/Course", moderator-only.
+      //
+      // The rows are FETCHED rather than authored: a site's spaces are
+      // not a catalog fact, and an options sheet whose entries were
+      // seeded would be wrong the first time somebody made a space. The
+      // pick is an HTTP write, which is why the sheet takes an onPick
+      // instead of a state key — see OptionsSheet.
+      if (!auth) {
+        requireAuthOrLogin();
+        return;
+      }
+      const endpoint =
+        typeof argRec.endpoint === 'string' && argRec.endpoint
+          ? argRec.endpoint
+          : '/wp-json/fcom-mobile/api/v1/spaces/add-member';
+      const memberPath =
+        typeof argRec.member_id_path === 'string' ? argRec.member_id_path : 'data.user_id';
+      const rawMember = readDataPath(effectiveItem, memberPath);
+      const memberId = typeof rawMember === 'number' || typeof rawMember === 'string' ? rawMember : null;
+      if (memberId === null || memberId === '') {
+        onLoginError('Could not identify which member to add.');
+        return;
+      }
+      const sheetSlug =
+        typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
+          ? argRec.sheet_appzet_slug
+          : 'fc-profile-space-sheet';
+      const spacesDs =
+        typeof argRec.spaces_data_source_slug === 'string' && argRec.spaces_data_source_slug
+          ? argRec.spaces_data_source_slug
+          : 'fc-spaces-all';
+      const toast = typeof argRec.toast_message === 'string' ? argRec.toast_message : 'Added to space';
+
+      void fetchDataSourceOnce(spacesDs).then((rows) => {
+        const options = (Array.isArray(rows) ? rows : [])
+          .filter((r): r is Record<string, unknown> => isRecord(r))
+          .map((r) => ({
+            value: typeof r.slug === 'string' ? r.slug : '',
+            label: typeof r.title === 'string' ? r.title : '',
+          }))
+          .filter((o) => o.value && o.label);
+        if (options.length === 0) {
+          onLoginError('There are no spaces to add this member to.');
+          return;
+        }
+        openOptionsSheet({
+          appzetSlug: sheetSlug,
+          presentation: optionsSheetPresentation(readAppzetPropsFromCatalog(sheetSlug)),
+          childStyles: childStylesFromCustomizations(
+            sheetSlug,
+            OPTIONS_SHEET_CHILD_COUNT,
+            currentCustomizations,
+          ),
+          options,
+          // Nothing is "currently selected" — this is an act, not a
+          // setting — so no row wears the check.
+          stateKey: 'profile_follow_sort',
+          currentValue: '',
+          onPick: (spaceSlug, spaceLabel) => {
+            closeOptionsSheet();
+            void sendJson(
+              endpoint,
+              'POST',
+              { space_slug: spaceSlug, user_id: memberId },
+              auth,
+              basicAuthHeader,
+            ).then((result) => {
+              if (result.ok) {
+                onLoginError(`${toast}: ${spaceLabel}`);
+              } else {
+                // fcom-mobile forwards FluentCommunity's own sentence,
+                // which says more than anything generic here could —
+                // "already a member", or a refusal of the permission this
+                // row was gated on optimistically.
+                onLoginError(result.error);
+              }
+            });
+          },
+        });
+      });
       return;
     }
 
@@ -6325,19 +6489,37 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
+    // Blocking someone confirms first, and reuses the member-removal
+    // alert: it is a generic "are you sure, then dispatch this action"
+    // dialog, and blocking is not undone from where it was done.
+    case 'profile.block_confirm':
     case 'member.remove_confirm': {
+      const blocking = action_slug === 'profile.block_confirm';
       const subjectPath =
-        typeof argRec.subject_path === 'string' ? argRec.subject_path : 'data.xprofile.display_name';
+        typeof argRec.subject_path === 'string'
+          ? argRec.subject_path
+          : blocking
+            ? 'data.display_name'
+            : 'data.xprofile.display_name';
       const rawSubject = readDataPath(effectiveItem, subjectPath);
       const subject = typeof rawSubject === 'string' && rawSubject ? rawSubject : 'Member';
       openMemberRemoveConfirm({
         subject,
-        message: typeof argRec.message === 'string' ? argRec.message : undefined,
+        message:
+          typeof argRec.message === 'string'
+            ? argRec.message
+            : blocking
+              ? `Block ${subject}? They will not be able to follow you or message you, and you will stop following them.`
+              : undefined,
         cancelLabel: typeof argRec.cancel_label === 'string' ? argRec.cancel_label : undefined,
         confirmLabel: typeof argRec.confirm_label === 'string' ? argRec.confirm_label : undefined,
         item: effectiveItem,
         removeActionSlug:
-          typeof argRec.remove_action_slug === 'string' ? argRec.remove_action_slug : 'member.remove',
+          typeof argRec.remove_action_slug === 'string'
+            ? argRec.remove_action_slug
+            : blocking
+              ? 'profile.block'
+              : 'member.remove',
       });
       return;
     }

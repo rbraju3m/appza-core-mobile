@@ -59,6 +59,11 @@ function target(): Record<string, unknown> | null {
   const chat = getChatControls();
   if (chat.thread_id !== '') return { thread_id: Number(chat.thread_id) };
   if (chat.space_slug !== '') return { space_slug: chat.space_slug };
+  // An intent is a target too, and the one case where the write CREATES
+  // the conversation rather than posting to it. Handled by the caller —
+  // see sendChatMessage — because it is a different endpoint and a
+  // different body, not a different id.
+  if (chat.intent_user_id !== '') return { intent_id: Number(chat.intent_user_id) };
 
   // Fall back to the route params. The two are written together by
   // chat.open, but the data sources read the route bag while the writes
@@ -77,7 +82,23 @@ function target(): Record<string, unknown> | null {
   return null;
 }
 
-export async function sendChatMessage(deps: ChatWriteDeps): Promise<void> {
+export type ChatSendDeps = ChatWriteDeps & {
+  /**
+   * Where a DM that does not exist yet is created. FluentCommunity makes
+   * the thread and posts the first message in one call, so this is a
+   * different endpoint from the ordinary send — supplied by the action's
+   * args like every other URL here.
+   */
+  createThreadEndpoint?: string;
+  /**
+   * Called with the id of the thread the create returned, so the shell
+   * can adopt it: from the next send on, this is an ordinary
+   * conversation.
+   */
+  onThreadCreated?: (threadId: number) => void;
+};
+
+export async function sendChatMessage(deps: ChatSendDeps): Promise<void> {
   const chat = getChatControls();
   const abs = deps.absolutize ?? ((p: string) => p);
 
@@ -92,6 +113,57 @@ export async function sendChatMessage(deps: ChatWriteDeps): Promise<void> {
   const to = target();
   if (!to) {
     deps.onError('No conversation is open.');
+    return;
+  }
+
+  // The create path. FluentCommunity's `createIntendedThread` looks for
+  // an existing one-to-one thread first and appends to it, so this is
+  // safe to call whether or not the two have spoken before — which is
+  // also why the screen does not resolve a thread up front. Its body is
+  // its own shape: `message`, not `text`, and no attachments (the
+  // endpoint takes none).
+  const creating = chat.thread_id === '' && chat.space_slug === '' && chat.intent_user_id !== '';
+  if (creating) {
+    const endpoint = deps.createThreadEndpoint;
+    if (!endpoint) {
+      deps.onError('This conversation cannot be started yet.');
+      return;
+    }
+    const restoreDraft = { draft: chat.draft, attachments: chat.attachments };
+    setChatControls({ draft: '', attachments: [] });
+    try {
+      const res = await fetch(abs(endpoint), {
+        method: 'POST',
+        credentials: 'omit',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: deps.authHeader,
+        },
+        body: JSON.stringify({
+          message: text,
+          intent_id: Number(chat.intent_user_id),
+          intent_type: 'user',
+        }),
+      });
+      const json = (await res.json().catch(() => null)) as Envelope | null;
+      if (!ok(res, json)) {
+        setChatControls(restoreDraft);
+        deps.onError(messageFrom(json, res.status, 'The conversation could not be started.'));
+        return;
+      }
+      const item = (json as { item?: { id?: unknown } } | null)?.item;
+      const newId = item && (typeof item.id === 'number' || typeof item.id === 'string')
+        ? Number(item.id)
+        : 0;
+      if (Number.isFinite(newId) && newId > 0) {
+        deps.onThreadCreated?.(newId);
+      }
+      deps.onSuccess?.();
+    } catch (err) {
+      setChatControls(restoreDraft);
+      deps.onError(err instanceof Error ? err.message : String(err));
+    }
     return;
   }
 
