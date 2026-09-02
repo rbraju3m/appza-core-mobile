@@ -11307,6 +11307,17 @@ audio.appza-video-embed-native {
   height: 128px;
   overflow: hidden;
 }
+/* The HOST is what has to be styled, not the img: IonImg renders an
+   <ion-img>, and its <img> lives in a SHADOW ROOT no stylesheet selector
+   reaches. Ionic's own shadow CSS is `img { width:100%; height:100%;
+   object-fit: inherit }` over a host defaulting to `object-fit: contain`
+   — so an `img` rule here matched NOTHING, the host took the picture's
+   intrinsic height (266px for the 1365x894 cover on this box), and the
+   128px band showed the TOP HALF of the photo instead of a centred crop.
+   Naming `ion-img` fixes both: the host is 128px and the shadow img
+   inherits `cover` from it. Every other cover in this file already names
+   the host — fc-space-card and fc-space-cover both do. */
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="0"] ion-img,
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="0"] img {
   width: 100%;
   height: 128px;
