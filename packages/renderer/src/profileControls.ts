@@ -29,6 +29,16 @@ export type ProfileControls = {
   member_id: number;
   /** Active tab slug. FluentCommunity's own profile navs name these. */
   tab: string;
+  /**
+   * Which of the two follow lists the `profile-follows` screen shows —
+   * 'followings' or 'followers'.
+   *
+   * The portal keeps both at one address behind a two-item strip
+   * (`/portal/u/<name>/follow/followings`), so this app does too: one
+   * screen, one strip, and the header count that was tapped decides
+   * which item opens.
+   */
+  follow_view: string;
 };
 
 const EVENT = 'appza:profile-controls-change';
@@ -36,6 +46,8 @@ const EVENT = 'appza:profile-controls-change';
 const DEFAULTS: ProfileControls = {
   member_id: 0,
   tab: 'posts',
+  // The portal opens on Following, and so does this.
+  follow_view: 'followings',
 };
 
 let current: ProfileControls = { ...DEFAULTS };
@@ -51,8 +63,17 @@ export function setProfileControls(patch: Partial<ProfileControls>): void {
         ? patch.member_id
         : current.member_id,
     tab: typeof patch.tab === 'string' && patch.tab ? patch.tab : current.tab,
+    follow_view:
+      typeof patch.follow_view === 'string' && patch.follow_view
+        ? patch.follow_view
+        : current.follow_view,
   };
-  if (next.member_id === current.member_id && next.tab === current.tab) return;
+  if (
+    next.member_id === current.member_id &&
+    next.tab === current.tab &&
+    next.follow_view === current.follow_view
+  )
+    return;
   current = next;
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(EVENT, { detail: next }));
@@ -72,6 +93,7 @@ export function profileStateEntries(state: ProfileControls): Record<string, unkn
   return {
     'profile_controls.member_id': state.member_id > 0 ? String(state.member_id) : '',
     'profile_controls.tab': state.tab,
+    'profile_controls.follow_view': state.follow_view,
   };
 }
 

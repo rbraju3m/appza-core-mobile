@@ -26,6 +26,7 @@ import { useFcRuntimeSettings } from './fcRuntimeSettings';
 import { useViewer, viewerStateEntries } from './viewer';
 import { useBannerControls, bannerStateEntries } from './bannerControls';
 import { useProfileControls, setProfileControls } from './profileControls';
+import { useListVerdicts } from './listVerdicts';
 
 type ScreenRendererProps = {
   screen: TemplateScreen;
@@ -120,6 +121,11 @@ export function ScreenRenderer({
   // every one of those gates compares against undefined and the screen
   // renders a header and nothing else.
   const profileControls = useProfileControls();
+  // Whether each list that named an `empty_state_key` came back with
+  // rows. Subscribed here for the same reason as the slice above: the
+  // empty states are PLACEMENTS, and a gate that cannot see this value
+  // compares against undefined and never shows.
+  const listVerdicts = useListVerdicts();
 
   // The bottom-nav profile screen IS the viewer's own, so it should say
   // so however you arrive at it.
@@ -194,6 +200,16 @@ export function ScreenRenderer({
       // second subscription.
       'profile_controls.tab': profileControls.tab,
       'profile_controls.member_id': profileControls.member_id,
+      // Which of the two follow lists the strip is showing.
+      'profile_controls.follow_view': profileControls.follow_view,
+      // Catalog-named list verdicts (2026-09-02). Every key any mounted
+      // AppZet with an `empty_state_key` has published, flattened the
+      // same way the hand-written verdicts above are, so a placement
+      // gates on `state.list_verdicts.<key>`. Spread rather than listed
+      // because the CATALOG names these, not this file.
+      ...Object.fromEntries(
+        Object.entries(listVerdicts).map(([key, verdict]) => [`list_verdicts.${key}`, verdict]),
+      ),
       // Post detail. Two VERDICTS and nothing else a placement gates on:
       // `comments_view` decides between the thread's sort row and the
       // empty state, `can_comment` between the composer and design 11's
@@ -279,6 +295,10 @@ export function ScreenRenderer({
       leaderboardControls.ranks_view,
       profileControls.tab,
       profileControls.member_id,
+      profileControls.follow_view,
+      // The whole map, not one key: the catalog names these, so there is
+      // no fixed list to depend on.
+      listVerdicts,
       bookmarkControls.view,
       bookmarkControls.search,
       bookmarkControls.sort,

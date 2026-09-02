@@ -20,6 +20,7 @@ import { setSpaceDetailControls, useSpaceDetailControls } from './spaceDetailCon
 import { setChatControls, useChatControls } from './chatControls';
 import { setLeaderboardControls, useLeaderboardControls } from './leaderboardControls';
 import { setBookmarkControls, useBookmarkControls } from './bookmarkControls';
+import { clearListVerdict, setListVerdict } from './listVerdicts';
 import { seedFeedControls, type FeedViewMode } from './feedControls';
 import {
   setBannerControls,
@@ -723,6 +724,38 @@ export function PlacementRenderer({
     if (dataState.loading) return;
     setLeaderboardControls({ ranks_view: dataState.items.length > 0 ? 'list' : 'empty' });
   }, [publishesRanksView, dataState.loading, dataState.items.length]);
+
+  // The same P75 verdict, but keyed by the CATALOG rather than by a
+  // DataSource slug written into this file (2026-09-02). An AppZet that
+  // sets `empty_state_key` publishes 'loading' / 'list' / 'empty' under
+  // `state.list_verdicts.<key>`; one that does not is untouched, so no
+  // existing screen changes behaviour. See listVerdicts.ts for why the
+  // five publishers above are left alone.
+  //
+  // The profile tabs need it because three of them share one screen and
+  // each needs its own answer, and the follow lists because a list with
+  // no rows is what this box actually has.
+  const emptyStateKey =
+    typeof (appzet?.default_props_override as Record<string, unknown> | undefined)?.[
+      'empty_state_key'
+    ] === 'string'
+      ? ((appzet?.default_props_override as Record<string, unknown>)['empty_state_key'] as string)
+      : '';
+  useEffect(() => {
+    if (!emptyStateKey) return;
+    // Hold the last verdict across a refetch, exactly as the publishers
+    // above do: a tab switch or a follow/unfollow refetch would otherwise
+    // flash the empty state over a list that has rows.
+    if (dataState.loading) return;
+    setListVerdict(emptyStateKey, dataState.items.length > 0 ? 'list' : 'empty');
+  }, [emptyStateKey, dataState.loading, dataState.items.length]);
+  useEffect(() => {
+    if (!emptyStateKey) return;
+    // Drop the key when the list unmounts — a hidden profile tab is an
+    // unmounted placement, and a stale 'empty' left behind by Spaces
+    // would paint an empty state under Courses.
+    return () => clearListVerdict(emptyStateKey);
+  }, [emptyStateKey]);
 
   // Saved Posts (2026-08-19). The same P75 shape as the documents tab,
   // and for the same reason: three designs — the list, "No saved posts
