@@ -5,6 +5,7 @@ import { setSpacesControls, type SpacesSort } from './spacesControls';
 import { setSpaceDetailControls } from './spaceDetailControls';
 import { setBookmarkControls, type BookmarkViewMode } from './bookmarkControls';
 import { setPostDetailControls } from './postDetailControls';
+import { setProfileControls } from './profileControls';
 import { resolveIcon } from './PrimitiveRenderer';
 
 // Floating popover anchored to a DOM element, with a small list of
@@ -49,7 +50,8 @@ export type PopoverStateKey =
   | 'space_detail_sort'
   | 'bookmarks_sort'
   | 'bookmarks_view_mode'
-  | 'post_detail_comment_sort';
+  | 'post_detail_comment_sort'
+  | 'profile_follow_sort';
 
 /**
  * Write a picked option into whichever control slice the key names.
@@ -94,6 +96,13 @@ export function applyControlPick(stateKey: PopoverStateKey, value: string): void
     if (value.length > 0) {
       setPostDetailControls({ comment_sort: value, comment_sort_touched: true });
     }
+    return;
+  }
+  if (stateKey === 'profile_follow_sort') {
+    // A refetch, unlike the comment sort directly above: FC's
+    // FollowController reads sort_by ('id' | 'alphabetical') and both
+    // follow DataSources bind it as a query param.
+    if (value.length > 0) setProfileControls({ follow_sort: value });
     return;
   }
   if (stateKey === 'bookmarks_view_mode') {

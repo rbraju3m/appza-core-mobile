@@ -39,6 +39,7 @@ import {
   setFeedControls,
   getFeedControls,
   setProfileControls,
+  getProfileControls,
   getViewer,
   resolveFeedSortRows,
   setBannerControls,
@@ -5063,6 +5064,89 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       } else {
         console.warn('[appza] profile.set_tab: no picked value', { argRec, item });
       }
+      return;
+    }
+
+    // The follow lists (2026-09-02). Three writers into profileControls
+    // and the one that opens the screen.
+    case 'profile.set_follow_view': {
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      const picked = runtimeValue ?? itemValue ?? '';
+      if (picked) {
+        // Clearing the search with the strip is deliberate: the two lists
+        // are different people, and a query typed against one of them
+        // silently narrowing the other reads as an empty list rather than
+        // as a filter still being applied.
+        setProfileControls({ follow_view: picked, follow_search: '' });
+      } else {
+        console.warn('[appza] profile.set_follow_view: no picked value', { argRec, item });
+      }
+      return;
+    }
+
+    case 'profile.set_follow_search': {
+      // Same contract as documents.set_search — Ionic's ⨯ fires with '',
+      // so one case covers set and clear. Debounced because both follow
+      // DataSources bind this as a query param and every keystroke would
+      // otherwise be a request.
+      const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
+      const itemValue =
+        itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
+      debounceSearch('follow', runtimeValue ?? itemValue ?? '', (follow_search) =>
+        setProfileControls({ follow_search }),
+      );
+      return;
+    }
+
+    case 'profile.set_follow_sort': {
+      const options = readPickerOptions(argRec.options);
+      // Silent return, as every other picker in this dispatcher does:
+      // the simulator has no error channel, and its one message slot
+      // belongs to the login screen (P127).
+      if (options.length === 0) return;
+      const sheetSlug =
+        typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
+          ? argRec.sheet_appzet_slug
+          : 'fc-follow-sort-sheet';
+      openOptionsSheet({
+        appzetSlug: sheetSlug,
+        presentation: optionsSheetPresentation(readAppzetPropsFromCatalog(sheetSlug)),
+        childStyles: childStylesFromCustomizations(
+          sheetSlug,
+          OPTIONS_SHEET_CHILD_COUNT,
+          currentCustomizations,
+        ),
+        options,
+        stateKey: 'profile_follow_sort',
+        currentValue: getProfileControls().follow_sort,
+      });
+      return;
+    }
+
+    case 'profile.open_follows': {
+      // Both header counts open ONE screen and differ only in which strip
+      // item is active, so the view is written BEFORE the push — a bare
+      // nav.push would always land on Following whichever number was
+      // tapped. The push itself is delegated rather than restated: it
+      // carries route params, screen context and the composer resets, and
+      // a second copy of that would drift.
+      const view = typeof argRec.view === 'string' && argRec.view ? argRec.view : 'followings';
+      setProfileControls({ follow_view: view, follow_search: '' });
+      handleAppModeAction(
+        {
+          ...inv,
+          action_slug: 'nav.push',
+          args: {
+            target_screen_slug:
+              typeof argRec.target_screen_slug === 'string' && argRec.target_screen_slug
+                ? argRec.target_screen_slug
+                : 'profile-follows',
+          },
+        },
+        deps,
+      );
       return;
     }
 

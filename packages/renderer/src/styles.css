@@ -12174,3 +12174,102 @@ audio.appza-video-embed-native {
   z-index: 20;
   padding: 0;
 }
+
+/* ── Follow lists (profile-follows, 2026-09-02) ─────────────────────────
+   One person per row: avatar left, name over @handle over the joined /
+   last-seen line, and the Follow / Following button hard right. The
+   portal's own layout — /portal/u/<name>/follow/followers — which is the
+   reference here because Noor has no design for this screen.
+
+   The two buttons share a grid area: exactly one is ever visible (their
+   visible_when clauses are mutually exclusive), so stacking them costs
+   nothing and keeps the row from reflowing as the state flips. */
+.appza-renderer-ss[data-slug="fc-follow-row"] {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "avatar name   action"
+    "avatar handle action"
+    "avatar byline action";
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 1px;
+  padding: var(--appza-row-padding, 14px 16px);
+  background: #ffffff;
+  border-bottom: 1px solid var(--appza-divider-color, #ececed);
+  min-width: 0;
+}
+.appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="0"] {
+  grid-area: avatar;
+}
+.appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="0"] ion-avatar {
+  width: var(--appza-avatar-size, 48px);
+  height: var(--appza-avatar-size, 48px);
+}
+.appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="1"] {
+  grid-area: name;
+  font-size: var(--appza-name-size, 1rem);
+  font-weight: var(--appza-name-weight, 600);
+  color: var(--appza-name-color, #111827);
+  line-height: 1.3;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="2"] {
+  grid-area: handle;
+  font-size: var(--appza-username-size, 0.9rem);
+  color: var(--appza-username-color, #9ca3af);
+  line-height: 1.3;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="3"] {
+  grid-area: byline;
+  font-size: var(--appza-byline-size, 0.85rem);
+  color: var(--appza-byline-color, #9ca3af);
+  line-height: 1.3;
+}
+.appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="4"],
+.appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="5"] {
+  grid-area: action;
+  justify-self: end;
+}
+/* Ionic paints a border on the ion-button HOST that CSS variables do not
+   reach, so both the host and ::part(native) have to be overridden — the
+   same gotcha the profile cluster's buttons hit. */
+.appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="4"] ion-button,
+.appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="5"] ion-button {
+  --background: transparent;
+  --background-hover: transparent;
+  --background-activated: transparent;
+  --color: var(--appza-button-color, #111827);
+  --border-width: 1px;
+  --border-style: solid;
+  --border-color: var(--appza-button-border-color, #d1d5db);
+  --border-radius: var(--appza-button-radius, 8px);
+  --box-shadow: none;
+  --padding-start: 14px;
+  --padding-end: 14px;
+  height: 36px;
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-transform: none;
+  border: 0;
+}
+.appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="4"] ion-button::part(native),
+.appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="5"] ion-button::part(native) {
+  border-radius: var(--appza-button-radius, 8px);
+}
+/* The card the strip, the search field, the sort row and the list all sit
+   in — one white panel under the profile header, as the portal draws it. */
+[data-screen-slug="profile-follows"] .appza-renderer-ss[data-slug="fc-profile-tabs"] {
+  border-radius: 10px 10px 0 0;
+}
+[data-screen-slug="profile-follows"] .appza-renderer-ss[data-slug="fc-documents-search"] {
+  background: #ffffff;
+}

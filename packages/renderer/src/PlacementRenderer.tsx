@@ -186,7 +186,8 @@ export function PlacementRenderer({
   // The profile's tab strip marks its active entry the same way the
   // space sub-tabs do — an attribute on the AppZet root plus the entry's
   // own data-value — so ONE tab is underlined rather than all five.
-  const { tab: profileTab } = useProfileControls();
+  const profileControls = useProfileControls();
+  const { tab: profileTab, follow_view: followView } = profileControls;
   // spaceDetailControls drives the Space Detail screen (active sub-tab,
   // topic filter, sort). Read unconditionally to keep hook order stable —
   // fc-space-feeds' query_params bind against these values, and per-child
@@ -356,6 +357,22 @@ export function PlacementRenderer({
           // source at all.
           ...(baseAppzet.slug === 'fc-comment-sort'
             ? { label: commentSortLabel(postDetailControls.comment_sort) }
+            : {}),
+          // The follow lists' sort row rides the SAME Superstructure and
+          // needs the same treatment against a different slice — keyed
+          // off the APPZET slug, which is why the branch above tests
+          // `baseAppzet.slug` rather than the Superstructure's. The two
+          // labels come from the action's own options list, so renaming
+          // "Most Recent" is a catalog edit.
+          ...(baseAppzet.slug === 'fc-follow-sort'
+            ? {
+                label: followSortLabel(
+                  profileControls.follow_sort,
+                  (baseAppzet.actions as Record<string, unknown> | null | undefined)?.[
+                    'on_tap_sort'
+                  ],
+                ),
+              }
             : {}),
           // A sort/layout toolbar reflects the persisted preference in its
           // own controls — the sort button reads "<sort_label> <label>",
@@ -1917,7 +1934,13 @@ export function PlacementRenderer({
           }
           data-spaces-active-tab={appzet.slug === 'fc-spaces-tabs' ? spacesTab : undefined}
           data-space-detail-active-subtab={appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab : undefined}
-          data-profile-active-tab={appzet.slug === 'fc-profile-tabs' ? profileTab : undefined}
+          data-profile-active-tab={
+            appzet.slug === 'fc-profile-tabs'
+              ? profileTab
+              : appzet.slug === 'fc-follow-tabs'
+                ? followView
+                : undefined
+          }
           data-space-detail-active-topic={appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug : undefined}
           data-space-detail-active-space={appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug : undefined}
           data-media-active-type={appzet.slug === 'fc-media-tabs' ? spaceDetailMediaType : undefined}
@@ -1953,6 +1976,8 @@ export function PlacementRenderer({
               // is what the CSS keys on.
               appzet.slug === 'fc-search-tabs' ? searchControls.tab :
               appzet.slug === 'fc-search-scope-tabs' ? searchControls.post_scope :
+              // See the note at the sibling call site below.
+              appzet.slug === 'fc-follow-tabs' ? followView :
               undefined
             }
             activeChildValues={
@@ -2092,7 +2117,13 @@ export function PlacementRenderer({
         data-view-mode={listViewMode}
         data-spaces-active-tab={appzet.slug === 'fc-spaces-tabs' ? spacesTab : undefined}
         data-space-detail-active-subtab={appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab : undefined}
-          data-profile-active-tab={appzet.slug === 'fc-profile-tabs' ? profileTab : undefined}
+          data-profile-active-tab={
+            appzet.slug === 'fc-profile-tabs'
+              ? profileTab
+              : appzet.slug === 'fc-follow-tabs'
+                ? followView
+                : undefined
+          }
         data-space-detail-active-topic={appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug : undefined}
         data-space-detail-active-space={appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug : undefined}
         data-media-active-type={appzet.slug === 'fc-media-tabs' ? spaceDetailMediaType : undefined}
@@ -2232,6 +2263,11 @@ export function PlacementRenderer({
                 // is what the CSS keys on.
                 appzet.slug === 'fc-search-tabs' ? searchControls.tab :
                 appzet.slug === 'fc-search-scope-tabs' ? searchControls.post_scope :
+                // The follow lists' Following | Followers strip — the
+                // profile strip's Superstructure reading a different key
+                // of the same slice, so it cannot fall into the first
+                // branch.
+                appzet.slug === 'fc-follow-tabs' ? followView :
                 undefined
               }
               activeChildValues={
@@ -3316,6 +3352,27 @@ function childStateBag(): Record<string, unknown> {
     ...postDraftStateEntries(getPostDraft()),
     ...bannerStateEntries(getBannerControls()),
   };
+}
+
+
+/**
+ * The label for whichever follow order is current.
+ *
+ * Read out of the action's own `args.options` rather than hard-coded, so
+ * the two orders — FluentCommunity's `id` and `alphabetical` — are named
+ * in exactly one place, the catalog. An unknown value falls back to the
+ * raw key, which says more than an empty row would.
+ */
+function followSortLabel(value: string, action: unknown): string {
+  const args = isRecord(action) ? (action as Record<string, unknown>)['args'] : undefined;
+  const options = isRecord(args) ? (args as Record<string, unknown>)['options'] : undefined;
+  if (Array.isArray(options)) {
+    for (const opt of options) {
+      if (!isRecord(opt)) continue;
+      if (opt['value'] === value && typeof opt['label'] === 'string') return opt['label'];
+    }
+  }
+  return value;
 }
 
 function evaluateVisibleWhen(vw: VisibleWhenClause, item: unknown): boolean {
