@@ -146,6 +146,7 @@ import {
   volumeMuteOutline,
   people,
   peopleOutline,
+  personAddOutline,
   person,
   personOutline,
   playCircle,
@@ -337,6 +338,10 @@ const ICON_REGISTRY: Record<string, string> = {
   'notifications-outline': notificationsOutline,
   people,
   'people-outline': peopleOutline,
+  // The follow lists' empty state (2026-09-02). An icon the catalog
+  // names but the renderer does not know draws NOTHING and logs a
+  // warning nobody reads — P142, the two registries are different sets.
+  'person-add-outline': personAddOutline,
   person,
   'person-outline': personOutline,
   search,
