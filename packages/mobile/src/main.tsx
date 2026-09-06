@@ -61,9 +61,17 @@ const SITE_URL =
 
 // Visible in-app debug panel — hovers at the bottom of the screen and
 // shows the last N console log/warn/error lines. Tap the header to
-// collapse/expand. Meant as a stopgap so on-device diagnostics don't
-// require chrome://inspect. Remove once the issue is understood.
-{
+// collapse/expand. A stopgap so on-device diagnostics don't require
+// chrome://inspect.
+//
+// OFF unless the build asks for it. It shipped in every APK unmounted
+// by nothing — a black box over the bottom third of the screen, which
+// is fine for the team diagnosing something and wrong for anyone else
+// holding the phone. Vite inlines this at build time, so a normal build
+// drops the whole block rather than shipping a dead branch:
+//
+//   VITE_APPZA_DEBUG_PANEL=1 npm run build
+if ((import.meta.env.VITE_APPZA_DEBUG_PANEL as string | undefined) === '1') {
   const MAX_LINES = 40;
   const lines: string[] = [];
   let panel: HTMLDivElement | null = null;
