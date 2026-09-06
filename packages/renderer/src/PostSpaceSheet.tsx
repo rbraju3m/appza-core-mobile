@@ -104,6 +104,29 @@ type OpenDetail = {
   globalPostsEnabled: boolean;
   /** Global community moderator — half of the announcement-email gate. */
   viewerIsModerator: boolean;
+  /**
+   * Which question the sheet is asking.
+   *
+   *   'destination'  where does this NEW post go — the create screen's
+   *                  "Post to". A pick becomes the draft's destination:
+   *                  its chip, its topic chips, its two permissions.
+   *   'move'         where does this EXISTING post move to — the edit
+   *                  screen's checkbox. A pick writes the MOVE fields
+   *                  and leaves the destination alone, because the
+   *                  "Posted in:" row has to keep saying where the post
+   *                  is while you choose (design 4).
+   *
+   * Same sheet, same rows, same presentation — one list of what a
+   * space looks like, not two (item 4).
+   */
+  mode?: 'destination' | 'move';
+  /**
+   * Overrides the presentation's profile label. Move mode needs
+   * FluentCommunity's second string — "On author's profile" — when the
+   * viewer is not the one who wrote the post, and only the payload
+   * knows which.
+   */
+  profileLabel?: string;
   childStyles?: Record<number, CSSProperties>;
 };
 
@@ -186,13 +209,17 @@ export function PostSpaceSheet() {
     return p.publicLabel;
   };
 
+  const moving = detail.mode === 'move';
+
   const pickProfile = () => {
-    applyProfileDestination(detail.viewerIsModerator);
+    if (moving) applyMoveToProfile();
+    else applyProfileDestination(detail.viewerIsModerator);
     closePostSpaceSheet();
   };
 
   const pickSpace = (row: PostSpaceRow) => {
-    applySpaceDestination(row, detail.viewerIsModerator);
+    if (moving) applyMoveDestination(row);
+    else applySpaceDestination(row, detail.viewerIsModerator);
     closePostSpaceSheet();
   };
 
@@ -240,7 +267,7 @@ export function PostSpaceSheet() {
               onClick={pickProfile}
               {...childAttrs(slug, 1, 'ion-text')}
             >
-              {p.profileLabel}
+              {detail.profileLabel || p.profileLabel}
             </button>
           )}
 
@@ -363,6 +390,41 @@ export function applyProfileDestination(viewerIsModerator: boolean): void {
   });
 }
 
+/** The same, for a MOVE — the edit screen's destination pick.
+ *
+ * Writes ONLY the move fields. The post's own space, its topic chips,
+ * its announcement verdict and its document permission all stay where
+ * they are, because none of them has moved yet: the post is still in its
+ * old space until Save says otherwise, and the "Posted in:" row is
+ * reading exactly those fields (design 4 shows it unchanged beside a
+ * chip that has changed).
+ *
+ * The topics deliberately stay the OLD space's, which is what
+ * FluentCommunity's own portal does — its edit modal keeps the composer
+ * on the original space and posts the same `topic_ids` alongside
+ * `new_space_id`.
+ */
+export function applyMoveDestination(row: PostSpaceRow): void {
+  setPostDraft({
+    move_target: 'space',
+    move_space_id: row.id,
+    move_space_title: row.title,
+    move_space_logo: row.logo,
+    move_space_emoji: row.emoji,
+  });
+}
+
+/** "On my profile" / "On author's profile" — FC's `move_to_profile`. */
+export function applyMoveToProfile(): void {
+  setPostDraft({
+    move_target: 'profile',
+    move_space_id: '',
+    move_space_title: '',
+    move_space_logo: '',
+    move_space_emoji: '',
+  });
+}
+
 /**
  * The picker's payload: every space the viewer may post in, grouped as
  * the site groups them, plus the verdicts about the viewer themselves.
@@ -372,6 +434,12 @@ export type PostSpacePayload = {
   viewerIsModerator: boolean;
   canUploadVideo: boolean;
   canUploadAudio: boolean;
+  /**
+   * MOVE payload only. The create picker leaves both alone and the
+   * caller falls back to the site setting and the catalog label.
+   */
+  canMoveToProfile: boolean;
+  profileLabel: string;
 };
 
 const EMPTY_PAYLOAD: PostSpacePayload = {
@@ -379,9 +447,14 @@ const EMPTY_PAYLOAD: PostSpacePayload = {
   viewerIsModerator: false,
   canUploadVideo: false,
   canUploadAudio: false,
+  canMoveToProfile: false,
+  profileLabel: '',
 };
 
-let cached: { slug: string; payload: PostSpacePayload } | null = null;
+// Keyed by slug AND params: the move picker answers a different list for
+// every post, so a slug-only key would offer one post's destinations for
+// the next one edited.
+let cached: { key: string; payload: PostSpacePayload } | null = null;
 
 function rec(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
@@ -413,13 +486,14 @@ function b(v: unknown): boolean {
  */
 export async function fetchPostSpacePayload(
   dataSourceSlug: string,
-  opts?: { force?: boolean },
+  opts?: { force?: boolean; params?: Record<string, unknown> },
 ): Promise<PostSpacePayload> {
-  if (!opts?.force && cached && cached.slug === dataSourceSlug) return cached.payload;
+  const key = `${dataSourceSlug}|${opts?.params ? JSON.stringify(opts.params) : ''}`;
+  if (!opts?.force && cached && cached.key === key) return cached.payload;
 
   let json: unknown;
   try {
-    json = await fetchDataSourceOnce(dataSourceSlug);
+    json = await fetchDataSourceOnce(dataSourceSlug, opts?.params);
   } catch {
     return EMPTY_PAYLOAD;
   }
@@ -469,8 +543,10 @@ export async function fetchPostSpacePayload(
     viewerIsModerator: b(viewer.is_moderator),
     canUploadVideo: b(viewer.can_upload_video),
     canUploadAudio: b(viewer.can_upload_audio),
+    canMoveToProfile: b(wrapper.can_move_to_profile),
+    profileLabel: s(wrapper.profile_label),
   };
-  cached = { slug: dataSourceSlug, payload };
+  cached = { key, payload };
   return payload;
 }
 

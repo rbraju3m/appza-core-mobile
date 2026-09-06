@@ -1733,6 +1733,28 @@ export function PlacementRenderer({
     'box_checked_tick_color',
     'label_color',
     'label_size',
+    // "Move to a different space" — the edit screen's row (2026-09-06).
+    // Its own `move_box_*` set rather than reusing the announcement
+    // row's `box_*`: both checkboxes sit on the same screen and the
+    // designs draw them differently (the announcement tick is outlined
+    // when off, the move square is empty), so one vocabulary here would
+    // mean styling one of them by accident.
+    'move_gap',
+    'move_box_gap',
+    'move_box_size',
+    'move_box_radius',
+    'move_box_border_color',
+    'move_box_checked_bg_color',
+    'move_box_checked_tick_color',
+    'move_label_color',
+    'move_label_size',
+    'move_chip_bg_color',
+    'move_chip_color',
+    'move_chip_size',
+    'move_chip_weight',
+    'move_chip_radius',
+    'move_chip_padding',
+    'move_chip_gap',
     // Post preview (2026-08-24). `card_*`, `avatar_size`,
     // `avatar_bg_color`, `name_*`, `meta_color`, `title_*`, `body_*`,
     // `divider_color`, `icon_color`, `icon_size` and `row_gap` are

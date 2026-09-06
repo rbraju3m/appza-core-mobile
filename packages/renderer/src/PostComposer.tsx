@@ -16,6 +16,7 @@ import {
   removePostDraftPoll,
   removePostDraftVideo,
   setPostDraft,
+  togglePostDraftMove,
   togglePostDraftTopic,
   usePostDraft,
 } from './postDraft';
@@ -141,6 +142,13 @@ export function AppzaPostComposer({ overrides, action, dispatch }: PostComposerP
   // to be kept in sync by hand.
   const topicsLabelTemplate = str(overrides, 'topics_label') || 'Topic.up to {max}';
 
+  // "Move to a different space" — FluentCommunity's own string, and its
+  // own placeholder for a destination not yet chosen.
+  const moveLabel = str(overrides, 'move_label') || 'Move to a different space';
+  const movePlaceholder = str(overrides, 'move_placeholder') || 'Select destination';
+  const moveProfileLabel = str(overrides, 'move_profile_label') || 'On my profile';
+  const showMove = bool(overrides, 'show_move', true);
+
   const removeIcon = resolveIcon(str(overrides, 'remove_icon') || 'close');
   const showMedia = bool(overrides, 'show_media', true);
 
@@ -180,40 +188,157 @@ export function AppzaPostComposer({ overrides, action, dispatch }: PostComposerP
     : draft.space_title || (designTime ? 'QA Private Members Only' : spacePlaceholder);
   const showChip = chosen || designTime;
 
+  // Editing an existing post, where the destination is READ-ONLY.
+  //
+  // FluentCommunity's own edit modal passes `disableSpace: true` to this
+  // exact control, and its API agrees: a post is moved with
+  // `new_space_id` / `move_to_profile` under a `community_admin` check,
+  // never by changing `space` on the update. So the row states where the
+  // post is and nothing more, and the checkbox below is the only way to
+  // move it — which is also what makes "only a super admin can move a
+  // post" enforceable at all.
+  const editing = draft.edit_feed_id !== null;
+  const spaceLocked = editing && !designTime;
+
+  // The move row. Design time draws it unconditionally, because a block
+  // gated on real state renders nothing in the builder and becomes
+  // unselectable for whoever is meant to style it (P73).
+  const moveVisible = showMove && (designTime || (editing && draft.can_move_space));
+  const moveOn = designTime ? true : draft.move_target !== '';
+  const movePicked = draft.move_target === 'space' || draft.move_target === 'profile';
+  const moveIsProfile = draft.move_target === 'profile';
+  // Ticked but nothing picked yet is 'current' — design 2 shows the
+  // post's own space sitting in the chip, not an empty placeholder.
+  const moveLogo = movePicked ? draft.move_space_logo : draft.space_logo;
+  const moveEmoji = movePicked ? draft.move_space_emoji : draft.space_emoji;
+  const moveSpaceLabel = moveIsProfile
+    ? moveProfileLabel
+    : movePicked
+      ? draft.move_space_title || movePlaceholder
+      : draft.space_title || (designTime ? 'General' : movePlaceholder);
+
+  const spaceBadge =
+    showChip && !isProfile && (draft.space_logo || draft.space_emoji || designTime) ? (
+      <span className="appza-post-composer-space-badge">
+        {draft.space_logo ? (
+          <img src={draft.space_logo} alt="" />
+        ) : (
+          <span className="appza-post-composer-space-emoji">{draft.space_emoji || '🙂'}</span>
+        )}
+      </span>
+    ) : null;
+
+  const spaceChipInner = (
+    <>
+      {spaceBadge}
+      <span className="appza-post-composer-space-name">{spaceLabel}</span>
+      {spaceChevron && (
+        <IonIcon
+          className="appza-post-composer-space-chevron"
+          icon={spaceChevron}
+          aria-hidden="true"
+        />
+      )}
+    </>
+  );
+
   return (
     <span className="appza-post-composer">
       {showPostedIn && (
         <span className="appza-post-composer-postedin">
           <span className="appza-post-composer-postedin-label">{postedInLabel}</span>
+          {spaceLocked ? (
+            <span
+              className="appza-post-composer-space"
+              data-chosen={showChip ? 'yes' : 'no'}
+              data-locked="yes"
+            >
+              {spaceChipInner}
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="appza-post-composer-space"
+              data-chosen={showChip ? 'yes' : 'no'}
+              onClick={() => {
+                if (!action) return;
+                dispatch(action);
+              }}
+            >
+              {spaceChipInner}
+            </button>
+          )}
+        </span>
+      )}
+
+      {/* "Move to a different space" — the super-admin's only way to
+          change where a post lives, and the reason the row above is
+          inert. The chip appears only once the box is ticked, exactly as
+          Noor's designs 1 and 2 differ.
+
+          The pick rides the SAME catalog action as the "Post to" picker,
+          with `mode: 'move'` added: one action means one child naming it,
+          and an action no child names never reaches the phone's snapshot
+          (P133). The shell reads the mode and fetches the author-scoped
+          destination list instead of the viewer's. */}
+      {moveVisible && (
+        <span className="appza-post-composer-move">
           <button
             type="button"
-            className="appza-post-composer-space"
-            data-chosen={showChip ? 'yes' : 'no'}
-            onClick={() => {
-              if (!action) return;
-              dispatch(action);
-            }}
+            role="checkbox"
+            aria-checked={moveOn}
+            className="appza-post-composer-move-toggle"
+            data-checked={moveOn ? 'yes' : 'no'}
+            onClick={() => togglePostDraftMove(!moveOn)}
           >
-            {showChip && !isProfile && (draft.space_logo || draft.space_emoji || designTime) && (
-              <span className="appza-post-composer-space-badge">
-                {draft.space_logo ? (
-                  <img src={draft.space_logo} alt="" />
-                ) : (
-                  <span className="appza-post-composer-space-emoji">
-                    {draft.space_emoji || '🙂'}
-                  </span>
-                )}
-              </span>
-            )}
-            <span className="appza-post-composer-space-name">{spaceLabel}</span>
-            {spaceChevron && (
-              <IonIcon
-                className="appza-post-composer-space-chevron"
-                icon={spaceChevron}
-                aria-hidden="true"
-              />
-            )}
+            <span className="appza-post-composer-move-box">
+              {/* Drawn inline rather than as an ionicon: the design's
+                  unchecked state is an EMPTY outlined square, and no
+                  registry glyph carries that half. */}
+              {moveOn && (
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M4 12.5 9 17.5 20 6.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
+            </span>
+            <span className="appza-post-composer-move-label">{moveLabel}</span>
           </button>
+
+          {moveOn && (
+            <button
+              type="button"
+              className="appza-post-composer-move-space"
+              onClick={() => {
+                if (!action) return;
+                dispatch({ ...action, args: { ...(action.args ?? {}), mode: 'move' } });
+              }}
+            >
+              {!moveIsProfile && (moveLogo || moveEmoji) && (
+                <span className="appza-post-composer-move-badge">
+                  {moveLogo ? (
+                    <img src={moveLogo} alt="" />
+                  ) : (
+                    <span className="appza-post-composer-space-emoji">{moveEmoji}</span>
+                  )}
+                </span>
+              )}
+              <span className="appza-post-composer-move-name">{moveSpaceLabel}</span>
+              {spaceChevron && (
+                <IonIcon
+                  className="appza-post-composer-move-chevron"
+                  icon={spaceChevron}
+                  aria-hidden="true"
+                />
+              )}
+            </button>
+          )}
         </span>
       )}
 

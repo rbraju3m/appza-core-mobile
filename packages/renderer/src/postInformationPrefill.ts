@@ -119,8 +119,22 @@ export function prefillPostInformationFromContext(
   // and `resetPostDraft` on nav.push clears it, so it cannot leak into a
   // fresh compose.
   const feedId = Number.parseInt(String(data.id ?? ''), 10);
+  // "Move to a different space" — whether this viewer gets the checkbox
+  // at all. The verdict is per-viewer AND per-post, so the post is the
+  // only place it can ride: the plug-in's feed permissions bag computes
+  // it from FluentCommunity's own server rule (community_admin globally
+  // or in the post's space), and the 3-dot menu already carries the
+  // whole row here as screen mount context.
+  //
+  // Written even when false, and that matters — `setPostDraft` clears
+  // any armed move when the verdict is false, so a post the viewer may
+  // not move cannot inherit a move armed on the previous one.
+  const permissions = isPlainObject(data.permissions)
+    ? (data.permissions as Record<string, unknown>)
+    : {};
   setPostDraft({
     edit_feed_id: Number.isFinite(feedId) ? feedId : null,
+    can_move_space: permissions.can_move_space === true,
     title,
     body: message,
   });

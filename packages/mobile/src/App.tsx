@@ -3682,6 +3682,23 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       }
       coerceTopicIds(body);
       body[bodyKey] = feedId;
+      // "Move to a different space". FluentCommunity takes the move as
+      // its own two keys and NOT as a change to `space` — which keeps
+      // carrying the post's original slug, exactly as the portal's own
+      // handleUpdatePost sends it.
+      //
+      // `'current'` is the armed-but-unchosen state: the box is ticked
+      // and the chip shows the post's own space. Nothing is sent for it,
+      // so ticking the box and changing your mind leaves the post where
+      // it was rather than posting a move the server would refuse.
+      const moveDraft = getPostDraft();
+      if (moveDraft.can_move_space) {
+        if (moveDraft.move_target === 'space' && moveDraft.move_space_id) {
+          body.new_space_id = moveDraft.move_space_id;
+        } else if (moveDraft.move_target === 'profile') {
+          body.move_to_profile = 1;
+        }
+      }
       // Attach media the same way post.create does — otherwise Save on
       // a post that had images / video / poll would drop them because
       // the update endpoint reads the same shape as create. On
@@ -3850,12 +3867,39 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
           ? argRec.sheet_appzet_slug
           : 'fc-post-space-sheet';
+      // Two questions, one action, one sheet. The composer's "Posted in:"
+      // chip asks where a NEW post goes; the edit screen's move chip
+      // dispatches the SAME wiring with `mode: 'move'` and asks where an
+      // existing post moves to. One action because an action no child
+      // names never reaches the phone's snapshot (P133), and the move
+      // chip lives inside children[0] where it cannot have a child of
+      // its own.
+      //
+      // The lists genuinely differ: the create picker answers with the
+      // spaces the VIEWER may post in, while FluentCommunity refuses a
+      // move into any space the POST'S AUTHOR is not an active member
+      // of. So move mode reads a data source of its own, scoped to the
+      // post.
+      const moving = argRec.mode === 'move';
+      const moveDsSlug =
+        typeof argRec.move_data_source === 'string' && argRec.move_data_source
+          ? argRec.move_data_source
+          : 'fc-post-move-space-picker';
+      const movingFeedId = getPostDraft().edit_feed_id;
+      if (moving && movingFeedId === null) {
+        onError('Could not identify which post to move.');
+        return;
+      }
       void (async () => {
-        const payload = await fetchPostSpacePayload(dsSlug);
+        const payload = moving
+          ? await fetchPostSpacePayload(moveDsSlug, { params: { feed_id: movingFeedId } })
+          : await fetchPostSpacePayload(dsSlug);
         // The moderator verdict rides the same payload, so opening the
         // picker also settles whether the announcement row and the
-        // schedule control belong on this screen.
-        setPostDraft({ viewer_is_moderator: payload.viewerIsModerator });
+        // schedule control belong on this screen. Never from the MOVE
+        // payload: that one is about a post, and the announcement
+        // verdict belongs to the destination the post already has.
+        if (!moving) setPostDraft({ viewer_is_moderator: payload.viewerIsModerator });
         openPostSpaceSheet({
           appzetSlug: sheetSlug,
           presentation: postSpaceSheetPresentation(readAppzetPropsFromCatalog(sheetSlug)),
@@ -3867,8 +3911,18 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
           groups: payload.groups,
           // Settings -> General -> Global Post Status. With it off there
           // is no "On my profile" row, which is Noor's note on design 5.
-          globalPostsEnabled: getFcRuntimeSettings().composer.global_posts_enabled,
+          //
+          // For a MOVE the route answers the whole question — the site
+          // setting AND whether the post is in a space at all, since a
+          // post already on a profile has nowhere to move to.
+          globalPostsEnabled: moving
+            ? payload.canMoveToProfile
+            : getFcRuntimeSettings().composer.global_posts_enabled,
           viewerIsModerator: payload.viewerIsModerator,
+          mode: moving ? 'move' : 'destination',
+          // FluentCommunity writes "On author's profile" when the viewer
+          // is not the one who wrote the post; only the payload knows.
+          profileLabel: moving ? payload.profileLabel : undefined,
         });
       })();
       return;

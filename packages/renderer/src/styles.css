@@ -710,6 +710,107 @@
   color: var(--appza-space-chevron-color, #111827);
 }
 
+/* Editing: the row STATES the destination, it does not offer it.
+   FluentCommunity's own edit modal disables this exact control
+   (`disableSpace: true`) — moving a post is `new_space_id` under a
+   community_admin check, never a change to `space` on the update. */
+.appza-post-composer-space[data-locked='yes'] {
+  cursor: default;
+}
+
+/* ---- "Move to a different space" (Feed Edit designs 1, 2 and 4) ----
+   Inside the card, under the "Posted in:" row and above the topics —
+   which is where every one of Noor's four frames puts it. */
+.appza-post-composer-move {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--appza-move-gap, 10px);
+}
+.appza-post-composer-move-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--appza-move-box-gap, 10px);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.appza-post-composer-move-box {
+  flex: 0 0 auto;
+  width: var(--appza-move-box-size, 18px);
+  height: var(--appza-move-box-size, 18px);
+  border-radius: var(--appza-move-box-radius, 3px);
+  border: 1.5px solid var(--appza-move-box-border-color, #9ca3af);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: transparent;
+}
+/* Unlike the announcement row, the design's OFF state is an empty
+   square — no ghost tick — so the glyph is only rendered when on. */
+.appza-post-composer-move-toggle[data-checked='yes'] .appza-post-composer-move-box {
+  background: var(--appza-move-box-checked-bg-color, #4353e0);
+  border-color: var(--appza-move-box-checked-bg-color, #4353e0);
+  color: var(--appza-move-box-checked-tick-color, #ffffff);
+}
+.appza-post-composer-move-box svg {
+  width: 74%;
+  height: 74%;
+  display: block;
+}
+.appza-post-composer-move-label {
+  color: var(--appza-move-label-color, #4b5563);
+  font-size: var(--appza-move-label-size, 0.875rem);
+}
+.appza-post-composer-move-space {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--appza-move-chip-gap, 8px);
+  max-width: 100%;
+  min-width: 0;
+  padding: var(--appza-move-chip-padding, 7px 12px);
+  border: 0;
+  border-radius: var(--appza-move-chip-radius, 8px);
+  background: var(--appza-move-chip-bg-color, #eff0f2);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.appza-post-composer-move-badge {
+  flex: 0 0 auto;
+  width: var(--appza-space-badge-size, 20px);
+  height: var(--appza-space-badge-size, 20px);
+  border-radius: 50%;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--appza-space-badge-bg-color, #eef0f3);
+}
+.appza-post-composer-move-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.appza-post-composer-move-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--appza-move-chip-color, #1f2430);
+  font-size: var(--appza-move-chip-size, 0.875rem);
+  font-weight: var(--appza-move-chip-weight, 600);
+}
+.appza-post-composer-move-chevron {
+  flex: 0 0 auto;
+  font-size: var(--appza-space-chevron-size, 14px);
+  color: var(--appza-move-chip-color, #1f2430);
+}
+
 /* Title. A hairline under it, full card width — the design rules it off
    from the body rather than boxing it. */
 .appza-post-composer-title-wrap {

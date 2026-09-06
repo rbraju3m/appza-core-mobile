@@ -124,6 +124,27 @@ export type PostDraftDocument = {
 /** Where the post is going. '' until the user has chosen. */
 export type PostDraftTarget = '' | 'space' | 'profile';
 
+/**
+ * Where a post being EDITED is being moved to — the edit screen's
+ * "Move to a different space" checkbox.
+ *
+ * A separate axis from `target`, and that separation is the point.
+ * `target` describes where the post IS, which the "Posted in:" row keeps
+ * showing while the move is being chosen (Noor's design 4 draws
+ * "Posted in: General" above a destination chip reading "Start Here").
+ * Writing the pick into `target` would move the label the user is
+ * reading to decide.
+ *
+ *   ''         the box is unticked — nothing moves
+ *   'current'  ticked, nothing picked yet. The chip shows the post's own
+ *              space (design 2), and Save sends no move at all — so
+ *              ticking the box and changing nothing is a no-op rather
+ *              than a write the server would refuse.
+ *   'space'    a real destination, in `move_space_id`
+ *   'profile'  out of every space and onto the author's profile
+ */
+export type PostDraftMoveTarget = '' | 'current' | 'space' | 'profile';
+
 export type PostDraft = {
   /**
    * The post being EDITED, or null when composing a new one.
@@ -137,6 +158,28 @@ export type PostDraft = {
    * `post.edit` deliberately does not read.
    */
   edit_feed_id: number | null;
+
+  /**
+   * May THIS viewer move THIS post to another space?
+   *
+   * Comes off the post's own permissions bag
+   * (`data.permissions.can_move_space`), which the plug-in derives from
+   * FluentCommunity's server rule — `community_admin` globally or in the
+   * post's space — and NOT from the portal's looser checkbox, which
+   * shows for a moderator whose write the API then refuses.
+   *
+   * False for everyone else, and false on a fresh compose: there is
+   * nothing to move.
+   */
+  can_move_space: boolean;
+  /** The checkbox itself. */
+  move_target: PostDraftMoveTarget;
+  /** FluentCommunity's space **id** — what `new_space_id` wants. */
+  move_space_id: string;
+  move_space_title: string;
+  move_space_logo: string;
+  move_space_emoji: string;
+
   target: PostDraftTarget;
   space_slug: string;
   space_title: string;
@@ -244,6 +287,12 @@ const EVENT = 'appza:post-draft-change';
 
 const DEFAULTS: PostDraft = {
   edit_feed_id: null,
+  can_move_space: false,
+  move_target: '',
+  move_space_id: '',
+  move_space_title: '',
+  move_space_logo: '',
+  move_space_emoji: '',
   target: '',
   space_slug: '',
   space_title: '',
@@ -287,6 +336,14 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
   const next: PostDraft = {
     edit_feed_id:
       patch.edit_feed_id !== undefined ? patch.edit_feed_id : current.edit_feed_id,
+    can_move_space: bool(patch, 'can_move_space', current.can_move_space),
+    move_target: (typeof patch.move_target === 'string'
+      ? patch.move_target
+      : current.move_target) as PostDraftMoveTarget,
+    move_space_id: str(patch, 'move_space_id', current.move_space_id),
+    move_space_title: str(patch, 'move_space_title', current.move_space_title),
+    move_space_logo: str(patch, 'move_space_logo', current.move_space_logo),
+    move_space_emoji: str(patch, 'move_space_emoji', current.move_space_emoji),
     target: (typeof patch.target === 'string' ? patch.target : current.target) as PostDraftTarget,
     space_slug: str(patch, 'space_slug', current.space_slug),
     space_title: str(patch, 'space_title', current.space_title),
@@ -370,8 +427,34 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
     if (typeof patch.scheduled_at !== 'string') next.scheduled_at = '';
   }
 
+  // Unticking the box drops the destination with it. Leaving the pick
+  // behind would mean re-ticking silently re-arms a move the user
+  // cancelled — and the chip is the only thing that ever showed it.
+  if (next.move_target === '' || next.move_target === 'current') {
+    next.move_space_id = '';
+    next.move_space_title = '';
+    next.move_space_logo = '';
+    next.move_space_emoji = '';
+  }
+  // A viewer who may not move the post has no move to hold. The verdict
+  // arrives with the prefill, after the screen has already drawn, so
+  // this is the clause that cleans up if it arrives false.
+  if (!next.can_move_space) {
+    next.move_target = '';
+    next.move_space_id = '';
+    next.move_space_title = '';
+    next.move_space_logo = '';
+    next.move_space_emoji = '';
+  }
+
   if (
     next.edit_feed_id === current.edit_feed_id &&
+    next.can_move_space === current.can_move_space &&
+    next.move_target === current.move_target &&
+    next.move_space_id === current.move_space_id &&
+    next.move_space_title === current.move_space_title &&
+    next.move_space_logo === current.move_space_logo &&
+    next.move_space_emoji === current.move_space_emoji &&
     next.target === current.target &&
     next.space_slug === current.space_slug &&
     next.space_title === current.space_title &&
@@ -653,6 +736,11 @@ export function postDraftStateEntries(draft: PostDraft): Record<string, unknown>
     'post_draft.can_edit_documents':
       draft.space_can_upload_documents && !hasOtherMedia && editing ? 'yes' : 'no',
     'post_draft.is_editing': editing ? 'yes' : 'no',
+    // The edit screen's "Move to a different space" row. A verdict about
+    // the VIEWER and this POST, so it can only be true while editing —
+    // `can_move_space` is false on a fresh compose because nothing came
+    // in to set it.
+    'post_draft.can_move_space': draft.can_move_space && editing ? 'yes' : 'no',
     'post_draft.can_schedule': isModerator ? 'yes' : 'no',
     'post_draft.has_schedule': draft.scheduled_at !== '' ? 'yes' : 'no',
     'post_draft.can_post': isPostable(draft) ? 'yes' : 'no',
@@ -688,6 +776,23 @@ function isPostable(draft: PostDraft): boolean {
   if (draft.topic_required && draft.topic_ids.length === 0) return false;
   if (getFcComposerSettings().post_title_pref === 'required' && draft.title.trim() === '') return false;
   return true;
+}
+
+/**
+ * Tick or untick "Move to a different space".
+ *
+ * Ticking arms the move at `'current'` — the post's own space, which is
+ * what design 2 draws in the chip the moment the box is checked. It is
+ * deliberately NOT a real destination: Save sends nothing for it, so a
+ * user who ticks the box, looks at the list and changes their mind
+ * leaves the post exactly where it was.
+ *
+ * A no-op for a viewer without the verdict, so a stray call cannot draw
+ * a control FluentCommunity would refuse to honour.
+ */
+export function togglePostDraftMove(on: boolean): void {
+  if (on && !current.can_move_space) return;
+  setPostDraft({ move_target: on ? 'current' : '' });
 }
 
 /**
