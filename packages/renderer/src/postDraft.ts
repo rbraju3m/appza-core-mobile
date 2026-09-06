@@ -723,18 +723,32 @@ export function postDraftStateEntries(draft: PostDraft): Record<string, unknown>
     // than this gate and is not closed by it.
     'post_draft.can_attach_documents':
       draft.space_can_upload_documents && !hasOtherMedia && !editing ? 'yes' : 'no',
-    // The EDIT screen's own file block — the other half of the same
-    // rule. Same two conditions, opposite side of `editing`, because on
-    // that screen the block IS the way to add a file and the composer's
-    // paperclip is not drawn.
+    // The EDIT screen's own file block. TWO reasons it can belong there,
+    // and they are different questions:
     //
-    // Without this the block appeared only for posts that already had
-    // documents, so a plain text post could never gain its first one.
-    // `!hasOtherMedia` keeps it off a post carrying images, a video or a
-    // poll: documents take the whole post, so adding one there would
-    // silently discard the rest.
+    //   the post already CARRIES files — they have to be listed, renamed
+    //   and removable, whatever the space's settings say today;
+    //
+    //   or the space would let this viewer ADD one, which is what lets a
+    //   plain text post gain its first document.
+    //
+    // It used to be the second alone, and that lost the first. On this
+    // box every document post lives in a space whose Document Library
+    // switch is OFF, so `can_upload_documents` is false for everyone
+    // (FluentCommunity ANDs the switch into it, User::getSpacePermissions)
+    // — the block hid, and editing a post with two PDFs attached showed
+    // no files at all. Nothing was destroyed (post.edit leaves
+    // `document_ids` alone on an unseeded draft) but the screen lied
+    // about what the post held.
+    //
+    // `!hasOtherMedia` guards only the ADD half: documents take the whole
+    // post, so adding one to a post carrying images, a video or a poll
+    // would silently discard the rest. It must not gate the LISTING —
+    // files that exist have to be visible.
     'post_draft.can_edit_documents':
-      draft.space_can_upload_documents && !hasOtherMedia && editing ? 'yes' : 'no',
+      editing && (editingDocuments || (draft.space_can_upload_documents && !hasOtherMedia))
+        ? 'yes'
+        : 'no',
     'post_draft.is_editing': editing ? 'yes' : 'no',
     // The edit screen's "Move to a different space" row. A verdict about
     // the VIEWER and this POST, so it can only be true while editing —

@@ -1352,6 +1352,22 @@ export function PlacementRenderer({
       baseChildOverrides[2] = { ...(baseChildOverrides[2] ?? {}), text_color: paleText };
     }
   }
+  // The edit screen's file block draws the post's files whenever it has
+  // any — but its dropzone is an UPLOAD, and FluentCommunity Pro guards
+  // that on the space's Document Library switch
+  // (`verifyUserPermisson($user, 'can_upload_documents')`). A post can
+  // outlive that switch being turned off, so the two halves are gated
+  // separately: the list on the files existing, the dropzone on the
+  // permission.
+  //
+  // Stamped here rather than authored as a `visible_when`, because a
+  // child clause cannot reach INSIDE a bespoke primitive — the dropzone
+  // is one element of `appza-file-picker`, not a child of the
+  // Superstructure. Same reason the create appbar's pale CTA is stamped
+  // a few lines up.
+  if (appzet.slug === 'fc-edit-document-files' && !composerDraft.space_can_upload_documents) {
+    baseChildOverrides[0] = { ...(baseChildOverrides[0] ?? {}), show_dropzone: false };
+  }
   if (appzet.slug === 'fc-add-document-schedule' && documentDraft.scheduled_at) {
     const prefix = readAppzetProp(ss, appzet, 'scheduled_prefix');
     baseChildOverrides[1] = {

@@ -107,6 +107,20 @@ export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unkn
   const requiresEditContext =
     overrides?.require_edit_context === true ||
     readString(overrides, 'require_edit_context') === 'true';
+  // The dropzone, separately from the list.
+  //
+  // A post can carry files in a space whose Document Library switch has
+  // since been turned off, and those files must still be listed — but
+  // FluentCommunity Pro's own upload guards on exactly that switch
+  // (`$space->verifyUserPermisson($user, 'can_upload_documents')`), so a
+  // dropzone there is a control the server will refuse. Rename and
+  // removal are not guarded that way and stay available.
+  //
+  // Defaults TRUE, so the add-document screen — where the picker IS the
+  // upload — is untouched.
+  const showDropzone = !(
+    overrides?.show_dropzone === false || readString(overrides, 'show_dropzone') === 'false'
+  );
   const maxRaw = readString(overrides, 'max_files');
   const maxFiles = maxRaw ? Number.parseInt(maxRaw, 10) : NaN;
 
@@ -172,6 +186,7 @@ export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unkn
         }}
       />
 
+      {showDropzone && (
       <div
         className={`appza-file-picker-dropzone${dragging ? ' is-dragging' : ''}${atLimit ? ' is-full' : ''}`}
         role="button"
@@ -199,6 +214,7 @@ export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unkn
         )}
         <span className="appza-file-picker-label">{dropzoneLabel}</span>
       </div>
+      )}
 
       {draft.files.length > 0 && (
         <ul className="appza-file-picker-list">
