@@ -581,6 +581,9 @@ export function postSpaceSheetPresentation(
 ): PostSpaceSheetPresentation {
   return {
     title: str(props.title) ?? 'Post to',
+    // The same sheet, opened from the edit screen's "Move to a different
+    // space" chip. FluentCommunity's own edit modal words it this way.
+    moveTitle: str(props.move_title) ?? 'Select destination',
     profileLabel: str(props.profile_label) ?? 'On my profile',
     emptyLabel: str(props.empty_label) ?? 'No spaces to post in',
     publicIcon: str(props.public_icon) ?? 'globe-outline',

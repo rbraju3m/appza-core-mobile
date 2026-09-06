@@ -52,6 +52,13 @@ export type PostSpaceGroup = {
 
 export type PostSpaceSheetPresentation = {
   title: string;
+  /**
+   * The title in MOVE mode. The same sheet asks two questions — where a
+   * new post goes, and where an existing one moves to — and "Post to" is
+   * the wrong sentence for the second. FluentCommunity's own edit modal
+   * calls it "Select destination".
+   */
+  moveTitle: string;
   profileLabel: string;
   emptyLabel: string;
   publicIcon: string;
@@ -210,6 +217,7 @@ export function PostSpaceSheet() {
   };
 
   const moving = detail.mode === 'move';
+  const sheetTitle = moving && p.moveTitle ? p.moveTitle : p.title;
 
   const pickProfile = () => {
     if (moving) applyMoveToProfile();
@@ -238,7 +246,7 @@ export function PostSpaceSheet() {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={p.title}
+      aria-label={sheetTitle}
       className="appza-post-space-sheet-backdrop"
       style={vars}
       onClick={(e) => {
@@ -255,7 +263,7 @@ export function PostSpaceSheet() {
               style={cs[0]}
               {...childAttrs(slug, 0, 'ion-text')}
             >
-              {p.title}
+              {sheetTitle}
             </div>
           )}
 
