@@ -109,6 +109,8 @@ import {
   getBookmarkControls,
   setBookmarkControls,
   resetBookmarkControls,
+  resetMemberDirectoryControls,
+  tryHandleMemberDirectoryAction,
   setSearchControls,
   recordRecentSearch,
   removeRecentSearch,
@@ -1038,6 +1040,13 @@ export function App() {
   useEffect(() => {
     if (screen?.app_map_screen_slug !== 'bookmarks') return;
     resetBookmarkControls();
+  }, [screen?.app_map_screen_slug]);
+
+  // All Members opens on the Active tab with an empty search (design 5).
+  // The sort is a preference and survives.
+  useEffect(() => {
+    if (screen?.app_map_screen_slug !== 'all-members') return;
+    resetMemberDirectoryControls();
   }, [screen?.app_map_screen_slug]);
 
   // Search arrives on Posts → Content with an empty field, for the same
@@ -3553,6 +3562,8 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         menuSheetSlug
           ? {
               appzetSlug: menuSheetSlug,
+              eyebrowPath:
+                typeof argRec.sheet_eyebrow_path === 'string' ? argRec.sheet_eyebrow_path : undefined,
               presentation: postMenuSheetPresentation(
                 readAppzetPropsFromCatalog(menuSheetSlug),
                 typeof argRec.sheet_title === 'string' ? argRec.sheet_title : undefined,
@@ -3597,6 +3608,25 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     // is. They had been seeded since the profile chunk and dispatched
     // NOWHERE — no shell had a case for them, so every tap fell through
     // to the default log-only branch.
+    // All Members (2026-09-15) — search, status tabs, the two-part sort
+    // sheet, and the status change behind its confirm. Shared with the
+    // other shell through @appza/renderer.
+    case 'members.set_search':
+    case 'members.set_tab':
+    case 'members.set_sort':
+    case 'member.status_confirm':
+    case 'member.set_status': {
+      tryHandleMemberDirectoryAction(inv, {
+        auth,
+        authHeader: basicAuthHeader,
+        onError: onError,
+        onInfo: onInfo,
+        readAppzetProps: readAppzetPropsFromCatalog,
+        customizations: currentCustomizations,
+      });
+      return;
+    }
+
     case 'user.follow':
     case 'user.unfollow':
     case 'user.notify_subscribe':

@@ -59,6 +59,9 @@ export type OptionsSheetPresentation = {
   checkColor?: string;
   checkSize?: string;
   dividerColor?: string;
+  /** Section headings, in a sectioned sheet only. */
+  sectionTitleColor?: string;
+  sectionTitleSize?: string;
 };
 
 type OpenDetail = {
@@ -80,7 +83,24 @@ type OpenDetail = {
    * presentation and the shell keeps the effect.
    */
   onPick?: (value: string, label: string) => void;
+  /**
+   * Several questions in one sheet, each with its own heading, its own
+   * slice key and its own check — the members sort sheet asks "Sort by"
+   * and "Order" together (All Members design 2).
+   *
+   * When present, `options` / `stateKey` / `currentValue` are ignored and
+   * a pick does NOT close the sheet: answering the first question is not
+   * a reason to lose the second. The backdrop closes it, as always.
+   */
+  sections?: OptionsSheetSection[];
   childStyles?: Record<number, CSSProperties>;
+};
+
+export type OptionsSheetSection = {
+  title?: string;
+  options: ViewModeOption[];
+  stateKey: PopoverStateKey;
+  currentValue: string;
 };
 
 const OPEN_EVENT = 'appza:open-options-sheet';
@@ -98,12 +118,16 @@ export function closeOptionsSheet(): void {
 
 export function OptionsSheet() {
   const [detail, setDetail] = useState<OpenDetail | null>(null);
+  // A sectioned sheet stays open across picks, so the check has to move
+  // on screen without the opener re-sending the current values.
+  const [sectionPicks, setSectionPicks] = useState<Record<number, string>>({});
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const onOpen = (e: Event) => {
       const ce = e as CustomEvent<OpenDetail>;
       if (!ce.detail) return;
+      setSectionPicks({});
       setDetail(ce.detail);
     };
     const onClose = () => setDetail(null);
@@ -148,6 +172,13 @@ export function OptionsSheet() {
     ['--appza-check-color' as string]: p.checkColor,
     ['--appza-check-size' as string]: p.checkSize,
     ['--appza-divider-color' as string]: p.dividerColor,
+    ['--appza-section-title-color' as string]: p.sectionTitleColor,
+    ['--appza-section-title-size' as string]: p.sectionTitleSize,
+  };
+
+  const handleSectionPick = (sectionIndex: number, section: OptionsSheetSection, value: string) => {
+    applyControlPick(section.stateKey, value);
+    setSectionPicks((prev) => ({ ...prev, [sectionIndex]: value }));
   };
 
   const handlePick = (value: string) => {
@@ -192,7 +223,67 @@ export function OptionsSheet() {
             </div>
           )}
 
-          {detail.options.map((opt, i) => {
+          {detail.sections &&
+            detail.sections.map((section, si) => {
+              const current = sectionPicks[si] ?? section.currentValue;
+              // A glyph column only for a section that has glyphs — the
+              // design's "Sort by" rows sit flush left, its "Order" rows
+              // carry a chevron.
+              const hasGlyphs = p.showRowIcons && section.options.some((o) => !!o.icon);
+              return (
+                <div className="appza-options-sheet-section" key={`section-${si}`}>
+                  {section.title && (
+                    <div className="appza-options-sheet-section-title">{section.title}</div>
+                  )}
+                  {section.options.map((opt, i) => {
+                    const selected = opt.value === current;
+                    const glyph = opt.icon ? resolveIcon(opt.icon) : undefined;
+                    // Template attrs on the first section's first row only,
+                    // and the check's on the first section's selected row
+                    // — one element per child index for the right panel.
+                    const isTemplateRow = si === 0 && i === 0;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={selected}
+                        className={
+                          selected
+                            ? 'appza-options-sheet-row is-selected'
+                            : 'appza-options-sheet-row'
+                        }
+                        onClick={() => handleSectionPick(si, section, opt.value)}
+                      >
+                        {hasGlyphs && (
+                          <span className="appza-options-sheet-row-icon" style={cs[1]}>
+                            {glyph ? <IonIcon icon={glyph} /> : null}
+                          </span>
+                        )}
+                        <span
+                          className="appza-options-sheet-row-label"
+                          style={cs[2]}
+                          {...(isTemplateRow ? childAttrs(slug, 2, 'ion-text') : {})}
+                        >
+                          {opt.label}
+                        </span>
+                        {p.showCheck && selected && (
+                          <span
+                            className="appza-options-sheet-row-check"
+                            style={cs[3]}
+                            {...(si === 0 ? childAttrs(slug, 3, 'ion-icon') : {})}
+                          >
+                            {check ? <IonIcon icon={check} /> : null}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+
+          {!detail.sections && detail.options.map((opt, i) => {
             const selected = opt.value === detail.currentValue;
             const glyph = opt.icon ? resolveIcon(opt.icon) : undefined;
             // Row zero owns the glyph + label template attrs; the
@@ -239,7 +330,7 @@ export function OptionsSheet() {
             );
           })}
 
-          {detail.options.length === 0 && (
+          {!detail.sections && detail.options.length === 0 && (
             <div className="appza-options-sheet-empty">{p.emptyLabel}</div>
           )}
         </div>

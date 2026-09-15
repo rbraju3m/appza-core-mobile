@@ -309,7 +309,21 @@ export {
   OPTIONS_SHEET_APPZET_SLUG,
   OPTIONS_SHEET_CHILD_COUNT,
   type OptionsSheetPresentation,
+  type OptionsSheetSection,
 } from './OptionsSheet';
+export {
+  getMemberDirectoryControls,
+  setMemberDirectoryControls,
+  resetMemberDirectoryControls,
+  useMemberDirectoryControls,
+  memberDirectoryStateEntries,
+  type MemberDirectoryControls,
+  type MemberDirectoryStatus,
+} from './memberDirectoryControls';
+export {
+  tryHandleMemberDirectoryAction,
+  type MemberDirectoryActionDeps,
+} from './memberDirectoryActions';
 export {
   getBookmarkControls,
   setBookmarkControls,

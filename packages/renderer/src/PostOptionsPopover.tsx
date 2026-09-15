@@ -73,6 +73,15 @@ const OPEN_EVENT = 'appza:open-post-options-popover';
  */
 export type PostMenuSheetPresentation = {
   eyebrow: string;
+  /**
+   * A second heading under the eyebrow — "Member actions" on All Members
+   * (design 4). Empty draws nothing, which is every sheet before it.
+   */
+  title?: string;
+  showTitle?: boolean;
+  titleColor?: string;
+  titleSize?: string;
+  titleWeight?: string;
   hidden: boolean;
   showHandle: boolean;
   showEyebrow: boolean;
@@ -97,10 +106,15 @@ export type PostMenuSheetPresentation = {
 };
 
 export const POST_MENU_SHEET_APPZET_SLUG = 'fc-post-menu-sheet';
-export const POST_MENU_SHEET_CHILD_COUNT = 3;
+export const POST_MENU_SHEET_CHILD_COUNT = 4;
 
 export type PostMenuSheetOptions = {
   appzetSlug?: string;
+  /**
+   * Read the eyebrow off the tapped row instead of the sheet's authored
+   * word — All Members puts the member's NAME there (designs 4, 6, 11).
+   */
+  eyebrowPath?: string;
   presentation: PostMenuSheetPresentation;
   childStyles?: Record<number, CSSProperties>;
 };
@@ -285,6 +299,12 @@ export function PostOptionsPopover() {
     if (p.hidden) return null;
     const slug = detail.sheet.appzetSlug ?? POST_MENU_SHEET_APPZET_SLUG;
     const cs = detail.sheet.childStyles ?? {};
+    const eyebrowPath = detail.sheet.eyebrowPath;
+    const pathEyebrow = eyebrowPath ? readPath(detail.item, eyebrowPath) : undefined;
+    const eyebrowText =
+      typeof pathEyebrow === 'string' && pathEyebrow.trim() !== ''
+        ? pathEyebrow.toUpperCase()
+        : p.eyebrow;
     const vars: CSSProperties = {
       ['--appza-sheet-bg-color' as string]: p.sheetBgColor,
       ['--appza-sheet-radius' as string]: p.sheetRadius,
@@ -294,6 +314,9 @@ export function PostOptionsPopover() {
       ['--appza-eyebrow-color' as string]: p.eyebrowColor,
       ['--appza-eyebrow-size' as string]: p.eyebrowSize,
       ['--appza-eyebrow-weight' as string]: p.eyebrowWeight,
+      ['--appza-title-color' as string]: p.titleColor,
+      ['--appza-title-size' as string]: p.titleSize,
+      ['--appza-title-weight' as string]: p.titleWeight,
       ['--appza-row-padding' as string]: p.rowPadding,
       ['--appza-row-gap' as string]: p.rowGap,
       ['--appza-label-color' as string]: p.labelColor,
@@ -325,7 +348,16 @@ export function PostOptionsPopover() {
                 style={cs[0]}
                 {...childAttrs(slug, 0, 'ion-text')}
               >
-                {p.eyebrow}
+                {eyebrowText}
+              </div>
+            )}
+            {p.showTitle !== false && p.title && (
+              <div
+                className="appza-post-menu-sheet-title"
+                style={cs[3]}
+                {...childAttrs(slug, 3, 'ion-text')}
+              >
+                {p.title}
               </div>
             )}
             {visibleItems.map((menuItem, i) => {
@@ -336,7 +368,7 @@ export function PostOptionsPopover() {
               const isTemplateRow = i === 0;
               return (
                 <button
-                  key={menuItem.action_slug}
+                  key={`${menuItem.action_slug}-${i}`}
                   type="button"
                   role="menuitem"
                   className={
@@ -403,13 +435,13 @@ export function PostOptionsPopover() {
         flexDirection: 'column',
       }}
     >
-      {visibleItems.map((menuItem) => {
+      {visibleItems.map((menuItem, i) => {
         const color = menuItem.destructive ? '#dc2626' : '#111827';
         const iconColor = menuItem.destructive ? '#dc2626' : '#4b5563';
         const resolved = menuItem.icon ? resolveIcon(menuItem.icon) : null;
         return (
           <button
-            key={menuItem.action_slug}
+            key={`${menuItem.action_slug}-${i}`}
             type="button"
             role="menuitem"
             onClick={() => handlePick(menuItem)}

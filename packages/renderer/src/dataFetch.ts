@@ -7,6 +7,7 @@ import { getLeaderboardControls } from './leaderboardControls';
 import { getBookmarkControls } from './bookmarkControls';
 import { getSearchControls } from './searchControls';
 import { getProfileControls } from './profileControls';
+import { getMemberDirectoryControls } from './memberDirectoryControls';
 
 /**
  * useDataSource(slug, params) — fetch a list payload for an AppZet's
@@ -108,6 +109,7 @@ const STATE_SLICE_GETTERS: Record<string, () => Record<string, unknown>> = {
   bookmark_controls: () => getBookmarkControls() as unknown as Record<string, unknown>,
   search_controls: () => getSearchControls() as unknown as Record<string, unknown>,
   profile_controls: () => getProfileControls() as unknown as Record<string, unknown>,
+  member_directory_controls: () => getMemberDirectoryControls() as unknown as Record<string, unknown>,
 };
 
 /**
@@ -128,6 +130,7 @@ const STATE_SLICE_EVENTS: Record<string, string> = {
   leaderboard_controls: 'appza:leaderboard-controls-change',
   bookmark_controls: 'appza:bookmark-controls-change',
   search_controls: 'appza:search-controls-change',
+  member_directory_controls: 'appza:member-directory-controls-change',
 };
 
 /** Legacy flat-key bindings kept for spacesControls callers pre-arc. */

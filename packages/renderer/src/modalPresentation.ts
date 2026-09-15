@@ -493,6 +493,8 @@ export function optionsSheetPresentation(
     checkColor: str(props.check_color),
     checkSize: size(props.check_size),
     dividerColor: str(props.divider_color),
+    sectionTitleColor: str(props.section_title_color),
+    sectionTitleSize: size(props.section_title_size),
   };
 }
 
@@ -541,6 +543,11 @@ export function postMenuSheetPresentation(
     iconSize: size(props.icon_size),
     destructiveColor: str(props.destructive_color),
     dividerColor: str(props.divider_color),
+    title: str(props.title) ?? '',
+    showTitle: bool(props.show_title, true),
+    titleColor: str(props.title_color),
+    titleSize: size(props.title_size),
+    titleWeight: str(props.title_weight),
   };
 }
 

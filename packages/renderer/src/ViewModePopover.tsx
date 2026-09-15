@@ -6,6 +6,7 @@ import { setSpaceDetailControls } from './spaceDetailControls';
 import { setBookmarkControls, type BookmarkViewMode } from './bookmarkControls';
 import { setPostDetailControls } from './postDetailControls';
 import { setProfileControls } from './profileControls';
+import { setMemberDirectoryControls } from './memberDirectoryControls';
 import { resolveIcon } from './PrimitiveRenderer';
 
 // Floating popover anchored to a DOM element, with a small list of
@@ -51,7 +52,9 @@ export type PopoverStateKey =
   | 'bookmarks_sort'
   | 'bookmarks_view_mode'
   | 'post_detail_comment_sort'
-  | 'profile_follow_sort';
+  | 'profile_follow_sort'
+  | 'member_directory_sort_by'
+  | 'member_directory_sort_dir';
 
 /**
  * Write a picked option into whichever control slice the key names.
@@ -103,6 +106,17 @@ export function applyControlPick(stateKey: PopoverStateKey, value: string): void
     // FollowController reads sort_by ('id' | 'alphabetical') and both
     // follow DataSources bind it as a query param.
     if (value.length > 0) setProfileControls({ follow_sort: value });
+    return;
+  }
+  if (stateKey === 'member_directory_sort_by') {
+    // All Members. Both halves of the sort sheet are refetches: the
+    // directory and its summary bind sort_by + sort_dir as query params,
+    // and FluentCommunity sorts server-side.
+    if (value.length > 0) setMemberDirectoryControls({ sort_by: value });
+    return;
+  }
+  if (stateKey === 'member_directory_sort_dir') {
+    if (value.length > 0) setMemberDirectoryControls({ sort_dir: value });
     return;
   }
   if (stateKey === 'bookmarks_view_mode') {

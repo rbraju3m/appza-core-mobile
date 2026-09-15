@@ -16,6 +16,7 @@ import { useActionDispatch, type ActionInvocation } from './actionContext';
 import { useFeedControls } from './feedControls';
 import { useSpacesControls } from './spacesControls';
 import { useProfileControls } from './profileControls';
+import { useMemberDirectoryControls } from './memberDirectoryControls';
 import { setSpaceDetailControls, useSpaceDetailControls } from './spaceDetailControls';
 import { setChatControls, useChatControls } from './chatControls';
 import { setLeaderboardControls, useLeaderboardControls } from './leaderboardControls';
@@ -55,7 +56,7 @@ import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
  * changes rarely; when a new paginated data source lands, add its slug
  * here + wire a matching per_page default in PAGE_SIZE_BY_SLUG.
  */
-const PAGINATED_DATA_SOURCES = new Set<string>(['fc-feed', 'fc-space-members']);
+const PAGINATED_DATA_SOURCES = new Set<string>(['fc-feed', 'fc-space-members', 'fc-members-directory']);
 const PAGE_SIZE_BY_SLUG: Record<string, number> = {
   'fc-feed': 10,
   // Members page size matches the FC portal's own paginate() default so
@@ -64,6 +65,8 @@ const PAGE_SIZE_BY_SLUG: Record<string, number> = {
   // fetch subsequent pages; the fcom-mobile /members endpoint accepts
   // `page` + `per_page` and short-page terminates the load.
   'fc-space-members': 20,
+  // What the portal's All Members page asks for.
+  'fc-members-directory': 24,
 };
 
 type PlacementRendererProps = {
@@ -240,6 +243,9 @@ export function PlacementRenderer({
   // fc-bookmarks binds search and sort as query params, and the
   // three-way empty verdict is published from here after each fetch.
   const bookmarkControls = useBookmarkControls();
+  // All Members — read unconditionally for stable hook order. The tab
+  // strip reads `status`, the toolbar's sort button reads `sort_by`.
+  const memberDirectory = useMemberDirectoryControls();
   const postDetailControls = usePostDetailControls();
   // Search screen controls. Read unconditionally for stable hook order,
   // same as every slice above — both strips read it to mark their active
@@ -364,6 +370,18 @@ export function PlacementRenderer({
           // `baseAppzet.slug` rather than the Superstructure's. The two
           // labels come from the action's own options list, so renaming
           // "Most Recent" is a catalog edit.
+          // All Members' sort button says which sort is on, like the
+          // follow sort row below — state, which no field_mapping reads.
+          ...(baseAppzet.slug === 'fc-members-toolbar'
+            ? {
+                sort_label: followSortLabel(
+                  memberDirectory.sort_by,
+                  (baseAppzet.actions as Record<string, unknown> | null | undefined)?.[
+                    'on_tap_sort'
+                  ],
+                ),
+              }
+            : {}),
           ...(baseAppzet.slug === 'fc-follow-sort'
             ? {
                 label: followSortLabel(
@@ -499,6 +517,10 @@ export function PlacementRenderer({
     'state.bookmark_controls.sort': bookmarkControls.sort,
     'state.bookmark_controls.view_mode': bookmarkControls.viewMode,
     'state.bookmark_controls.view': bookmarkControls.view,
+    'state.member_directory_controls.status': memberDirectory.status,
+    'state.member_directory_controls.search': memberDirectory.search,
+    'state.member_directory_controls.sort_by': memberDirectory.sort_by,
+    'state.member_directory_controls.sort_dir': memberDirectory.sort_dir,
   };
   const dataSourceByState = (appzet as unknown as {
     data_source_by_state?: {
@@ -1513,6 +1535,32 @@ export function PlacementRenderer({
     'aspect_ratio',
     'overlay_gradient',
     'overlay_text_color',
+    // All Members (2026-09-15) — toolbar, strip and directory card.
+    'row_bg_color',
+    'search_bg_color',
+    'search_border_color',
+    'search_text_color',
+    'search_icon_color',
+    'search_radius',
+    'search_height',
+    'sort_bg_color',
+    'sort_text_color',
+    'tab_text_color',
+    'name_size',
+    'menu_color',
+    'headline_color',
+    'badge_bg_color',
+    'badge_text_color',
+    'pending_bg_color',
+    'pending_text_color',
+    'blocked_bg_color',
+    'blocked_text_color',
+    'deactivated_bg_color',
+    'deactivated_text_color',
+    'follow_bg_color',
+    'follow_text_color',
+    'following_text_color',
+    'divider_color',
     // Member card + members-actions knobs (2026-08-06).
     'grid_columns',
     'card_gap',
@@ -2016,6 +2064,9 @@ export function PlacementRenderer({
               appzet.slug === 'fc-search-scope-tabs' ? searchControls.post_scope :
               // See the note at the sibling call site below.
               appzet.slug === 'fc-follow-tabs' ? followView :
+              // All Members' status strip — the profile strip's
+              // Superstructure reading a different slice.
+              appzet.slug === 'fc-members-tabs' ? memberDirectory.status :
               undefined
             }
             activeChildValues={
@@ -2026,6 +2077,20 @@ export function PlacementRenderer({
         </div>
       </>
     );
+  }
+
+  // hide_while_loading — opt-in. An AppZet whose very EXISTENCE is the
+  // answer its data source gives draws nothing until that answer lands.
+  // The All Members status strip is the case: its row says whether the
+  // viewer may see the tabs at all, and a placeholder strip would show a
+  // member the admin tabs for as long as the fetch takes.
+  if (
+    (appzet.default_props_override as Record<string, unknown> | undefined)?.['hide_while_loading'] ===
+      true &&
+    dataState.loading &&
+    dataState.items.length === 0
+  ) {
+    return <>{optionFetchers}</>;
   }
 
   // Only show the loading placeholder on the very first fetch. Once we
@@ -2067,7 +2132,12 @@ export function PlacementRenderer({
   // an empty feed). Non-paginated single-fetch keeps the previous behavior
   // of rendering one empty card, which is useful for spot-fetched appzets
   // that always exist (e.g. current user avatar).
-  if (isPaginated && !dataState.loading && dataState.items.length === 0) {
+  if (
+    isPaginated &&
+    !dataState.loading &&
+    dataState.items.length === 0 &&
+    (appzet.default_props_override as Record<string, unknown> | undefined)?.['hide_when_empty'] !== true
+  ) {
     return (
       <>
         {optionFetchers}
@@ -2170,7 +2240,17 @@ export function PlacementRenderer({
         data-fc-member-layout={
           appzet.slug === 'fc-member-card'
             ? (fcMemberListLayout === 'grid' ? 'grid' : 'list')
-            : undefined
+            : ss?.slug === 'fc-directory-member-card'
+              ? // All Members: FluentCommunity's "Members List Layout"
+                // decides, unless the right panel's `layout` says grid or
+                // list (Noor, 2026-09-15). Keyed on the Superstructure so
+                // a derived AppZet keeps the behaviour.
+                (() => {
+                  const chosen = (appzet.default_props_override as Record<string, unknown> | undefined)?.['layout'];
+                  if (chosen === 'grid' || chosen === 'list') return chosen;
+                  return fcMemberListLayout === 'grid' ? 'grid' : 'list';
+                })()
+              : undefined
         }
         style={Object.keys(styleVars).length > 0 ? (styleVars as React.CSSProperties) : undefined}
       >
@@ -2306,6 +2386,9 @@ export function PlacementRenderer({
                 // of the same slice, so it cannot fall into the first
                 // branch.
                 appzet.slug === 'fc-follow-tabs' ? followView :
+              // All Members' status strip — the profile strip's
+              // Superstructure reading a different slice.
+              appzet.slug === 'fc-members-tabs' ? memberDirectory.status :
                 undefined
               }
               activeChildValues={

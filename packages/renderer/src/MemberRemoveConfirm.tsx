@@ -28,7 +28,14 @@ type OpenDetail = {
    * the member-removal wording ("Remove from space") is too long to sit
    * beside Cancel, so that flow keeps the stacked default.
    */
-  actionsLayout?: 'row' | 'stacked';
+  actionsLayout?: 'row' | 'stacked' | 'material';
+  /**
+   * 'primary' draws the confirm button in the cancel button's blue rather
+   * than red. The member-status dialogs (Pending / Blocked / Active) are
+   * reversible from the next tab over, and every one of those designs
+   * draws both buttons alike.
+   */
+  confirmTone?: 'destructive' | 'primary';
   item: unknown;
   removeActionSlug?: string;
   removeArgs?: Record<string, unknown>;
@@ -108,7 +115,11 @@ export function MemberRemoveConfirm() {
         if (e.target === e.currentTarget) cancel();
       }}
     >
-      <div className="appza-member-confirm">
+      <div
+        className={
+          'appza-member-confirm' + (detail.actionsLayout === 'material' ? ' is-material' : '')
+        }
+      >
         <div className="appza-member-confirm-body">
           <p className="appza-member-confirm-title">{detail.subject}</p>
           <p className="appza-member-confirm-message">{message}</p>
@@ -116,7 +127,7 @@ export function MemberRemoveConfirm() {
         <div
           className={
             'appza-member-confirm-actions' +
-            (detail.actionsLayout === 'row' ? ' is-row' : '')
+            (detail.actionsLayout === 'row' || detail.actionsLayout === 'material' ? ' is-row' : '')
           }
         >
           <button
@@ -129,7 +140,11 @@ export function MemberRemoveConfirm() {
           </button>
           <button
             type="button"
-            className="appza-member-confirm-btn is-destructive"
+            className={
+              detail.confirmTone === 'primary'
+                ? 'appza-member-confirm-btn is-primary'
+                : 'appza-member-confirm-btn is-destructive'
+            }
             onClick={confirm}
             disabled={inFlight}
           >

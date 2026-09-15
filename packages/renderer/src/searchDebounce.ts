@@ -41,7 +41,7 @@ export const SEARCH_DEBOUNCE_MS = 300;
  * Identifies a debounce channel. One per SERVER-BACKED search field, so
  * typing in space documents cannot cancel a pending bookmarks write.
  */
-export type SearchDebounceKey = 'bookmarks' | 'documents' | 'search' | 'follow';
+export type SearchDebounceKey = 'bookmarks' | 'documents' | 'search' | 'follow' | 'members';
 
 type Pending = {
   timer: ReturnType<typeof setTimeout>;

@@ -26,6 +26,7 @@ import { useFcRuntimeSettings } from './fcRuntimeSettings';
 import { useViewer, viewerStateEntries } from './viewer';
 import { useBannerControls, bannerStateEntries } from './bannerControls';
 import { useProfileControls, setProfileControls } from './profileControls';
+import { useMemberDirectoryControls, memberDirectoryStateEntries } from './memberDirectoryControls';
 import { useListVerdicts } from './listVerdicts';
 
 type ScreenRendererProps = {
@@ -121,6 +122,7 @@ export function ScreenRenderer({
   // every one of those gates compares against undefined and the screen
   // renders a header and nothing else.
   const profileControls = useProfileControls();
+  const memberDirectoryControls = useMemberDirectoryControls();
   // Whether each list that named an `empty_state_key` came back with
   // rows. Subscribed here for the same reason as the slice above: the
   // empty states are PLACEMENTS, and a gate that cannot see this value
@@ -202,6 +204,9 @@ export function ScreenRenderer({
       'profile_controls.member_id': profileControls.member_id,
       // Which of the two follow lists the strip is showing.
       'profile_controls.follow_view': profileControls.follow_view,
+      // All Members. `status` is what the four empty states gate on,
+      // beside the directory's own list verdict.
+      ...memberDirectoryStateEntries(memberDirectoryControls),
       // Catalog-named list verdicts (2026-09-02). Every key any mounted
       // AppZet with an `empty_state_key` has published, flattened the
       // same way the hand-written verdicts above are, so a placement
@@ -296,6 +301,7 @@ export function ScreenRenderer({
       profileControls.tab,
       profileControls.member_id,
       profileControls.follow_view,
+      memberDirectoryControls,
       // The whole map, not one key: the catalog names these, so there is
       // no fixed list to depend on.
       listVerdicts,

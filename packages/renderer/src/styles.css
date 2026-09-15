@@ -12385,3 +12385,417 @@ audio.appza-video-embed-native {
 [data-screen-slug="profile-follows"] .appza-renderer-ss[data-slug="fc-documents-search"] {
   background: #ffffff;
 }
+
+
+/* ==========================================================
+ * ALL MEMBERS — ~/Desktop/appza/All Member page/1–21.jpeg
+ * (2026-09-15). The toolbar, the status strip, one card in two
+ * layouts, the sheets' new headings and the status dialog.
+ * ========================================================== */
+
+[data-screen-slug="all-members"] {
+  background: #f4f5f9;
+}
+
+/* ── fc-members-toolbar — search box + sort button, one row ──────── */
+.appza-renderer-appzet[data-slug="fc-members-toolbar"] {
+  padding: var(--appza-row-padding, 16px 14px 12px);
+  background: var(--appza-row-bg-color, #ffffff);
+}
+.appza-renderer-ss[data-slug="fc-members-toolbar"] {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: stretch;
+  column-gap: 0;
+}
+/* Children 0 and 1 are ONE box: the glyph cell carries the left half of
+   the border, the field the right half. */
+.appza-renderer-ss[data-slug="fc-members-toolbar"] [data-child-index="0"] {
+  display: flex;
+  align-items: center;
+  padding: 0 4px 0 8px;
+  background: var(--appza-search-bg-color, #ebebeb);
+  border: 1px solid var(--appza-search-border-color, #6b6b6b);
+  border-right: 0;
+  border-radius: var(--appza-search-radius, 5px) 0 0 var(--appza-search-radius, 5px);
+  height: var(--appza-search-height, 34px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+.appza-renderer-ss[data-slug="fc-members-toolbar"] [data-child-index="0"] ion-icon {
+  font-size: 20px;
+  color: var(--appza-search-icon-color, #3a3a3a);
+}
+.appza-renderer-ss[data-slug="fc-members-toolbar"] [data-child-index="1"] {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  background: var(--appza-search-bg-color, #ebebeb);
+  border: 1px solid var(--appza-search-border-color, #6b6b6b);
+  border-left: 0;
+  border-radius: 0 var(--appza-search-radius, 5px) var(--appza-search-radius, 5px) 0;
+  height: var(--appza-search-height, 34px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+.appza-renderer-ss[data-slug="fc-members-toolbar"] ion-input {
+  --background: transparent;
+  --color: var(--appza-search-text-color, #1f2937);
+  --placeholder-color: #6b6b6b;
+  --placeholder-opacity: 1;
+  --padding-start: 2px;
+  --padding-end: 6px;
+  --border-width: 0;
+  --highlight-height: 0;
+  --min-height: 0;
+  font-size: 0.95rem;
+  margin: 0;
+}
+.appza-renderer-ss[data-slug="fc-members-toolbar"] [data-child-index="2"] {
+  margin-left: var(--appza-gap, 8px);
+  display: flex;
+  align-items: center;
+}
+.appza-renderer-ss[data-slug="fc-members-toolbar"] [data-child-index="2"] ion-button {
+  margin: 0;
+  height: var(--appza-search-height, 34px);
+  min-width: 148px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.92rem;
+  font-weight: 400;
+  --background: var(--appza-sort-bg-color, #e4e4e4);
+  --background-hover: var(--appza-sort-bg-color, #e4e4e4);
+  --background-activated: var(--appza-sort-bg-color, #e4e4e4);
+  --color: var(--appza-sort-text-color, #6b6b6b);
+  --border-radius: var(--appza-search-radius, 5px);
+  --box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --padding-start: 14px;
+  --padding-end: 12px;
+}
+
+/* ── fc-members-tabs — the admin's status strip ─────────────────────
+   Rides fc-profile-tabs; only the frame differs. A card tucked under the
+   toolbar that runs off the right edge, as designs 5–17 draw it. */
+.appza-renderer-appzet-list[data-slug="fc-members-tabs"],
+.appza-renderer-appzet[data-slug="fc-members-tabs"] {
+  background: #ffffff;
+  border-bottom: 0;
+  padding: 0 0 12px 14px;
+  overflow: visible;
+}
+.appza-renderer-appzet-list[data-slug="fc-members-tabs"] .appza-renderer-ss[data-slug="fc-profile-tabs"],
+.appza-renderer-appzet[data-slug="fc-members-tabs"] .appza-renderer-ss[data-slug="fc-profile-tabs"] {
+  overflow-x: auto;
+  min-width: 0;
+  padding: 0 4px;
+  border-radius: 6px 0 0 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  justify-content: space-between;
+}
+.appza-renderer-appzet-list[data-slug="fc-members-tabs"] .appza-renderer-ss-child,
+.appza-renderer-appzet[data-slug="fc-members-tabs"] .appza-renderer-ss-child {
+  border-bottom-width: 3px;
+}
+.appza-renderer-appzet-list[data-slug="fc-members-tabs"] .appza-renderer-ss-child[data-active="true"],
+.appza-renderer-appzet[data-slug="fc-members-tabs"] .appza-renderer-ss-child[data-active="true"] {
+  border-bottom-color: var(--appza-active-color, #0054ea);
+}
+.appza-renderer-appzet-list[data-slug="fc-members-tabs"] ion-button,
+.appza-renderer-appzet[data-slug="fc-members-tabs"] ion-button {
+  height: 42px;
+  font-weight: 500;
+  --color: var(--appza-tab-text-color, #111111);
+}
+.appza-renderer-appzet-list[data-slug="fc-members-tabs"] .appza-renderer-ss-child[data-active="true"] ion-button,
+.appza-renderer-appzet[data-slug="fc-members-tabs"] .appza-renderer-ss-child[data-active="true"] ion-button {
+  --color: var(--appza-active-color, #0054ea);
+}
+
+/* ── fc-directory-member-card — GRID (designs 1–17) ──────────────── */
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"] {
+  display: grid;
+  grid-template-columns: repeat(var(--appza-grid-columns, 2), minmax(0, 1fr));
+  gap: var(--appza-card-gap, 18px);
+  padding: 18px 16px 96px;
+  background: #f4f5f9;
+  align-items: stretch;
+  border-top: 1px solid #e6e6ea;
+}
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"] .appza-renderer-appzet {
+  height: 100%;
+  margin: 0;
+  display: flex;
+}
+.appza-renderer-ss[data-slug="fc-directory-member-card"] {
+  flex: 1 1 auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1px;
+  min-width: 0;
+  background: var(--appza-card-bg-color, #ffffff);
+  border-radius: var(--appza-card-radius, 3px);
+  padding: var(--appza-card-padding, 12px 10px 16px);
+  box-shadow: var(--appza-card-shadow, 0 2px 4px rgba(0, 0, 0, 0.22));
+}
+.appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="0"] {
+  padding: 0 0 8px;
+}
+.appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="0"] ion-avatar {
+  width: var(--appza-avatar-size, 52px);
+  height: var(--appza-avatar-size, 52px);
+}
+.appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="1"] {
+  position: absolute;
+  top: 6px;
+  right: 4px;
+}
+.appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="1"] ion-button {
+  margin: 0;
+  width: 28px;
+  height: 28px;
+  --background: transparent;
+  --background-hover: transparent;
+  --box-shadow: none;
+  --color: var(--appza-menu-color, #555555);
+  --padding-start: 0;
+  --padding-end: 0;
+  font-size: 18px;
+}
+.appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="2"] {
+  color: var(--appza-name-color, #111111);
+  font-size: var(--appza-name-size, 15px);
+  font-weight: 600;
+  line-height: 1.3;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="3"],
+.appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="9"] {
+  color: var(--appza-meta-color, #6b6b6b);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="9"] {
+  font-size: 11px;
+  margin-top: 1px;
+}
+.appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="4"] {
+  color: var(--appza-headline-color, #555555);
+  font-size: 12px;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* The four chips — badge, Pending, Blocked, Reactivate. */
+.appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="5"] ion-chip,
+.appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="6"] ion-chip,
+.appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="7"] ion-chip,
+.appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="8"] ion-chip {
+  margin: 2px 0;
+  height: auto;
+  min-height: 0;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  --border-radius: 3px;
+  border-radius: 3px;
+}
+.appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="5"] ion-chip {
+  --background: var(--appza-badge-bg-color, #e5e5e5);
+  --color: var(--appza-badge-text-color, #d92d20);
+  background: var(--appza-badge-bg-color, #e5e5e5);
+  color: var(--appza-badge-text-color, #d92d20);
+}
+.appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="6"] ion-chip {
+  --background: var(--appza-pending-bg-color, #fde68a);
+  --color: var(--appza-pending-text-color, #d92d20);
+  background: var(--appza-pending-bg-color, #fde68a);
+  color: var(--appza-pending-text-color, #d92d20);
+}
+.appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="7"] ion-chip {
+  --background: var(--appza-blocked-bg-color, #fbc8c1);
+  --color: var(--appza-blocked-text-color, #d92d20);
+  background: var(--appza-blocked-bg-color, #fbc8c1);
+  color: var(--appza-blocked-text-color, #d92d20);
+}
+.appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="8"] ion-chip {
+  --background: var(--appza-deactivated-bg-color, #d92d20);
+  --color: var(--appza-deactivated-text-color, #ffffff);
+  background: var(--appza-deactivated-bg-color, #d92d20);
+  color: var(--appza-deactivated-text-color, #ffffff);
+}
+/* Follow / Following belong to the LIST row; the grid card reaches them
+   through the ⋮ sheet (design 4). */
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"]:not([data-fc-member-layout="list"]) .appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="10"],
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"]:not([data-fc-member-layout="list"]) .appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="11"] {
+  display: none;
+}
+
+/* ── fc-directory-member-card — LIST (designs 18–21) ─────────────── */
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] {
+  display: block;
+  padding: 18px 16px 96px;
+}
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] .appza-renderer-appzet {
+  height: auto;
+  display: block;
+  margin: 0;
+}
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-directory-member-card"] {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "avatar name     chip     follow menu"
+    "avatar handle   handle   follow menu"
+    "avatar headline headline follow menu"
+    "avatar badge    badge    follow menu"
+    "avatar joined   joined   follow menu";
+  align-items: center;
+  justify-items: start;
+  text-align: left;
+  column-gap: 0;
+  row-gap: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 14px 12px 14px 16px;
+  border-bottom: 1px solid var(--appza-divider-color, #d9d9de);
+}
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] > .appza-renderer-appzet:first-child .appza-renderer-ss[data-slug="fc-directory-member-card"] {
+  border-radius: 6px 6px 0 0;
+}
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] > .appza-renderer-appzet:last-child .appza-renderer-ss[data-slug="fc-directory-member-card"] {
+  border-radius: 0 0 6px 6px;
+  border-bottom: 0;
+}
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] > .appza-renderer-appzet:only-child .appza-renderer-ss[data-slug="fc-directory-member-card"] {
+  border-radius: 6px;
+}
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="0"] {
+  grid-area: avatar;
+  padding: 0 10px 0 0;
+  align-self: center;
+}
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="1"] {
+  grid-area: menu;
+  position: static;
+  align-self: center;
+}
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="2"] { grid-area: name; font-size: 15px; }
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="3"] { grid-area: handle; }
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="4"] { grid-area: headline; }
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="5"] { grid-area: badge; }
+/* The three status chips never show together, so one cell holds them. */
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="6"],
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="7"],
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="8"] {
+  grid-area: chip;
+  padding-left: 4px;
+}
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="9"] { grid-area: joined; }
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="10"],
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="11"] {
+  grid-area: follow;
+  align-self: start;
+  padding: 2px 14px 0 8px;
+}
+/* Ionic paints a border on the ion-button HOST that its custom properties
+   do not reach, so both the host and ::part(native) are set. */
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="10"] ion-button,
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="11"] ion-button {
+  margin: 0;
+  height: 22px;
+  min-height: 0;
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  --padding-start: 7px;
+  --padding-end: 7px;
+  --border-radius: 2px;
+  --box-shadow: none;
+}
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="10"] ion-button {
+  --background: var(--appza-follow-bg-color, #0054ea);
+  --color: var(--appza-follow-text-color, #ffffff);
+  border: 0;
+}
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="11"] ion-button {
+  --background: transparent;
+  --color: var(--appza-following-text-color, #0054ea);
+  --border-width: 1px;
+  --border-style: solid;
+  --border-color: var(--appza-following-text-color, #0054ea);
+}
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="11"] ion-button::part(native) {
+  border: 1px solid var(--appza-following-text-color, #0054ea);
+  border-radius: 2px;
+}
+
+/* ── Sheet headings ─────────────────────────────────────────────── */
+.appza-options-sheet-section + .appza-options-sheet-section {
+  margin-top: 12px;
+}
+.appza-options-sheet-section-title {
+  margin: 4px 8px 6px;
+  color: var(--appza-section-title-color, #6b6b6b);
+  font-size: var(--appza-section-title-size, 13px);
+  font-weight: 600;
+}
+.appza-post-menu-sheet-title {
+  margin: -2px 20px 10px;
+  color: var(--appza-title-color, #0e121b);
+  font-size: var(--appza-title-size, 17px);
+  font-weight: var(--appza-title-weight, 600);
+  line-height: 1.3;
+}
+
+/* ── The status dialog — designs 7, 8, 12 ───────────────────────────
+   A Material alert rather than the iOS one member removal uses: title
+   and question left-aligned, two blue uppercase text buttons at the
+   end, no rules. */
+.appza-member-confirm-btn.is-primary {
+  color: var(--appza-confirm-color, #1a66e0);
+  font-weight: 600;
+}
+.appza-member-confirm.is-material {
+  width: min(284px, 78%);
+  border-radius: 2px;
+  box-shadow: 0 11px 15px -7px rgba(0, 0, 0, 0.2), 0 24px 38px 3px rgba(0, 0, 0, 0.14);
+}
+.appza-member-confirm.is-material .appza-member-confirm-body {
+  text-align: left;
+  padding: 24px 24px 18px;
+}
+.appza-member-confirm.is-material .appza-member-confirm-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+.appza-member-confirm.is-material .appza-member-confirm-message {
+  font-size: 0.9rem;
+  color: #444444;
+}
+.appza-member-confirm.is-material .appza-member-confirm-actions {
+  border-top: 0;
+  justify-content: flex-end;
+  padding: 10px 12px 14px;
+  gap: 10px;
+}
+.appza-member-confirm.is-material .appza-member-confirm-actions.is-row .appza-member-confirm-btn {
+  flex: 0 0 auto;
+  padding: 6px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--appza-confirm-color, #1a66e0);
+}
+.appza-member-confirm.is-material .appza-member-confirm-actions.is-row .appza-member-confirm-btn + .appza-member-confirm-btn {
+  border-left: 0;
+}
