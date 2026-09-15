@@ -12799,3 +12799,50 @@ audio.appza-video-embed-native {
 .appza-member-confirm.is-material .appza-member-confirm-actions.is-row .appza-member-confirm-btn + .appza-member-confirm-btn {
   border-left: 0;
 }
+
+/* ── All Members: the three things the first photographs caught ──────
+   1. The home button's POSITIONING is keyed on the AppZet slug (chat,
+      Saved Posts, search and post detail each repeat it), so without its
+      own rule it drew in the flow, mid-left.
+   2. The ground is grey on every design, under the empty states too.
+   3. The Material dialog has no rules between its buttons. */
+.appza-renderer-appzet[data-slug="fc-members-home-fab"] {
+  position: fixed;
+  right: var(--appza-offset-right, 18px);
+  bottom: calc(var(--appza-chat-footer-h, 68px) + var(--appza-offset-bottom, 24px));
+  z-index: 20;
+  padding: 0;
+}
+[data-screen-slug="all-members"] .appza-renderer-screen,
+[data-screen-slug="all-members"] ion-content {
+  --background: #f4f5f9;
+  background: #f4f5f9;
+}
+.appza-member-confirm.is-material .appza-member-confirm-actions.is-row .appza-member-confirm-btn + .appza-member-confirm-btn {
+  border-top: 0;
+  border-left: 0;
+}
+
+/* All Members runs edge to edge: the toolbar and the strip are full-width
+   white bands and the list sits on the grey ground (designs 1, 5). The
+   screen's default 12px padding and 8px gap drew both bands as inset
+   boxes. */
+[data-screen-slug="all-members"] .appza-renderer-screen {
+  padding: 0;
+  gap: 0;
+}
+[data-screen-slug="all-members"] .appza-renderer-slot {
+  gap: 0;
+}
+
+/* List rows: the avatar, the ⋮ and the Follow button span all five rows,
+   and a spanning item's spare height is shared out across the rows it
+   covers — so an EMPTY headline row and an empty badge row each took ~7px
+   and opened a gap between @username and "Joined" (measured 2026-09-15).
+   The last row takes the slack instead. */
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-directory-member-card"] {
+  grid-template-rows: auto auto auto auto 1fr;
+}
+.appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="9"] {
+  align-self: start;
+}
