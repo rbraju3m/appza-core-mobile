@@ -62,6 +62,9 @@ export type OptionsSheetPresentation = {
   /** Section headings, in a sectioned sheet only. */
   sectionTitleColor?: string;
   sectionTitleSize?: string;
+  /** The small line above the title, when the opener supplies one. */
+  eyebrowColor?: string;
+  eyebrowSize?: string;
 };
 
 type OpenDetail = {
@@ -94,13 +97,26 @@ type OpenDetail = {
    */
   sections?: OptionsSheetSection[];
   childStyles?: Record<number, CSSProperties>;
+  /**
+   * A line above the title — whose sheet this is. "Add to Space or
+   * Course" and "Membership Role" (profile designs 49 and 50) carry the
+   * member's name there. Runtime data, so the opener supplies it.
+   */
+  eyebrow?: string;
 };
 
 export type OptionsSheetSection = {
   title?: string;
   options: ViewModeOption[];
-  stateKey: PopoverStateKey;
+  /** Ignored when `onPick` is present. */
+  stateKey?: PopoverStateKey;
   currentValue: string;
+  /**
+   * The section is a list of ACTS rather than a setting — "add to this
+   * space" — so a pick is handed here and the sheet closes, as the flat
+   * `onPick` does. No row wears the check.
+   */
+  onPick?: (value: string, label: string) => void;
 };
 
 const OPEN_EVENT = 'appza:open-options-sheet';
@@ -174,21 +190,33 @@ export function OptionsSheet() {
     ['--appza-divider-color' as string]: p.dividerColor,
     ['--appza-section-title-color' as string]: p.sectionTitleColor,
     ['--appza-section-title-size' as string]: p.sectionTitleSize,
+    ['--appza-eyebrow-color' as string]: p.eyebrowColor,
+    ['--appza-eyebrow-size' as string]: p.eyebrowSize,
   };
 
   const handleSectionPick = (sectionIndex: number, section: OptionsSheetSection, value: string) => {
+    if (section.onPick) {
+      const picked = section.options.find((o) => o.value === value);
+      // Close FIRST: the pick may open the next sheet (a space opens the
+      // role step), and a close dispatched after it would shut that one.
+      closeOptionsSheet();
+      section.onPick(value, picked?.label ?? value);
+      return;
+    }
+    if (!section.stateKey) return;
     applyControlPick(section.stateKey, value);
     setSectionPicks((prev) => ({ ...prev, [sectionIndex]: value }));
   };
 
   const handlePick = (value: string) => {
+    // Closed before the pick runs, for the reason handleSectionPick gives.
+    closeOptionsSheet();
     if (detail.onPick) {
       const picked = detail.options.find((o) => o.value === value);
       detail.onPick(value, picked?.label ?? value);
     } else {
       applyControlPick(detail.stateKey, value);
     }
-    closeOptionsSheet();
   };
 
   const check = resolveIcon(p.checkIcon);
@@ -213,6 +241,7 @@ export function OptionsSheet() {
         {p.showHandle && <div className="appza-options-sheet-grabber" />}
 
         <div className="appza-options-sheet-scroll">
+          {detail.eyebrow && <div className="appza-options-sheet-eyebrow">{detail.eyebrow}</div>}
           {p.showTitle && (
             <div
               className="appza-options-sheet-title"
@@ -236,7 +265,7 @@ export function OptionsSheet() {
                     <div className="appza-options-sheet-section-title">{section.title}</div>
                   )}
                   {section.options.map((opt, i) => {
-                    const selected = opt.value === current;
+                    const selected = !section.onPick && opt.value === current;
                     const glyph = opt.icon ? resolveIcon(opt.icon) : undefined;
                     // Template attrs on the first section's first row only,
                     // and the check's on the first section's selected row

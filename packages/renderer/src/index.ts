@@ -102,6 +102,15 @@ export {
   type FollowView,
 } from './FollowSheet';
 export {
+  NewMessageModal,
+  openNewMessageModal,
+  closeNewMessageModal,
+  NEW_MESSAGE_MODAL_APPZET_SLUG,
+  NEW_MESSAGE_MODAL_CHILD_COUNT,
+  type NewMessagePresentation,
+} from './NewMessageModal';
+export { openProfileNewMessage, type ProfileNewMessageDeps } from './profileNewMessage';
+export {
   LeaderboardPointsSheet,
   openLeaderboardPointsSheet,
   closeLeaderboardPointsSheet,
@@ -342,6 +351,7 @@ export {
   tryHandleProfileAccountAction,
   type ProfileAccountDeps,
 } from './profileAccountActions';
+export { openProfileAddToSpace, type ProfileAddToSpaceDeps } from './profileAddToSpace';
 export { startHeadlineCounter } from './headlineCounter';
 export {
   AppzaSocialLinks,
@@ -436,6 +446,7 @@ export {
   mediaViewerPresentation,
   chatMembersPresentation,
   followSheetPresentation,
+  newMessagePresentation,
   chatUserCardPresentation,
   leaderboardPointsPresentation,
   optionsSheetPresentation,

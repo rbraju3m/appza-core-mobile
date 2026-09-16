@@ -57,6 +57,9 @@ import {
   readActionDefaultsFromCatalog,
   ChatMembersSheet,
   FollowSheet,
+  NewMessageModal,
+  NEW_MESSAGE_MODAL_CHILD_COUNT,
+  openProfileNewMessage,
   openFollowSheet,
   closeFollowSheet,
   followSheetPresentation,
@@ -121,6 +124,7 @@ import {
   tryHandleProfilePhotoAction,
   tryHandleLogoutConfirm,
   tryHandleProfileAccountAction,
+  openProfileAddToSpace,
   startHeadlineCounter,
   setSearchControls,
   recordRecentSearch,
@@ -1657,6 +1661,7 @@ export function App() {
       <MediaViewer />
       <ChatMembersSheet />
       <FollowSheet />
+      <NewMessageModal />
       <ChatUserCard />
       <LeaderboardPointsSheet />
       <PollVotersSheet />
@@ -6211,86 +6216,36 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    case 'profile.add_to_space': {
-      // The portal's "Add To Space/Course", moderator-only.
-      //
-      // The rows are FETCHED rather than authored: a site's spaces are
-      // not a catalog fact, and an options sheet whose entries were
-      // seeded would be wrong the first time somebody made a space. The
-      // pick is an HTTP write, which is why the sheet takes an onPick
-      // instead of a state key — see OptionsSheet.
-      if (!auth) {
-        requireAuthOrLogin();
-        return;
-      }
-      const endpoint =
-        typeof argRec.endpoint === 'string' && argRec.endpoint
-          ? argRec.endpoint
-          : '/wp-json/fcom-mobile/api/v1/spaces/add-member';
-      const memberPath =
-        typeof argRec.member_id_path === 'string' ? argRec.member_id_path : 'data.user_id';
-      const rawMember = readDataPath(effectiveItem, memberPath);
-      const memberId = typeof rawMember === 'number' || typeof rawMember === 'string' ? rawMember : null;
-      if (memberId === null || memberId === '') {
-        onLoginError('Could not identify which member to add.');
-        return;
-      }
-      const sheetSlug =
-        typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
-          ? argRec.sheet_appzet_slug
-          : 'fc-profile-space-sheet';
-      const spacesDs =
-        typeof argRec.spaces_data_source_slug === 'string' && argRec.spaces_data_source_slug
-          ? argRec.spaces_data_source_slug
-          : 'fc-spaces-all';
-      const toast = typeof argRec.toast_message === 'string' ? argRec.toast_message : 'Added to space';
+    case 'chat.compose_dm': {
+      // Doc states 51 and 52 — the New Message modal. Replaced
+      // chat.open_dm on the profile; see profileNewMessage.
+      openProfileNewMessage(argRec, effectiveItem, {
+        auth,
+        authHeader: basicAuthHeader,
+        onError: onLoginError,
+        onInfo: onLoginError,
+        requireAuth: requireAuthOrLogin,
+        readPath: (item, path) => readDataPath(item, path),
+        modalProps: (slug) => readAppzetPropsFromCatalog(slug),
+        modalChildStyles: (slug) =>
+          childStylesFromCustomizations(slug, NEW_MESSAGE_MODAL_CHILD_COUNT, currentCustomizations),
+      });
+      return;
+    }
 
-      void fetchDataSourceOnce(spacesDs).then((rows) => {
-        const options = (Array.isArray(rows) ? rows : [])
-          .filter((r): r is Record<string, unknown> => isRecord(r))
-          .map((r) => ({
-            value: typeof r.slug === 'string' ? r.slug : '',
-            label: typeof r.title === 'string' ? r.title : '',
-          }))
-          .filter((o) => o.value && o.label);
-        if (options.length === 0) {
-          onLoginError('There are no spaces to add this member to.');
-          return;
-        }
-        openOptionsSheet({
-          appzetSlug: sheetSlug,
-          presentation: optionsSheetPresentation(readAppzetPropsFromCatalog(sheetSlug)),
-          childStyles: childStylesFromCustomizations(
-            sheetSlug,
-            OPTIONS_SHEET_CHILD_COUNT,
-            currentCustomizations,
-          ),
-          options,
-          // Nothing is "currently selected" — this is an act, not a
-          // setting — so no row wears the check.
-          stateKey: 'profile_follow_sort',
-          currentValue: '',
-          onPick: (spaceSlug, spaceLabel) => {
-            closeOptionsSheet();
-            void sendJson(
-              endpoint,
-              'POST',
-              { space_slug: spaceSlug, user_id: memberId },
-              auth,
-              basicAuthHeader,
-            ).then((result) => {
-              if (result.ok) {
-                onLoginError(`${toast}: ${spaceLabel}`);
-              } else {
-                // fcom-mobile forwards FluentCommunity's own sentence,
-                // which says more than anything generic here could —
-                // "already a member", or a refusal of the permission this
-                // row was gated on optimistically.
-                onLoginError(result.error);
-              }
-            });
-          },
-        });
+    case 'profile.add_to_space': {
+      // Doc states 49 and 50 — the grouped list, then a role for a space.
+      // Shared with the other shell; see profileAddToSpace.
+      openProfileAddToSpace(argRec, effectiveItem, {
+        auth,
+        authHeader: basicAuthHeader,
+        onError: onLoginError,
+        onInfo: onLoginError,
+        requireAuth: requireAuthOrLogin,
+        readPath: (item, path) => readDataPath(item, path),
+        sheetProps: (slug) => readAppzetPropsFromCatalog(slug),
+        sheetChildStyles: (slug) =>
+          childStylesFromCustomizations(slug, OPTIONS_SHEET_CHILD_COUNT, currentCustomizations),
       });
       return;
     }

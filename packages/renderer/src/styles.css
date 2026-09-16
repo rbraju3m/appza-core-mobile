@@ -13710,6 +13710,14 @@ select.appza-profile-fields-input[multiple] {
 .appza-options-sheet-section + .appza-options-sheet-section {
   margin-top: 12px;
 }
+.appza-options-sheet-eyebrow {
+  margin: 10px 8px -6px;
+  color: var(--appza-eyebrow-color, #6b6b6b);
+  font-size: var(--appza-eyebrow-size, 11px);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 .appza-options-sheet-section-title {
   margin: 4px 8px 6px;
   color: var(--appza-section-title-color, #6b6b6b);
@@ -13814,4 +13822,142 @@ select.appza-profile-fields-input[multiple] {
 }
 .appza-renderer-appzet-list[data-slug="fc-members-directory-card"][data-fc-member-layout="list"] [data-child-index="9"] {
   align-self: start;
+}
+
+/* ── New Message — profile designs 51 and 52 ─────────────────────────
+   A centred card, not a sheet. SEND is outlined until there is text and
+   filled once there is: the first message is the create, so an empty
+   one is not a message at all. */
+.appza-new-message-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: var(--appza-backdrop-color, rgba(13, 17, 26, 0.28));
+}
+.appza-new-message {
+  width: 100%;
+  min-height: var(--appza-modal-min-height, 69%);
+  display: flex;
+  flex-direction: column;
+  background: var(--appza-modal-bg-color, #ffffff);
+  border-radius: var(--appza-modal-radius, 4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+.appza-new-message-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--appza-divider-color, #e5e7eb);
+}
+.appza-new-message-title {
+  color: var(--appza-title-color, #0e121b);
+  font-size: var(--appza-title-size, 20px);
+  font-weight: 600;
+}
+.appza-new-message-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--appza-title-color, #0e121b);
+  font-size: 22px;
+  cursor: pointer;
+}
+.appza-new-message-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+.appza-new-message-to {
+  display: flex;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: var(--appza-recipient-track-color, #e9e9ec);
+}
+.appza-new-message-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 3px;
+  border-radius: 4px;
+  background: var(--appza-recipient-bg-color, #ffffff);
+  color: var(--appza-recipient-color, #0e121b);
+  font-size: 15px;
+}
+.appza-new-message-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #d1d5db;
+  font-size: 9px;
+  font-weight: 600;
+}
+.appza-new-message-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.appza-new-message-field {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--appza-field-height, 130px);
+  padding: 8px;
+  resize: none;
+  border: 1px solid var(--appza-field-border-color, #b9b9b9);
+  border-radius: 3px;
+  background: var(--appza-field-bg-color, #e8e8e8);
+  color: var(--appza-field-text-color, #0e121b);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+  outline: none;
+}
+.appza-new-message-field::placeholder {
+  color: #8a8a8a;
+  font-size: 12px;
+}
+.appza-new-message-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 40px;
+  padding: 0 24px 24px;
+}
+.appza-new-message-cancel,
+.appza-new-message-send {
+  padding: 7px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--appza-button-radius, 4px);
+  background: transparent;
+  color: var(--appza-accent-color, #0054ea);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.appza-new-message-send {
+  border-color: var(--appza-accent-color, #0054ea);
+}
+.appza-new-message-send:disabled {
+  cursor: default;
+}
+.appza-new-message-send.is-ready {
+  background: var(--appza-accent-color, #0054ea);
+  color: var(--appza-send-text-color, #ffffff);
 }

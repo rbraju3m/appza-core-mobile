@@ -8,6 +8,7 @@ import type { SchedulePresentation } from './ScheduleSheet';
 import type { MediaViewerPresentation } from './MediaViewer';
 import type { ChatMembersPresentation } from './ChatMembersSheet';
 import type { FollowSheetPresentation } from './FollowSheet';
+import type { NewMessagePresentation } from './NewMessageModal';
 import type { ChatUserCardPresentation } from './ChatUserCard';
 import type { LeaderboardPointsPresentation } from './LeaderboardPointsSheet';
 import type { OptionsSheetPresentation } from './OptionsSheet';
@@ -358,6 +359,41 @@ export function followSheetPresentation(
   };
 }
 
+/**
+ * fc-new-message-modal — the profile's Message button (designs 51, 52).
+ * Every word and colour is the AppZet's; the fallbacks are the designs'.
+ */
+export function newMessagePresentation(props: Record<string, unknown>): NewMessagePresentation {
+  return {
+    title: str(props.title) ?? 'New Message',
+    placeholder: str(props.placeholder) ?? 'Write your message....',
+    cancelLabel: str(props.cancel_label) ?? 'CANCEL',
+    sendLabel: str(props.send_label) ?? 'SEND MESSAGE',
+    closeIcon: str(props.close_icon) ?? 'close',
+    hidden: bool(props.hidden, false),
+    showClose: bool(props.show_close, true),
+    showRecipient: bool(props.show_recipient, true),
+    modalBgColor: str(props.modal_bg_color),
+    modalRadius: size(props.modal_radius),
+    // A percentage of the screen, never a vh (P91).
+    modalMinHeight: str(props.modal_min_height),
+    backdropColor: str(props.backdrop_color),
+    titleColor: str(props.title_color),
+    titleSize: size(props.title_size),
+    dividerColor: str(props.divider_color),
+    recipientTrackColor: str(props.recipient_track_color),
+    recipientBgColor: str(props.recipient_bg_color),
+    recipientColor: str(props.recipient_color),
+    fieldBgColor: str(props.field_bg_color),
+    fieldBorderColor: str(props.field_border_color),
+    fieldTextColor: str(props.field_text_color),
+    fieldHeight: size(props.field_height),
+    accentColor: str(props.accent_color),
+    sendTextColor: str(props.send_text_color),
+    buttonRadius: size(props.button_radius),
+  };
+}
+
 export function chatMembersPresentation(
   props: Record<string, unknown>,
 ): ChatMembersPresentation {
@@ -537,6 +573,8 @@ export function optionsSheetPresentation(
     dividerColor: str(props.divider_color),
     sectionTitleColor: str(props.section_title_color),
     sectionTitleSize: size(props.section_title_size),
+    eyebrowColor: str(props.eyebrow_color),
+    eyebrowSize: size(props.eyebrow_size),
   };
 }
 
