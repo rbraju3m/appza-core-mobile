@@ -11367,30 +11367,97 @@ audio.appza-video-embed-native {
   color: #0f172a;
 }
 
-/* ── fc-basic-profile — the profile header ──────────────────────────
-   It had no stylesheet at all, which is half of why the screen read
-   "Image / Text / Text / BUTTON ×4": the other half was no data source
-   and no field mappings, so the primitives drew their own names.
+/* ── fc-profile-level-bar — the profile's level row ─────────────
+   The SAME Superstructure the leaderboard's own card uses, so every
+   rule above keyed on `fc-leaderboard-profile` reaches it too. What
+   differs is the SHAPE: the leaderboard stacks avatar and name over a
+   full-width split pill with the level-up sentence beneath, and designs
+   1 and 41 draw one row — trophy and points, the level pill, then the
+   level-up sentence with its ⓘ pushed to the right.
 
-   FluentCommunity's portal is the reference — Noor has no profile
-   design — and its header is a cover band with the avatar straddling
-   the bottom edge, then the display name and a muted byline. */
+   Scoped on the APPZET slug, which is the only thing that tells the two
+   apart in the DOM; the inner Superstructure carries the same slug in
+   both. The leaderboard card is untouched by everything here. */
+.appza-renderer-appzet[data-slug="fc-profile-level-bar"] .appza-renderer-ss[data-slug="fc-leaderboard-profile"],
+.appza-renderer-appzet-list[data-slug="fc-profile-level-bar"] .appza-renderer-ss[data-slug="fc-leaderboard-profile"] {
+  grid-template-columns: auto auto 1fr;
+  grid-template-rows: auto;
+  column-gap: 12px;
+  align-items: center;
+  border-top: 1px solid #eef0f4;
+  border-bottom: 1px solid #eef0f4;
+}
+/* The leaderboard's split pill is drawn by two pseudo-elements pinned to
+   `grid-area: 3 / 1 / 4 / 3` — a row this layout does not have. Both are
+   switched off; here the "Level 3" cell carries its own pill instead. */
+.appza-renderer-appzet[data-slug="fc-profile-level-bar"] .appza-renderer-ss[data-slug="fc-leaderboard-profile"]::before,
+.appza-renderer-appzet[data-slug="fc-profile-level-bar"] .appza-renderer-ss[data-slug="fc-leaderboard-profile"]::after,
+.appza-renderer-appzet-list[data-slug="fc-profile-level-bar"] .appza-renderer-ss[data-slug="fc-leaderboard-profile"]::before,
+.appza-renderer-appzet-list[data-slug="fc-profile-level-bar"] .appza-renderer-ss[data-slug="fc-leaderboard-profile"]::after {
+  content: none;
+}
+.appza-renderer-appzet[data-slug="fc-profile-level-bar"] .appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[4]"],
+.appza-renderer-appzet-list[data-slug="fc-profile-level-bar"] .appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[4]"] {
+  grid-area: 1 / 1 / 2 / 2;
+  justify-self: start;
+  margin: 0;
+}
+.appza-renderer-appzet[data-slug="fc-profile-level-bar"] .appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[5]"],
+.appza-renderer-appzet-list[data-slug="fc-profile-level-bar"] .appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[5]"] {
+  grid-area: 1 / 2 / 2 / 3;
+  justify-self: start;
+  margin: 0;
+  padding: 4px 14px;
+  border-radius: 14px;
+  background: var(--appza-stat-bg-color, #eef2ff);
+  color: var(--appza-stat-text-color, #2563eb);
+  font-weight: 600;
+}
+/* The sentence and its ⓘ are ONE child, so they travel together — which
+   is why `show_level_up` hides both at once. Pushed to the right edge,
+   as both designs draw it. */
+.appza-renderer-appzet[data-slug="fc-profile-level-bar"] .appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[6]"],
+.appza-renderer-appzet-list[data-slug="fc-profile-level-bar"] .appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[6]"] {
+  grid-area: 1 / 3 / 2 / 4;
+  justify-self: end;
+  margin: 0;
+}
+
+/* ── fc-basic-profile — the profile header ──────────────────────────
+   Rebuilt 2026-09-16 against Noor's designs 1 and 41, which replaced
+   the portal as the reference for this screen. The portal's version —
+   cover band, avatar on the edge, name, one muted byline — is still
+   what the geometry is built on; what the designs add is a third count,
+   a level pairing, a verified tick, badge chips and a stacked count
+   cell.
+
+   THE COLUMN TEMPLATE IS THREE EQUAL THIRDS, and every row lives with
+   that. It is chosen for the counts, which are the row that most needs
+   it: designs 1 and 41 spread Following / Followers / Blocked evenly
+   across the full width, and a grid column is the only way three
+   separate children share a row without stacking. That stacking is not
+   hypothetical — until 2026-09-01 all three counts sat in ONE area and
+   overlapped, and nobody saw it because two of them were switched off.
+
+   The avatar is ABSOLUTELY POSITIONED rather than holding a column.
+   Its size and its overhang are both fixed (76px, -38px), so it needs
+   no track, and taking it out of flow lets the name, the subtitle and
+   the handle each span the full width and clear it with padding —
+   which is what lets a long display name run past the avatar's right
+   edge instead of being trapped in a third. */
 .appza-renderer-ss[data-slug="fc-basic-profile"] {
+  position: relative;
   display: grid;
-  /* Five columns, not four, since 2026-09-01. The counts row used to be
-     one area holding all three count buttons, which STACKED them — three
-     items in one cell overlap, and nobody saw it because the buttons were
-     off. Each count now owns a column, and they sit under the NAME rather
-     than under the avatar so that a four-digit follower count widens a
-     column the name does not depend on: the name spans cols 3-4 and the
-     1fr in col 4 absorbs the difference. */
-  grid-template-columns: 16px auto auto 1fr 16px;
+  grid-template-columns: 16px 1fr 1fr 1fr 16px;
   grid-template-areas:
-    "cover cover  cover  cover  cover"
-    ".     avatar name   name   ."
-    ".     avatar byline byline ."
-    ".     .      count1 count2 .";
-  grid-template-rows: 128px auto auto auto;
+    "cover  cover   cover   cover   cover"
+    ".      name    name    verify  ."
+    ".      subttl  subttl  subttl  ."
+    ".      handle  handle  handle  ."
+    ".      c1num   c2num   c3num   ."
+    ".      c1lbl   c2lbl   c3lbl   ."
+    ".      badge1  badge2  badge3  .";
+  grid-template-rows: 128px auto auto auto auto auto auto;
   background: #ffffff;
   padding-bottom: 14px;
   margin-bottom: 8px;
@@ -11426,21 +11493,36 @@ audio.appza-video-embed-native {
   display: block;
 }
 /* The avatar straddles the cover's bottom edge, which is why it needs a
-   negative top margin and a ring: it sits on TWO backgrounds. */
+   ring: it sits on TWO backgrounds. Out of flow since 2026-09-16 — see
+   the note on the grid above. 128px is the cover's height, so -38 puts
+   exactly half of the 76px circle over the photo. */
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="1"] {
-  grid-area: avatar;
+  position: absolute;
+  left: 16px;
+  top: 90px;
   width: 76px;
   height: 76px;
-  margin: -38px 12px 0 0;
+  margin: 0;
   border-radius: 50%;
   border: 3px solid #ffffff;
   overflow: hidden;
   background: #e5e7eb;
+  z-index: 2;
 }
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="1"] ion-avatar,
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="1"] img {
   width: 100%;
   height: 100%;
+}
+/* The three text rows all clear the avatar with the same padding rather
+   than sitting in a column beside it, so a long name runs past its edge
+   instead of wrapping inside a third. */
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="2"],
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="3"],
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="12"] {
+  padding-left: 92px;
+  justify-self: start;
+  text-align: left;
 }
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="2"] {
   grid-area: name;
@@ -11448,51 +11530,170 @@ audio.appza-video-embed-native {
   font-size: 1.15rem;
   font-weight: 700;
   color: #0f172a;
+  line-height: 1.25;
 }
+/* The blue subtitle — the member's LEVEL title, paired with the blue
+   circle on the avatar. Designs 1 and 41 settle that reading: each
+   draws a subtitle that is exactly the title of the level its avatar
+   badge numbers. */
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="3"] {
-  grid-area: byline;
+  grid-area: subttl;
   align-self: start;
-  font-size: 0.82rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #2563eb;
+  line-height: 1.35;
+}
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="12"] {
+  grid-area: handle;
+  align-self: start;
+  font-size: 0.85rem;
   color: #6b7280;
+  line-height: 1.35;
+  padding-bottom: 10px;
 }
-/* Followers and followings are ON since 2026-09-01; the third (blocked)
-   stays off because FluentCommunity has no such count to bind. Each is a
-   phrase the proxy composed — "0 Followers" — not a bare number.
-
-   They read as text rather than as links on purpose: neither list has a
-   screen yet, so nothing should look tappable. The day those screens
-   exist this is where the affordance comes back. */
-.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="4"] {
-  grid-area: count1;
-}
-.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="5"] {
-  grid-area: count2;
+/* The verified tick (design 41). It sits in the LAST THIRD rather than
+   hard against the name, and that is a stated compromise: two grid
+   items cannot share one shrink-to-fit box, so a tick that hugs a name
+   of unknown length has nowhere to be. The alternatives were worse —
+   overlapping the name's last character, or floating out at the header's
+   right edge. No member on this box is verified, so it has never been
+   on screen; revisit it with real data. */
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="11"] {
+  grid-area: verify;
+  align-self: end;
   justify-self: start;
+  font-size: 1rem;
+  color: #2563eb;
+  padding-bottom: 2px;
 }
-.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="6"] {
-  display: none;
-}
-.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="4"],
-.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="5"] {
-  display: inline-flex;
-  align-items: center;
-  margin-top: 6px;
-}
-.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="4"] ion-button,
-.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="5"] ion-button {
-  margin: 0;
+/* The level circle on the avatar's lower-right (designs 1 and 41).
+   Positioned against the header, like the avatar, because that is what
+   makes it land on the circle's edge rather than in a track of its own.
+   The avatar spans y 90..166 and x 16..92, so the 45-degree point of
+   its rim is about (81, 155); the 22px circle is centred there. */
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="10"] {
+  position: absolute;
+  left: 68px;
+  top: 142px;
+  z-index: 3;
+  min-width: 22px;
   height: 22px;
-  font-size: 0.82rem;
-  font-weight: 600;
+  padding: 0 5px;
+  border-radius: 11px;
+  border: 2px solid #ffffff;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  box-sizing: border-box;
+}
+/* ── the three counts ───────────────────────────────────────────────
+   Each is a PAIR — the number, then its word underneath — because the
+   designs give the two lines different size, weight and colour, and one
+   text child binds one string. Both halves name the same action, so the
+   whole cell is the tap target.
+
+   Following sits at the left margin, Blocked at the right, Followers
+   centred between them, which is how designs 1 and 41 space them. */
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="4"] { grid-area: c1num; }
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="5"] { grid-area: c2num; }
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="6"] { grid-area: c3num; }
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="7"] { grid-area: c1lbl; }
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="8"] { grid-area: c2lbl; }
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="9"] { grid-area: c3lbl; }
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="4"],
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="5"],
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="6"],
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="7"],
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="8"],
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="9"] {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
+}
+/* The number's WRAPPER has to be sized as well as the button inside it.
+   Ionic gives ion-button a min-height of its own, and with only the
+   button constrained the pair sat 60px apart where the design has them
+   touching. */
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="4"],
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="5"],
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="6"] {
+  height: 24px;
+  align-items: flex-end;
+  padding-top: 4px;
+}
+/* All three are CENTRED IN THEIR THIRD, not pushed to the card's edges.
+   Measured off design 1: Following occupies about 14-29% of the card's
+   width, Followers 44-60%, Blocked 76-89% — three centred cells, not a
+   justified row. Edge-to-edge was the first attempt and put Following
+   hard against the left margin and Blocked against the right. */
+/* The numbers. They are ion-buttons, so the typography has to go through
+   Ionic's custom properties — a plain `font-size` on the host does not
+   reach the shadow label. */
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="4"] ion-button,
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="5"] ion-button,
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="6"] ion-button {
+  margin: 0;
+  height: 20px;
+  font-size: 1rem;
+  font-weight: 700;
   text-transform: none;
   letter-spacing: 0;
   --background: transparent;
   --background-hover: transparent;
   --background-activated: transparent;
   --box-shadow: none;
-  --color: #374151;
+  --color: #0f172a;
   --padding-start: 0;
-  --padding-end: 14px;
+  --padding-end: 0;
+  --ripple-color: transparent;
+  min-height: 0;
+  line-height: 1;
+}
+/* The words. One rule for all three, which is why there is no per-count
+   size or colour property in the panel: `binds_to` resolves to a single
+   child path, so one such switch would recolour a third of the row and
+   leave the rest behind. */
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="7"],
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="8"],
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="9"] {
+  font-size: 0.8rem;
+  color: #6b7280;
+  line-height: 1.2;
+  padding-bottom: 2px;
+}
+/* ── the badge chips ────────────────────────────────────────────────
+   Up to three, each gated on its own slot existing, each carrying its
+   own two colours from FluentCommunity Pro's definition — which is why
+   they are three children and not one variadic strip.
+
+   They take a third each, so two short badges sit further apart than
+   designs 1 and 41 draw them. That is the cost of the shared column
+   template, and it is deliberately left: no badges are DEFINED on this
+   box, so the row has never been on screen and tuning it now would be
+   tuning against nothing. Chunk 10 defines the doc's two badges and
+   this gets measured then. */
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="13"] { grid-area: badge1; }
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="14"] { grid-area: badge2; }
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="15"] { grid-area: badge3; }
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="13"],
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="14"],
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="15"] {
+  justify-self: start;
+  padding-bottom: 4px;
+}
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="13"] ion-chip,
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="14"] ion-chip,
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="15"] ion-chip {
+  margin: 0;
+  height: 26px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border-radius: 6px;
 }
 
 /* ── fc-profile-comment-card — one row of the COMMENTS tab ──────────
