@@ -11853,6 +11853,148 @@ audio.appza-video-embed-native {
   --padding-end: 0;
 }
 
+/* ── designs 1 and 41 (2026-09-16) ──────────────────────────────────
+   The card became a white CARD with a heading, and the one stats line
+   became iconed rows. The new children were APPENDED, so the order is
+   set here rather than by markup: heading, headline, bio, then a rule,
+   then Joined, Last seen and the website link. */
+.appza-renderer-ss[data-slug="fc-profile-about"] {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+  border-radius: 10px;
+}
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="4"] { order: 0; }
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="0"] { order: 1; }
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="1"] { order: 2; }
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="2"] { order: 3; }
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="5"] { order: 4; }
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="6"] { order: 5; }
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="3"] { order: 6; }
+
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="4"] {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+/* The rule between the bio and the facts, which design 1 draws. It sits
+   on the Joined row because that row is the one every profile has. */
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="5"] {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #eef0f4;
+}
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="3"] {
+  margin-top: 0;
+}
+/* LEFT-aligned, as design 1 draws them. The card is a flex column, which
+   stretches every child to full width by default — and an ion-button that
+   is full width centres its label, so all three rows drew centred and the
+   rule above Joined shrank to the width of its text. */
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="3"],
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="5"],
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="6"] {
+  align-self: stretch;
+  display: flex;
+  justify-content: flex-start;
+}
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="3"] ion-button,
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="5"] ion-button,
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="6"] ion-button {
+  width: auto;
+}
+/* The three fact rows share one look: a glyph, then the sentence. They
+   are ion-buttons only so they can carry an icon; nothing about them is
+   a button, so the hover and press fills are switched off. */
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="5"] ion-button,
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="6"] ion-button {
+  margin: 0;
+  height: 30px;
+  font-size: 0.875rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  --background: transparent;
+  --background-hover: transparent;
+  --background-activated: transparent;
+  --background-focused: transparent;
+  --ripple-color: transparent;
+  --color: #374151;
+  --box-shadow: none;
+  --padding-start: 0;
+  --padding-end: 0;
+}
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="5"] ion-icon,
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="6"] ion-icon,
+.appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="3"] ion-icon {
+  font-size: 16px;
+  margin-right: 8px;
+  color: #2563eb;
+}
+
+/* ── fc-profile-details-view — Additional information, Social Link ──
+   Read-only cards of rows (designs 1 and 41). One component draws both;
+   a custom-field row is a grey label over a value, a social row is a
+   glyph beside a handle, and either may be a link. */
+.appza-renderer-ss[data-slug="fc-profile-details-view"] {
+  display: block;
+}
+.appza-renderer-ss[data-slug="fc-profile-details-view"]:not(:has(> *)) {
+  display: none;
+}
+.appza-detail-card {
+  margin-top: 8px;
+  padding: 14px 16px 6px;
+  background: #ffffff;
+  border-radius: 10px;
+}
+.appza-detail-card-heading {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+.appza-detail-card-row {
+  padding: 10px 0;
+  border-top: 1px solid #eef0f4;
+  font-size: 0.9rem;
+  color: #0f172a;
+}
+.appza-detail-card-row:first-of-type {
+  border-top: 0;
+}
+/* A labelled row stacks: the label, grey, over its value. */
+.appza-detail-card-row.has-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.appza-detail-card-label {
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+/* A glyph row sits inline and borderless, the way design 1's Social
+   Link card lists handles. */
+.appza-detail-card-row.has-icon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top: 0;
+  padding: 6px 0;
+}
+.appza-detail-card-icon {
+  font-size: 18px;
+  color: #0f172a;
+  flex: none;
+}
+.appza-detail-card-link {
+  color: #2563eb;
+  text-decoration: none;
+  word-break: break-all;
+}
+
 /* ── fc-basic-profile-information — the profile edit form ───────────
    Five label + field pairs on the screen Edit Profile opens. It had no
    stylesheet, so the ion-labels sat INLINE beside their fields and the

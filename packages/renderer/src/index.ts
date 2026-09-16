@@ -357,6 +357,7 @@ export {
   type ProfileField,
   type ProfileFieldGroup,
 } from './AppzaProfileFields';
+export { AppzaDetailCards } from './AppzaDetailCards';
 export {
   getBookmarkControls,
   setBookmarkControls,

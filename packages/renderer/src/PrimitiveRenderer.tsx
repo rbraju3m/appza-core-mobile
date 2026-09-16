@@ -121,6 +121,18 @@ import {
   // had one — the mixed menu the icons rule exists to prevent.
   logOut,
   logOutOutline,
+  // Provider logos for the profile's read-only Social Link card
+  // (2026-09-16). Names rather than FluentCommunity's raw SVG, which could
+  // only be drawn by injecting HTML.
+  logoInstagram,
+  logoTwitter,
+  logoYoutube,
+  logoLinkedin,
+  logoFacebook,
+  logoTiktok,
+  logoPinterest,
+  logoReddit,
+  logoSnapchat,
   location,
   locationOutline,
   barChart,
@@ -197,6 +209,7 @@ import { AppzaFilePicker } from './AppzaFilePicker';
 import { AppzaFileList } from './AppzaFileList';
 import { AppzaSocialLinks } from './AppzaSocialLinks';
 import { AppzaProfileFields } from './AppzaProfileFields';
+import { AppzaDetailCards } from './AppzaDetailCards';
 import { AppzaCommentList } from './CommentList';
 import { AppzaCommentThread } from './CommentThread';
 import { AppzaCommentComposer } from './CommentComposer';
@@ -341,6 +354,15 @@ const ICON_REGISTRY: Record<string, string> = {
   'layers-outline': layersOutline,
   'log-out': logOut,
   'log-out-outline': logOutOutline,
+  'logo-instagram': logoInstagram,
+  'logo-twitter': logoTwitter,
+  'logo-youtube': logoYoutube,
+  'logo-linkedin': logoLinkedin,
+  'logo-facebook': logoFacebook,
+  'logo-tiktok': logoTiktok,
+  'logo-pinterest': logoPinterest,
+  'logo-reddit': logoReddit,
+  'logo-snapchat': logoSnapchat,
   'bar-chart': barChart,
   'bar-chart-outline': barChartOutline,
   notifications,
@@ -934,6 +956,8 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
       return <AppzaSocialLinks overrides={overrides} />;
     case 'AppzaProfileFields':
       return <AppzaProfileFields overrides={overrides} />;
+    case 'AppzaDetailCards':
+      return <AppzaDetailCards overrides={overrides} />;
 
     case 'AppzaAvatarStack':
       return <AppzaAvatarStack overrides={overrides} />;
