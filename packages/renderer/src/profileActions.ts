@@ -1,5 +1,6 @@
 import { readDataPath, APPZA_REFRESH_EVENT } from './dataFetch';
 import { collectSocialLinks } from './AppzaSocialLinks';
+import { collectProfileFields } from './AppzaProfileFields';
 import { sendJson, type StoredAuthLike } from './postMenuHandlers';
 import { getProfileControls } from './profileControls';
 import type { ActionInvocation } from './actionContext';
@@ -227,6 +228,20 @@ export function tryHandleProfileSave(
   if (argRec.collect_social_links === true) {
     const social = collectSocialLinks();
     if (Object.keys(social).length > 0) body.social_links = social;
+  }
+
+  // The Additional Information section, for the same reason and one step
+  // further: how many cards, how many fields and what TYPE each is are
+  // all a site setting, so none of it can be children either.
+  //
+  // The typed shape matters. Pro's sanitizeFieldValue returns an empty
+  // array for a multiselect that is not an ARRAY, an empty string for a
+  // number that is not numeric, and an empty string for a date that is
+  // not exactly Y-m-d — so sending the DOM's strings for all of them
+  // would quietly blank half the section on every save.
+  if (argRec.collect_profile_fields === true) {
+    const fields = collectProfileFields();
+    if (Object.keys(fields).length > 0) body.custom_fields = fields;
   }
 
   // No client-side required check on first_name. FluentCommunity

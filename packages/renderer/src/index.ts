@@ -350,6 +350,14 @@ export {
   type SocialLinkField,
 } from './AppzaSocialLinks';
 export {
+  AppzaProfileFields,
+  collectProfileFields,
+  PROFILE_FIELD_ATTR,
+  PROFILE_FIELD_TYPE_ATTR,
+  type ProfileField,
+  type ProfileFieldGroup,
+} from './AppzaProfileFields';
+export {
   getBookmarkControls,
   setBookmarkControls,
   resetBookmarkControls,

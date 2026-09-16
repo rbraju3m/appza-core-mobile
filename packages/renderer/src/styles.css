@@ -12828,6 +12828,94 @@ audio.appza-video-embed-native {
   --color: #4c5fdf;
 }
 
+/* ── Additional Information (design 40) ─────────────────────
+   A CARD PER GROUP, drawn by one bespoke child — so the card chrome is
+   on the group div here rather than on the Superstructure root, which is
+   what the other sections use. The root gets no padding of its own or
+   every card would sit inside a second one. */
+.appza-renderer-ss[data-slug="fc-profile-fields"] {
+  display: block;
+}
+.appza-renderer-ss[data-slug="fc-profile-fields"]:not(:has(> *)) {
+  display: none;
+}
+.appza-profile-fields-group {
+  margin-top: 12px;
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 10px;
+}
+.appza-profile-fields-heading {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+.appza-profile-fields-description {
+  margin-top: 4px;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+.appza-profile-fields-row {
+  margin-top: 14px;
+}
+.appza-profile-fields-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+}
+.appza-profile-fields-required {
+  color: #d92d20;
+}
+/* One rule for every control, so a text field and a dropdown are the
+   same object on the page — which is how design 40 draws them. */
+.appza-profile-fields-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 11px 12px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+}
+.appza-profile-fields-input::placeholder {
+  color: #c2c6ce;
+}
+textarea.appza-profile-fields-input {
+  min-height: 96px;
+  resize: vertical;
+}
+/* A multiple select has to be tall enough to be worth dragging; a single
+   one keeps the native chevron and one row. */
+select.appza-profile-fields-input[multiple] {
+  min-height: 120px;
+  padding: 6px;
+}
+.appza-profile-fields-radios {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 2px;
+}
+.appza-profile-fields-radio {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+.appza-profile-fields-radio input {
+  width: 18px;
+  height: 18px;
+  accent-color: #4c5fdf;
+  margin: 0;
+}
+
 /* ── the edit form's Social Links card (design 40) ──────────────
    Bespoke markup, so plain class names. Each row is a label over a
    split control: a grey box carrying the provider's domain, then the

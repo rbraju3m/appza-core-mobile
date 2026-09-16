@@ -196,6 +196,7 @@ import type { PrimitiveRow } from './catalogIndex';
 import { AppzaFilePicker } from './AppzaFilePicker';
 import { AppzaFileList } from './AppzaFileList';
 import { AppzaSocialLinks } from './AppzaSocialLinks';
+import { AppzaProfileFields } from './AppzaProfileFields';
 import { AppzaCommentList } from './CommentList';
 import { AppzaCommentThread } from './CommentThread';
 import { AppzaCommentComposer } from './CommentComposer';
@@ -931,6 +932,8 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
       return <AppzaFileList overrides={overrides} />;
     case 'AppzaSocialLinks':
       return <AppzaSocialLinks overrides={overrides} />;
+    case 'AppzaProfileFields':
+      return <AppzaProfileFields overrides={overrides} />;
 
     case 'AppzaAvatarStack':
       return <AppzaAvatarStack overrides={overrides} />;
