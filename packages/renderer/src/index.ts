@@ -93,6 +93,15 @@ export {
   type ChatMember,
 } from './ChatMembersSheet';
 export {
+  FollowSheet,
+  openFollowSheet,
+  closeFollowSheet,
+  FOLLOW_SHEET_APPZET_SLUG,
+  FOLLOW_SHEET_CHILD_COUNT,
+  type FollowSheetPresentation,
+  type FollowView,
+} from './FollowSheet';
+export {
   LeaderboardPointsSheet,
   openLeaderboardPointsSheet,
   closeLeaderboardPointsSheet,
@@ -406,6 +415,7 @@ export {
   schedulePresentation,
   mediaViewerPresentation,
   chatMembersPresentation,
+  followSheetPresentation,
   chatUserCardPresentation,
   leaderboardPointsPresentation,
   optionsSheetPresentation,

@@ -7,6 +7,7 @@ import type { InviteChipPalette, InviteRoleOption } from './InviteUserModal';
 import type { SchedulePresentation } from './ScheduleSheet';
 import type { MediaViewerPresentation } from './MediaViewer';
 import type { ChatMembersPresentation } from './ChatMembersSheet';
+import type { FollowSheetPresentation } from './FollowSheet';
 import type { ChatUserCardPresentation } from './ChatUserCard';
 import type { LeaderboardPointsPresentation } from './LeaderboardPointsSheet';
 import type { OptionsSheetPresentation } from './OptionsSheet';
@@ -316,6 +317,47 @@ export function invitePresentation(props: Record<string, unknown>) {
  * a single list: `[{ value, label, bg_color, text_color }]`. Splitting
  * label from colour into two props would let them fall out of step.
  */
+/**
+ * The follow sheet's frame (doc states 36-39). Same shape as every other
+ * presentation helper here: the AppZet's authored props in, a typed bag
+ * out, so both shells read one set of defaults rather than two.
+ */
+export function followSheetPresentation(
+  props: Record<string, unknown>,
+): FollowSheetPresentation {
+  return {
+    followingsLabel: str(props.followings_label) ?? 'Following',
+    followersLabel: str(props.followers_label) ?? 'Followers',
+    blockedLabel: str(props.blocked_label) ?? 'Blocked',
+    unblockLabel: str(props.unblock_label) ?? 'Unblock',
+    // One sentence per tab. An empty Blocked list is good news and should
+    // not read like the other two.
+    emptyFollowings: str(props.empty_followings) ?? 'Not following anyone yet.',
+    emptyFollowers: str(props.empty_followers) ?? 'No followers yet.',
+    emptyBlocked: str(props.empty_blocked) ?? 'No blocked members.',
+    usernamePrefix: str(props.username_prefix) ?? '@',
+    showBlockedTab: bool(props.show_blocked_tab, true),
+    hidden: bool(props.hidden, false),
+    sheetBgColor: str(props.sheet_bg_color),
+    sheetRadius: size(props.sheet_radius),
+    tabTrackColor: str(props.tab_track_color),
+    tabActiveBgColor: str(props.tab_active_bg_color),
+    tabActiveColor: str(props.tab_active_color),
+    tabColor: str(props.tab_color),
+    tabSize: size(props.tab_size),
+    nameColor: str(props.name_color),
+    nameSize: size(props.name_size),
+    handleColor: str(props.handle_color),
+    handleSize: size(props.handle_size),
+    avatarSize: size(props.avatar_size),
+    emptyColor: str(props.empty_color),
+    emptySize: size(props.empty_size),
+    unblockColor: str(props.unblock_color),
+    unblockBorderColor: str(props.unblock_border_color),
+    unblockRadius: size(props.unblock_radius),
+  };
+}
+
 export function chatMembersPresentation(
   props: Record<string, unknown>,
 ): ChatMembersPresentation {

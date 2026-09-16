@@ -56,6 +56,13 @@ import {
   discardChatAttachment,
   readActionDefaultsFromCatalog,
   ChatMembersSheet,
+  FollowSheet,
+  openFollowSheet,
+  closeFollowSheet,
+  followSheetPresentation,
+  FOLLOW_SHEET_APPZET_SLUG,
+  FOLLOW_SHEET_CHILD_COUNT,
+  type FollowView,
   openChatMembersSheet,
   LeaderboardPointsSheet,
   openLeaderboardPointsSheet,
@@ -1643,6 +1650,7 @@ export function App() {
       <ScheduleSheet />
       <MediaViewer />
       <ChatMembersSheet />
+      <FollowSheet />
       <ChatUserCard />
       <LeaderboardPointsSheet />
       <PollVotersSheet />
@@ -5291,27 +5299,80 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'profile.open_follows': {
-      // Both header counts open ONE screen and differ only in which strip
-      // item is active, so the view is written BEFORE the push — a bare
-      // nav.push would always land on Following whichever number was
-      // tapped. The push itself is delegated rather than restated: it
-      // carries route params, screen context and the composer resets, and
-      // a second copy of that would drift.
-      const view = typeof argRec.view === 'string' && argRec.view ? argRec.view : 'followings';
+      // The three header counts open ONE SHEET (doc states 36-39) and
+      // differ only in which tab it lands on — so the count that was
+      // tapped decides the view, and a sheet that always opened on
+      // Following would make two of the three counts lie.
+      //
+      // It used to push the `profile-follows` SCREEN, which D79 built and
+      // Noor replaced with this on 2026-09-16. The third tab is what the
+      // screen could never hold: blocked users had no home, which is why
+      // the header's Blocked count had nowhere to go.
+      //
+      // The sheet reads its rows itself through useDataSource, so only
+      // the SLUGS travel here — no endpoint is written down in either
+      // shell.
+      const view =
+        argRec.view === 'followers' || argRec.view === 'blocked'
+          ? (argRec.view as FollowView)
+          : 'followings';
+      const sheetSlug =
+        typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
+          ? argRec.sheet_appzet_slug
+          : FOLLOW_SHEET_APPZET_SLUG;
+      const dsFor = (key: string, fallback: string): string =>
+        typeof argRec[key] === 'string' && argRec[key] ? (argRec[key] as string) : fallback;
+
       setProfileControls({ follow_view: view, follow_search: '' });
-      handleAppModeAction(
-        {
-          ...inv,
-          action_slug: 'nav.push',
-          args: {
-            target_screen_slug:
-              typeof argRec.target_screen_slug === 'string' && argRec.target_screen_slug
-                ? argRec.target_screen_slug
-                : 'profile-follows',
-          },
+      openFollowSheet({
+        appzetSlug: sheetSlug,
+        presentation: followSheetPresentation(readAppzetPropsFromCatalog(sheetSlug)),
+        childStyles: childStylesFromCustomizations(
+          sheetSlug,
+          FOLLOW_SHEET_CHILD_COUNT,
+          currentCustomizations,
+        ),
+        memberId: getProfileControls().member_id ?? null,
+        view,
+        dataSources: {
+          followings: dsFor('followings_data_source', 'fc-member-followings'),
+          followers: dsFor('followers_data_source', 'fc-member-followers'),
+          blocked: dsFor('blocked_data_source', 'fc-blocked-users'),
         },
-        deps,
-      );
+        // Tapping a row leaves the sheet for that member's profile. The
+        // push is delegated rather than restated: it carries route params
+        // and screen context, and a second copy of that would drift.
+        onOpenProfile: (row) => {
+          closeFollowSheet();
+          handleAppModeAction(
+            {
+              ...inv,
+              action_slug: 'nav.push',
+              args: { target_screen_slug: 'profile-page-details', pass_item_as_context: true },
+              item: row,
+            },
+            deps,
+          );
+        },
+        onUnblock: (row) => {
+          handleAppModeAction(
+            {
+              ...inv,
+              action_slug: 'profile.unblock',
+              args: {
+                endpoint: '/wp-json/fcom-mobile/api/v1/members/unblock',
+                method: 'POST',
+                body_key: 'member_id',
+                member_id_path: 'data.user_id',
+                toast_message: 'Unblocked',
+                refetch_data_source: 'fc-blocked-users',
+              },
+              item: row,
+            },
+            deps,
+          );
+        },
+      });
       return;
     }
 
