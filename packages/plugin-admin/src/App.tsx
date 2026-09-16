@@ -111,6 +111,7 @@ import {
   resetBookmarkControls,
   resetMemberDirectoryControls,
   tryHandleMemberDirectoryAction,
+  tryHandleProfilePhotoAction,
   setSearchControls,
   recordRecentSearch,
   removeRecentSearch,
@@ -468,7 +469,18 @@ export function App() {
   // fresh value — a state setter would race the file-input onChange.
   // Enforces "no hardcoded endpoints" — reset to null on logout so a
   // stale endpoint from a previous session never gets reused.
-  const uploadEndpointRef = useRef<{ method: string; endpoint: string } | null>(null);
+  // `sink` added 2026-09-16 for the profile's two pictures: they do not
+  // go on the post draft, they are written straight to the member. The
+  // mobile shell's picker has taken a sink since the comment composer;
+  // this is the simulator catching up so one action behaves the same on
+  // both surfaces (P86).
+  const uploadEndpointRef = useRef<{
+    method: string;
+    endpoint: string;
+    accept?: string;
+    sink?: (urls: string[]) => void;
+    onFail?: () => void;
+  } | null>(null);
   const oembedEndpointRef = useRef<{ method: string; endpoint: string } | null>(null);
   // Session-scoped tracker of which (feed_id, react_type) pairs the current
   // viewer has toggled on. The feed API doesn't surface a per-viewer
@@ -1028,7 +1040,14 @@ export function App() {
     });
   }, [effectiveCustomizations, editedAppzetSlug]);
 
-  const openImagePicker = useCallback((target: { endpoint: string; method: string }) => {
+  const openImagePicker = useCallback((target: {
+    endpoint: string;
+    method: string;
+    accept?: string;
+    onStart?: () => void;
+    sink?: (urls: string[]) => void;
+    onFail?: () => void;
+  }) => {
     console.log('[appza/picker.image] openImagePicker called', {
       hasInputRef: !!fileInputRef.current,
       endpoint: target.endpoint,
@@ -1038,6 +1057,9 @@ export function App() {
       return;
     }
     uploadEndpointRef.current = target;
+    // The picker is shared, so `accept` has to be set per open — a
+    // profile photo takes images only, a post composer may not.
+    fileInputRef.current.accept = target.accept ?? 'image/*';
     fileInputRef.current.click();
   }, []);
   const openDocumentPicker = useCallback(
@@ -1447,7 +1469,12 @@ export function App() {
       // keeping the first N leaves the rest on the server as orphaned
       // inactive Media rows that nothing will ever attach or clean up —
       // and there is no endpoint to remove them (see removePostDraftImage).
-      const max = getFcRuntimeSettings().composer.max_media_per_post;
+      // The post composer's cap does not apply to a SINK: it counts images
+      // already on the POST DRAFT, and a profile picture is not on it. A
+      // member with a full draft would otherwise be refused a new avatar,
+      // which is a rule FluentCommunity does not have. Same exemption the
+      // mobile shell already makes.
+      const max = target.sink ? 0 : getFcRuntimeSettings().composer.max_media_per_post;
       const room = max > 0 ? Math.max(0, max - getPostDraft().images.length) : files.length;
       const picked = Array.from(files);
       const list = picked.slice(0, room);
@@ -1506,6 +1533,13 @@ export function App() {
         }
       });
       const urls = (await Promise.all(uploads)).filter((u): u is string => !!u);
+      // A sink takes the URLs INSTEAD of the post draft — the profile's
+      // avatar and cover are written straight to the member.
+      if (target.sink) {
+        if (urls.length > 0) target.sink(urls);
+        else target.onFail?.();
+        return;
+      }
       // The cap is applied again here, against the draft as it stands
       // now: two picks can be in flight at once, and the slice above only
       // knew about the images that existed when IT started.
@@ -2711,7 +2745,14 @@ type AppModeActionDeps = {
   onLoginSuccess: () => void;
   onMenuInfo: (message: string) => void;
   onMenuError: (message: string) => void;
-  openImagePicker: (target: { endpoint: string; method: string }) => void;
+  openImagePicker: (target: {
+    endpoint: string;
+    method: string;
+    accept?: string;
+    onStart?: () => void;
+    sink?: (urls: string[]) => void;
+    onFail?: () => void;
+  }) => void;
   openAudioPicker: (endpoint: string) => void;
   openDocumentPicker: (t: {
     upload: string;
@@ -3916,6 +3957,25 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     // not a sim log: the simulator signs in the same way and these are
     // the same fcom-mobile routes the phone calls, so keeping them
     // shared is what stops the two shells drifting.
+
+    // The profile's two pictures (doc states 2-5). Pick-then-save for a
+    // change, an empty string for a remove, and a confirm in front of the
+    // remove. The PICKER is the shell's — it needs a mounted file input —
+    // so it is handed over; everything else lives in the renderer, where
+    // both shells share it.
+    case 'profile.change_photo':
+    case 'profile.remove_photo':
+    case 'profile.remove_photo_confirm': {
+      tryHandleProfilePhotoAction(inv, {
+        auth,
+        authHeader: basicAuthHeader,
+        onError: onMenuError,
+        onInfo: onMenuInfo,
+        pickImage: deps.openImagePicker,
+      });
+      return;
+    }
+
     // All Members (2026-09-15) — search, status tabs, the two-part sort
     // sheet, and the status change behind its confirm. Shared with the
     // other shell through @appza/renderer.

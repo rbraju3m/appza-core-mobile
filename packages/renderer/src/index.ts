@@ -325,6 +325,10 @@ export {
   type MemberDirectoryActionDeps,
 } from './memberDirectoryActions';
 export {
+  tryHandleProfilePhotoAction,
+  type ProfilePhotoActionDeps,
+} from './profilePhotoActions';
+export {
   getBookmarkControls,
   setBookmarkControls,
   resetBookmarkControls,

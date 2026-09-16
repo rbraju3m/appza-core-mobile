@@ -111,6 +111,7 @@ import {
   resetBookmarkControls,
   resetMemberDirectoryControls,
   tryHandleMemberDirectoryAction,
+  tryHandleProfilePhotoAction,
   setSearchControls,
   recordRecentSearch,
   removeRecentSearch,
@@ -3614,6 +3615,24 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     case 'members.set_search':
     case 'members.set_tab':
     case 'members.set_sort':
+    // The profile's two pictures (doc states 2-5). Pick-then-save for a
+    // change, an empty string for a remove, and a confirm in front of the
+    // remove. The PICKER is the shell's — it needs a mounted file input —
+    // so it is handed over; everything else lives in the renderer, where
+    // both shells share it.
+    case 'profile.change_photo':
+    case 'profile.remove_photo':
+    case 'profile.remove_photo_confirm': {
+      tryHandleProfilePhotoAction(inv, {
+        auth,
+        authHeader: basicAuthHeader,
+        onError,
+        onInfo,
+        pickImage: openImagePicker,
+      });
+      return;
+    }
+
     case 'member.status_confirm':
     case 'member.set_status': {
       tryHandleMemberDirectoryAction(inv, {

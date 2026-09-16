@@ -11696,6 +11696,92 @@ audio.appza-video-embed-native {
   border-radius: 6px;
 }
 
+/* ── the profile's two pictures, and their controls ─────────────
+   Doc states 2 to 5. All three are own-profile only, and all three are
+   positioned against the HEADER rather than placed in a grid track —
+   the cover band and the avatar circle both have fixed geometry, so
+   anchoring to it is exact where a column would only be near. */
+
+/* The ⋯ on the cover's top-right (design 4). */
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="16"] {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+}
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="16"] ion-button {
+  margin: 0;
+  width: 32px;
+  height: 32px;
+  --padding-start: 0;
+  --padding-end: 0;
+  --background: transparent;
+  --background-hover: rgba(0, 0, 0, 0.18);
+  --background-activated: rgba(0, 0, 0, 0.28);
+  --box-shadow: none;
+  /* White, because it sits ON the photograph. Design 4 draws it white
+     over a dark cover; a cover that happens to be pale is the case this
+     cannot solve from a stylesheet, and the portal does not either. */
+  --color: #ffffff;
+}
+/* "Upload cover", centred in the empty band (design 2). The band itself
+   is the gradient painted on the grid area, so this is the only thing in
+   that space when there is no photo. */
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="17"] {
+  position: absolute;
+  top: 46px;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+}
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="17"] ion-button {
+  margin: 0;
+  height: 34px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  border-radius: 6px;
+  --border-radius: 6px;
+  --background: rgba(31, 36, 48, 0.55);
+  --background-hover: rgba(31, 36, 48, 0.68);
+  --background-activated: rgba(31, 36, 48, 0.72);
+  --box-shadow: none;
+  --color: #ffffff;
+  --padding-start: 12px;
+  --padding-end: 14px;
+}
+/* The camera badge on the avatar's bottom-LEFT (designs 1, 2 and 3) —
+   the mirror of the level circle, which takes the bottom-right. The
+   avatar spans x 16..92 and y 90..166, so its lower-left rim point is
+   about (27, 155). */
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="18"] {
+  position: absolute;
+  left: 18px;
+  top: 136px;
+  z-index: 4;
+}
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="18"] ion-button {
+  margin: 0;
+  width: 26px;
+  height: 26px;
+  --border-radius: 50%;
+  --padding-start: 0;
+  --padding-end: 0;
+  --background: #2563eb;
+  --background-hover: #1d4ed8;
+  --background-activated: #1d4ed8;
+  --box-shadow: none;
+  --color: #ffffff;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+}
+.appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="18"] ion-icon {
+  font-size: 14px;
+}
+
 /* ── fc-profile-comment-card — one row of the COMMENTS tab ──────────
    The comment, then the post it was left on. Whole row is the tap
    target: both children name the action, so neither half is dead. */
