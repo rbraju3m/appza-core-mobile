@@ -195,6 +195,7 @@ import {
 import type { PrimitiveRow } from './catalogIndex';
 import { AppzaFilePicker } from './AppzaFilePicker';
 import { AppzaFileList } from './AppzaFileList';
+import { AppzaSocialLinks } from './AppzaSocialLinks';
 import { AppzaCommentList } from './CommentList';
 import { AppzaCommentThread } from './CommentThread';
 import { AppzaCommentComposer } from './CommentComposer';
@@ -823,7 +824,16 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
         <SeededIonInput
           initialValue={readString(overrides, 'value')}
           type={inputType}
-          placeholder={readString(overrides, 'placeholder') ?? label}
+          // An EMPTY placeholder is a real answer, not a missing one:
+          // readString() treats '' as absent, so falling back on it put
+          // the primitive's label — the literal word "Input" — into the
+          // three password fields, which have no label of their own.
+          // The property being PRESENT is what decides.
+          placeholder={
+            overrides && 'placeholder' in overrides
+              ? String(overrides.placeholder ?? '')
+              : label
+          }
           fill={(fillProp as 'solid' | 'outline' | undefined) ?? 'outline'}
           // Ionic's own clear affordance — shows the ⨯ only while the field
           // has a value, which is exactly the documents-search design. It
@@ -872,7 +882,16 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
       return (
         <SeededIonTextarea
           initialValue={readString(overrides, 'value')}
-          placeholder={readString(overrides, 'placeholder') ?? label}
+          // An EMPTY placeholder is a real answer, not a missing one:
+          // readString() treats '' as absent, so falling back on it put
+          // the primitive's label — the literal word "Input" — into the
+          // three password fields, which have no label of their own.
+          // The property being PRESENT is what decides.
+          placeholder={
+            overrides && 'placeholder' in overrides
+              ? String(overrides.placeholder ?? '')
+              : label
+          }
           fill={(fillProp as 'solid' | 'outline' | undefined) ?? 'outline'}
           rows={Number.isFinite(rowsNum) ? rowsNum : 2}
           autoGrow={readBoolean(overrides, 'auto_grow')}
@@ -910,6 +929,8 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
 
     case 'AppzaFileList':
       return <AppzaFileList overrides={overrides} />;
+    case 'AppzaSocialLinks':
+      return <AppzaSocialLinks overrides={overrides} />;
 
     case 'AppzaAvatarStack':
       return <AppzaAvatarStack overrides={overrides} />;

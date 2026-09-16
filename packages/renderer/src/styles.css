@@ -12828,6 +12828,80 @@ audio.appza-video-embed-native {
   --color: #4c5fdf;
 }
 
+/* ── the edit form's Social Links card (design 40) ──────────────
+   Bespoke markup, so plain class names. Each row is a label over a
+   split control: a grey box carrying the provider's domain, then the
+   handle field. The prefix is a LABEL — FluentCommunity stores the
+   handle alone and never the URL. */
+.appza-renderer-ss[data-slug="fc-profile-social-links"] {
+  display: block;
+  margin-top: 12px;
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 10px;
+}
+/* A site with no providers enabled draws no card, not a heading over
+   nothing — the component returns null and this collapses the wrapper,
+   the same way the three account cards do when their gate says no. */
+.appza-renderer-ss[data-slug="fc-profile-social-links"]:not(:has(> *)) {
+  display: none;
+}
+.appza-social-links-heading {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+.appza-social-links-description {
+  margin-top: 4px;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+.appza-social-links-row {
+  margin-top: 14px;
+}
+.appza-social-links-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+}
+.appza-social-links-control {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff;
+}
+.appza-social-links-domain {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border-right: 1px solid #e5e7eb;
+  background: #f9fafb;
+  color: #9ca3af;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  /* A long domain must not squeeze the field it labels. */
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.appza-social-links-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  padding: 11px 12px;
+  font-size: 0.95rem;
+  color: #0f172a;
+  background: transparent;
+}
+.appza-social-links-input::placeholder {
+  color: #c2c6ce;
+}
+
 /* ══ fc-follow-sheet — Following / Followers / Blocked (36-39) ══
    Bespoke markup, so these are plain class names rather than
    data-child-index selectors — the sheet stamps its builder attributes

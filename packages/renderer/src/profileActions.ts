@@ -1,4 +1,5 @@
 import { readDataPath, APPZA_REFRESH_EVENT } from './dataFetch';
+import { collectSocialLinks } from './AppzaSocialLinks';
 import { sendJson, type StoredAuthLike } from './postMenuHandlers';
 import { getProfileControls } from './profileControls';
 import type { ActionInvocation } from './actionContext';
@@ -213,6 +214,20 @@ export function tryHandleProfileSave(
     member_id: memberId,
     ...collect(formSlug, paramMap),
   };
+
+  // The Social Links card is its own placement, sibling to the form this
+  // action names, and its rows are a site setting rather than a fixed
+  // list of children — so its values cannot be reached through
+  // `param_map`, which addresses `children[N]` inside ONE AppZet.
+  //
+  // Every enabled provider is sent, empty ones included. That is what
+  // makes clearing work: updateProfile skips the block entirely when the
+  // object is falsy and array_filters what it gets, so sending only the
+  // filled rows could never remove the last remaining link.
+  if (argRec.collect_social_links === true) {
+    const social = collectSocialLinks();
+    if (Object.keys(social).length > 0) body.social_links = social;
+  }
 
   // No client-side required check on first_name. FluentCommunity
   // validates it and answers "First name is required", and a second copy

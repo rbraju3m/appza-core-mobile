@@ -344,6 +344,12 @@ export {
 } from './profileAccountActions';
 export { startHeadlineCounter } from './headlineCounter';
 export {
+  AppzaSocialLinks,
+  collectSocialLinks,
+  SOCIAL_PROVIDER_ATTR,
+  type SocialLinkField,
+} from './AppzaSocialLinks';
+export {
   getBookmarkControls,
   setBookmarkControls,
   resetBookmarkControls,
