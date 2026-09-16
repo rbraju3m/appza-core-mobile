@@ -328,6 +328,7 @@ export {
   tryHandleProfilePhotoAction,
   type ProfilePhotoActionDeps,
 } from './profilePhotoActions';
+export { tryHandleLogoutConfirm, type LogoutConfirmDeps } from './logoutConfirm';
 export {
   getBookmarkControls,
   setBookmarkControls,

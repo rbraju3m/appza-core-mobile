@@ -112,6 +112,7 @@ import {
   resetMemberDirectoryControls,
   tryHandleMemberDirectoryAction,
   tryHandleProfilePhotoAction,
+  tryHandleLogoutConfirm,
   setSearchControls,
   recordRecentSearch,
   removeRecentSearch,
@@ -3620,6 +3621,13 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     // remove. The PICKER is the shell's — it needs a mounted file input —
     // so it is handed over; everything else lives in the renderer, where
     // both shells share it.
+    // Sign out, behind design 33's dialog. auth.logout itself is handled
+    // further down and is untouched; this only asks first.
+    case 'auth.logout_confirm': {
+      tryHandleLogoutConfirm(inv);
+      return;
+    }
+
     case 'profile.change_photo':
     case 'profile.remove_photo':
     case 'profile.remove_photo_confirm': {

@@ -116,6 +116,11 @@ import {
   layersOutline,
   library,
   libraryOutline,
+  // The sign-out glyph. Missing until 2026-09-16, so the own-profile
+  // menu's Logout row drew its label with no icon beside three rows that
+  // had one — the mixed menu the icons rule exists to prevent.
+  logOut,
+  logOutOutline,
   location,
   locationOutline,
   barChart,
@@ -332,6 +337,8 @@ const ICON_REGISTRY: Record<string, string> = {
   'ellipse-outline': ellipseOutline,
   'help-circle-outline': helpCircleOutline,
   'layers-outline': layersOutline,
+  'log-out': logOut,
+  'log-out-outline': logOutOutline,
   'bar-chart': barChart,
   'bar-chart-outline': barChartOutline,
   notifications,
