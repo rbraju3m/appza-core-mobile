@@ -8,6 +8,7 @@ import { getBookmarkControls } from './bookmarkControls';
 import { getSearchControls } from './searchControls';
 import { getProfileControls } from './profileControls';
 import { getMemberDirectoryControls } from './memberDirectoryControls';
+import { getViewer } from './viewer';
 
 /**
  * useDataSource(slug, params) — fetch a list payload for an AppZet's
@@ -110,6 +111,16 @@ const STATE_SLICE_GETTERS: Record<string, () => Record<string, unknown>> = {
   search_controls: () => getSearchControls() as unknown as Record<string, unknown>,
   profile_controls: () => getProfileControls() as unknown as Record<string, unknown>,
   member_directory_controls: () => getMemberDirectoryControls() as unknown as Record<string, unknown>,
+  // Added 2026-09-16. A child's `visible_when` could already read
+  // `state.viewer.*` — that is how the composer teaser disappears on a
+  // logged-out feed — but a DataSource's query_params could not, and the
+  // mismatch is silent: the binding resolves to undefined, the param
+  // falls back to its default, and the endpoint answers as if it had
+  // never been asked. The blocked-users list bound
+  // `state.viewer.user_id`, got an empty member_id, and fcom-mobile
+  // returned "username or member_id is required" — which reached the
+  // screen as an empty list.
+  viewer: () => getViewer() as unknown as Record<string, unknown>,
 };
 
 /**
@@ -131,6 +142,10 @@ const STATE_SLICE_EVENTS: Record<string, string> = {
   bookmark_controls: 'appza:bookmark-controls-change',
   search_controls: 'appza:search-controls-change',
   member_directory_controls: 'appza:member-directory-controls-change',
+  // The viewer slice already broadcasts this on every sign-in and
+  // sign-out; registering it here is what lets a list bound to
+  // `state.viewer.*` re-read after one.
+  viewer: 'appza:viewer-change',
 };
 
 /** Legacy flat-key bindings kept for spacesControls callers pre-arc. */

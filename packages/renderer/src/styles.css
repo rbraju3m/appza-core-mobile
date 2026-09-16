@@ -12633,7 +12633,8 @@ audio.appza-video-embed-native {
   line-height: 1.3;
 }
 .appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="4"],
-.appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="5"] {
+.appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="5"],
+.appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="6"] {
   grid-area: action;
   justify-self: end;
 }
@@ -12641,7 +12642,8 @@ audio.appza-video-embed-native {
    reach, so both the host and ::part(native) have to be overridden — the
    same gotcha the profile cluster's buttons hit. */
 .appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="4"] ion-button,
-.appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="5"] ion-button {
+.appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="5"] ion-button,
+.appza-renderer-ss[data-slug="fc-follow-row"] [data-child-index="6"] ion-button {
   --background: transparent;
   --background-hover: transparent;
   --background-activated: transparent;
@@ -12657,6 +12659,11 @@ audio.appza-video-embed-native {
   margin: 0;
   font-size: 0.9rem;
   font-weight: 500;
+  /* Ionic uppercases a button's label by default, and every design that
+     draws these writes them in sentence case — "Follow", "Following",
+     "Unblock", not "UNBLOCK". */
+  text-transform: none;
+  letter-spacing: 0;
   text-transform: none;
   border: 0;
 }
