@@ -125,6 +125,7 @@ import {
   tryHandleLogoutConfirm,
   tryHandleProfileAccountAction,
   openProfileAddToSpace,
+  tryHandleProfileTabAction,
   startHeadlineCounter,
   setSearchControls,
   recordRecentSearch,
@@ -6213,6 +6214,21 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         setScreenStack((prev) => [...prev, currentScreenId]);
       }
       setSelectedScreenId(target.id);
+      return;
+    }
+
+    // The profile tabs' two confirms and their writes (doc states 57,
+    // 58, 62, 63). Shared with the other shell; see profileTabActions.
+    case 'profile.remove_from_space_confirm':
+    case 'profile.remove_from_space':
+    case 'profile.delete_comment_confirm':
+    case 'profile.delete_comment': {
+      tryHandleProfileTabAction(inv, {
+        auth,
+        authHeader: basicAuthHeader,
+        onError: onLoginError,
+        onInfo: onLoginError,
+      });
       return;
     }
 

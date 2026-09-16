@@ -1561,6 +1561,9 @@ export function PlacementRenderer({
     'follow_text_color',
     'following_text_color',
     'divider_color',
+    // Profile tabs (2026-09-16) — the comment card and the space ⋮.
+    'comment_bg_color',
+    'remove_member_icon_color',
     // Member card + members-actions knobs (2026-08-06).
     'grid_columns',
     'card_gap',

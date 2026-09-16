@@ -352,6 +352,7 @@ export {
   type ProfileAccountDeps,
 } from './profileAccountActions';
 export { openProfileAddToSpace, type ProfileAddToSpaceDeps } from './profileAddToSpace';
+export { tryHandleProfileTabAction, type ProfileTabActionDeps } from './profileTabActions';
 export { startHeadlineCounter } from './headlineCounter';
 export {
   AppzaSocialLinks,
