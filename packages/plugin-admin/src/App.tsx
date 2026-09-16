@@ -6728,34 +6728,47 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     // Blocking someone confirms first, and reuses the member-removal
     // alert: it is a generic "are you sure, then dispatch this action"
     // dialog, and blocking is not undone from where it was done.
+    // Kept in step with the mobile shell's copy of this case. The two had
+    // already drifted in structure before 2026-09-16; they now answer the
+    // same three slugs with the same defaults.
     case 'profile.block_confirm':
+    case 'profile.unblock_confirm':
     case 'member.remove_confirm': {
       const blocking = action_slug === 'profile.block_confirm';
+      const unblocking = action_slug === 'profile.unblock_confirm';
+      const isProfileConfirm = blocking || unblocking;
       const subjectPath =
         typeof argRec.subject_path === 'string'
           ? argRec.subject_path
-          : blocking
+          : isProfileConfirm
             ? 'data.display_name'
             : 'data.xprofile.display_name';
       const rawSubject = readDataPath(effectiveItem, subjectPath);
       const subject = typeof rawSubject === 'string' && rawSubject ? rawSubject : 'Member';
       openMemberRemoveConfirm({
         subject,
+        // Designs 45 and 48's own sentences. Design 45 reads "Blocking this
+        // will hide…" with the noun missing; shipped with "user" restored.
         message:
           typeof argRec.message === 'string'
             ? argRec.message
             : blocking
-              ? `Block ${subject}? They will not be able to follow you or message you, and you will stop following them.`
-              : undefined,
+              ? 'Blocking this user will hide their posts from your feed and prevent them from interacting with you. Are you sure you want to block this user?'
+              : unblocking
+                ? 'Are you sure you want to unblock this user?'
+                : undefined,
         cancelLabel: typeof argRec.cancel_label === 'string' ? argRec.cancel_label : undefined,
         confirmLabel: typeof argRec.confirm_label === 'string' ? argRec.confirm_label : undefined,
+        ...(isProfileConfirm ? { actionsLayout: 'material' as const, confirmTone: 'primary' as const } : {}),
         item: effectiveItem,
         removeActionSlug:
           typeof argRec.remove_action_slug === 'string'
             ? argRec.remove_action_slug
             : blocking
               ? 'profile.block'
-              : 'member.remove',
+              : unblocking
+                ? 'profile.unblock'
+                : 'member.remove',
       });
       return;
     }

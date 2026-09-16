@@ -133,6 +133,9 @@ import {
   logoPinterest,
   logoReddit,
   logoSnapchat,
+  // Design 47's Unblock row, and designs 42's muted bell.
+  lockOpenOutline,
+  notificationsOffOutline,
   location,
   locationOutline,
   barChart,
@@ -363,6 +366,8 @@ const ICON_REGISTRY: Record<string, string> = {
   'logo-pinterest': logoPinterest,
   'logo-reddit': logoReddit,
   'logo-snapchat': logoSnapchat,
+  'lock-open-outline': lockOpenOutline,
+  'notifications-off-outline': notificationsOffOutline,
   'bar-chart': barChart,
   'bar-chart-outline': barChartOutline,
   notifications,

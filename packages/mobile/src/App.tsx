@@ -6087,21 +6087,30 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     // alert: it is a generic "are you sure, then dispatch this action"
     // dialog, and blocking is not undone from where it was done.
     case 'profile.block_confirm':
+    case 'profile.unblock_confirm':
     case 'member.remove_confirm': {
+      // Block and unblock are the member's OWN profile row, so the name
+      // is a top-level field there; a space member row nests it.
+      const isProfileConfirm =
+        action_slug === 'profile.block_confirm' || action_slug === 'profile.unblock_confirm';
       const subjectPath =
         typeof argRec.subject_path === 'string'
           ? argRec.subject_path
-          : action_slug === 'profile.block_confirm'
+          : isProfileConfirm
             ? 'data.display_name'
             : 'data.xprofile.display_name';
       const rawSubject = readDataPath(effectiveItem, subjectPath);
       const subject = typeof rawSubject === 'string' && rawSubject ? rawSubject : 'Member';
+      // Designs 45 and 48's own sentences. Design 45 reads "Blocking this
+      // will hide…" with the noun missing; shipped with "user" restored.
       const message =
         typeof argRec.message === 'string'
           ? argRec.message
           : action_slug === 'profile.block_confirm'
-            ? `Block ${subject}? They will not be able to follow you or message you, and you will stop following them.`
-            : undefined;
+            ? 'Blocking this user will hide their posts from your feed and prevent them from interacting with you. Are you sure you want to block this user?'
+            : action_slug === 'profile.unblock_confirm'
+              ? 'Are you sure you want to unblock this user?'
+              : undefined;
       const cancelLabel = typeof argRec.cancel_label === 'string' ? argRec.cancel_label : undefined;
       const confirmLabel = typeof argRec.confirm_label === 'string' ? argRec.confirm_label : undefined;
       const removeActionSlug =
@@ -6109,12 +6118,17 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
           ? argRec.remove_action_slug
           : action_slug === 'profile.block_confirm'
             ? 'profile.block'
-            : 'member.remove';
+            : action_slug === 'profile.unblock_confirm'
+              ? 'profile.unblock'
+              : 'member.remove';
       openMemberRemoveConfirm({
         subject,
         message,
         cancelLabel,
         confirmLabel,
+        // Designs 45 and 48 draw CANCEL and the action as blue text buttons
+        // side by side. Member removal keeps its older stacked layout.
+        ...(isProfileConfirm ? { actionsLayout: 'material' as const, confirmTone: 'primary' as const } : {}),
         item: effectiveItem,
         removeActionSlug,
       });

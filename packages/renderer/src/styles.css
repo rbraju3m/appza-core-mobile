@@ -12159,6 +12159,98 @@ audio.appza-video-embed-native {
   background: transparent;
 }
 
+/* ── the cluster as designs 1, 41, 42, 43 and 46 draw it (2026-09-16) ──
+   Every button already existed; what changed is ORDER, SIZE and GLYPH.
+
+   Order. The children are in the order they were added, which put
+   Message first. The designs lead with the relationship — Follow,
+   Following or Unblock — then Message, then the bell. Set by `order`
+   rather than by moving children, because every index here is addressed
+   by a label property. */
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="2"],
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="3"],
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="7"] { order: 1; }
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="1"] { order: 2; }
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="4"],
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="5"] { order: 3; }
+
+/* Size. The relationship button and Message share the row equally; the
+   bell is a fixed square at the end. */
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="1"],
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="2"],
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="3"],
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="7"] {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="1"] ion-button,
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="2"] ion-button,
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="3"] ion-button,
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="7"] ion-button {
+  width: 100%;
+}
+
+/* Edit Profile is the ONLY button on your own profile, and design 1 draws
+   it across the whole row, outlined in blue, in capitals, with a pencil. */
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="0"] {
+  flex: 1 1 auto;
+}
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="0"] ion-button {
+  width: 100%;
+  height: 40px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  --color: #2563eb;
+  border-color: #2563eb !important;
+}
+
+/* The outlined buttons read blue in every design, not grey. */
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="1"] ion-button,
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="3"] ion-button {
+  --color: #2563eb;
+  border-color: #2563eb !important;
+}
+
+/* The bell — a SQUARE icon button in designs 42 and 43, no word. The
+   struck bell is the muted state and the plain bell the on state; which
+   one draws is the row's `is_notifying`. */
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="4"],
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="5"] {
+  flex: 0 0 auto;
+}
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="4"] ion-button,
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="5"] ion-button {
+  width: 36px;
+  --padding-start: 0;
+  --padding-end: 0;
+  --color: #2563eb;
+  border-color: #2563eb !important;
+}
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="4"] ion-icon,
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="5"] ion-icon {
+  margin: 0;
+  font-size: 18px;
+}
+
+/* Unblock (design 46): outlined, in red — the one relationship button
+   that undoes something rather than starting it. */
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="7"] ion-button {
+  --background: transparent;
+  --background-activated: #fef2f2;
+  --background-hover: #fef2f2;
+  --color: #d92d20;
+  border: 1px solid #d92d20;
+  border-radius: 8px;
+}
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="7"] ion-button::part(native) {
+  border: 0;
+  background: transparent;
+}
+.appza-renderer-ss[data-slug="fc-edit-profile-button"] ion-button ion-icon {
+  margin-right: 6px;
+  font-size: 16px;
+}
+
 /* ── fc-profile-tabs — the profile's nav strip ──────────────────────
    FIVE tabs since 2026-09-01, and they come from FluentCommunity's own
    profile_navs rather than from us — so this cannot assume how many
