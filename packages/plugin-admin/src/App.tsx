@@ -120,6 +120,8 @@ import {
   tryHandleMemberDirectoryAction,
   tryHandleProfilePhotoAction,
   tryHandleLogoutConfirm,
+  tryHandleProfileAccountAction,
+  startHeadlineCounter,
   setSearchControls,
   recordRecentSearch,
   removeRecentSearch,
@@ -1561,6 +1563,10 @@ export function App() {
   // it has to reach the same slice the mobile shell writes — otherwise a
   // `state.viewer.*` gate answers differently on the two surfaces, which
   // is exactly the seam P86 warns about.
+  useEffect(() => {
+    startHeadlineCounter();
+  }, []);
+
   useEffect(() => {
     setViewer({
       is_logged_in: !!auth,
@@ -3972,6 +3978,23 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     // remove. The PICKER is the shell's — it needs a mounted file input —
     // so it is handed over; everything else lives in the renderer, where
     // both shells share it.
+    // The edit form's three account cards (doc state 40) — the username,
+    // the password and the deactivation, each its own endpoint.
+    case 'profile.change_username':
+    case 'profile.change_password':
+    case 'profile.deactivate_confirm':
+    case 'profile.deactivate': {
+      tryHandleProfileAccountAction(inv, {
+        auth,
+        authHeader: basicAuthHeader,
+        onError: onMenuError,
+        onInfo: onMenuInfo,
+        collect: (slug, map) => collectParams(slug, map as Record<string, unknown> | undefined),
+        dispatch: (next) => handleAppModeAction(next, deps),
+      });
+      return;
+    }
+
     // Sign out, behind design 33's dialog. auth.logout itself is handled
     // further down and is untouched; this only asks first.
     case 'auth.logout_confirm': {

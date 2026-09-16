@@ -339,6 +339,11 @@ export {
 } from './profilePhotoActions';
 export { tryHandleLogoutConfirm, type LogoutConfirmDeps } from './logoutConfirm';
 export {
+  tryHandleProfileAccountAction,
+  type ProfileAccountDeps,
+} from './profileAccountActions';
+export { startHeadlineCounter } from './headlineCounter';
+export {
   getBookmarkControls,
   setBookmarkControls,
   resetBookmarkControls,

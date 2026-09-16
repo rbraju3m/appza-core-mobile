@@ -28,6 +28,8 @@ import { useBannerControls, bannerStateEntries } from './bannerControls';
 import { useProfileControls, setProfileControls } from './profileControls';
 import { useMemberDirectoryControls, memberDirectoryStateEntries } from './memberDirectoryControls';
 import { useListVerdicts } from './listVerdicts';
+import { getFcRuntimeSettings } from './fcRuntimeSettings';
+import { readDataPath } from './dataFetch';
 
 type ScreenRendererProps = {
   screen: TemplateScreen;
@@ -704,8 +706,22 @@ function evaluateVisibleWhenClause(
   let resolved: unknown = undefined;
   if (binding.startsWith('state.')) {
     resolved = stateBag[binding.slice(6)];
+  } else if (binding.startsWith('settings.')) {
+    // The site's FluentCommunity configuration, which a CHILD's gate has
+    // been able to read for a long time. A placement's could not, and the
+    // failure was silent in the worst direction: an unknown root FAILS
+    // OPEN, so a placement gated on `settings.leaderboard_enabled` drew
+    // unconditionally and looked gated. Found 2026-09-16, one chunk after
+    // the profile level bar shipped with exactly that gate.
+    //
+    // Safe to read here: it is cached site config, available
+    // synchronously, and not a row — a placement is evaluated before
+    // anything is fetched, which is why `data.*` still has no meaning.
+    resolved = readDataPath(getFcRuntimeSettings(), binding.replace(/^settings\./, 'data.'));
   } else {
-    // Unknown root — fail open. data.* has no meaning at placement level.
+    // Unknown root — fail open. `data.*` has no meaning at placement
+    // level: nothing is bound yet. A row fact has to be gated on the
+    // CHILD, which is evaluated once the row exists.
     return true;
   }
 

@@ -120,6 +120,8 @@ import {
   tryHandleMemberDirectoryAction,
   tryHandleProfilePhotoAction,
   tryHandleLogoutConfirm,
+  tryHandleProfileAccountAction,
+  startHeadlineCounter,
   setSearchControls,
   recordRecentSearch,
   removeRecentSearch,
@@ -1214,6 +1216,12 @@ export function App() {
   useEffect(() => {
     setCustomizationsForActions(customizationsForRender);
   }, [customizationsForRender]);
+
+  // The edit form's headline counter. Idempotent and delegated, so one
+  // call at mount covers every time that form appears.
+  useEffect(() => {
+    startHeadlineCounter();
+  }, []);
 
   const openDeleteConfirm = useCallback((p: PendingDelete) => setPendingDelete(p), []);
   const openCommentPanel = useCallback((p: CommentPanelState) => setCommentPanel(p), []);
@@ -3629,6 +3637,23 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     // remove. The PICKER is the shell's — it needs a mounted file input —
     // so it is handed over; everything else lives in the renderer, where
     // both shells share it.
+    // The edit form's three account cards (doc state 40) — the username,
+    // the password and the deactivation, each its own endpoint.
+    case 'profile.change_username':
+    case 'profile.change_password':
+    case 'profile.deactivate_confirm':
+    case 'profile.deactivate': {
+      tryHandleProfileAccountAction(inv, {
+        auth,
+        authHeader: basicAuthHeader,
+        onError: onError,
+        onInfo: onInfo,
+        collect: (slug, map) => collectParams(slug, map as Record<string, unknown> | undefined),
+        dispatch: (next) => handleAction(next, deps),
+      });
+      return;
+    }
+
     // Sign out, behind design 33's dialog. auth.logout itself is handled
     // further down and is untouched; this only asks first.
     case 'auth.logout_confirm': {

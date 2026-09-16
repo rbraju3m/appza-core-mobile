@@ -11872,7 +11872,8 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="2"],
 .appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="4"],
 .appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="6"],
-.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="8"] {
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="8"],
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="10"] {
   display: block;
   margin: 16px 0 6px;
   font-size: 0.8rem;
@@ -12680,6 +12681,152 @@ audio.appza-video-embed-native {
   background: #ffffff;
 }
 
+
+/* ── the edit form's headline, and its three account cards (state 40) ──
+   The headline field is APPENDED to the form's children rather than
+   inserted where design 40 draws it — between Website and Bio — because
+   the save reads every value out of the DOM by `children[N].value`, and
+   inserting a child renumbers that map silently. Grid order puts it back
+   where the design has it. */
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="10"] { order: 7; }
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="11"] { order: 8; }
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="12"] { order: 9; }
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="8"]  { order: 10; }
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="9"]  { order: 11; }
+/* "59/60", right-aligned under the field. Its text is written by
+   headlineCounter.ts on every keystroke; this only places it. */
+.appza-renderer-ss[data-slug="fc-basic-profile-information"] [data-child-index="12"] {
+  display: block;
+  margin-top: 4px;
+  text-align: right;
+  font-size: 0.78rem;
+  color: #9ca3af;
+}
+
+/* ── the three account cards ─────────────────────────────────
+   Each is its own write, so each is its own card with its own button —
+   which is how design 40 draws them.
+
+   A card whose gate says no renders an EMPTY WRAPPER: the children
+   return null individually, and the Superstructure root is still there
+   with its padding and its background. `:has(> *)` collapses it. The
+   gates have to be on the children because a PLACEMENT's visible_when
+   cannot read a row — it is evaluated before anything is fetched, and an
+   unknown root fails open. */
+.appza-renderer-ss[data-slug="fc-profile-username"],
+.appza-renderer-ss[data-slug="fc-profile-password"],
+.appza-renderer-ss[data-slug="fc-profile-deactivate"] {
+  display: block;
+  margin-top: 12px;
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 10px;
+}
+.appza-renderer-ss[data-slug="fc-profile-username"]:not(:has(> *)),
+.appza-renderer-ss[data-slug="fc-profile-password"]:not(:has(> *)),
+.appza-renderer-ss[data-slug="fc-profile-deactivate"]:not(:has(> *)) {
+  display: none;
+}
+.appza-renderer-ss[data-slug="fc-profile-username"] [data-child-index="0"],
+.appza-renderer-ss[data-slug="fc-profile-password"] [data-child-index="0"],
+.appza-renderer-ss[data-slug="fc-profile-deactivate"] [data-child-index="0"] {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+.appza-renderer-ss[data-slug="fc-profile-password"] [data-child-index="1"],
+.appza-renderer-ss[data-slug="fc-profile-deactivate"] [data-child-index="1"] {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.875rem;
+  color: #6b7280;
+  line-height: 1.45;
+}
+
+/* The username row: an @ box, the field, and Change, all on one line as
+   design 40 draws them. */
+.appza-renderer-ss[data-slug="fc-profile-username"] {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "head head head"
+    "at   field change";
+  align-items: stretch;
+  column-gap: 0;
+}
+.appza-renderer-ss[data-slug="fc-profile-username"] [data-child-index="0"] { grid-area: head; margin-bottom: 12px; }
+.appza-renderer-ss[data-slug="fc-profile-username"] [data-child-index="1"] {
+  grid-area: at;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  border-right: 0;
+  border-radius: 8px 0 0 8px;
+  background: #f9fafb;
+  color: #6b7280;
+}
+.appza-renderer-ss[data-slug="fc-profile-username"] [data-child-index="2"] {
+  grid-area: field;
+  border: 1px solid #e5e7eb;
+  border-right: 0;
+}
+.appza-renderer-ss[data-slug="fc-profile-username"] [data-child-index="3"] { grid-area: change; }
+.appza-renderer-ss[data-slug="fc-profile-username"] [data-child-index="3"] ion-button {
+  margin: 0;
+  height: 100%;
+  --border-radius: 0 8px 8px 0;
+  --background: #f1f2f4;
+  --background-hover: #e6e8ec;
+  --background-activated: #e6e8ec;
+  --color: #1f2430;
+  --box-shadow: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* The password card's three labels and fields. */
+.appza-renderer-ss[data-slug="fc-profile-password"] [data-child-index="2"],
+.appza-renderer-ss[data-slug="fc-profile-password"] [data-child-index="4"],
+.appza-renderer-ss[data-slug="fc-profile-password"] [data-child-index="6"] {
+  display: block;
+  margin: 16px 0 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+}
+.appza-renderer-ss[data-slug="fc-profile-password"] [data-child-index="8"] ion-button,
+.appza-renderer-ss[data-slug="fc-profile-deactivate"] [data-child-index="2"] ion-button {
+  margin: 16px 0 0;
+  width: 100%;
+  height: 44px;
+  --border-radius: 8px;
+  --box-shadow: none;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.appza-renderer-ss[data-slug="fc-profile-password"] [data-child-index="8"] ion-button {
+  --background: #4c5fdf;
+  --color: #ffffff;
+}
+/* Outlined, not filled: design 40 draws the deactivation button as the
+   quietest thing on the screen, which is the right weight for the one
+   action here a member cannot undo. */
+.appza-renderer-ss[data-slug="fc-profile-deactivate"] [data-child-index="2"] ion-button {
+  --background: transparent;
+  --border-width: 1px;
+  --border-style: solid;
+  --border-color: #d1d5db;
+  --color: #4c5fdf;
+}
 
 /* ══ fc-follow-sheet — Following / Followers / Blocked (36-39) ══
    Bespoke markup, so these are plain class names rather than

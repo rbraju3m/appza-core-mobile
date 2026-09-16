@@ -532,6 +532,7 @@ function SeededIonInput({
   fill,
   clearInput,
   readonly,
+  maxlength,
   onInput,
 }: {
   initialValue?: string;
@@ -540,6 +541,13 @@ function SeededIonInput({
   fill?: 'solid' | 'outline';
   clearInput?: boolean;
   readonly?: boolean;
+  /**
+   * Passed through to the inner <input>. Added 2026-09-16 for the edit
+   * form's headline, where FluentCommunity refuses anything over 60
+   * characters and the design draws a live "59/60" beside it — without
+   * this the counter could count past a limit the server would reject.
+   */
+  maxlength?: number;
   onInput?: (e: CustomEvent) => void;
 }) {
   const ref = useRef<HTMLIonInputElement | null>(null);
@@ -557,6 +565,7 @@ function SeededIonInput({
       fill={fill ?? 'outline'}
       clearInput={clearInput}
       readonly={readonly}
+      maxlength={maxlength}
       onIonInput={onInput}
     />
   );
@@ -827,6 +836,15 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
           // verdict; an editable field that silently discards the edit
           // would be worse than a locked one.
           readonly={readBoolean(overrides, 'readonly')}
+          // The headline's 60-character ceiling, which FluentCommunity
+          // enforces on the write and the design counts down to. Read as
+          // a NUMBER from a property the catalog carries as a string, so
+          // a site that raises FC's own filter can raise this with it.
+          maxlength={(() => {
+            const raw = readString(overrides, 'maxlength');
+            const n = raw === undefined ? NaN : Number(raw);
+            return Number.isFinite(n) && n > 0 ? n : undefined;
+          })()}
           onInput={handleInput}
         />
       );
