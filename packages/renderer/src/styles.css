@@ -11686,6 +11686,16 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="15"] {
   justify-self: start;
   padding-bottom: 4px;
+  /* Measured 2026-09-17 with the doc's two badges defined: "😊 image
+     badge" wrapped onto two lines inside its third. The chip keeps its
+     own width and may run past its cell; min-width 0 stops that width
+     from growing the 1fr track, which would unbalance the counts above.
+     The gap between chips is still a third's slack, wider than design
+     65's ~8px — a strip primitive is what closes that. */
+  min-width: 0;
+  width: max-content;
+  overflow: visible;
+  white-space: nowrap;
 }
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="13"] ion-chip,
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="14"] ion-chip,

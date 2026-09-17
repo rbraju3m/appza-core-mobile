@@ -109,6 +109,14 @@ export type FcAccessSettings = {
 
 export type FcRuntimeSettings = {
   member_list_layout: FcMemberListLayout;
+  /**
+   * Features → "Leaderboards Module", with Pro installed. Read by the
+   * profile level bar's PLACEMENT gate, `settings.leaderboard_enabled`.
+   * Kept at the root because that is where bootstrap sends it; it was
+   * dropped here until 2026-09-17, so the gate read undefined and the bar
+   * never drew on either profile screen.
+   */
+  leaderboard_enabled: boolean;
   composer: FcComposerSettings;
   feed: FcFeedSettings;
   access: FcAccessSettings;
@@ -176,6 +184,9 @@ const ACCESS_DEFAULTS: FcAccessSettings = {
 
 const DEFAULTS: FcRuntimeSettings = {
   member_list_layout: 'classic',
+  // Off until bootstrap says otherwise: with the module off `level` is 0
+  // and its title empty, and a bar reading "Level 0" is worse than none.
+  leaderboard_enabled: false,
   composer: COMPOSER_DEFAULTS,
   feed: FEED_DEFAULTS,
   access: ACCESS_DEFAULTS,
@@ -409,6 +420,7 @@ export function setFcRuntimeSettings(patch: Record<string, unknown>): void {
       ['classic', 'grid'] as const,
       current.member_list_layout,
     ),
+    leaderboard_enabled: pickBool(patch.leaderboard_enabled, current.leaderboard_enabled),
     composer: normalizeComposer(patch.composer, current.composer),
     feed: normalizeFeed(patch.feed, current.feed),
     access: normalizeAccess(patch.access, current.access),

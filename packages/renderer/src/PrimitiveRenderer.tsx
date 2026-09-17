@@ -1165,8 +1165,35 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
       );
     }
 
-    case 'IonChip':
-      return <IonChip color={readString(overrides, 'color')}>{label}</IonChip>;
+    case 'IonChip': {
+      // `color` is either an Ionic palette name or a real CSS colour, as on
+      // IonText. A hex passed straight to Ionic's `color` becomes the class
+      // `ion-color-#e8452c`, which styles nothing — so a badge chip whose
+      // colours come from FluentCommunity's definition drew uncoloured
+      // until 2026-09-17. `bg_color` had no reader at all. Both go on the
+      // chip's own variables, which is what Ionic's shadow CSS paints from.
+      const color = readString(overrides, 'color');
+      const bgColor = readString(overrides, 'bg_color');
+      const themeColor = color && isIonicThemeColor(color) ? color : undefined;
+      const inlineColor = color && !themeColor ? color : undefined;
+      const style: Record<string, string> = {};
+      if (inlineColor) {
+        style['--color'] = inlineColor;
+        style.color = inlineColor;
+      }
+      if (bgColor) {
+        style['--background'] = bgColor;
+        style.background = bgColor;
+      }
+      return (
+        <IonChip
+          color={themeColor}
+          style={Object.keys(style).length ? (style as CSSProperties) : undefined}
+        >
+          {label}
+        </IonChip>
+      );
+    }
 
     case 'IonIcon': {
       // Standalone icon glyph. Reads `icon` (slug) + `color` from overrides.
