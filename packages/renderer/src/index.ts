@@ -353,6 +353,7 @@ export {
 } from './profileAccountActions';
 export { openProfileAddToSpace, type ProfileAddToSpaceDeps } from './profileAddToSpace';
 export { tryHandleProfileTabAction, type ProfileTabActionDeps } from './profileTabActions';
+export { tryHandleScheduledPostAction, type ScheduledPostActionDeps } from './scheduledPostActions';
 export { startHeadlineCounter } from './headlineCounter';
 export {
   AppzaSocialLinks,

@@ -126,6 +126,7 @@ import {
   tryHandleProfileAccountAction,
   openProfileAddToSpace,
   tryHandleProfileTabAction,
+  tryHandleScheduledPostAction,
   startHeadlineCounter,
   setSearchControls,
   recordRecentSearch,
@@ -5495,6 +5496,35 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         authHeader: basicAuthHeader,
         onError: onError,
         onInfo: onInfo,
+      });
+      return;
+    }
+
+    // The Scheduled Posts page (doc states 67-69). Shared with the other
+    // shell; see scheduledPostActions. The sheet is the composer's own,
+    // opened here because its presentation is the catalog's.
+    case 'scheduled.reschedule':
+    case 'scheduled.publish_confirm':
+    case 'scheduled.publish':
+    case 'scheduled.delete_confirm':
+    case 'scheduled.delete': {
+      tryHandleScheduledPostAction(inv, {
+        auth,
+        authHeader: basicAuthHeader,
+        onError: onError,
+        onInfo: onInfo,
+        openSchedule: (sheetSlug, value, onConfirm) =>
+          openScheduleSheet({
+            appzetSlug: sheetSlug,
+            value,
+            presentation: schedulePresentation(readAppzetPropsFromCatalog(sheetSlug)),
+            childStyles: childStylesFromCustomizations(
+              sheetSlug,
+              SCHEDULE_SHEET_CHILD_COUNT,
+              currentCustomizations,
+            ),
+            onConfirm,
+          }),
       });
       return;
     }

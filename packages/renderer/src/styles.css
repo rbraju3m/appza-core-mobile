@@ -14029,3 +14029,177 @@ select.appza-profile-fields-input[multiple] {
   color: var(--appza-remove-member-icon-color, #3f3f46);
   cursor: pointer;
 }
+
+
+/* ── Scheduled posts (doc states 65-69, 2026-09-17) ─────────────────────
+   65 — the banner under the own profile's level bar. A pale strip inside
+   the header's white band: calendar, the sentence, a chevron hard right.
+
+   Every child carries the same "is there a count" clause, so with none
+   the root is empty — and an empty root must not leave its white band
+   and its margin behind (the fc-feed-toolbar rule). */
+.appza-renderer-appzet[data-slug="fc-profile-scheduled-banner"] {
+  background: #ffffff;
+  padding: var(--appza-outer-padding, 0 16px 12px);
+}
+.appza-renderer-appzet[data-slug="fc-profile-scheduled-banner"]:not(:has([data-child-index])) {
+  display: none;
+}
+.appza-renderer-ss[data-slug="fc-scheduled-posts-banner"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--appza-banner-bg-color, #eef2ff);
+  border-radius: var(--appza-banner-radius, 6px);
+  cursor: pointer;
+}
+.appza-renderer-ss[data-slug="fc-scheduled-posts-banner"]:not(:has([data-child-index])) {
+  display: none;
+}
+.appza-renderer-ss[data-slug="fc-scheduled-posts-banner"] [data-child-index="0"],
+.appza-renderer-ss[data-slug="fc-scheduled-posts-banner"] [data-child-index="2"] {
+  display: inline-flex;
+  font-size: 18px;
+  color: var(--appza-icon-color, #2563eb);
+}
+.appza-renderer-ss[data-slug="fc-scheduled-posts-banner"] [data-child-index="1"] {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--appza-text-size, 12px);
+  color: var(--appza-text-color, #2563eb);
+}
+.appza-renderer-ss[data-slug="fc-scheduled-posts-banner"] [data-child-index="2"] {
+  margin-left: auto;
+}
+
+/* 66 — one card per scheduled post, on the page's grey. Placed by index:
+   when, who and where, the words, then the three acts bottom right. */
+[data-screen-slug="scheduled-posts"] .appza-renderer-screen,
+[data-screen-slug="scheduled-posts"] ion-content {
+  --background: #f4f5f9;
+  background: #f4f5f9;
+}
+.appza-renderer-appzet-list[data-slug="fc-scheduled-posts-list"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--appza-card-margin, 16px);
+  padding: var(--appza-card-margin, 16px);
+}
+.appza-renderer-ss[data-slug="fc-scheduled-post-card"] {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  grid-template-areas:
+    "cal   when  when  when  when"
+    "av    name  name  name  name"
+    "av    space space space space"
+    "title title title title title"
+    "body  body  body  body  body"
+    ".     .     resch pub   trash";
+  column-gap: 6px;
+  align-items: center;
+  padding: 12px 16px 14px;
+  background: var(--appza-card-bg-color, #ffffff);
+  border-radius: var(--appza-card-radius, 6px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+.appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="0"] {
+  grid-area: cal;
+  display: inline-flex;
+  font-size: 16px;
+  color: var(--appza-accent-color, #2563eb);
+}
+.appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="1"] {
+  grid-area: when;
+  font-size: 12px;
+  color: var(--appza-accent-color, #2563eb);
+}
+.appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="2"] {
+  grid-area: av;
+  margin-top: 8px;
+  margin-right: 2px;
+}
+.appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="3"] {
+  grid-area: name;
+  align-self: end;
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--appza-title-color, #111827);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="4"] {
+  grid-area: space;
+  align-self: start;
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--appza-muted-color, #6b7280);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="5"] {
+  grid-area: title;
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--appza-title-color, #111827);
+}
+.appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="6"] {
+  grid-area: body;
+  font-size: 12px;
+  color: var(--appza-muted-color, #6b7280);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="7"] {
+  grid-area: resch;
+  margin-top: 14px;
+}
+.appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="8"] {
+  grid-area: pub;
+  margin-top: 14px;
+  margin-left: 12px;
+}
+.appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="9"] {
+  grid-area: trash;
+  margin-top: 14px;
+  margin-left: 16px;
+  display: inline-flex;
+  font-size: 22px;
+  color: var(--appza-accent-color, #2563eb);
+  cursor: pointer;
+}
+/* Ionic's ion-button host border and uppercase label, both undone — the
+   same gotcha the follow row's buttons hit. */
+.appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="7"] ion-button,
+.appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="8"] ion-button {
+  --border-width: 0;
+  --box-shadow: none;
+  --border-radius: 4px;
+  --padding-start: 14px;
+  --padding-end: 14px;
+  height: 26px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  border: 0;
+}
+.appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="7"] ion-button {
+  --background: transparent;
+  --background-hover: transparent;
+  --background-activated: transparent;
+  --color: var(--appza-accent-color, #2563eb);
+  --padding-start: 0;
+  --padding-end: 0;
+}
+.appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="8"] ion-button {
+  --background: var(--appza-accent-color, #2563eb);
+  --color: #ffffff;
+}
