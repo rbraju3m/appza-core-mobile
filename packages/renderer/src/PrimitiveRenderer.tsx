@@ -97,6 +97,7 @@ import {
   informationCircle,
   chatbubbleEllipsesOutline,
   flagOutline,
+  filmOutline,
   globe,
   globeOutline,
   informationCircleOutline,
@@ -338,6 +339,8 @@ const ICON_REGISTRY: Record<string, string> = {
   'link-outline': linkOutline,
   'chatbubble-ellipses-outline': chatbubbleEllipsesOutline,
   'flag-outline': flagOutline,
+  // Design 7's clapperboard under a reported post that has media.
+  'film-outline': filmOutline,
   globe,
   'globe-outline': globeOutline,
   'lock-closed': lockClosed,

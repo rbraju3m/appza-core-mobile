@@ -339,6 +339,16 @@ export {
   type MemberDirectoryStatus,
 } from './memberDirectoryControls';
 export {
+  getModerationControls,
+  setModerationControls,
+  resetModerationControls,
+  useModerationControls,
+  moderationStateEntries,
+  type ModerationControls,
+  type ModerationStatus,
+} from './moderationControls';
+export { tryHandleModerationAction } from './moderationActions';
+export {
   tryHandleMemberDirectoryAction,
   type MemberDirectoryActionDeps,
 } from './memberDirectoryActions';

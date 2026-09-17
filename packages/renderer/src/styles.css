@@ -14224,3 +14224,154 @@ select.appza-profile-fields-input[multiple] {
   visibility: hidden;
   pointer-events: none;
 }
+
+/* === Moderation (doc states 7, 15, 24, 29) ============================
+   The page's grey, the four-status pill, and one card per report. The pill
+   rides fc-media-tabs' Superstructure, so its track and button resets come
+   from there; what differs is keyed on the AppZet: labels sized to their
+   words rather than equal widths, a lifted track, and the active entry
+   marked with data-active rather than an attribute per value.          */
+[data-screen-slug="moderation"] .appza-renderer-screen,
+[data-screen-slug="moderation"] ion-content {
+  --background: #f4f5f9;
+  background: #f4f5f9;
+}
+.appza-renderer-appzet[data-slug="fc-moderation-tabs"],
+.appza-renderer-appzet-list[data-slug="fc-moderation-tabs"] {
+  display: block;
+  padding: var(--appza-row-padding, 16px 16px 4px);
+}
+.appza-renderer-appzet[data-slug="fc-moderation-tabs"] .appza-renderer-ss[data-slug="fc-media-tabs"] {
+  background: var(--appza-track-bg-color, #ebebed);
+  border-radius: var(--appza-track-radius, 4px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+.appza-renderer-appzet[data-slug="fc-moderation-tabs"] .appza-renderer-ss-child {
+  flex: 1 1 auto;
+}
+.appza-renderer-appzet[data-slug="fc-moderation-tabs"] ion-button {
+  --padding-start: 6px !important;
+  --padding-end: 6px !important;
+  --border-radius: var(--appza-chip-radius, 4px) !important;
+  font-weight: var(--appza-font-weight, 500) !important;
+  font-size: 12px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+}
+.appza-renderer-appzet[data-slug="fc-moderation-tabs"] [data-active="true"] ion-button::part(native) {
+  background: var(--appza-active-bg-color, #ffffff) !important;
+  color: var(--appza-active-text-color, #111827) !important;
+  border-radius: var(--appza-chip-radius, 4px) !important;
+}
+.appza-renderer-appzet[data-slug="fc-moderation-tabs"] [data-active="true"] ion-button {
+  --color: var(--appza-active-text-color, #111827) !important;
+}
+
+.appza-renderer-appzet-list[data-slug="fc-moderation-list"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--appza-card-gap, 16px);
+  padding: 8px 16px 16px;
+}
+.appza-renderer-ss[data-slug="fc-moderation-card"] {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "av   name more"
+    "av   time more"
+    "type type type"
+    "body body body"
+    "media media media"
+    "chip chip chip";
+  /* Explicit: the base Superstructure rule's gap would add a row gap
+     around the media row even when it is empty. */
+  column-gap: 8px;
+  row-gap: 0;
+  align-items: center;
+  padding: 0 0 20px;
+  background: var(--appza-card-bg-color, #ffffff);
+  border-radius: var(--appza-card-radius, 4px);
+  box-shadow: var(--appza-card-shadow, 0 1px 3px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.06));
+  overflow: hidden;
+}
+/* The header band, and the hairline under it (design 7). */
+.appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="0"] {
+  grid-area: av;
+  align-self: start;
+  margin: 29px 0 17px 24px;
+}
+.appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="1"] {
+  grid-area: name;
+  align-self: end;
+  margin-top: 32px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--appza-name-color, #111827);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="2"] {
+  grid-area: time;
+  align-self: start;
+  margin-bottom: 16px;
+  font-size: 11px;
+  line-height: 1.25;
+  color: var(--appza-meta-color, #6b7280);
+}
+.appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="3"] {
+  grid-area: more;
+  align-self: start;
+  margin: 14px 16px 0 0;
+  display: inline-flex;
+  font-size: 20px;
+  color: var(--appza-name-color, #111827);
+  cursor: pointer;
+}
+.appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="4"] {
+  grid-area: type;
+  padding: 14px 16px 0;
+  border-top: 1px solid var(--appza-divider-color, #e5e7eb);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--appza-type-color, #4f5bd5);
+}
+.appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="5"] {
+  grid-area: body;
+  padding: 6px 16px 0;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--appza-meta-color, #6b7280);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="6"] {
+  grid-area: media;
+  padding: 6px 16px 0;
+  display: inline-flex;
+  font-size: 15px;
+  color: #374151;
+}
+.appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="7"] {
+  grid-area: chip;
+  justify-self: start;
+  display: flex;
+  line-height: 0;
+  padding: 8px 16px 0;
+}
+.appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="7"] ion-chip {
+  --background: var(--appza-chip-bg-color, #fcc8cf);
+  --color: var(--appza-chip-text-color, #e11d48);
+  background: var(--appza-chip-bg-color, #fcc8cf);
+  color: var(--appza-chip-text-color, #e11d48);
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.3;
+}

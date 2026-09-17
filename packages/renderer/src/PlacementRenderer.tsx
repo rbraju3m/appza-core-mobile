@@ -17,6 +17,7 @@ import { useFeedControls } from './feedControls';
 import { useSpacesControls } from './spacesControls';
 import { useProfileControls } from './profileControls';
 import { useMemberDirectoryControls } from './memberDirectoryControls';
+import { useModerationControls } from './moderationControls';
 import { setSpaceDetailControls, useSpaceDetailControls } from './spaceDetailControls';
 import { setChatControls, useChatControls } from './chatControls';
 import { setLeaderboardControls, useLeaderboardControls } from './leaderboardControls';
@@ -56,7 +57,7 @@ import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
  * changes rarely; when a new paginated data source lands, add its slug
  * here + wire a matching per_page default in PAGE_SIZE_BY_SLUG.
  */
-const PAGINATED_DATA_SOURCES = new Set<string>(['fc-feed', 'fc-space-members', 'fc-members-directory']);
+const PAGINATED_DATA_SOURCES = new Set<string>(['fc-feed', 'fc-space-members', 'fc-members-directory', 'fc-moderation-reports']);
 const PAGE_SIZE_BY_SLUG: Record<string, number> = {
   'fc-feed': 10,
   // Members page size matches the FC portal's own paginate() default so
@@ -246,6 +247,9 @@ export function PlacementRenderer({
   // All Members — read unconditionally for stable hook order. The tab
   // strip reads `status`, the toolbar's sort button reads `sort_by`.
   const memberDirectory = useMemberDirectoryControls();
+  // The Moderation screen's tab. Subscribed here so a tap re-renders the
+  // list, whose `status` query param is resolved from it at render time.
+  const moderationControls = useModerationControls();
   const postDetailControls = usePostDetailControls();
   // Search screen controls. Read unconditionally for stable hook order,
   // same as every slice above — both strips read it to mark their active
@@ -521,6 +525,7 @@ export function PlacementRenderer({
     'state.member_directory_controls.search': memberDirectory.search,
     'state.member_directory_controls.sort_by': memberDirectory.sort_by,
     'state.member_directory_controls.sort_dir': memberDirectory.sort_dir,
+    'state.moderation_controls.status': moderationControls.status,
   };
   const dataSourceByState = (appzet as unknown as {
     data_source_by_state?: {
@@ -1591,6 +1596,8 @@ export function PlacementRenderer({
     'add_radius',
     // Space Documents sub-tab knobs (2026-08-16).
     'title_color',
+    // The Moderation card's Post / Comment label.
+    'type_color',
     'file_row_color',
     'file_icon_color',
     'download_icon_color',
@@ -2070,6 +2077,8 @@ export function PlacementRenderer({
               // All Members' status strip — the profile strip's
               // Superstructure reading a different slice.
               appzet.slug === 'fc-members-tabs' ? memberDirectory.status :
+              // Moderation's four statuses, on the media tabs' pill.
+              appzet.slug === 'fc-moderation-tabs' ? moderationControls.status :
               undefined
             }
             activeChildValues={
@@ -2409,6 +2418,8 @@ export function PlacementRenderer({
               // All Members' status strip — the profile strip's
               // Superstructure reading a different slice.
               appzet.slug === 'fc-members-tabs' ? memberDirectory.status :
+              // Moderation's four statuses, on the media tabs' pill.
+              appzet.slug === 'fc-moderation-tabs' ? moderationControls.status :
                 undefined
               }
               activeChildValues={

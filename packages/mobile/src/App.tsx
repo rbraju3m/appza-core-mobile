@@ -120,6 +120,8 @@ import {
   setBookmarkControls,
   resetBookmarkControls,
   resetMemberDirectoryControls,
+  resetModerationControls,
+  tryHandleModerationAction,
   tryHandleMemberDirectoryAction,
   tryHandleProfilePhotoAction,
   tryHandleLogoutConfirm,
@@ -1064,6 +1066,12 @@ export function App() {
   useEffect(() => {
     if (screen?.app_map_screen_slug !== 'all-members') return;
     resetMemberDirectoryControls();
+  }, [screen?.app_map_screen_slug]);
+
+  // Moderation opens on Pending (design 7), whichever tab it was left on.
+  useEffect(() => {
+    if (screen?.app_map_screen_slug !== 'moderation') return;
+    resetModerationControls();
   }, [screen?.app_map_screen_slug]);
 
   // Search arrives on Posts → Content with an empty field, for the same
@@ -3637,6 +3645,13 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     // All Members (2026-09-15) — search, status tabs, the two-part sort
     // sheet, and the status change behind its confirm. Shared with the
     // other shell through @appza/renderer.
+    // Moderation (2026-09-17) — the four status tabs. Shared with the
+    // other shell through @appza/renderer.
+    case 'moderation.set_tab': {
+      tryHandleModerationAction(inv);
+      return;
+    }
+
     case 'members.set_search':
     case 'members.set_tab':
     case 'members.set_sort':
