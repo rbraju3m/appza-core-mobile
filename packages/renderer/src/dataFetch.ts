@@ -262,6 +262,49 @@ function buildProxyUrl(
 }
 
 /**
+ * One network request per identical question, however many ask it
+ * (2026-09-17).
+ *
+ * A screen asks the same DataSource from many places. Opening a member's
+ * profile mounted twenty `fc-member-profile {"member_id":6}` fetches and
+ * four identical `fc-profile-feed` ones — the header, the cluster, the
+ * level bar, the banner, the app bar, each tab's shared chrome — all
+ * within 70ms. The server answers them one after another, so the last
+ * landed at 6.3s and the app bar's ⋯ waited for it.
+ *
+ * A request already in flight for the same URL and the same credentials
+ * is joined rather than repeated. Only while it is in flight: once it
+ * settles the entry is dropped, so a later mount, a refresh or a
+ * `nocache=1` fetch (a different URL) asks the server again exactly as
+ * before.
+ *
+ * What is shared is the response TEXT; each caller parses its own copy.
+ * Callers have always owned the rows they were handed, and a shared
+ * object would let one consumer's in-place edit show up in another's.
+ */
+const inFlight = new Map<string, Promise<string>>();
+
+function fetchProxyText(url: string, headers: Record<string, string>): Promise<string> {
+  const key = `${headers['X-Appza-Auth'] ?? ''}\n${url}`;
+  const joined = inFlight.get(key);
+  if (joined) return joined;
+  const request = fetch(url, { headers })
+    .then(async (res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.text();
+    })
+    .finally(() => {
+      inFlight.delete(key);
+    });
+  inFlight.set(key, request);
+  return request;
+}
+
+async function fetchProxyJson(url: string, headers: Record<string, string>): Promise<any> {
+  return JSON.parse(await fetchProxyText(url, headers));
+}
+
+/**
  * Fetch one DataSource once, outside React.
  *
  * The hooks above are the normal path; this exists for the things that
@@ -284,9 +327,7 @@ export async function fetchDataSourceOnce(
       : undefined) || undefined;
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (authHeader) headers['X-Appza-Auth'] = authHeader;
-  const res = await fetch(buildProxyUrl(slug, params, opts?.bypassCache === true), { headers });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  return fetchProxyJson(buildProxyUrl(slug, params, opts?.bypassCache === true), headers);
 }
 
 /**
@@ -403,11 +444,7 @@ export function useDataSource(
       ? (window as unknown as { __appzaForceRefreshUntil?: number }).__appzaForceRefreshUntil
       : undefined) || 0;
     const forceBypass = forceRefreshUntil > Date.now();
-    fetch(buildProxyUrl(slug, params, refreshTick > 0 || forceBypass), { headers })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
+    fetchProxyJson(buildProxyUrl(slug, params, refreshTick > 0 || forceBypass), headers)
       .then((json) => {
         if (cancelled) return;
         // Response shape flexibility. Most endpoints return either a bare
@@ -572,11 +609,7 @@ export function useDataSourcePaged(
     // fresh upstream posts land.
     const url = buildProxyUrl(slug, mergedParams, refreshTick > 0);
 
-    fetch(url, { headers })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
+    fetchProxyJson(url, headers)
       .then((json) => {
         if (cancelled) return;
         const pageItems: unknown[] = Array.isArray(json)
