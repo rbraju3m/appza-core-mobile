@@ -805,6 +805,10 @@ export function moderationReviewPresentation(
     reportsTabLabel: str(props.reports_tab_label) ?? 'Reports',
     dismissLabel: str(props.dismiss_label) ?? 'DISMISS REPORTS',
     unpublishLabel: str(props.unpublish_label) ?? 'UNPUBLISHED POST',
+    publishLabel: str(props.publish_label) ?? 'PUBLISHED POST',
+    deleteLabel: str(props.delete_label) ?? 'DELETE REPORTS',
+    autoFlagHeading: str(props.auto_flag_heading) ?? 'Flagged Automatically by the site rule',
+    reportedForPrefix: str(props.reported_for_prefix) ?? 'Reported for',
     reportedAtPrefix: str(props.reported_at_prefix) ?? 'Reported at',
     postedInPrefix: str(props.posted_in_prefix) ?? 'Posted in',
     emptyLabel: str(props.empty_label) ?? 'No reports on this content.',
@@ -817,8 +821,18 @@ export function moderationReviewPresentation(
     unpublishConfirmTitle: str(props.unpublish_confirm_title) ?? 'Unpublished Content',
     unpublishConfirmMessage:
       str(props.unpublish_confirm_message) ?? 'This will unpublish the content from public view.',
-    unpublishConfirmCta: str(props.unpublish_confirm_cta) ?? 'YES, UNPUBLISHED',
+    unpublishConfirmCta: str(props.unpublish_confirm_cta) ?? 'YES, UNPUBLISH',
+    publishConfirmTitle: str(props.publish_confirm_title) ?? 'Publish Content',
+    publishConfirmMessage:
+      str(props.publish_confirm_message) ??
+      'This will publish the content and make it visible to the community.',
+    publishConfirmCta: str(props.publish_confirm_cta) ?? 'YES, PUBLISH',
+    deleteConfirmTitle: str(props.delete_confirm_title) ?? 'Delete Report',
+    deleteConfirmMessage:
+      str(props.delete_confirm_message) ?? 'This will permanently delete this report.',
+    deleteConfirmCta: str(props.delete_confirm_cta) ?? 'YES, DELETE',
     setStatusActionSlug: str(props.set_status_action_slug) ?? 'moderation.set_status',
+    deleteActionSlug: str(props.delete_action_slug) ?? 'moderation.delete_report',
   };
 }
 

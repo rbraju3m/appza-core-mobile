@@ -14,13 +14,17 @@ import { useEffect, useState } from 'react';
  * something instantly rather than a spinner over a post you were just
  * looking at. **Reports** is the fetch.
  *
- * The two CTAs do not act here. They dispatch `moderation.set_status`
- * and the app-side dispatcher runs the same confirm-then-request path
- * `post.delete` uses, because designs 31 and 32 are that dialog and the
- * stakes are the same: FluentCommunity marks every report on the content
- * and republishes or unpublishes it. This modal closes when that path
- * reports success, which it announces on a window event — the confirm
- * can be cancelled, so closing optimistically would be a lie.
+ * The CTAs do not act here. They hand their verb to `onAct`, and
+ * moderationActions opens the doc's confirm and sends the write. This
+ * modal closes when that write reports success, which it announces on a
+ * window event — the confirm can be cancelled, so closing optimistically
+ * would be a lie.
+ *
+ * Opened two ways. From the flagged banner on a post it offers Dismiss and
+ * Unpublish, as it always has. From a report row on the Moderation screen
+ * (doc states 9–32) the row says which of the four buttons its status
+ * allows — Dismiss, Unpublish, Publish, Delete — and which report they act
+ * on.
  */
 
 export type ModerationReport = {
@@ -33,13 +37,25 @@ export type ModerationReport = {
   reason?: string;
   reason_label?: string;
   reporter_name?: string;
+  /** Design 12's face. Empty on an auto-flag. */
+  reporter_avatar?: string;
+  is_auto_flagged?: boolean;
 };
+
+/** The four verbs a review can offer. */
+export type ModerationReviewAct = 'dismiss' | 'unpublish' | 'publish' | 'delete';
 
 export type ModerationReviewPresentation = {
   detailsTabLabel: string;
   reportsTabLabel: string;
   dismissLabel: string;
   unpublishLabel: string;
+  publishLabel: string;
+  deleteLabel: string;
+  /** Design 28's bold line over an auto-flag, in place of a reporter. */
+  autoFlagHeading: string;
+  /** Design 12's "Reported for Spam" under the reporter's name. */
+  reportedForPrefix: string;
   reportedAtPrefix: string;
   postedInPrefix: string;
   emptyLabel: string;
@@ -50,8 +66,15 @@ export type ModerationReviewPresentation = {
   unpublishConfirmTitle: string;
   unpublishConfirmMessage: string;
   unpublishConfirmCta: string;
-  /** The action the CTAs dispatch. See the note on its catalog prop. */
+  publishConfirmTitle: string;
+  publishConfirmMessage: string;
+  publishConfirmCta: string;
+  deleteConfirmTitle: string;
+  deleteConfirmMessage: string;
+  deleteConfirmCta: string;
+  /** The actions the CTAs dispatch. See the note on their catalog props. */
   setStatusActionSlug: string;
+  deleteActionSlug: string;
 };
 
 export type ModerationReviewOpenDetail = {
@@ -68,11 +91,23 @@ export type ModerationReviewOpenDetail = {
     authorAvatar?: string;
     spaceTitle?: string;
     reportedAt?: string;
+    /** Design 9's picture under the words. */
+    mediaUrl?: string;
   };
+  /**
+   * Which buttons to draw. Absent on the banner path, which offers Dismiss
+   * and Unpublish.
+   */
+  buttons?: Partial<Record<ModerationReviewAct, boolean>>;
+  /**
+   * The report the buttons act on. From a report row it is that row's; on
+   * the banner path it is the first fetched report.
+   */
+  reportId?: number | string;
   presentation: ModerationReviewPresentation;
   authHeader?: string;
-  /** Fired for each CTA; the app dispatcher owns the confirm + request. */
-  onAct: (status: 'ignored' | 'unpublished', reportId: number | string) => void;
+  /** Fired for each CTA; moderationActions owns the confirm + request. */
+  onAct: (act: ModerationReviewAct, reportId: number | string) => void;
 };
 
 const OPEN_EVENT = 'appza:open-moderation-review';
@@ -153,9 +188,20 @@ export function ModerationReviewSheet() {
   const p = open.presentation;
   const count = reports?.length ?? 0;
   // FluentCommunity acts on reports.data[0] and its update marks every
-  // report on the content anyway, so the first is the one to send.
-  const actableId = reports && reports.length > 0 ? reports[0]?.id : undefined;
+  // report on the content anyway, so on the banner path the first is the
+  // one to send. A report row names its own — Delete removes that one.
+  const actableId =
+    open.reportId ?? (reports && reports.length > 0 ? reports[0]?.id : undefined);
   const canAct = actableId !== undefined && actableId !== null;
+  const buttons = open.buttons ?? { dismiss: true, unpublish: true };
+  // Design order: Dismiss · Unpublish · Publish · Delete, drawing only
+  // those this report's status allows (designs 9, 26, 31).
+  const cta: Array<{ act: ModerationReviewAct; label: string; className: string }> = [
+    { act: 'dismiss', label: p.dismissLabel, className: 'appza-modreview-dismiss' },
+    { act: 'unpublish', label: p.unpublishLabel, className: 'appza-modreview-unpublish' },
+    { act: 'publish', label: p.publishLabel, className: 'appza-modreview-unpublish' },
+    { act: 'delete', label: p.deleteLabel, className: 'appza-modreview-delete' },
+  ];
 
   return (
     <div className="appza-modreview-backdrop" onClick={() => setOpen(null)}>
@@ -174,6 +220,18 @@ export function ModerationReviewSheet() {
               </span>
             )}
           </div>
+          {/* Every design draws a close cross; the backdrop tap is not
+              discoverable. */}
+          <button
+            type="button"
+            className="appza-modreview-close"
+            aria-label="Close"
+            onClick={() => setOpen(null)}
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+          </button>
         </div>
         {open.content.reportedAt && (
           <span className="appza-modreview-reported">
@@ -214,6 +272,9 @@ export function ModerationReviewSheet() {
                   dangerouslySetInnerHTML={{ __html: open.content.bodyHtml }}
                 />
               )}
+              {open.content.mediaUrl && (
+                <img className="appza-modreview-content-media" src={open.content.mediaUrl} alt="" />
+              )}
             </div>
           )}
           {tab === 'reports' && (
@@ -227,38 +288,61 @@ export function ModerationReviewSheet() {
               )}
               {!error &&
                 reports !== null &&
-                reports.map((r, i) => (
-                  <div className="appza-modreview-report" key={r.id ?? i}>
-                    <div className="appza-modreview-report-head">{r.headline ?? ''}</div>
-                    <div className="appza-modreview-report-time">
-                      {r.created_at_relative ?? r.created_at ?? ''}
+                reports.map((r, i) => {
+                  const time = r.created_at_relative ?? r.created_at ?? '';
+                  const why = r.explanation || (r.is_auto_flagged ? r.reason_label : '') || '';
+                  // An auto-flag has no one behind it: design 28 draws the
+                  // site rule as the heading and the rule's reason below.
+                  if (r.is_auto_flagged || !r.reporter_name) {
+                    return (
+                      <div className="appza-modreview-report is-auto" key={r.id ?? i}>
+                        <div className="appza-modreview-report-head">
+                          {r.is_auto_flagged ? p.autoFlagHeading : (r.headline ?? '')}
+                        </div>
+                        <div className="appza-modreview-report-time">{time}</div>
+                        {why && <div className="appza-modreview-report-why">{why}</div>}
+                      </div>
+                    );
+                  }
+                  // Design 12: face, name, "Reported for Spam", time, note.
+                  return (
+                    <div className="appza-modreview-report is-person" key={r.id ?? i}>
+                      {r.reporter_avatar ? (
+                        <img className="appza-modreview-report-avatar" src={r.reporter_avatar} alt="" />
+                      ) : (
+                        <span className="appza-modreview-report-avatar" />
+                      )}
+                      <div className="appza-modreview-report-main">
+                        <div className="appza-modreview-report-head">{r.reporter_name}</div>
+                        {r.reason_label && (
+                          <div className="appza-modreview-report-reason">
+                            {p.reportedForPrefix} {r.reason_label}
+                          </div>
+                        )}
+                        <div className="appza-modreview-report-time">{time}</div>
+                        {why && <div className="appza-modreview-report-why">{why}</div>}
+                      </div>
                     </div>
-                    {r.explanation && (
-                      <div className="appza-modreview-report-why">{r.explanation}</div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
             </>
           )}
         </div>
 
         <div className="appza-modreview-foot">
-          <button
-            type="button"
-            className="appza-modreview-dismiss"
-            disabled={!canAct}
-            onClick={() => canAct && open.onAct('ignored', actableId!)}
-          >
-            {p.dismissLabel}
-          </button>
-          <button
-            type="button"
-            className="appza-modreview-unpublish"
-            disabled={!canAct}
-            onClick={() => canAct && open.onAct('unpublished', actableId!)}
-          >
-            {p.unpublishLabel}
-          </button>
+          {cta
+            .filter((b) => buttons[b.act])
+            .map((b) => (
+              <button
+                key={b.act}
+                type="button"
+                className={b.className}
+                disabled={!canAct}
+                onClick={() => canAct && open.onAct(b.act, actableId!)}
+              >
+                {b.label}
+              </button>
+            ))}
         </div>
       </div>
     </div>

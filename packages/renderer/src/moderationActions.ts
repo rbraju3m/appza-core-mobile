@@ -2,7 +2,13 @@ import type { ActionInvocation } from './actionContext';
 import { readDataPath, APPZA_REFRESH_EVENT } from './dataFetch';
 import { setModerationControls, isModerationStatus } from './moderationControls';
 import { closeMemberRemoveConfirm, openMemberRemoveConfirm } from './MemberRemoveConfirm';
-import { announceModerationDone } from './ModerationReviewSheet';
+import {
+  announceModerationDone,
+  openModerationReview,
+  type ModerationReviewAct,
+} from './ModerationReviewSheet';
+import { moderationReviewPresentation } from './modalPresentation';
+import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
 import { sendJson, type StoredAuthLike } from './postMenuHandlers';
 
 /**
@@ -25,15 +31,140 @@ import { sendJson, type StoredAuthLike } from './postMenuHandlers';
  *
  * They used to ride the shells' post-delete confirm, whose red button no
  * moderation design draws.
+ *
+ * ---------------------------------------------------------------------
+ * The review modal opens from a post OR from a report
+ * ---------------------------------------------------------------------
+ *
+ * `moderation.review` with `row_kind: 'report'` (the Moderation screen's ⋯
+ * sheet) reads the enricher's flat content fields and its `review_can_*`
+ * verdicts, and acts on that report. Without it (the flagged banner) the
+ * bound item IS the post, and the modal offers Dismiss and Unpublish.
  */
 
 export type ModerationActionDeps = {
   auth: StoredAuthLike | null;
   authHeader: (auth: StoredAuthLike) => string;
   onError: (msg: string) => void;
+  /** The shell's catalog lookup for an overlay AppZet's authored props. */
+  readAppzetProps: (slug: string) => Record<string, unknown>;
+  /** Re-enters the shell's dispatcher — the review modal's CTAs use it. */
+  dispatch: (next: ActionInvocation) => void;
 };
 
-const HANDLED = new Set(['moderation.set_tab', 'moderation.set_status', 'moderation.delete_report']);
+const HANDLED = new Set([
+  'moderation.set_tab',
+  'moderation.review',
+  'moderation.set_status',
+  'moderation.delete_report',
+]);
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === 'object' && !Array.isArray(v);
+}
+
+function openReview(
+  argRec: Record<string, unknown>,
+  itemRec: Record<string, unknown> | null,
+  deps: ModerationActionDeps,
+): void {
+  const rec = itemRec ?? {};
+  const fromReport = argRec.row_kind === 'report';
+  const endpoint = str(argRec.endpoint) ?? '/wp-json/fcom-mobile/api/v1/moderation/reports';
+
+  // A report row names its content by the enricher's flat fields; FC Pro
+  // filters a POST's reports by post_id and a COMMENT's by parent_id, and
+  // answers the wrong one with every report on the site, so it is never
+  // guessed.
+  const contentType = fromReport
+    ? str(rec.content_type) ?? 'post'
+    : str(argRec.content_type) ?? 'post';
+  const idParam = fromReport
+    ? contentType === 'comment' ? 'parent_id' : 'post_id'
+    : str(argRec.id_param) ?? 'post_id';
+  const contentId = readDataPath(
+    rec,
+    fromReport ? 'data.content_id' : str(argRec.id_path) ?? 'data.id',
+  );
+  if (typeof contentId !== 'number' && typeof contentId !== 'string') {
+    deps.onError('Could not identify which content to review.');
+    return;
+  }
+
+  const sheetSlug = str(argRec.sheet_appzet_slug) ?? 'fc-moderation-review';
+  const presentation = moderationReviewPresentation(deps.readAppzetProps(sheetSlug));
+  const xp = isRecord(rec.xprofile) ? rec.xprofile : undefined;
+  const space = isRecord(rec.space) ? rec.space : undefined;
+
+  const content = fromReport
+    ? {
+        title: str(rec.content_title),
+        bodyHtml: str(rec.content_body_html),
+        authorName: str(rec.author_name),
+        authorAvatar: str(rec.author_avatar),
+        spaceTitle: str(rec.space_title),
+        reportedAt: str(rec.created_at_relative),
+        mediaUrl: str(rec.content_media_url),
+      }
+    : {
+        title: str(rec.title),
+        bodyHtml: str(rec.message_rendered),
+        authorName: xp ? str(xp.display_name) : undefined,
+        authorAvatar: xp ? str(xp.avatar) : undefined,
+        spaceTitle: space ? str(space.title) : undefined,
+        reportedAt: str(rec.created_at),
+      };
+
+  const rawReportId = rec.id;
+  const reportId =
+    fromReport && (typeof rawReportId === 'number' || typeof rawReportId === 'string')
+      ? rawReportId
+      : undefined;
+
+  openModerationReview({
+    endpoint,
+    idParam,
+    contentId,
+    contentType,
+    content,
+    presentation,
+    authHeader: deps.auth ? deps.authHeader(deps.auth) : undefined,
+    // The enricher's per-status verdicts (designs 9, 17, 26, 31).
+    buttons: fromReport
+      ? {
+          dismiss: rec.review_can_dismiss === true,
+          unpublish: rec.review_can_unpublish === true,
+          publish: rec.review_can_publish === true,
+          delete: rec.review_can_delete === true,
+        }
+      : undefined,
+    reportId,
+    onAct: (act: ModerationReviewAct, id) => {
+      const slug = act === 'delete' ? presentation.deleteActionSlug : presentation.setStatusActionSlug;
+      const copy = {
+        dismiss: [presentation.dismissConfirmTitle, presentation.dismissConfirmMessage, presentation.dismissConfirmCta],
+        unpublish: [presentation.unpublishConfirmTitle, presentation.unpublishConfirmMessage, presentation.unpublishConfirmCta],
+        publish: [presentation.publishConfirmTitle, presentation.publishConfirmMessage, presentation.publishConfirmCta],
+        delete: [presentation.deleteConfirmTitle, presentation.deleteConfirmMessage, presentation.deleteConfirmCta],
+      }[act];
+      // Publish sends `ignored` like Dismiss — the doc's "same work as
+      // approved" (D96).
+      const status = act === 'unpublish' ? 'unpublished' : act === 'delete' ? undefined : 'ignored';
+      deps.dispatch({
+        action_slug: slug,
+        args: {
+          ...(readActionDefaultsFromCatalog(slug) ?? {}),
+          ...(status ? { status } : {}),
+          confirm_title: copy[0],
+          confirm_message: copy[1],
+          confirm_cta: copy[2],
+        },
+        // The write resolves `data.id`, and the id it needs is the REPORT's.
+        item: { id },
+      });
+    },
+  });
+}
 
 function str(v: unknown): string | undefined {
   return typeof v === 'string' && v !== '' ? v : undefined;
@@ -61,6 +192,11 @@ export function tryHandleModerationAction(
           : null;
     // A closed set: this value is sent to FluentCommunity as `status`.
     if (isModerationStatus(runtimeValue)) setModerationControls({ status: runtimeValue });
+    return true;
+  }
+
+  if (action_slug === 'moderation.review') {
+    if (deps) openReview(argRec, itemRec, deps);
     return true;
   }
 
