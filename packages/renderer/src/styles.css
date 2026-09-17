@@ -5028,6 +5028,9 @@
   z-index: 80;
   animation: appza-member-fade-in 120ms ease-out;
 }
+.appza-member-confirm-backdrop.is-raised {
+  z-index: 1500;
+}
 .appza-member-confirm {
   width: min(320px, 88%);
   background: #ffffff;

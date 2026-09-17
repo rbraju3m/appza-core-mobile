@@ -3695,12 +3695,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     // matching FC's own is a catalog fact rather than a branch here.
     case 'comment.delete':
     case 'post.remove_preview':
-    // Both review CTAs (designs 31, 32). Same shape again —
-    // confirm, POST an id, refetch — with the STATUS riding in
-    // extraBody and the id being the report's rather than the
-    // post's. FluentCommunity marks every report on the content
-    // and republishes or unpublishes it from that one call.
-    case 'moderation.set_status':
     case 'post.delete': {
       // Overflow-menu → delete. Read feed_id off the tapped item using the
       // action's `feed_id_path` binding (defaults to `data.id`) and open the
@@ -3773,13 +3767,9 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         }
         extraBody = { [parentBodyKey]: parentId };
       }
-      const moderationStatus =
-        action_slug === 'moderation.set_status' && typeof argRec.status === 'string'
-          ? argRec.status
-          : null;
       openDeleteConfirm({
         feedId, endpoint, method, bodyKey, title, message, cta,
-        extraBody: moderationStatus ? { ...(extraBody ?? {}), status: moderationStatus } : extraBody,
+        extraBody,
         failLabel: action_slug === 'post.remove_preview' ? 'Remove preview' : 'Delete',
       });
       return;
@@ -4035,10 +4025,13 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     // All Members (2026-09-15) — search, status tabs, the two-part sort
     // sheet, and the status change behind its confirm. Shared with the
     // other shell through @appza/renderer.
-    // Moderation (2026-09-17) — the four status tabs. Shared with the
-    // other shell through @appza/renderer.
-    case 'moderation.set_tab': {
-      tryHandleModerationAction(inv);
+    // Moderation (2026-09-17) — the four status tabs, and the two writes
+    // behind the doc's own dialog (the report ⋯ sheet and the review
+    // modal's CTAs). Shared with the other shell through @appza/renderer.
+    case 'moderation.set_tab':
+    case 'moderation.set_status':
+    case 'moderation.delete_report': {
+      tryHandleModerationAction(inv, { auth, authHeader: basicAuthHeader, onError: onMenuError });
       return;
     }
 

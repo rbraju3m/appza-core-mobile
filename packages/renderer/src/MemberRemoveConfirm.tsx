@@ -36,6 +36,11 @@ type OpenDetail = {
    * draws both buttons alike.
    */
   confirmTone?: 'destructive' | 'primary';
+  /**
+   * Draws the alert above the moderation review modal (1400), which opens
+   * it over itself for Dismiss and Unpublish (design 10).
+   */
+  raised?: boolean;
   item: unknown;
   removeActionSlug?: string;
   removeArgs?: Record<string, unknown>;
@@ -110,7 +115,7 @@ export function MemberRemoveConfirm() {
       role="dialog"
       aria-modal="true"
       aria-label={detail.subject}
-      className="appza-member-confirm-backdrop"
+      className={'appza-member-confirm-backdrop' + (detail.raised ? ' is-raised' : '')}
       onClick={(e) => {
         if (e.target === e.currentTarget) cancel();
       }}
