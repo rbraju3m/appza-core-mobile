@@ -14213,3 +14213,14 @@ select.appza-profile-fields-input[multiple] {
   --background: var(--appza-accent-color, #2563eb);
   --color: #ffffff;
 }
+
+
+/* ── draw_while_loading (2026-09-17) ───────────────────────────────────
+   A data-bound app bar draws before its row lands, so its back arrow works
+   at once. Its ⋯ does not: every row of a member's menu gates on that row,
+   so an early tap would open an empty sheet. Held back until the row is
+   there. */
+.appza-renderer-appzet-list[data-appza-loading="true"] [data-appza-action="on_tap_more"] {
+  visibility: hidden;
+  pointer-events: none;
+}

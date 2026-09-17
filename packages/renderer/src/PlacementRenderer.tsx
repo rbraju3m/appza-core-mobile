@@ -2096,12 +2096,28 @@ export function PlacementRenderer({
     return <>{optionFetchers}</>;
   }
 
+  // draw_while_loading — opt-in, for an AppZet whose static parts must work
+  // before its row lands. The data-bound app bars are the case (2026-09-17):
+  // a skeleton stood where the back arrow should be for as long as the
+  // profile, post or space took to fetch — 1-3s on this box — and a tap on
+  // it did nothing. With this on, the placeholder is skipped and the bar
+  // draws against the empty row the list below already falls back to:
+  // the arrow and the authored title are live at once, and every child
+  // gated on the row appears when the row does. `data-appza-loading` on
+  // the wrapper lets the stylesheet hold back what must not be tapped
+  // early — a ⋯ whose menu rows all gate on that row.
+  const drawingWhileLoading =
+    (appzet.default_props_override as Record<string, unknown> | undefined)?.['draw_while_loading'] ===
+      true &&
+    dataState.loading &&
+    dataState.items.length === 0;
+
   // Only show the loading placeholder on the very first fetch. Once we
   // have items, keep rendering them during background refetches — otherwise
   // any refresh (window focus, explicit refresh event) unmounts the whole
   // subtree, resetting local component state like the video-embed's
   // `playing` flag, which reads as "video hides when clicked".
-  if (dataState.loading && dataState.items.length === 0) {
+  if (dataState.loading && dataState.items.length === 0 && !drawingWhileLoading) {
     // How many placeholder rows read as "this layout". One is right for a
     // single-fetch AppZet and wrong for a grid — a lone tile where six are
     // about to appear reads as a broken screen rather than a loading one.
@@ -2226,6 +2242,7 @@ export function PlacementRenderer({
         className="appza-renderer-appzet-list"
         data-slug={appzet.slug}
         data-view-mode={listViewMode}
+        data-appza-loading={drawingWhileLoading ? 'true' : undefined}
         data-spaces-active-tab={appzet.slug === 'fc-spaces-tabs' ? spacesTab : undefined}
         data-space-detail-active-subtab={appzet.slug === 'fc-space-subtabs' ? spaceDetailActiveSubtab : undefined}
           data-profile-active-tab={
