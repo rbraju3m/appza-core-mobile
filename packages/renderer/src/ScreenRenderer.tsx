@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   IonApp,
   IonContent,
@@ -10,6 +10,7 @@ import {
 } from '@ionic/react';
 import type { Catalog, TemplateScreen } from '@appza/schemas';
 import { indexCatalog } from './catalogIndex';
+import { useScreenScrollMemory } from './screenScrollMemory';
 import { PlacementRenderer } from './PlacementRenderer';
 import { resolveOverridableColumn } from './resolveOverride';
 import { tokensToCssVars } from './tokens';
@@ -37,6 +38,13 @@ type ScreenRendererProps = {
   customizations?: unknown;
   selectedAppzetSlug?: string | null;
   onSelectAppzet?: (slug: string | null) => void;
+  /**
+   * How deep the shell's screen stack is. With it, a push opens at the
+   * top and back returns to where the reader left off; without it the one
+   * IonContent keeps whatever offset the previous screen had. See
+   * screenScrollMemory.
+   */
+  navDepth?: number;
 };
 
 type SlotKey = 'header' | 'main' | 'footer' | 'actions' | 'other';
@@ -66,8 +74,11 @@ export function ScreenRenderer({
   customizations,
   selectedAppzetSlug,
   onSelectAppzet,
+  navDepth,
 }: ScreenRendererProps) {
   const catalogIndex = useMemo(() => indexCatalog(catalog), [catalog]);
+  const contentRef = useRef<HTMLIonContentElement | null>(null);
+  useScreenScrollMemory(contentRef, screen.id ?? screen.app_map_screen_slug, navDepth);
 
   const cssVars = useMemo(() => {
     const templateSlug = catalog.template?.slug ?? '';
@@ -436,7 +447,7 @@ export function ScreenRenderer({
           </IonToolbar>
         </IonHeader>
 
-        <IonContent className="appza-renderer-content" fullscreen>
+        <IonContent ref={contentRef} className="appza-renderer-content" fullscreen>
           {placements.length === 0 ? (
             <div className="appza-renderer-empty">
               <p>No placements on this screen.</p>

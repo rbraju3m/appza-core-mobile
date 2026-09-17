@@ -1809,6 +1809,7 @@ export function App() {
         <ScreenRenderer
           screen={screen}
           catalog={catalog}
+          navDepth={screenStack.length}
           customizations={customizationsForRender}
         />
         {/*

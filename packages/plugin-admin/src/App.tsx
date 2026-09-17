@@ -2068,6 +2068,7 @@ export function App() {
               <>
               <DeviceFrame
                 key={`preview-${previewMode}-app`}
+                navDepth={screenStack.length}
                 screen={currentScreen}
                 catalog={catalog ?? null}
                 customizations={effectiveCustomizations}
@@ -2280,6 +2281,7 @@ export function App() {
               ) : (
                 <DeviceFrame
                   key={`preview-${previewMode}-edit`}
+                  navDepth={screenStack.length}
                   screen={currentScreen}
                   catalog={catalog ?? null}
                   customizations={effectiveCustomizations}

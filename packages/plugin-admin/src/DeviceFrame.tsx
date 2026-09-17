@@ -15,6 +15,8 @@ type DeviceFrameProps = {
   templateName?: string;
   selectedAppzetSlug?: string | null;
   onSelectAppzet?: (slug: string | null) => void;
+  /** The simulator's screen-stack depth, for ScreenRenderer's scroll memory. */
+  navDepth?: number;
   selectedPrimitive?: SelectedPrimitive | null;
   onSelectPrimitive?: (sel: SelectedPrimitive | null) => void;
   /**
@@ -51,6 +53,7 @@ export function DeviceFrame({
   templateName,
   selectedAppzetSlug,
   onSelectAppzet,
+  navDepth,
   selectedPrimitive,
   onSelectPrimitive,
   overlaySlot,
@@ -130,6 +133,7 @@ export function DeviceFrame({
             customizations={customizations}
             selectedAppzetSlug={selectedAppzetSlug}
             onSelectAppzet={onSelectAppzet}
+            navDepth={navDepth}
           />
         )}
         {overlaySlot}
