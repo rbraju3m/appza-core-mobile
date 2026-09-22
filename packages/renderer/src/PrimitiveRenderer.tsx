@@ -695,6 +695,10 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
     case 'IonButton': {
       const iconName = readString(overrides, 'icon');
       const iconEndName = readString(overrides, 'icon_end');
+      // A STRING, empty included: an empty tag still holds the row's far
+      // end, which is what left-aligns a label Ionic would centre.
+      const endText =
+        overrides && typeof overrides['end_text'] === 'string' ? (overrides['end_text'] as string) : undefined;
       const rawText = overrides ? overrides['text'] : undefined;
       const textExplicitlyEmpty = rawText === '';
       const iconOnly = !!iconName && (textExplicitlyEmpty || readString(overrides, 'text') === undefined);
@@ -744,6 +748,13 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
               only place the single `icon`. */}
           {iconEndName && resolveIcon(iconEndName) && iconSlot !== 'end' && (
             <IonIcon icon={resolveIcon(iconEndName)} slot="end" className="appza-icon-end" />
+          )}
+          {/* end_text — a short word pinned to the row's far end: the
+              course lesson row's "Quiz" tag (Courses design 6). */}
+          {endText !== undefined && (
+            <span slot="end" className="appza-btn-end-text">
+              {endText}
+            </span>
           )}
         </ThemedIonButton>
       );

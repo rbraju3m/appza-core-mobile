@@ -18,6 +18,11 @@ import { useSpacesControls } from './spacesControls';
 import { useProfileControls } from './profileControls';
 import { useMemberDirectoryControls } from './memberDirectoryControls';
 import { useCourseListControls } from './courseListControls';
+import {
+  courseDetailStateEntries,
+  getCourseDetailControls,
+  useCourseDetailControls,
+} from './courseDetailControls';
 import { useModerationControls } from './moderationControls';
 import { setSpaceDetailControls, useSpaceDetailControls } from './spaceDetailControls';
 import { setChatControls, useChatControls } from './chatControls';
@@ -254,6 +259,9 @@ export function PlacementRenderer({
   // The Courses screen (Courses doc, states 1–4): the tab strip reads
   // `tab`, the chips `topic_slug`, the sort row `sort_by`.
   const courseList = useCourseListControls();
+  // Course details (states 5–7): subscribed so a section tap re-renders
+  // its card — the lesson rows gate on the open set (childStateBag).
+  useCourseDetailControls();
   const postDetailControls = usePostDetailControls();
   // Search screen controls. Read unconditionally for stable hook order,
   // same as every slice above — both strips read it to mark their active
@@ -2249,6 +2257,29 @@ export function PlacementRenderer({
     });
   }
 
+  // `row_visible_when` — the child clause grammar, asked of each ROW. A
+  // row that fails is not drawn, and with `hide_when_empty` a list left
+  // with none draws nothing at all: the course instructor card when
+  // FluentCommunity hides the instructor (`data.show_instructor`), where
+  // the row still exists because the header and the button read it too.
+  const rowGate = (appzet.default_props_override as Record<string, unknown> | undefined)?.[
+    'row_visible_when'
+  ];
+  if (rowGate && typeof rowGate === 'object' && !dataState.loading) {
+    const clauses = (Array.isArray(rowGate) ? rowGate : [rowGate])
+      .map(parseVisibleWhenClause)
+      .filter((c): c is VisibleWhenClause => c !== null);
+    if (clauses.length > 0) {
+      filteredItems = filteredItems.filter((it) => clauses.every((c) => evaluateVisibleWhen(c, it)));
+      if (
+        filteredItems.length === 0 &&
+        (appzet.default_props_override as Record<string, unknown> | undefined)?.['hide_when_empty'] === true
+      ) {
+        return <>{optionFetchers}</>;
+      }
+    }
+  }
+
   // When children_from_prop consumed the DS items directly (via
   // _data_prop_mirror expanding one child per row), the SS template
   // has ALREADY been replicated once per space/topic/tab inside
@@ -3079,12 +3110,28 @@ function renderChild(
   return <MissingNode label={`unresolved slug: ${slug}`} />;
 }
 
-type VisibleWhenOp = '==' | '!=' | 'exists' | 'not_exists' | 'in' | 'not_in';
+type VisibleWhenOp =
+  | '=='
+  | '!='
+  | 'exists'
+  | 'not_exists'
+  | 'in'
+  | 'not_in'
+  | 'contains'
+  | 'not_contains';
 
 type VisibleWhenClause = {
   binding: string;
   op: VisibleWhenOp;
   value?: unknown;
+  /**
+   * Read the comparison value off the bound row instead of the catalog —
+   * `data.<path>`. For a gate that asks a per-ROW question of shared
+   * state: "is THIS section in the open set" is
+   * `{ binding: 'state.course_detail.open_sections', op: 'contains',
+   *    value_from: 'data.id' }`.
+   */
+  value_from?: string;
 };
 
 /**
@@ -3141,7 +3188,27 @@ function parseVisibleWhenClause(raw: unknown): VisibleWhenClause | null {
     binding: rec.binding,
     op: rec.op as VisibleWhenOp,
     value: 'value' in rec ? rec.value : undefined,
+    ...(typeof rec.value_from === 'string' ? { value_from: rec.value_from } : {}),
   };
+}
+
+/**
+ * The clauses a row cloned from a `children_from_prop` template keeps.
+ * Only those about the CARD — `data.` / `state.` / `settings.` — which the
+ * card's own evaluation answers the same for every row: the course
+ * section's lessons all draw or all hide with the section. An `entry.`
+ * clause is about one row and nothing evaluates it yet (fc-space-links
+ * carries one), so it is left off rather than failing every row closed.
+ */
+function cardLevelClauses(vw: VisibleWhen | undefined): VisibleWhen | undefined {
+  if (!vw) return undefined;
+  const keep = (c: VisibleWhenClause) =>
+    !c.binding.startsWith('entry.') && !(c.value_from ?? '').startsWith('entry.');
+  if (Array.isArray(vw)) {
+    const kept = vw.filter(keep);
+    return kept.length > 0 ? kept : undefined;
+  }
+  return keep(vw) ? vw : undefined;
 }
 
 function readChildren(ss: Superstructure): SSChild[] {
@@ -3305,6 +3372,8 @@ function readExpandedChildren(
       on_click_open_url: openUrlSpec,
       download: template.download,
     };
+    const rowGate = cardLevelClauses(template.visible_when);
+    if (rowGate) child.visible_when = rowGate;
     children.push(child);
     // Stamp the entry's leaf values as this child's overrides. `text`
     // + `value` are the two universal ones; anything else on the entry
@@ -3498,7 +3567,9 @@ function computeChildOpenUrls(children: SSChild[], item: unknown): Record<number
  *
  * Grammar v2 — one clause per child, or a LIST that must all hold (AND;
  * no OR nesting). Ops: `==`, `!=`, `exists`, `not_exists`, `in`,
- * `not_in`. Bindings: `data.<path>` (the bound row), `settings.<path>`
+ * `not_in`, and `contains` / `not_contains` when the binding is a list.
+ * `value_from: 'data.<path>'` takes the comparison value off the row.
+ * Bindings: `data.<path>` (the bound row), `settings.<path>`
  * (the site's FluentCommunity configuration), `state.<path>` (the flat
  * bag below). Unparseable clauses fail-open (child shown) — same
  * silent-no-op posture as the rest of the renderer.
@@ -3530,6 +3601,7 @@ function childStateBag(): Record<string, unknown> {
   return {
     ...postDraftStateEntries(getPostDraft()),
     ...bannerStateEntries(getBannerControls()),
+    ...courseDetailStateEntries(getCourseDetailControls()),
   };
 }
 
@@ -3581,19 +3653,25 @@ function evaluateVisibleWhen(vw: VisibleWhenClause, item: unknown): boolean {
     : vw.binding.startsWith('state.')
       ? childStateBag()[vw.binding.slice('state.'.length)]
       : readDataPath(item, vw.binding);
+  const expected = vw.value_from ? readDataPath(item, vw.value_from) : vw.value;
   switch (vw.op) {
     case 'exists':
       return resolved !== undefined && resolved !== null && resolved !== '';
     case 'not_exists':
       return resolved === undefined || resolved === null || resolved === '';
     case '==':
-      return resolved === vw.value;
+      return resolved === expected;
     case '!=':
-      return resolved !== vw.value;
+      return resolved !== expected;
     case 'in':
-      return Array.isArray(vw.value) && vw.value.includes(resolved as never);
+      return Array.isArray(expected) && expected.includes(resolved as never);
     case 'not_in':
-      return !(Array.isArray(vw.value) && vw.value.includes(resolved as never));
+      return !(Array.isArray(expected) && expected.includes(resolved as never));
+    // The binding is the LIST: "does the open set hold this section".
+    case 'contains':
+      return Array.isArray(resolved) && resolved.includes(expected as never);
+    case 'not_contains':
+      return !(Array.isArray(resolved) && resolved.includes(expected as never));
     default:
       return true;
   }

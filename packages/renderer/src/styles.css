@@ -3784,6 +3784,351 @@
   margin-right: 4px;
 }
 
+/* === Course details (2026-09-22, Courses doc states 5–7) ===============
+   Header card, the "Course content" heading, one card holding every
+   section, the instructor card and the bottom button — measured against
+   designs 5–7 at 375px (P175): 16px page gutters, 17px card padding,
+   #f6f7fb page, rgb(74,95,223) button. */
+[data-screen-slug="course-detail"] ion-content {
+  --background: #f6f7fb;
+}
+.appza-renderer-appzet[data-slug="fc-course-detail-header"],
+.appza-renderer-appzet[data-slug="fc-course-sections"],
+.appza-renderer-appzet[data-slug="fc-course-instructor"],
+.appza-renderer-appzet[data-slug="fc-course-detail-cta"] {
+  margin: 0 4px;
+}
+.appza-renderer-appzet[data-slug="fc-course-detail-header"] {
+  margin-top: 8px;
+}
+.appza-renderer-ss[data-slug="fc-course-detail-header"],
+.appza-renderer-ss[data-slug="fc-course-instructor"] {
+  color: var(--appza-text-color, #111827);
+}
+.appza-renderer-ss[data-slug="fc-course-detail-header"] ion-text,
+.appza-renderer-ss[data-slug="fc-course-section"] ion-text,
+.appza-renderer-ss[data-slug="fc-course-instructor"] ion-text {
+  display: block;
+}
+
+/* Header — a grid whose ::before is the white card behind rows 1–4, so
+   the "Course content" heading (row 5) sits on the page, not in it. */
+.appza-renderer-ss[data-slug="fc-course-detail-header"] {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: [title] auto [counts] auto [dhead] auto [desc] auto [chead] auto;
+}
+.appza-renderer-ss[data-slug="fc-course-detail-header"]::before {
+  content: '';
+  grid-column: 1;
+  grid-row: title / chead;
+  background: var(--appza-card-bg-color, #ffffff);
+  border-radius: var(--appza-card-radius, 4px);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+.appza-renderer-ss[data-slug="fc-course-detail-header"] > [data-child-index] {
+  grid-column: 1;
+  position: relative;
+  padding: 0 17px;
+}
+.appza-renderer-ss[data-slug="fc-course-detail-header"] > [data-child-index="0"] {
+  grid-row: title;
+  padding-top: 17px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--appza-title-color, #111827);
+}
+.appza-renderer-ss[data-slug="fc-course-detail-header"] > [data-child-index="1"] {
+  grid-row: counts;
+  padding-top: 2px;
+  padding-bottom: 17px;
+  font-size: 11px;
+  color: var(--appza-meta-color, #4b5563);
+}
+.appza-renderer-ss[data-slug="fc-course-detail-header"] > [data-child-index="2"] {
+  grid-row: dhead;
+  margin-top: -6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.appza-renderer-ss[data-slug="fc-course-detail-header"] > [data-child-index="3"] {
+  grid-row: desc;
+  padding-top: 5px;
+  padding-bottom: 15px;
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+.appza-renderer-ss[data-slug="fc-course-detail-header"] > [data-child-index="4"] {
+  grid-row: chead;
+  padding: 26px 1px 12px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* Sections — ONE white card around every section (design 6), a hairline
+   between them. */
+.appza-renderer-appzet-list[data-slug="fc-course-sections"] {
+  background: var(--appza-card-bg-color, #ffffff);
+  border-radius: var(--appza-card-radius, 4px);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+.appza-renderer-ss[data-slug="fc-course-section"] {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: [title] auto [count] auto;
+  padding: 15px 17px 14px;
+  cursor: pointer;
+}
+.appza-renderer-appzet-list[data-slug="fc-course-sections"] > * + * .appza-renderer-ss[data-slug="fc-course-section"],
+.appza-renderer-appzet-list[data-slug="fc-course-sections"] > .appza-renderer-ss[data-slug="fc-course-section"] + .appza-renderer-ss[data-slug="fc-course-section"] {
+  border-top: 1px solid var(--appza-divider-color, #e5e7eb);
+}
+.appza-renderer-ss[data-slug="fc-course-section"] > [data-child-index="0"] {
+  grid-column: 1;
+  grid-row: title;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--appza-title-color, #111827);
+}
+.appza-renderer-ss[data-slug="fc-course-section"] > [data-child-index="1"] {
+  grid-column: 1;
+  grid-row: count;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--appza-meta-color, #4b5563);
+}
+.appza-renderer-ss[data-slug="fc-course-section"] > [data-child-index="2"],
+.appza-renderer-ss[data-slug="fc-course-section"] > [data-child-index="3"] {
+  grid-column: 2;
+  grid-row: title / span 2;
+  align-self: start;
+  margin: -6px -10px 0 0;
+}
+.appza-renderer-ss[data-slug="fc-course-section"] > [data-child-index="2"] ion-button,
+.appza-renderer-ss[data-slug="fc-course-section"] > [data-child-index="3"] ion-button {
+  --color: #6b7280 !important;
+  --padding-start: 6px !important;
+  --padding-end: 6px !important;
+  margin: 0 !important;
+  height: 28px !important;
+}
+.appza-renderer-ss[data-slug="fc-course-section"] > [data-child-index="2"] ion-icon,
+.appza-renderer-ss[data-slug="fc-course-section"] > [data-child-index="3"] ion-icon {
+  font-size: 18px;
+}
+/* Lesson rows — the repeated template, each a full-width row. Picked by
+   slug and index, never :nth-child: the hidden chevron leaves no element
+   behind, so positions shift by one (P90). */
+.appza-renderer-ss[data-slug="fc-course-section"] > [data-child-slug="ion-button"]:not([data-child-index="2"]):not([data-child-index="3"]) {
+  grid-column: 1 / -1;
+  margin: 0 -8px;
+}
+.appza-renderer-ss[data-slug="fc-course-section"] > [data-child-index="4"] {
+  margin-top: 6px;
+}
+.appza-renderer-ss[data-slug="fc-course-section"] > [data-child-slug="ion-button"]:not([data-child-index="2"]):not([data-child-index="3"]) ion-button {
+  width: 100% !important;
+  height: 33px !important;
+  min-height: 33px !important;
+  margin: 0 !important;
+  --padding-start: 8px !important;
+  --padding-end: 8px !important;
+  --background: transparent !important;
+  --box-shadow: none !important;
+  --color: var(--appza-lesson-color, #1f2937) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 13.5px !important;
+  font-weight: 400 !important;
+}
+.appza-renderer-ss[data-slug="fc-course-section"] > [data-child-slug="ion-button"]:not([data-child-index="2"]):not([data-child-index="3"]) ion-button::part(native) {
+  justify-content: flex-start;
+  border: 0 !important;
+}
+.appza-renderer-ss[data-slug="fc-course-section"] > [data-child-slug="ion-button"]:not([data-child-index="2"]):not([data-child-index="3"]) ion-icon[slot="start"] {
+  font-size: 18px;
+  margin: 0 7px 0 0;
+  color: var(--appza-status-icon-color, #6b7280);
+}
+.appza-renderer-ss[data-slug="fc-course-section"] > [data-child-slug="ion-button"][data-value="video"]:not([data-child-index="2"]):not([data-child-index="3"]) ion-icon[slot="start"] {
+  color: var(--appza-video-icon-color, #1a54d6);
+}
+.appza-renderer-ss[data-slug="fc-course-section"] .appza-btn-end-text {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--appza-meta-color, #4b5563);
+}
+
+/* Instructor */
+.appza-renderer-appzet[data-slug="fc-course-instructor"] {
+  margin-top: 16px;
+}
+.appza-renderer-ss[data-slug="fc-course-instructor"] {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: [head] auto [name] auto [count] auto;
+  column-gap: 8px;
+  padding: 17px 17px 20px;
+  background: var(--appza-card-bg-color, #ffffff);
+  border-radius: var(--appza-card-radius, 4px);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+.appza-renderer-ss[data-slug="fc-course-instructor"] > [data-child-index="0"] {
+  grid-column: 1 / -1;
+  grid-row: head;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.appza-renderer-ss[data-slug="fc-course-instructor"] > [data-child-index="1"] {
+  grid-column: 1;
+  grid-row: name / span 2;
+  align-self: center;
+}
+.appza-renderer-ss[data-slug="fc-course-instructor"] > [data-child-index="2"] {
+  grid-column: 2;
+  grid-row: name;
+  align-self: end;
+  font-size: 13px;
+  font-weight: 700;
+}
+.appza-renderer-ss[data-slug="fc-course-instructor"] > [data-child-index="3"] {
+  grid-column: 2;
+  grid-row: count;
+  font-size: 13px;
+}
+
+/* The bottom button (states 5, 7) */
+.appza-renderer-appzet[data-slug="fc-course-detail-cta"] {
+  margin-top: 16px;
+  margin-bottom: 24px;
+}
+.appza-renderer-ss[data-slug="fc-course-detail-cta"] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index] {
+  width: 100%;
+  box-sizing: border-box;
+}
+.appza-renderer-ss[data-slug="fc-course-detail-cta"] ion-button {
+  width: 100% !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  margin: 0 !important;
+  --border-radius: 3px !important;
+  --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+  --background: var(--appza-button-bg-color, rgb(74, 95, 223)) !important;
+  --background-activated: rgb(58, 76, 190) !important;
+  --color: var(--appza-button-text-color, #ffffff) !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.3px !important;
+}
+.appza-renderer-ss[data-slug="fc-course-detail-cta"] ion-button::part(native) {
+  border: 0 !important;
+  color: var(--appza-button-text-color, #ffffff) !important;
+}
+/* invite-only: the same button, greyed, and FC's sentence under it */
+.appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index="4"] ion-button {
+  --background: var(--appza-locked-bg-color, #e5e7eb) !important;
+  --color: #4b5563 !important;
+  --box-shadow: none !important;
+  pointer-events: none;
+}
+.appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index="4"] ion-button::part(native) {
+  color: #4b5563 !important;
+}
+.appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index="4"] ion-icon {
+  font-size: 15px;
+  margin-right: 6px;
+}
+.appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index="5"] {
+  text-align: center;
+  font-size: 12px;
+  color: #6b7280;
+}
+/* the paywall: product and price on a card, Buy Now under them */
+.appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index="6"],
+.appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index="7"] {
+  background: var(--appza-paywall-bg-color, #ffffff);
+  padding: 0 17px;
+}
+.appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index="6"] {
+  padding-top: 15px;
+  border-radius: 4px 4px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: -8px;
+}
+.appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index="7"] {
+  padding-bottom: 15px;
+  border-radius: 0 0 4px 4px;
+  font-size: 18px;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+.appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index="8"] ion-icon {
+  font-size: 15px;
+  margin-right: 6px;
+}
+
+/* Appbar — back, the course title, the admin's outlined "Students". */
+.appza-renderer-ss[data-slug="course-detail-appbar-shell"] {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 48px;
+}
+.appza-renderer-ss[data-slug="course-detail-appbar-shell"] > [data-child-index="1"] {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--appza-title-size, 20px);
+  font-weight: 600;
+  color: var(--appza-title-color, #111827);
+}
+.appza-renderer-ss[data-slug="course-detail-appbar-shell"] > [data-child-index="0"] ion-button {
+  --color: #111827 !important;
+  --padding-start: 6px !important;
+  --padding-end: 6px !important;
+  margin: 0 !important;
+}
+.appza-renderer-ss[data-slug="course-detail-appbar-shell"] > [data-child-index="0"] ion-icon {
+  font-size: 22px;
+}
+.appza-renderer-ss[data-slug="course-detail-appbar-shell"] > [data-child-index="2"] ion-button {
+  height: 26px !important;
+  min-height: 26px !important;
+  margin: 0 4px 0 0 !important;
+  --background: #ffffff !important;
+  --color: #111827 !important;
+  --border-radius: 4px !important;
+  --box-shadow: none !important;
+  --padding-start: 10px !important;
+  --padding-end: 10px !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 4px;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+.appza-renderer-ss[data-slug="course-detail-appbar-shell"] > [data-child-index="2"] ion-button::part(native) {
+  color: #111827 !important;
+  border: 0 !important;
+}
+
 /* === Space Detail screen (2026-08-03) =================================
    Design-polish CSS for the FC Space Details screen. Mirrors the mock
    at /home/rbs-02/Downloads/space-details.jpeg. Every layout hook keys

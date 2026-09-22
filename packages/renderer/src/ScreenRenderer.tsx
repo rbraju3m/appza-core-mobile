@@ -790,6 +790,10 @@ function activeNavTab(
       if (!m || !wiring || typeof wiring !== 'object') continue;
       const args = (wiring as { args?: Record<string, unknown> }).args;
       if (args && args.target_screen_slug === screenSlug) return m[1];
+      // A screen reached THROUGH a tab keeps it lit — course details
+      // under Courses (designs 5–7). The nav's own wiring names them,
+      // so it stays a right-panel edit.
+      if (args && Array.isArray(args.also_active_on) && args.also_active_on.includes(screenSlug)) return m[1];
     }
   }
   return undefined;

@@ -123,6 +123,7 @@ import {
   tryHandleModerationAction,
   tryHandleMemberDirectoryAction,
   tryHandleCourseListAction,
+  tryHandleCourseDetailAction,
   tryHandleProfilePhotoAction,
   tryHandleLogoutConfirm,
   tryHandleProfileAccountAction,
@@ -3961,6 +3962,20 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     // modal's CTAs). Shared with the other shell through @appza/renderer.
     // The review modal (designs 9-32) rides here too: from the flagged
     // banner on a post, or from a report row's ⋯ sheet.
+    // Course details (Courses doc, states 5–7) — the section accordion
+    // and ENROLL THIS COURSE. Shared with the other shell through
+    // @appza/renderer.
+    case 'course_detail.toggle_section':
+    case 'course.enroll': {
+      tryHandleCourseDetailAction(inv, {
+        auth,
+        authHeader: basicAuthHeader,
+        onError: onMenuError,
+        onInfo: onMenuInfo,
+      });
+      return;
+    }
+
     case 'moderation.set_tab':
     case 'moderation.review':
     case 'moderation.set_status':

@@ -359,6 +359,14 @@ export {
 } from './courseListControls';
 export { tryHandleCourseListAction, type CourseListActionDeps } from './courseListActions';
 export {
+  getCourseDetailControls,
+  toggleCourseSection,
+  useCourseDetailControls,
+  courseDetailStateEntries,
+  type CourseDetailControls,
+} from './courseDetailControls';
+export { tryHandleCourseDetailAction, type CourseDetailActionDeps } from './courseDetailActions';
+export {
   tryHandleMemberDirectoryAction,
   type MemberDirectoryActionDeps,
 } from './memberDirectoryActions';
