@@ -19,6 +19,7 @@ import { useProfileControls } from './profileControls';
 import { useMemberDirectoryControls } from './memberDirectoryControls';
 import { useCourseListControls } from './courseListControls';
 import { useCourseStudentsControls } from './courseStudentsControls';
+import { useCourseLessonControls } from './courseLessonControls';
 import {
   courseDetailStateEntries,
   getCourseDetailControls,
@@ -265,6 +266,10 @@ export function PlacementRenderer({
   useCourseDetailControls();
   // A course's Students page: the sort button names the sort that is on.
   const courseStudents = useCourseStudentsControls();
+  // The lesson screen: < > and a lesson row change the lesson slug, a
+  // query param of fc-course-lesson — subscribed so the placement re-keys
+  // its fetch and draws the new lesson instead of keeping the old row.
+  useCourseLessonControls();
   const postDetailControls = usePostDetailControls();
   // Search screen controls. Read unconditionally for stable hook order,
   // same as every slice above — both strips read it to mark their active

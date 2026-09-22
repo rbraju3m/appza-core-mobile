@@ -125,6 +125,7 @@ import {
   tryHandleCourseListAction,
   tryHandleCourseDetailAction,
   tryHandleCourseStudentsAction,
+  tryHandleCourseLessonAction,
   resetCourseStudentsControls,
   CourseAddStudentSheet,
   tryHandleProfilePhotoAction,
@@ -3990,6 +3991,22 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         onInfo: onMenuInfo,
         readAppzetProps: readAppzetPropsFromCatalog,
         customizations: currentCustomizations,
+      });
+      return;
+    }
+
+    // The lesson screen (Courses doc, states 16–17) — a lesson row or
+    // START / CONTINUE / REVIEW opens it, < > move within it, and
+    // Complete Lesson marks it done or undone. Shared with the other
+    // shell through @appza/renderer.
+    case 'course.open_lesson':
+    case 'course_lesson.goto':
+    case 'course_lesson.complete': {
+      tryHandleCourseLessonAction(inv, {
+        auth,
+        authHeader: basicAuthHeader,
+        onError: onMenuError,
+        dispatch: (next) => handleAppModeAction(next, deps),
       });
       return;
     }

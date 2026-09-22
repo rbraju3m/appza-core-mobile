@@ -376,6 +376,14 @@ export {
 } from './courseStudentsControls';
 export { tryHandleCourseStudentsAction, type CourseStudentsActionDeps } from './courseStudentsActions';
 export {
+  getCourseLessonControls,
+  setCourseLessonControls,
+  useCourseLessonControls,
+  courseLessonStateEntries,
+  type CourseLessonControls,
+} from './courseLessonControls';
+export { tryHandleCourseLessonAction, type CourseLessonActionDeps } from './courseLessonActions';
+export {
   CourseAddStudentSheet,
   openCourseAddStudentSheet,
   closeCourseAddStudentSheet,
