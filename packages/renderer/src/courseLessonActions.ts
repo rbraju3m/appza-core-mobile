@@ -4,8 +4,8 @@ import { setCourseLessonControls } from './courseLessonControls';
 import { sendJson, type StoredAuthLike } from './postMenuHandlers';
 
 /**
- * The lesson screen (Courses doc, states 16–17) — opening a lesson, the
- * < > arrows, and Complete Lesson / COMPLETED LESSON.
+ * The lesson screen (Courses doc, states 16–21) — opening a lesson, the
+ * < > arrows, Complete Lesson / COMPLETED LESSON, and SUBMIT QUIZ.
  *
  * Shared between the Capacitor shell and the WP-admin simulator, like
  * every handler in this package.
@@ -19,7 +19,7 @@ export type CourseLessonActionDeps = {
   dispatch: (inv: ActionInvocation) => void;
 };
 
-const HANDLED = new Set(['course.open_lesson', 'course_lesson.goto', 'course_lesson.complete']);
+const HANDLED = new Set(['course.open_lesson', 'course_lesson.goto', 'course_lesson.complete', 'course_lesson.submit_quiz']);
 
 function str(v: unknown): string | undefined {
   return typeof v === 'string' && v !== '' ? v : undefined;
@@ -91,6 +91,36 @@ export function tryHandleCourseLessonAction(inv: ActionInvocation, deps: CourseL
             return;
           }
           // The button flips, and the details' progress behind it moves.
+          refresh();
+        },
+      );
+      return true;
+    }
+
+    // SUBMIT QUIZ (states 19–21). The quiz component puts the picks on the
+    // item — { <question slug>: label | label[] }, FC Pro's own shape — and
+    // FC grades, counts the attempt and decides passed / failed. The lesson
+    // refetches and the card turns into FC's result.
+    case 'course_lesson.submit_quiz': {
+      const endpoint = str(argRec.endpoint);
+      const courseId = num(readDataPath(effectiveItem, str(argRec.course_id_path) ?? 'data.course_id'));
+      const lessonId = num(readDataPath(effectiveItem, str(argRec.id_path) ?? 'data.id'));
+      const itemRec = effectiveItem && typeof effectiveItem === 'object' ? (effectiveItem as Record<string, unknown>) : null;
+      const answers = itemRec && itemRec.answers && typeof itemRec.answers === 'object' ? itemRec.answers : null;
+      if (!endpoint || courseId === null || lessonId === null || !answers) {
+        deps.onError('Could not identify which quiz to submit.');
+        return true;
+      }
+      if (!deps.auth) {
+        deps.onError(str(argRec.guest_message) ?? 'You must be enrolled in this course to submit the quiz.');
+        return true;
+      }
+      void sendJson(endpoint, 'POST', { course_id: courseId, lesson_id: lessonId, answers }, deps.auth, deps.authHeader).then(
+        (result) => {
+          if (!result.ok) {
+            deps.onError(result.error);
+            return;
+          }
           refresh();
         },
       );

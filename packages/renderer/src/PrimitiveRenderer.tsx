@@ -217,6 +217,7 @@ import { AppzaFileList } from './AppzaFileList';
 import { AppzaSocialLinks } from './AppzaSocialLinks';
 import { AppzaProfileFields } from './AppzaProfileFields';
 import { AppzaDetailCards } from './AppzaDetailCards';
+import { CourseQuiz } from './CourseQuiz';
 import { AppzaCommentList } from './CommentList';
 import { AppzaCommentThread } from './CommentThread';
 import { AppzaCommentComposer } from './CommentComposer';
@@ -649,6 +650,9 @@ function SeededIonTextarea({
 
 export const SELF_ACTION_PRIMITIVES: ReadonlySet<string> = new Set([
   'ion-select',
+  // SUBMIT QUIZ sits under the radios; a wrapper click would submit on
+  // every pick. The quiz dispatches with the picks on item.answers.
+  'appza-course-quiz',
   'appza-poll-block',
   'appza-post-schedule',
   'ion-input',
@@ -1003,6 +1007,9 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
       return <AppzaProfileFields overrides={overrides} />;
     case 'AppzaDetailCards':
       return <AppzaDetailCards overrides={overrides} />;
+    // The quiz under a quiz lesson (Courses doc, states 18–21).
+    case 'AppzaCourseQuiz':
+      return <CourseQuiz overrides={overrides} action={action} dispatch={dispatch} />;
 
     case 'AppzaAvatarStack':
       return <AppzaAvatarStack overrides={overrides} />;

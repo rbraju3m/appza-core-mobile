@@ -4001,7 +4001,8 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     // shell through @appza/renderer.
     case 'course.open_lesson':
     case 'course_lesson.goto':
-    case 'course_lesson.complete': {
+    case 'course_lesson.complete':
+    case 'course_lesson.submit_quiz': {
       tryHandleCourseLessonAction(inv, {
         auth,
         authHeader: basicAuthHeader,
