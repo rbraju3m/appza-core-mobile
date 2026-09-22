@@ -128,8 +128,10 @@ import {
   tryHandleCourseDetailAction,
   tryHandleCourseStudentsAction,
   tryHandleCourseLessonAction,
+  tryHandleCommentInlineAction,
   resetCourseStudentsControls,
   CourseAddStudentSheet,
+  ReportSheet,
   tryHandleProfilePhotoAction,
   tryHandleLogoutConfirm,
   tryHandleProfileAccountAction,
@@ -656,6 +658,13 @@ type PendingDelete = {
   title: string;
   message: string;
   cta: string;
+  /**
+   * 'text' draws design 26's dialog (a lesson comment): plain blue CANCEL
+   * and DELETE words, no outlined or red button. Anything else keeps the
+   * post-detail look.
+   */
+  variant?: string;
+  cancelLabel?: string;
   /**
    * Names the act in the last-resort failure toast. This dialog is no
    * longer only about deleting — Remove Preview rides the same path —
@@ -1860,6 +1869,7 @@ export function App() {
         <MemberRoleSheet />
         <MemberRemoveConfirm />
         <CourseAddStudentSheet />
+        <ReportSheet />
         <AddMemberModal />
         <InviteUserModal />
         <ScheduleSheet />
@@ -1924,6 +1934,8 @@ export function App() {
           title={pendingDelete.title}
           message={pendingDelete.message}
           cta={pendingDelete.cta}
+          variant={pendingDelete.variant}
+          cancelLabel={pendingDelete.cancelLabel}
           inFlight={deleteInFlight}
           onCancel={() => {
             if (deleteInFlight) return;
@@ -2272,7 +2284,9 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
   const isPostDetailScreen = (): boolean => {
     if (currentScreenId == null) return false;
     const screen = catalog?.template_screens?.find((sc) => sc.id === currentScreenId);
-    return screen?.app_map_screen_slug === 'post-detail';
+    // A lesson (Courses chunk 6) carries the same footer composer, so its
+    // Reply re-targets the footer too.
+    return screen?.app_map_screen_slug === 'post-detail' || screen?.app_map_screen_slug === 'course-lesson';
   };
 
   switch (action_slug) {
@@ -3435,6 +3449,8 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       }
       openDeleteConfirm({
         feedId, endpoint, method, bodyKey, title, message, cta,
+        variant: typeof argRec.confirm_variant === 'string' ? argRec.confirm_variant : undefined,
+        cancelLabel: typeof argRec.cancel_label === 'string' ? argRec.cancel_label : undefined,
         extraBody,
         failLabel: action_slug === 'post.remove_preview' ? 'Remove preview' : 'Delete',
       });
@@ -3610,6 +3626,13 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     // START / CONTINUE / REVIEW opens it, < > move within it, and
     // Complete Lesson marks it done or undone. Shared with the other
     // shell through @appza/renderer.
+    // A lesson discussion's in-place edit (Courses doc, design 25).
+    case 'comment.edit_inline':
+    case 'comment.save_inline': {
+      tryHandleCommentInlineAction(inv, { auth, authHeader: basicAuthHeader });
+      return;
+    }
+
     case 'course.open_lesson':
     case 'course_lesson.goto':
     case 'course_lesson.complete':
@@ -6669,6 +6692,8 @@ function ConfirmDeleteModal({
   title,
   message,
   cta,
+  variant,
+  cancelLabel,
   inFlight,
   onCancel,
   onConfirm,
@@ -6676,10 +6701,49 @@ function ConfirmDeleteModal({
   title: string;
   message: string;
   cta: string;
+  variant?: string;
+  cancelLabel?: string;
   inFlight: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  if (variant === 'text') {
+    const word: React.CSSProperties = {
+      border: 0,
+      background: 'none',
+      padding: '6px 4px',
+      color: 'rgb(37, 99, 235)',
+      fontSize: 14,
+      fontWeight: 500,
+      letterSpacing: 0.4,
+      cursor: inFlight ? 'not-allowed' : 'pointer',
+    };
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="appza-confirm-text"
+        style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'grid', placeItems: 'center', zIndex: 70 }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onCancel();
+        }}
+      >
+        <div style={{ background: '#fff', borderRadius: 4, padding: '20px 18px 10px', width: 'min(280px, 80%)', boxShadow: '0 12px 30px rgba(0,0,0,0.25)' }}>
+          <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#111827' }}>{title}</h3>
+          <p style={{ margin: '14px 0 18px', fontSize: 11, color: '#4b5563' }}>{message}</p>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+            <button type="button" onClick={onCancel} disabled={inFlight} style={word}>
+              {cancelLabel ?? 'CANCEL'}
+            </button>
+            <button type="button" onClick={onConfirm} disabled={inFlight} style={word}>
+              {cta}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div
       role="dialog"

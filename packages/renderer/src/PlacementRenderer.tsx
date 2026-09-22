@@ -1057,7 +1057,43 @@ export function PlacementRenderer({
   // `loading` — P99: in the commit where the post changes, `loading`
   // still reads false beside the PREVIOUS post's comments, and a verdict
   // taken there would flash the old thread's answer over the new post.
-  const publishesCommentsView = (dataSource?.slug ?? '') === 'fc-post-comments';
+  // ── A lesson's discussion (Courses chunk 6, states 22–29) ─────────
+  //
+  // The post-detail thread, sort, empty state and composer all read this
+  // slice, so the lesson publishes into it what a post does: WHICH feed
+  // row (a lesson is one), and whether the viewer may comment. Published
+  // once, by the header AppZet — three AppZets bind the lesson row.
+  //
+  // `can_comment`: 'yes' a student or the course admin; 'no' anyone else
+  // (they read); 'off' the lesson or course takes no comments — the
+  // discussion placements gate on != 'off', the composer on 'yes'. The
+  // sort is not remembered (state 23): a new lesson resets the "touched"
+  // flag in the slice, and an untouched sort is Earliest first.
+  const publishesLessonDiscussion =
+    (dataSource?.slug ?? '') === 'fc-course-lesson' && baseAppzet?.slug === 'fc-course-lesson-header';
+  const lessonRow = publishesLessonDiscussion ? dataState.items[0] : undefined;
+  const lessonRowKey =
+    publishesLessonDiscussion && isRecord(lessonRow)
+      ? [String(lessonRow.id ?? ''), String(lessonRow.comments_enabled ?? ''), String(lessonRow.comments_can_write ?? '')].join('|')
+      : '';
+  useEffect(() => {
+    if (!publishesLessonDiscussion || dataState.loading) return;
+    const row = lessonRow;
+    if (!isRecord(row) || !row.id) {
+      setPostDetailControls({ can_comment: 'off' });
+      return;
+    }
+    const patch: Partial<ReturnType<typeof getPostDetailControls>> = {
+      post_id: String(row.id),
+      post_slug: typeof row.slug === 'string' ? `lesson:${row.slug}` : '',
+      can_comment: row.comments_enabled !== true ? 'off' : row.comments_can_write === true ? 'yes' : 'no',
+    };
+    if (!getPostDetailControls().comment_sort_touched) patch.comment_sort = 'oldest';
+    setPostDetailControls(patch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [publishesLessonDiscussion, dataState.loading, lessonRowKey]);
+
+  const publishesCommentsView = ['fc-post-comments', 'fc-lesson-comments'].includes(dataSource?.slug ?? '');
   useEffect(() => {
     if (!publishesCommentsView) return;
     if (dataState.loading || dataState.stale) {

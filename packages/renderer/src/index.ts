@@ -383,6 +383,8 @@ export {
   type CourseLessonControls,
 } from './courseLessonControls';
 export { tryHandleCourseLessonAction, type CourseLessonActionDeps } from './courseLessonActions';
+export { tryHandleCommentInlineAction, type CommentInlineActionDeps } from './commentInlineActions';
+export { ReportSheet, openReportSheet, announceReportResult } from './ReportSheet';
 export {
   CourseAddStudentSheet,
   openCourseAddStudentSheet,

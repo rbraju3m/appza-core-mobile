@@ -15777,3 +15777,124 @@ select.appza-profile-fields-input[multiple] {
   background: #c8e6cb;
   color: #15803d;
 }
+
+/* === A lesson's discussion (2026-09-22, Courses doc states 22–29) ======
+   Post detail's thread, sort row and empty state under the lesson; ours
+   are the heading, the in-place edit box (design 25) and "N Replies" as
+   a toggle. */
+.appza-renderer-appzet[data-slug="fc-lesson-discussion-heading"] {
+  margin: 8px 4px 0;
+}
+.appza-renderer-ss[data-slug="fc-lesson-discussion-heading"] ion-text {
+  display: block;
+  font-size: var(--appza-text-size, 19px);
+  font-weight: 700;
+  color: var(--appza-text-color, #000000);
+}
+[data-screen-slug="course-lesson"] .appza-renderer-appzet[data-slug="fc-lesson-comment-thread"],
+[data-screen-slug="course-lesson"] .appza-renderer-appzet[data-slug="fc-comment-sort"],
+[data-screen-slug="course-lesson"] .appza-renderer-appzet[data-slug="fc-comments-empty"] {
+  margin-left: 4px;
+  margin-right: 4px;
+}
+.appza-ct-inline-edit {
+  margin-top: 6px;
+}
+.appza-ct-inline-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 34px;
+  padding: 8px;
+  border: 0;
+  border-radius: 3px;
+  background: #ffffff;
+  font: inherit;
+  font-size: 12px;
+  resize: vertical;
+}
+.appza-ct-inline-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 8px;
+}
+.appza-ct-inline-actions button {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 11px;
+  color: #374151;
+}
+.appza-ct-inline-save:disabled {
+  opacity: 0.4;
+}
+button.appza-ct-reply-count {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* The report sheet (Courses doc, designs 28–29) — rides the member sheet's
+   frame (handle, eyebrow, title, rows with a check); ours are the details
+   field, its counter and SUBMIT REPORT. */
+.appza-report-sheet .appza-member-role-row {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+.appza-report-details {
+  padding: 22px var(--appza-sheet-padding-x, 20px) 0;
+}
+.appza-report-details-label {
+  font-size: 11px;
+  color: rgb(37, 99, 235);
+}
+.appza-report-details-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 10px;
+  padding: 4px 0 8px;
+  border: 0;
+  border-bottom: 2px solid rgb(37, 99, 235);
+  font: inherit;
+  font-size: 13px;
+  resize: none;
+  outline: none;
+  background: transparent;
+}
+.appza-report-details-counter {
+  text-align: right;
+  font-size: 10px;
+  color: #6b7280;
+  margin-top: 6px;
+}
+.appza-report-error {
+  padding: 8px var(--appza-sheet-padding-x, 20px) 0;
+  font-size: 12px;
+  color: #dc2626;
+}
+.appza-report-submit {
+  display: block;
+  width: calc(100% - 2 * var(--appza-sheet-padding-x, 20px));
+  height: 32px;
+  margin: 18px var(--appza-sheet-padding-x, 20px) 20px;
+  border: 0;
+  border-radius: 3px;
+  background: rgb(74, 95, 223);
+  color: #ffffff;
+  font-size: 13px;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+.appza-report-submit:disabled {
+  background: rgb(183, 190, 240);
+  box-shadow: none;
+}
+/* Design 25: the box spans the whole bubble, under the name and time. */
+.appza-ct-inline-edit {
+  grid-column: 1 / -1;
+}

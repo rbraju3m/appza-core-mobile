@@ -144,6 +144,29 @@ export function AppzaCommentThread({
   // and the next payload's `liked` takes over.
   const [likeFlips, setLikeFlips] = useState<Record<string, boolean>>({});
 
+  // In-place edit (a lesson's discussion, design 25). `textOverrides` is
+  // the saved text shown "straight away" before the refetch lands; a
+  // failed save takes it back without a word (the doc's rule) through
+  // COMMENT_INLINE_REVERT_EVENT.
+  const [editText, setEditText] = useState('');
+  const [textOverrides, setTextOverrides] = useState<Record<string, string>>({});
+  // Replies folded away by tapping "N Reply" (state 22), when the AppZet
+  // makes the count a toggle. Open by default, as the designs draw them.
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    const onRevert = (e: Event) => {
+      const id = String((e as CustomEvent<{ id?: unknown }>).detail?.id ?? '');
+      setTextOverrides((prev) => {
+        if (!(id in prev)) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    };
+    window.addEventListener(COMMENT_INLINE_REVERT_EVENT, onRevert);
+    return () => window.removeEventListener(COMMENT_INLINE_REVERT_EVENT, onRevert);
+  }, []);
+
   // Hooks before any early return — an empty thread must call the same
   // hooks in the same order as a full one.
   const ordered = useMemo(
@@ -155,9 +178,32 @@ export function AppzaCommentThread({
   // flips taken against the previous one. Without this, un-liking and
   // re-liking across a refetch could leave a flip pinned against a
   // `liked` that now agrees with it, and the count would read one out.
+  //
+  // Keyed on the RAW prop, not `comments`: readComments filters, so it is
+  // a new array on every render, and a reset keyed on it re-renders
+  // forever ("Maximum update depth exceeded" on the lesson screen). The
+  // setters also keep the old object when there is nothing to clear.
+  const rawComments = overrides?.comments;
   useEffect(() => {
-    setLikeFlips({});
-  }, [comments]);
+    setLikeFlips((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+    setTextOverrides((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+  }, [rawComments]);
+
+  // The box opens holding the comment's own text — `message`, not the
+  // rendered HTML.
+  const inlineId = controls.inline_edit_id;
+  useEffect(() => {
+    if (!inlineId) return;
+    const all = comments.flatMap((c) => [c, ...(Array.isArray(c.children) ? c.children : [])]);
+    const hit = all.find((c) => String(c.id ?? '') === inlineId);
+    const raw = hit as unknown as Record<string, unknown> | undefined;
+    setEditText(
+      typeof raw?.message === 'string'
+        ? raw.message
+        : stripTags(typeof hit?.message_rendered === 'string' ? hit.message_rendered : ''),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inlineId]);
 
   if (comments.length === 0) return null;
 
@@ -174,6 +220,28 @@ export function AppzaCommentThread({
   const replySlug = str(overrides, 'reply_action_slug') || 'comment.reply';
   const likeSlug = str(overrides, 'like_action_slug') || 'comment.like';
   const reviewSlug = str(overrides, 'review_action_slug') || 'moderation.review';
+  const inlineSaveSlug = str(overrides, 'inline_save_action_slug') || 'comment.save_inline';
+  const cancelLabel = str(overrides, 'edit_cancel_label') || 'Cancel';
+  const saveLabel = str(overrides, 'edit_save_label') || 'Save';
+  const collapsibleReplies = bool(overrides, 'collapsible_replies', false);
+
+  const closeInline = () => setPostDetailControls({ inline_edit_id: '' });
+  const saveInline = (comment: ThreadComment) => {
+    const key = String(comment.id ?? '');
+    const text = editText.trim();
+    if (text === '') return;
+    const raw = comment as unknown as Record<string, unknown>;
+    const before = typeof raw.message === 'string' ? raw.message : stripTags(comment.message_rendered ?? '');
+    closeInline();
+    // "Saving unchanged text just closes the box."
+    if (text === before.trim()) return;
+    setTextOverrides((prev) => ({ ...prev, [key]: text }));
+    dispatch({
+      action_slug: inlineSaveSlug,
+      args: readActionDefaultsFromCatalog(inlineSaveSlug) ?? undefined,
+      item: { ...raw, edit_text: text },
+    });
+  };
 
   // Moderation, designs 16 and 17 — the same two affordances the post
   // carries, at comment scale.
@@ -319,12 +387,39 @@ export function AppzaCommentThread({
               {depth > 0 && c.reply_to_name && (
                 <span className="appza-ct-mention">{c.reply_to_name}</span>
               )}
-              <span
-                // Sanitized upstream by PreviewProxyController's wp_kses
-                // pass, the same one the post body goes through.
-                dangerouslySetInnerHTML={{ __html: c.message_rendered ?? '' }}
-              />
+              {inlineId === key ? null : key in textOverrides ? (
+                <span>{textOverrides[key]}</span>
+              ) : (
+                <span
+                  // Sanitized upstream by PreviewProxyController's wp_kses
+                  // pass, the same one the post body goes through.
+                  dangerouslySetInnerHTML={{ __html: c.message_rendered ?? '' }}
+                />
+              )}
             </div>
+            {inlineId === key && (
+              <div className="appza-ct-inline-edit" onClick={(e) => e.stopPropagation()}>
+                <textarea
+                  className="appza-ct-inline-input"
+                  value={editText}
+                  rows={2}
+                  onChange={(e) => setEditText(e.target.value)}
+                />
+                <div className="appza-ct-inline-actions">
+                  <button type="button" className="appza-ct-inline-cancel" onClick={closeInline}>
+                    {cancelLabel}
+                  </button>
+                  <button
+                    type="button"
+                    className="appza-ct-inline-save"
+                    disabled={editText.trim() === ''}
+                    onClick={() => saveInline(c)}
+                  >
+                    {saveLabel}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <span className="appza-ct-foot">
@@ -357,9 +452,23 @@ export function AppzaCommentThread({
               </button>
             )}
             {showReplyCount && depth === 0 && replyCount > 0 && (
-              <span className="appza-ct-reply-count">
-                {c.reply_count_label ?? `${replyCount} Reply`}
-              </span>
+              collapsibleReplies ? (
+                <button
+                  type="button"
+                  className="appza-ct-reply-count"
+                  aria-expanded={!collapsed[key]}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+                  }}
+                >
+                  {c.reply_count_label ?? `${replyCount} Reply`}
+                </button>
+              ) : (
+                <span className="appza-ct-reply-count">
+                  {c.reply_count_label ?? `${replyCount} Reply`}
+                </span>
+              )
             )}
           </span>
         </div>
@@ -374,12 +483,20 @@ export function AppzaCommentThread({
         return (
           <div className="appza-ct-group" key={String(parent.id ?? '')}>
             {row(parent, 0)}
-            {kids.map((kid) => row({ ...kid, __root_id: parent.id }, 1))}
+            {!(collapsibleReplies && collapsed[String(parent.id ?? '')]) &&
+              kids.map((kid) => row({ ...kid, __root_id: parent.id }, 1))}
           </div>
         );
       })}
     </div>
   );
+}
+
+/** Fired by the inline save's handler when FluentCommunity refuses it. */
+export const COMMENT_INLINE_REVERT_EVENT = 'appza:comment-inline-revert';
+
+function stripTags(html: string): string {
+  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#0?39;/g, "'").replace(/&quot;/g, '"').trim();
 }
 
 /**

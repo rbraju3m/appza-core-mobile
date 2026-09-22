@@ -79,6 +79,13 @@ export type PostDetailControls = {
    * know which call to make.
    */
   editing_id: string;
+  /**
+   * The comment being edited IN PLACE (a lesson's discussion, design
+   * 25): the thread swaps that row's text for a box with Cancel and Save.
+   * Separate from editing_id, which puts the FOOTER composer into edit
+   * mode on post detail — two editors, never the same comment.
+   */
+  inline_edit_id: string;
   /** Images picked but not yet sent, as the URLs the upload returned. */
   attachments: string[];
   /** True while an attachment upload is in flight. */
@@ -98,6 +105,7 @@ const DEFAULTS: PostDetailControls = {
   reply_to_name: '',
   draft: '',
   editing_id: '',
+  inline_edit_id: '',
   attachments: [],
   uploading: false,
 };
@@ -128,6 +136,7 @@ export function setPostDetailControls(patch: Partial<PostDetailControls>): void 
     reply_to_name: str('reply_to_name'),
     draft: str('draft'),
     editing_id: str('editing_id'),
+    inline_edit_id: str('inline_edit_id'),
     attachments: Array.isArray(patch.attachments) ? patch.attachments : current.attachments,
     uploading: typeof patch.uploading === 'boolean' ? patch.uploading : current.uploading,
   };
@@ -163,6 +172,7 @@ export function setPostDetailControls(patch: Partial<PostDetailControls>): void 
       typeof patch.comment_sort_touched === 'boolean' ? patch.comment_sort_touched : false;
     next.reply_to_id = '';
     next.reply_to_name = '';
+    next.inline_edit_id = '';
     next.draft = '';
     next.editing_id = '';
     next.attachments = [];
@@ -180,6 +190,7 @@ export function setPostDetailControls(patch: Partial<PostDetailControls>): void 
     next.reply_to_name === current.reply_to_name &&
     next.draft === current.draft &&
     next.editing_id === current.editing_id &&
+    next.inline_edit_id === current.inline_edit_id &&
     next.attachments === current.attachments &&
     next.uploading === current.uploading;
   if (same) return;

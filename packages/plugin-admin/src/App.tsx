@@ -126,8 +126,10 @@ import {
   tryHandleCourseDetailAction,
   tryHandleCourseStudentsAction,
   tryHandleCourseLessonAction,
+  tryHandleCommentInlineAction,
   resetCourseStudentsControls,
   CourseAddStudentSheet,
+  ReportSheet,
   tryHandleProfilePhotoAction,
   tryHandleLogoutConfirm,
   tryHandleProfileAccountAction,
@@ -1683,6 +1685,7 @@ export function App() {
       <MemberRoleSheet />
       <MemberRemoveConfirm />
       <CourseAddStudentSheet />
+      <ReportSheet />
       <AddMemberModal />
       <InviteUserModal />
       <ScheduleSheet />
@@ -3999,6 +4002,13 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     // START / CONTINUE / REVIEW opens it, < > move within it, and
     // Complete Lesson marks it done or undone. Shared with the other
     // shell through @appza/renderer.
+    // A lesson discussion's in-place edit (Courses doc, design 25).
+    case 'comment.edit_inline':
+    case 'comment.save_inline': {
+      tryHandleCommentInlineAction(inv, { auth, authHeader: basicAuthHeader });
+      return;
+    }
+
     case 'course.open_lesson':
     case 'course_lesson.goto':
     case 'course_lesson.complete':

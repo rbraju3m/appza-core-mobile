@@ -1,5 +1,6 @@
 import { readDataPath } from './dataFetch';
 import type { ActionInvocation } from './actionContext';
+import { openReportSheet, announceReportResult, type ReportReason } from './ReportSheet';
 
 /**
  * Shared implementation of the five catalog-driven post-menu actions —
@@ -284,6 +285,64 @@ export function tryHandlePostMenuAction(
       const feedId = resolveFeedId(feedIdPath, itemRec);
       if (feedId === null) {
         onError('Could not identify which post to report.');
+        return true;
+      }
+      // The report SHEET (Courses doc, states 28–29), when the wiring asks
+      // for it: first call opens it with the site's reasons; the sheet's
+      // SUBMIT calls again with `reason` + `explanation` and hears back
+      // through announceReportResult. Other surfaces keep the prompt path.
+      if (argRec.presentation === 'sheet') {
+        const errorMsg =
+          typeof argRec.error_message === 'string' && argRec.error_message
+            ? argRec.error_message
+            : "Couldn't submit your report. Please try again.";
+        if (argRec.from_report_sheet !== true) {
+          const reasonsEndpoint =
+            typeof argRec.reasons_endpoint === 'string' ? argRec.reasons_endpoint : '';
+          const open = (reasons: ReportReason[]) =>
+            openReportSheet({ reasons, item: effectiveItem, actionSlug: action_slug, args: argRec });
+          const fallback = fallbackReasons.map((r) => ({ value: r, label: r }));
+          if (!reasonsEndpoint) {
+            open(fallback);
+            return true;
+          }
+          void fetch(reasonsEndpoint, {
+            credentials: 'omit',
+            headers: { Accept: 'application/json', Authorization: authHeader(auth) },
+          })
+            .then((r) => r.json())
+            .then((json: unknown) => {
+              const items = isPlainObject(json) && isPlainObject(json.items) ? json.items : null;
+              const reasons = items
+                ? Object.entries(items).map(([value, label]) => ({ value, label: String(label) }))
+                : [];
+              open(reasons.length > 0 ? reasons : fallback);
+            })
+            .catch(() => open(fallback));
+          return true;
+        }
+        const body: Record<string, unknown> = {
+          [bodyKey]: feedId,
+          content_type: contentType,
+          [reasonBodyKey]: String(argRec.reason ?? ''),
+        };
+        if (typeof argRec.parent_body_key === 'string' && argRec.parent_body_key) {
+          const parentId = resolveFeedId(
+            typeof argRec.parent_id_path === 'string' ? argRec.parent_id_path : 'data.post_id',
+            itemRec,
+          );
+          if (parentId !== null) body[argRec.parent_body_key] = parentId;
+        }
+        const explanation = typeof argRec.explanation === 'string' ? argRec.explanation.trim() : '';
+        if (explanation) body[explanationBodyKey] = explanation;
+        void sendJson(endpoint, method, body, auth, authHeader).then((result) => {
+          if (result.ok) {
+            announceReportResult(true, '');
+            onInfo(toastMsg);
+          } else {
+            announceReportResult(false, result.error || errorMsg);
+          }
+        });
         return true;
       }
       const reasonPrompt =
