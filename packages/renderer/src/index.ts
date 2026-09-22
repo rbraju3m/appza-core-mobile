@@ -349,6 +349,16 @@ export {
 } from './moderationControls';
 export { tryHandleModerationAction } from './moderationActions';
 export {
+  getCourseListControls,
+  setCourseListControls,
+  resetCourseListControls,
+  useCourseListControls,
+  courseListStateEntries,
+  type CourseListControls,
+  type CourseListTab,
+} from './courseListControls';
+export { tryHandleCourseListAction, type CourseListActionDeps } from './courseListActions';
+export {
   tryHandleMemberDirectoryAction,
   type MemberDirectoryActionDeps,
 } from './memberDirectoryActions';

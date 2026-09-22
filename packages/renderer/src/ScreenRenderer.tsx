@@ -9,7 +9,7 @@ import {
   IonToolbar,
 } from '@ionic/react';
 import type { Catalog, TemplateScreen } from '@appza/schemas';
-import { indexCatalog } from './catalogIndex';
+import { indexCatalog, type CatalogIndex } from './catalogIndex';
 import { useScreenScrollMemory } from './screenScrollMemory';
 import { PlacementRenderer } from './PlacementRenderer';
 import { resolveOverridableColumn } from './resolveOverride';
@@ -29,6 +29,7 @@ import { useBannerControls, bannerStateEntries } from './bannerControls';
 import { useProfileControls, setProfileControls } from './profileControls';
 import { useMemberDirectoryControls, memberDirectoryStateEntries } from './memberDirectoryControls';
 import { useModerationControls, moderationStateEntries } from './moderationControls';
+import { useCourseListControls, courseListStateEntries } from './courseListControls';
 import { useListVerdicts } from './listVerdicts';
 import { getFcRuntimeSettings } from './fcRuntimeSettings';
 import { readDataPath } from './dataFetch';
@@ -138,6 +139,7 @@ export function ScreenRenderer({
   const profileControls = useProfileControls();
   const memberDirectoryControls = useMemberDirectoryControls();
   const moderationControls = useModerationControls();
+  const courseListControls = useCourseListControls();
   // Whether each list that named an `empty_state_key` came back with
   // rows. Subscribed here for the same reason as the slice above: the
   // empty states are PLACEMENTS, and a gate that cannot see this value
@@ -224,6 +226,7 @@ export function ScreenRenderer({
       ...memberDirectoryStateEntries(memberDirectoryControls),
       // Moderation's tab — what its per-tab empty states gate on.
       ...moderationStateEntries(moderationControls),
+      ...courseListStateEntries(courseListControls),
       // Catalog-named list verdicts (2026-09-02). Every key any mounted
       // AppZet with an `empty_state_key` has published, flattened the
       // same way the hand-written verdicts above are, so a placement
@@ -320,6 +323,7 @@ export function ScreenRenderer({
       profileControls.follow_view,
       memberDirectoryControls,
       moderationControls,
+      courseListControls,
       // The whole map, not one key: the catalog names these, so there is
       // no fixed list to depend on.
       listVerdicts,
@@ -558,7 +562,10 @@ export function ScreenRenderer({
             )}
             {navPlacements.length > 0 && (
               <IonToolbar>
-                <div className="appza-renderer-nav">
+                <div
+                  className="appza-renderer-nav"
+                  data-active-tab={activeNavTab(navPlacements, catalogIndex, screen.app_map_screen_slug)}
+                >
                   {navPlacements.map((p, idx) => (
                     <PlacementRenderer
                       key={`nav:${p.appzet_slug}:${idx}`}
@@ -757,4 +764,33 @@ function evaluateVisibleWhenClause(
     default:
       return true;
   }
+}
+
+/**
+ * Which bottom-nav tab points at the screen being shown — 1-based, as the
+ * tab actions are named (`on_tap_tab3`) — so the stylesheet can colour it
+ * (Courses designs 1–4 draw the current tab in blue). Read off the nav
+ * AppZet's own wiring, so moving a tab in the right panel moves the
+ * highlight with it. Undefined on a screen no tab opens.
+ */
+function activeNavTab(
+  navPlacements: Array<{ appzet_slug: string }>,
+  catalogIndex: CatalogIndex,
+  screenSlug: string | undefined,
+): string | undefined {
+  if (!screenSlug) return undefined;
+  for (const p of navPlacements) {
+    const actions = catalogIndex.appzetBySlug.get(p.appzet_slug)?.actions as
+      | Record<string, unknown>
+      | null
+      | undefined;
+    if (!actions) continue;
+    for (const [event, wiring] of Object.entries(actions)) {
+      const m = /^on_tap_tab(\d+)$/.exec(event);
+      if (!m || !wiring || typeof wiring !== 'object') continue;
+      const args = (wiring as { args?: Record<string, unknown> }).args;
+      if (args && args.target_screen_slug === screenSlug) return m[1];
+    }
+  }
+  return undefined;
 }

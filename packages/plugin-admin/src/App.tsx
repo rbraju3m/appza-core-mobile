@@ -118,9 +118,11 @@ import {
   setBookmarkControls,
   resetBookmarkControls,
   resetMemberDirectoryControls,
+  resetCourseListControls,
   resetModerationControls,
   tryHandleModerationAction,
   tryHandleMemberDirectoryAction,
+  tryHandleCourseListAction,
   tryHandleProfilePhotoAction,
   tryHandleLogoutConfirm,
   tryHandleProfileAccountAction,
@@ -865,6 +867,12 @@ export function App() {
   useEffect(() => {
     if (currentScreen?.app_map_screen_slug !== 'all-members') return;
     resetMemberDirectoryControls();
+  }, [currentScreen?.app_map_screen_slug]);
+
+  // Courses opens on All Courses, unfiltered. The sort survives.
+  useEffect(() => {
+    if (currentScreen?.app_map_screen_slug !== 'courses') return;
+    resetCourseListControls();
   }, [currentScreen?.app_map_screen_slug]);
 
   // Moderation opens on Pending (design 7), whichever tab it was left on.
@@ -3977,6 +3985,19 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         authHeader: basicAuthHeader,
         onError: onMenuError,
         onInfo: onMenuInfo,
+        readAppzetProps: readAppzetPropsFromCatalog,
+        customizations: currentCustomizations,
+      });
+      return;
+    }
+
+    // The Courses list (Courses doc, states 1–4).
+    case 'courses.set_tab':
+    case 'courses.set_search':
+    case 'courses.set_topic':
+    case 'courses.set_sort': {
+      tryHandleCourseListAction(inv, {
+        onError: onMenuError,
         readAppzetProps: readAppzetPropsFromCatalog,
         customizations: currentCustomizations,
       });

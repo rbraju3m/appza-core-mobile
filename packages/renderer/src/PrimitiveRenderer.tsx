@@ -53,6 +53,7 @@ import {
   checkmark,
   checkmarkCircle,
   checkmarkCircleOutline,
+  caretDown,
   chevronBack,
   chevronDown,
   chevronForward,
@@ -273,6 +274,8 @@ const ICON_REGISTRY: Record<string, string> = {
   book,
   'chevron-back': chevronBack,
   'chevron-down': chevronDown,
+  // The Courses sort row's filled triangle (design 1).
+  'caret-down': caretDown,
   'chevron-forward': chevronForward,
   'chevron-up': chevronUp,
   create,
@@ -706,6 +709,10 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
         : iconSlotOverride === 'end'
           ? 'end'
           : 'start';
+      // 'top' stacks the glyph over the label — the bottom nav's labelled
+      // tabs (Courses designs). Ionic's button has no such slot and its
+      // inner row is out of CSS reach, so the stack is ours.
+      const iconTop = !iconOnly && iconSlotOverride === 'top' && !!iconName && !!resolveIcon(iconName);
       // Ionic's `color=` prop applies a class that sets `--background`,
       // `--color`, `--border-color`, etc. via `:host`, which can shadow
       // our inline overrides. `ThemedIonButton` uses a ref + setProperty
@@ -718,10 +725,16 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
           color={readString(overrides, 'color')}
           styleOverrides={buildIonButtonStyleOverrides(overrides)}
         >
-          {iconName && resolveIcon(iconName) && iconSlot !== 'end' && (
+          {iconTop && (
+            <span className="appza-btn-stack">
+              <IonIcon icon={resolveIcon(iconName!)} />
+              <span className="appza-btn-stack-label">{buttonLabel}</span>
+            </span>
+          )}
+          {!iconTop && iconName && resolveIcon(iconName) && iconSlot !== 'end' && (
             <IonIcon icon={resolveIcon(iconName)} slot={iconSlot} />
           )}
-          {!iconOnly && buttonLabel}
+          {!iconOnly && !iconTop && buttonLabel}
           {iconName && resolveIcon(iconName) && iconSlot === 'end' && (
             <IonIcon icon={resolveIcon(iconName)} slot="end" />
           )}

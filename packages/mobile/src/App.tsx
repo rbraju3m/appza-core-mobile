@@ -120,9 +120,11 @@ import {
   setBookmarkControls,
   resetBookmarkControls,
   resetMemberDirectoryControls,
+  resetCourseListControls,
   resetModerationControls,
   tryHandleModerationAction,
   tryHandleMemberDirectoryAction,
+  tryHandleCourseListAction,
   tryHandleProfilePhotoAction,
   tryHandleLogoutConfirm,
   tryHandleProfileAccountAction,
@@ -1064,6 +1066,12 @@ export function App() {
   useEffect(() => {
     if (screen?.app_map_screen_slug !== 'all-members') return;
     resetMemberDirectoryControls();
+  }, [screen?.app_map_screen_slug]);
+
+  // Courses opens on All Courses, unfiltered. The sort survives.
+  useEffect(() => {
+    if (screen?.app_map_screen_slug !== 'courses') return;
+    resetCourseListControls();
   }, [screen?.app_map_screen_slug]);
 
   // Moderation opens on Pending (design 7), whichever tab it was left on.
@@ -3578,9 +3586,6 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       return;
     }
 
-    case 'members.set_search':
-    case 'members.set_tab':
-    case 'members.set_sort':
     // The profile's two pictures (doc states 2-5). Pick-then-save for a
     // change, an empty string for a remove, and a confirm in front of the
     // remove. The PICKER is the shell's — it needs a mounted file input —
@@ -3623,6 +3628,12 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       return;
     }
 
+    // The three list controls sat above the profile-pictures block and
+    // fell through into it, so on the phone they did nothing (found
+    // 2026-09-22, Courses chunk 1).
+    case 'members.set_search':
+    case 'members.set_tab':
+    case 'members.set_sort':
     case 'member.status_confirm':
     case 'member.set_status': {
       tryHandleMemberDirectoryAction(inv, {
@@ -3630,6 +3641,19 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         authHeader: basicAuthHeader,
         onError: onError,
         onInfo: onInfo,
+        readAppzetProps: readAppzetPropsFromCatalog,
+        customizations: currentCustomizations,
+      });
+      return;
+    }
+
+    // The Courses list (Courses doc, states 1–4).
+    case 'courses.set_tab':
+    case 'courses.set_search':
+    case 'courses.set_topic':
+    case 'courses.set_sort': {
+      tryHandleCourseListAction(inv, {
+        onError: onError,
         readAppzetProps: readAppzetPropsFromCatalog,
         customizations: currentCustomizations,
       });

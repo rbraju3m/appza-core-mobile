@@ -7,6 +7,7 @@ import { setBookmarkControls, type BookmarkViewMode } from './bookmarkControls';
 import { setPostDetailControls } from './postDetailControls';
 import { setProfileControls } from './profileControls';
 import { setMemberDirectoryControls } from './memberDirectoryControls';
+import { setCourseListControls } from './courseListControls';
 import { resolveIcon } from './PrimitiveRenderer';
 
 // Floating popover anchored to a DOM element, with a small list of
@@ -54,7 +55,8 @@ export type PopoverStateKey =
   | 'post_detail_comment_sort'
   | 'profile_follow_sort'
   | 'member_directory_sort_by'
-  | 'member_directory_sort_dir';
+  | 'member_directory_sort_dir'
+  | 'course_list_sort';
 
 /**
  * Write a picked option into whichever control slice the key names.
@@ -117,6 +119,12 @@ export function applyControlPick(stateKey: PopoverStateKey, value: string): void
   }
   if (stateKey === 'member_directory_sort_dir') {
     if (value.length > 0) setMemberDirectoryControls({ sort_dir: value });
+    return;
+  }
+  if (stateKey === 'course_list_sort') {
+    // Courses (state 4). A refetch: fc-course-list binds sort_by, and
+    // FluentCommunity sorts server-side.
+    if (value.length > 0) setCourseListControls({ sort_by: value });
     return;
   }
   if (stateKey === 'bookmarks_view_mode') {

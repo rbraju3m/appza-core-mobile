@@ -1155,6 +1155,47 @@
   font-size: 24px;
   margin: 0;
 }
+/* Each tab's wrapper takes an equal fifth, so labelled tabs spread
+   across the bar instead of bunching in its middle. */
+.appza-renderer-ss[data-slug="bottom-tab-nav"] > [data-child-index] {
+  flex: 1 1 0;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+/* icon_slot 'top' — glyph over label (Courses designs' labelled tabs). */
+.appza-btn-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.appza-renderer-ss[data-slug="bottom-tab-nav"] .appza-btn-stack-label {
+  font-size: 12px;
+  line-height: 1.2;
+}
+/* The tab that opens the current screen (ScreenRenderer stamps its
+   1-based number on the nav wrapper). */
+.appza-renderer-nav[data-active-tab="1"] .appza-renderer-ss[data-slug="bottom-tab-nav"] > [data-child-index="0"] ion-button,
+.appza-renderer-nav[data-active-tab="2"] .appza-renderer-ss[data-slug="bottom-tab-nav"] > [data-child-index="1"] ion-button,
+.appza-renderer-nav[data-active-tab="3"] .appza-renderer-ss[data-slug="bottom-tab-nav"] > [data-child-index="2"] ion-button,
+.appza-renderer-nav[data-active-tab="4"] .appza-renderer-ss[data-slug="bottom-tab-nav"] > [data-child-index="3"] ion-button,
+.appza-renderer-nav[data-active-tab="5"] .appza-renderer-ss[data-slug="bottom-tab-nav"] > [data-child-index="4"] ion-button {
+  --color: var(--appza-nav-active-color, #1a54d6) !important;
+  color: var(--appza-nav-active-color, #1a54d6) !important;
+}
+/* Something upstream paints every button's native part #111827 with
+   !important; the tab has to reclaim its own colour there too, or the
+   glyph and label ignore --color. */
+.appza-renderer-nav .appza-renderer-ss[data-slug="bottom-tab-nav"] > [data-child-index] ion-button::part(native) {
+  color: var(--color) !important;
+}
+/* The nav AppZet fills the bar — it sized to its content before the
+   tabs had labels, and five labels then bunched in the middle. */
+.appza-renderer-nav > .appza-renderer-appzet {
+  flex: 1 1 auto;
+  width: 100%;
+}
 
 /* drawer-shell: header row (avatar + name) then a list */
 .appza-renderer-ss[data-slug="drawer-shell"] {
@@ -3401,6 +3442,346 @@
 .appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="11"] ion-button::part(native) {
   color: #4b5563 !important;
   background-color: #f3f4f6 !important;
+}
+
+/* === Courses screen (2026-09-22, Courses doc states 1–4) ==============
+   Four borrowed strips and one card. The strips ride Superstructures the
+   Spaces and Space Detail screens own, so every rule here is scoped by
+   the COURSES AppZet's slug on the wrapper — nothing leaks back.
+   Measured against designs 1–4 at 375px (P175). */
+[data-screen-slug="courses"] ion-content {
+  --background: #f5f5f5;
+}
+/* Tabs — the Spaces strip, with the active tab marked by data-active
+   (activeChildValue) instead of the Spaces-only wrapper attribute. */
+.appza-renderer-appzet[data-slug="fc-courses-tabs"] {
+  background: #ffffff;
+  margin: 0 -12px 0;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.appza-renderer-appzet[data-slug="fc-courses-tabs"] .appza-renderer-ss[data-slug="fc-spaces-tabs"] [data-child-index] {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+.appza-renderer-appzet[data-slug="fc-courses-tabs"] [data-active="true"] ion-button {
+  --color: var(--appza-active-color, #1a54d6) !important;
+  font-weight: 500 !important;
+}
+.appza-renderer-appzet[data-slug="fc-courses-tabs"] [data-active="true"] ion-button::part(native) {
+  color: var(--appza-active-color, #1a54d6) !important;
+}
+.appza-renderer-appzet[data-slug="fc-courses-tabs"] [data-active="true"]::after {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -1px;
+  height: 3px;
+  background: var(--appza-active-color, #1a54d6);
+  border-radius: 2px 2px 0 0;
+}
+/* Search — the members box, alone on its row, lifted off the page. */
+.appza-renderer-appzet[data-slug="fc-courses-search"] .appza-renderer-ss[data-slug="fc-members-toolbar"] {
+  background: transparent !important;
+  padding: 12px 2px 4px !important;
+}
+/* One box, one shadow: the members box draws a shadow per half, which
+   shows a seam once the border is white. */
+.appza-renderer-appzet[data-slug="fc-courses-search"] .appza-renderer-ss[data-slug="fc-members-toolbar"] > [data-child-index="0"],
+.appza-renderer-appzet[data-slug="fc-courses-search"] .appza-renderer-ss[data-slug="fc-members-toolbar"] > [data-child-index="1"] {
+  box-shadow: none;
+}
+.appza-renderer-appzet[data-slug="fc-courses-search"] .appza-renderer-ss[data-slug="fc-members-toolbar"] > [data-child-index="0"] {
+  padding: 0 8px 0 12px;
+}
+.appza-renderer-appzet[data-slug="fc-courses-search"] .appza-renderer-ss[data-slug="fc-members-toolbar"] {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.appza-renderer-appzet[data-slug="fc-courses-search"] .appza-renderer-ss[data-slug="fc-members-toolbar"] > [data-child-index="0"],
+.appza-renderer-appzet[data-slug="fc-courses-search"] .appza-renderer-ss[data-slug="fc-members-toolbar"] > [data-child-index="1"] {
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.16));
+}
+/* Choose topic — the space chips, on the page rather than a grey band,
+   and scrolling sideways rather than wrapping (design 2's clipped chip). */
+.appza-renderer-appzet[data-slug="fc-courses-topics"] .appza-renderer-ss[data-slug="fc-space-topics"] {
+  background: transparent;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 8px 2px 4px;
+  flex-direction: row;
+}
+.appza-renderer-appzet[data-slug="fc-courses-topics"] .appza-renderer-ss[data-slug="fc-space-topics"] {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  grid-template-rows: auto auto;
+  column-gap: 6px;
+  row-gap: 6px;
+}
+.appza-renderer-appzet[data-slug="fc-courses-topics"] .appza-renderer-ss[data-slug="fc-space-topics"] [data-child-index="0"] {
+  grid-row: 1;
+  grid-column: 1 / span 10;
+  font-size: 15px;
+  font-weight: 500;
+  color: #111827;
+  margin: 0;
+}
+.appza-renderer-appzet[data-slug="fc-courses-topics"] .appza-renderer-ss[data-slug="fc-space-topics"] [data-child-index]:not([data-child-index="0"]) {
+  grid-row: 2;
+}
+.appza-renderer-appzet[data-slug="fc-courses-topics"] ion-chip {
+  border-radius: 4px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  font-size: 15px !important;
+  font-weight: 400 !important;
+  --color: #374151 !important;
+  border-color: #e5e7eb !important;
+}
+/* Sort by — a hairline to the left, the label grey, the value dark. */
+.appza-renderer-appzet[data-slug="fc-courses-sort"] .appza-renderer-ss[data-slug="fc-space-post-toolbar"] {
+  background: transparent;
+  border-top: 0;
+  padding: 6px 2px 10px;
+}
+.appza-renderer-appzet[data-slug="fc-courses-sort"] .appza-renderer-ss[data-slug="fc-space-post-toolbar"]::before {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #d1d5db;
+  margin-right: 8px;
+}
+.appza-renderer-appzet[data-slug="fc-courses-sort"] .appza-renderer-ss[data-slug="fc-space-post-toolbar"] [data-child-index="0"] {
+  font-size: 15px;
+}
+.appza-renderer-appzet[data-slug="fc-courses-sort"] .appza-renderer-ss[data-slug="fc-space-post-toolbar"] [data-child-index="1"] ion-button {
+  font-size: 15px !important;
+  font-weight: 500 !important;
+}
+
+/* fc-course-card — cover, then a padded body; exactly one button. */
+.appza-renderer-appzet-list[data-slug="fc-course-list"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--appza-card-gap, 14px);
+}
+.appza-renderer-ss[data-slug="fc-course-card"] {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  background: var(--appza-card-bg-color, #ffffff);
+  border-radius: var(--appza-card-radius, 4px);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
+  padding-bottom: 14px;
+}
+/* [0] cover, [1] the cap on grey — the same cell */
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="0"],
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="1"] {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  width: 100%;
+  aspect-ratio: 15 / 8;
+  overflow: hidden;
+  background: var(--appza-cover-bg-color, #dcdcdc);
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="0"] ion-img,
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="0"] img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="1"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="1"] ion-icon {
+  font-size: 72px;
+  color: #1f2937;
+  --ionicon-stroke-width: 20px;
+}
+/* [2] the Paid badge, top-left over the cover */
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="2"] {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  align-self: start;
+  justify-self: start;
+  margin: 8px;
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="2"] ion-button {
+  --background: rgba(55, 55, 55, 0.72) !important;
+  --color: #ffffff !important;
+  --border-radius: 4px !important;
+  --box-shadow: none !important;
+  --padding-start: 6px !important;
+  --padding-end: 8px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  margin: 0 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="2"] ion-button::part(native) {
+  color: #ffffff !important;
+  border: 0 !important;
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="2"] ion-icon {
+  font-size: 14px;
+  margin-right: 4px;
+}
+/* [3] the padlock in a dark disc, centred on a paid cover. The wrapper
+   fills the cover cell in grey — the cover of a paid course with no
+   photo — and the photo, when there is one, paints over that grey while
+   the disc paints over the photo. No z-index on the wrapper, so the disc
+   joins the card's stacking order rather than being trapped under [0]. */
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="0"] {
+  position: relative;
+  z-index: 1;
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="3"] {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  width: 100%;
+  aspect-ratio: 15 / 8;
+  background: var(--appza-cover-bg-color, #dcdcdc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="3"] ion-icon {
+  position: relative;
+  z-index: 2;
+  font-size: 20px;
+  color: #ffffff;
+  background: rgba(55, 55, 55, 0.72);
+  border-radius: 50%;
+  padding: 11px;
+}
+/* [4] title */
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="4"] {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  padding: 16px 14px 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--appza-title-color, #111827);
+}
+/* [5] counts | [6][7] students — one row */
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="5"] {
+  grid-column: 1;
+  grid-row: 3;
+  padding: 10px 0 0 14px;
+  font-size: 14px;
+  color: var(--appza-meta-color, #4b5563);
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="6"],
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="7"] {
+  grid-column: 2;
+  grid-row: 3;
+  padding: 10px 14px 0 0;
+  font-size: 14px;
+  color: var(--appza-meta-color, #4b5563);
+  justify-self: end;
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="6"] {
+  justify-self: start;
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="6"] ion-icon {
+  font-size: 18px;
+  color: #6b7280;
+  vertical-align: -4px;
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="7"] {
+  padding-left: 26px;
+}
+/* [8] description, [9] the paid note */
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="8"],
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="9"] {
+  grid-column: 1 / -1;
+  padding: 10px 14px 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--appza-meta-color, #4b5563);
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="9"] {
+  padding-top: 2px;
+}
+/* [10]–[14] the button, full width */
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="10"],
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="11"],
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="12"],
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="13"],
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="14"] {
+  grid-column: 1 / -1;
+  padding: 14px 14px 0;
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index] ion-button {
+  width: 100% !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  margin: 0 !important;
+  --border-radius: 3px !important;
+  --box-shadow: 0 2px 3px rgba(0, 0, 0, 0.22) !important;
+  --background: var(--appza-button-bg-color, #e8e8e8) !important;
+  --background-activated: #d4d4d4 !important;
+  --color: var(--appza-button-text-color, #1f2937) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: uppercase !important;
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index] ion-button::part(native) {
+  border: 0 !important;
+  color: var(--appza-button-text-color, #1f2937) !important;
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index] ion-button ion-icon {
+  font-size: 18px;
+  margin-right: 6px;
+}
+/* REVIEW carries a blue rule under it (design 1). */
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="12"] ion-button {
+  border-bottom: 3px solid #1a54d6 !important;
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="14"] ion-button {
+  --background: var(--appza-web-button-bg-color, #1a54d6) !important;
+  --background-activated: #1440aa !important;
+  --color: #ffffff !important;
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="14"] ion-button::part(native) {
+  color: #ffffff !important;
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="2"] ion-button {
+  width: auto !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 13px !important;
+  --box-shadow: none !important;
+  --background: rgba(55, 55, 55, 0.72) !important;
+  --color: #ffffff !important;
+  --padding-start: 6px !important;
+  --padding-end: 8px !important;
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="2"] ion-button::part(native) {
+  color: #ffffff !important;
+}
+.appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="2"] ion-button ion-icon {
+  font-size: 14px;
+  margin-right: 4px;
 }
 
 /* === Space Detail screen (2026-08-03) =================================

@@ -17,6 +17,7 @@ import { useFeedControls } from './feedControls';
 import { useSpacesControls } from './spacesControls';
 import { useProfileControls } from './profileControls';
 import { useMemberDirectoryControls } from './memberDirectoryControls';
+import { useCourseListControls } from './courseListControls';
 import { useModerationControls } from './moderationControls';
 import { setSpaceDetailControls, useSpaceDetailControls } from './spaceDetailControls';
 import { setChatControls, useChatControls } from './chatControls';
@@ -250,6 +251,9 @@ export function PlacementRenderer({
   // The Moderation screen's tab. Subscribed here so a tap re-renders the
   // list, whose `status` query param is resolved from it at render time.
   const moderationControls = useModerationControls();
+  // The Courses screen (Courses doc, states 1–4): the tab strip reads
+  // `tab`, the chips `topic_slug`, the sort row `sort_by`.
+  const courseList = useCourseListControls();
   const postDetailControls = usePostDetailControls();
   // Search screen controls. Read unconditionally for stable hook order,
   // same as every slice above — both strips read it to mark their active
@@ -380,6 +384,18 @@ export function PlacementRenderer({
             ? {
                 sort_label: followSortLabel(
                   memberDirectory.sort_by,
+                  (baseAppzet.actions as Record<string, unknown> | null | undefined)?.[
+                    'on_tap_sort'
+                  ],
+                ),
+              }
+            : {}),
+          // The Courses sort row names the sort that is on (design 1's
+          // "Alphabetical ▾"), from the action's own option labels.
+          ...(baseAppzet.slug === 'fc-courses-sort'
+            ? {
+                sort_button_text: followSortLabel(
+                  courseList.sort_by,
                   (baseAppzet.actions as Record<string, unknown> | null | undefined)?.[
                     'on_tap_sort'
                   ],
@@ -526,6 +542,11 @@ export function PlacementRenderer({
     'state.member_directory_controls.sort_by': memberDirectory.sort_by,
     'state.member_directory_controls.sort_dir': memberDirectory.sort_dir,
     'state.moderation_controls.status': moderationControls.status,
+    'state.course_list_controls.tab': courseList.tab,
+    'state.course_list_controls.type': courseList.type,
+    'state.course_list_controls.search': courseList.search,
+    'state.course_list_controls.topic_slug': courseList.topic_slug,
+    'state.course_list_controls.sort_by': courseList.sort_by,
   };
   const dataSourceByState = (appzet as unknown as {
     data_source_by_state?: {
@@ -2079,6 +2100,10 @@ export function PlacementRenderer({
               appzet.slug === 'fc-members-tabs' ? memberDirectory.status :
               // Moderation's four statuses, on the media tabs' pill.
               appzet.slug === 'fc-moderation-tabs' ? moderationControls.status :
+              // Courses: All | My on the spaces strip, topic chips on the
+              // space topics strip — each reading its own slice.
+              appzet.slug === 'fc-courses-tabs' ? courseList.tab :
+              appzet.slug === 'fc-courses-topics' ? courseList.topic_slug :
               undefined
             }
             activeChildValues={
@@ -2420,6 +2445,8 @@ export function PlacementRenderer({
               appzet.slug === 'fc-members-tabs' ? memberDirectory.status :
               // Moderation's four statuses, on the media tabs' pill.
               appzet.slug === 'fc-moderation-tabs' ? moderationControls.status :
+              appzet.slug === 'fc-courses-tabs' ? courseList.tab :
+              appzet.slug === 'fc-courses-topics' ? courseList.topic_slug :
                 undefined
               }
               activeChildValues={
