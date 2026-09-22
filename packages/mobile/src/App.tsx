@@ -126,6 +126,9 @@ import {
   tryHandleMemberDirectoryAction,
   tryHandleCourseListAction,
   tryHandleCourseDetailAction,
+  tryHandleCourseStudentsAction,
+  resetCourseStudentsControls,
+  CourseAddStudentSheet,
   tryHandleProfilePhotoAction,
   tryHandleLogoutConfirm,
   tryHandleProfileAccountAction,
@@ -1075,6 +1078,12 @@ export function App() {
     resetCourseListControls();
   }, [screen?.app_map_screen_slug]);
 
+  // A course's Students page opens with no search. The sort survives.
+  useEffect(() => {
+    if (screen?.app_map_screen_slug !== 'course-students') return;
+    resetCourseStudentsControls();
+  }, [screen?.app_map_screen_slug]);
+
   // Moderation opens on Pending (design 7), whichever tab it was left on.
   useEffect(() => {
     if (screen?.app_map_screen_slug !== 'moderation') return;
@@ -1849,6 +1858,7 @@ export function App() {
         <MemberOptionsSheet />
         <MemberRoleSheet />
         <MemberRemoveConfirm />
+        <CourseAddStudentSheet />
         <AddMemberModal />
         <InviteUserModal />
         <ScheduleSheet />
@@ -3576,6 +3586,25 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
     // Course details (Courses doc, states 5–7) — the section accordion
     // and ENROLL THIS COURSE. Shared with the other shell through
     // @appza/renderer.
+    // A course's Students page (Courses doc, states 8–15) — search, the
+    // sort sheet, Add Student with its confirm, Remove with its confirm.
+    case 'course_students.set_search':
+    case 'course_students.set_sort':
+    case 'course_students.open_add':
+    case 'course.add_student':
+    case 'course.remove_student_confirm':
+    case 'course.remove_student': {
+      tryHandleCourseStudentsAction(inv, {
+        auth,
+        authHeader: basicAuthHeader,
+        onError: onError,
+        onInfo: onInfo,
+        readAppzetProps: readAppzetPropsFromCatalog,
+        customizations: currentCustomizations,
+      });
+      return;
+    }
+
     case 'course_detail.toggle_section':
     case 'course.enroll': {
       tryHandleCourseDetailAction(inv, {

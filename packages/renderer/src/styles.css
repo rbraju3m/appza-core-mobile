@@ -4129,6 +4129,229 @@
   border: 0 !important;
 }
 
+/* === A course's Students page (2026-09-22, Courses doc states 8–15) ====
+   Designs 8–15 at 375px: white toolbar band, the list as one white card
+   on #f6f7fb, 30px avatars, a grey 5px progress track. */
+[data-screen-slug="course-students"] ion-content {
+  --background: #f6f7fb;
+}
+.appza-renderer-appzet[data-slug="fc-course-students-toolbar"] {
+  margin: 0 -12px 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.appza-renderer-appzet[data-slug="fc-course-students-toolbar"] ion-button,
+.appza-renderer-appzet[data-slug="fc-course-students-toolbar"] .appza-renderer-ss-child:has(ion-input) {
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.18);
+}
+.appza-renderer-appzet-list[data-slug="fc-course-student-list"] {
+  background: var(--appza-card-bg-color, #ffffff);
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+  margin: 0 4px 16px;
+  padding: 6px 0;
+}
+.appza-renderer-ss[data-slug="fc-course-student-row"] {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: [name] auto [user] auto [enrolled] auto [bar] auto;
+  column-gap: 6px;
+  padding: 14px 16px 10px 18px;
+}
+.appza-renderer-ss[data-slug="fc-course-student-row"] ion-text {
+  display: block;
+}
+.appza-renderer-ss[data-slug="fc-course-student-row"] > [data-child-index="0"] {
+  grid-column: 1;
+  grid-row: name / span 2;
+  align-self: start;
+  margin-top: 2px;
+}
+.appza-renderer-ss[data-slug="fc-course-student-row"] > [data-child-index="1"] {
+  grid-column: 2;
+  grid-row: name;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--appza-name-color, #111827);
+}
+.appza-renderer-ss[data-slug="fc-course-student-row"] > [data-child-index="2"] {
+  grid-column: 2;
+  grid-row: user;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--appza-meta-color, #4b5563);
+}
+.appza-renderer-ss[data-slug="fc-course-student-row"] > [data-child-index="3"] {
+  grid-column: 2;
+  grid-row: enrolled;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--appza-meta-color, #4b5563);
+}
+.appza-renderer-ss[data-slug="fc-course-student-row"] > [data-child-index="4"] {
+  grid-column: 3;
+  grid-row: name / span 2;
+  align-self: start;
+  margin: -6px -10px 0 0;
+}
+.appza-renderer-ss[data-slug="fc-course-student-row"] > [data-child-index="4"] ion-button {
+  --color: #6b7280 !important;
+  --padding-start: 6px !important;
+  --padding-end: 6px !important;
+  margin: 0 !important;
+}
+.appza-renderer-ss[data-slug="fc-course-student-row"] > [data-child-index="5"] {
+  grid-column: 1 / 3;
+  grid-row: bar;
+  align-self: center;
+  margin: 10px 12px 0 0;
+}
+.appza-renderer-ss[data-slug="fc-course-student-row"] > [data-child-index="5"] ion-progress-bar {
+  height: 5px;
+  border-radius: 3px;
+  --background: var(--appza-progress-track-color, #d9d9d9);
+  --progress-background: var(--appza-progress-color, #1a54d6);
+}
+.appza-renderer-ss[data-slug="fc-course-student-row"] > [data-child-index="6"] {
+  grid-column: 3;
+  grid-row: bar;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--appza-meta-color, #4b5563);
+  text-align: right;
+}
+
+/* Appbar — the details' shell, its admin button the blue "+ Add Student". */
+.appza-renderer-appzet[data-slug="fc-course-students-appbar"] [data-child-index="2"] ion-button {
+  --background: #1a54d6 !important;
+  --color: #ffffff !important;
+  border: 0 !important;
+  border-radius: 3px;
+  height: 26px !important;
+  font-size: 12px !important;
+  --padding-start: 8px !important;
+  --padding-end: 10px !important;
+}
+.appza-renderer-appzet[data-slug="fc-course-students-appbar"] [data-child-index="2"] ion-button::part(native) {
+  color: #ffffff !important;
+}
+.appza-renderer-appzet[data-slug="fc-course-students-appbar"] [data-child-index="2"] ion-icon {
+  font-size: 16px;
+  margin-right: 4px;
+}
+
+/* Add Student sheet (states 13–14) — rides the options sheet's frame. */
+.appza-add-student-sheet {
+  max-height: 82%;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 12px;
+}
+.appza-add-student-eyebrow {
+  padding: 4px 16px 0;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--appza-eyebrow-color, #6b6b6b);
+}
+.appza-add-student-title {
+  padding: 6px 16px 10px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--appza-title-color, #0e121b);
+}
+.appza-add-student-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 14px 8px;
+  padding: 0 12px;
+  height: 38px;
+  border-radius: 4px;
+  background: var(--appza-field-bg-color, #ebebeb);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.18);
+  color: #6b6b6b;
+}
+.appza-add-student-search ion-icon {
+  font-size: 18px;
+  flex: 0 0 auto;
+}
+.appza-add-student-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 14px;
+  color: #111827;
+}
+.appza-add-student-search input::-webkit-search-cancel-button {
+  display: none;
+}
+.appza-add-student-search button {
+  border: 0;
+  background: transparent;
+  color: #6b6b6b;
+  padding: 0;
+  display: flex;
+}
+.appza-add-student-list {
+  overflow-y: auto;
+  padding: 2px 8px;
+}
+.appza-add-student-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.appza-add-student-avatar {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #e5e7eb;
+}
+.appza-add-student-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.appza-add-student-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.appza-add-student-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--appza-name-color, #111827);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-add-student-email {
+  font-size: 12px;
+  color: var(--appza-email-color, #4b5563);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-add-student-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 14px;
+  color: #6b6b6b;
+}
+
 /* === Space Detail screen (2026-08-03) =================================
    Design-polish CSS for the FC Space Details screen. Mirrors the mock
    at /home/rbs-02/Downloads/space-details.jpeg. Every layout hook keys

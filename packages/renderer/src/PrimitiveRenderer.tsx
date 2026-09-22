@@ -3,6 +3,7 @@ import { useActionDispatch, type ActionInvocation } from './actionContext';
 import { readActionDefaultsFromCatalog } from './catalogIndex';
 import {
   IonAvatar,
+  IonProgressBar,
   IonButton,
   IonChip,
   IonCheckbox,
@@ -758,6 +759,16 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
           )}
         </ThemedIonButton>
       );
+    }
+
+    case 'IonProgressBar': {
+      // `value` is a PERCENT (0–100), as every route of ours sends one — a
+      // course student's progress (Courses state 8). Clamped, so a bad row
+      // draws an empty or a full bar rather than overflowing.
+      const raw = overrides ? overrides['value'] : undefined;
+      const pct = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : 0;
+      const safe = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0;
+      return <IonProgressBar value={safe / 100} />;
     }
 
     case 'IonAvatar': {

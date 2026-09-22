@@ -367,6 +367,20 @@ export {
 } from './courseDetailControls';
 export { tryHandleCourseDetailAction, type CourseDetailActionDeps } from './courseDetailActions';
 export {
+  getCourseStudentsControls,
+  setCourseStudentsControls,
+  resetCourseStudentsControls,
+  useCourseStudentsControls,
+  courseStudentsStateEntries,
+  type CourseStudentsControls,
+} from './courseStudentsControls';
+export { tryHandleCourseStudentsAction, type CourseStudentsActionDeps } from './courseStudentsActions';
+export {
+  CourseAddStudentSheet,
+  openCourseAddStudentSheet,
+  closeCourseAddStudentSheet,
+} from './CourseAddStudentSheet';
+export {
   tryHandleMemberDirectoryAction,
   type MemberDirectoryActionDeps,
 } from './memberDirectoryActions';

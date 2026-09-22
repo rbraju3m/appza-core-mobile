@@ -8,6 +8,7 @@ import { setPostDetailControls } from './postDetailControls';
 import { setProfileControls } from './profileControls';
 import { setMemberDirectoryControls } from './memberDirectoryControls';
 import { setCourseListControls } from './courseListControls';
+import { setCourseStudentsControls } from './courseStudentsControls';
 import { resolveIcon } from './PrimitiveRenderer';
 
 // Floating popover anchored to a DOM element, with a small list of
@@ -56,7 +57,9 @@ export type PopoverStateKey =
   | 'profile_follow_sort'
   | 'member_directory_sort_by'
   | 'member_directory_sort_dir'
-  | 'course_list_sort';
+  | 'course_list_sort'
+  | 'course_students_sort_by'
+  | 'course_students_sort_dir';
 
 /**
  * Write a picked option into whichever control slice the key names.
@@ -125,6 +128,17 @@ export function applyControlPick(stateKey: PopoverStateKey, value: string): void
     // Courses (state 4). A refetch: fc-course-list binds sort_by, and
     // FluentCommunity sorts server-side.
     if (value.length > 0) setCourseListControls({ sort_by: value });
+    return;
+  }
+  if (stateKey === 'course_students_sort_by') {
+    // A course's Students page (state 10). Both halves are refetches:
+    // fc-course-students binds sort_by + sort_dir, and FluentCommunity
+    // sorts server-side.
+    if (value.length > 0) setCourseStudentsControls({ sort_by: value });
+    return;
+  }
+  if (stateKey === 'course_students_sort_dir') {
+    if (value.length > 0) setCourseStudentsControls({ sort_dir: value });
     return;
   }
   if (stateKey === 'bookmarks_view_mode') {

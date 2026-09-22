@@ -18,6 +18,7 @@ import { useSpacesControls } from './spacesControls';
 import { useProfileControls } from './profileControls';
 import { useMemberDirectoryControls } from './memberDirectoryControls';
 import { useCourseListControls } from './courseListControls';
+import { useCourseStudentsControls } from './courseStudentsControls';
 import {
   courseDetailStateEntries,
   getCourseDetailControls,
@@ -262,6 +263,8 @@ export function PlacementRenderer({
   // Course details (states 5–7): subscribed so a section tap re-renders
   // its card — the lesson rows gate on the open set (childStateBag).
   useCourseDetailControls();
+  // A course's Students page: the sort button names the sort that is on.
+  const courseStudents = useCourseStudentsControls();
   const postDetailControls = usePostDetailControls();
   // Search screen controls. Read unconditionally for stable hook order,
   // same as every slice above — both strips read it to mark their active
@@ -392,6 +395,18 @@ export function PlacementRenderer({
             ? {
                 sort_label: followSortLabel(
                   memberDirectory.sort_by,
+                  (baseAppzet.actions as Record<string, unknown> | null | undefined)?.[
+                    'on_tap_sort'
+                  ],
+                ),
+              }
+            : {}),
+          // The Students page's sort button (state 10: "Start Date"),
+          // All Members' rule against the course students' slice.
+          ...(baseAppzet.slug === 'fc-course-students-toolbar'
+            ? {
+                sort_label: followSortLabel(
+                  courseStudents.sort_by,
                   (baseAppzet.actions as Record<string, unknown> | null | undefined)?.[
                     'on_tap_sort'
                   ],

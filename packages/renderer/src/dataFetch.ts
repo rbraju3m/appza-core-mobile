@@ -9,6 +9,7 @@ import { getSearchControls } from './searchControls';
 import { getProfileControls } from './profileControls';
 import { getMemberDirectoryControls } from './memberDirectoryControls';
 import { getCourseListControls } from './courseListControls';
+import { getCourseStudentsControls } from './courseStudentsControls';
 import { getModerationControls } from './moderationControls';
 import { getViewer } from './viewer';
 
@@ -115,6 +116,7 @@ const STATE_SLICE_GETTERS: Record<string, () => Record<string, unknown>> = {
   member_directory_controls: () => getMemberDirectoryControls() as unknown as Record<string, unknown>,
   moderation_controls: () => getModerationControls() as unknown as Record<string, unknown>,
   course_list_controls: () => getCourseListControls() as unknown as Record<string, unknown>,
+  course_students_controls: () => getCourseStudentsControls() as unknown as Record<string, unknown>,
   // Added 2026-09-16. A child's `visible_when` could already read
   // `state.viewer.*` — that is how the composer teaser disappears on a
   // logged-out feed — but a DataSource's query_params could not, and the
@@ -148,6 +150,7 @@ const STATE_SLICE_EVENTS: Record<string, string> = {
   member_directory_controls: 'appza:member-directory-controls-change',
   moderation_controls: 'appza:moderation-controls-change',
   course_list_controls: 'appza:course-list-controls-change',
+  course_students_controls: 'appza:course-students-controls-change',
   // The viewer slice already broadcasts this on every sign-in and
   // sign-out; registering it here is what lets a list bound to
   // `state.viewer.*` re-read after one.
