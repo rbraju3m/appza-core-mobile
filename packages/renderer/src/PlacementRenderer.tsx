@@ -2026,6 +2026,18 @@ export function PlacementRenderer({
     'strip_clear_size',
     'cta_disabled_bg_color',
     'cta_disabled_color',
+    // Courses (arc sweep, 2026-09-23). The stylesheet read these from
+    // chunk 1 on, but nothing stamped them, so the right panel's value
+    // never reached the card, the details, the lesson or the quiz.
+    'cover_bg_color',
+    'button_bg_color',
+    'button_text_color',
+    'web_button_bg_color',
+    'locked_bg_color',
+    'paywall_bg_color',
+    'lesson_color',
+    'status_icon_color',
+    'video_icon_color',
   ]);
   // Aliases: some knobs also drive Ionic's own CSS custom properties
   // directly. Custom props inherit through shadow DOM (unlike `background`

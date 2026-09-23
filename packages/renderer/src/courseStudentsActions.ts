@@ -218,7 +218,7 @@ export function tryHandleCourseStudentsAction(inv: ActionInvocation, deps: Cours
         return true;
       }
       if (!deps.auth) {
-        deps.onError('Please sign in.');
+        deps.onError(str(argRec.guest_message) ?? 'Please sign in.');
         closeMemberRemoveConfirm();
         return true;
       }
