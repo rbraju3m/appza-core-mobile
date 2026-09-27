@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { IonIcon } from '@ionic/react';
 import { childAttrs, appzetAttrs } from './designTimeAttrs';
 import { resolveIcon } from './PrimitiveRenderer';
+import { useBackDismiss } from './backStack';
 
 /**
  * "New Message" — doc states 51 and 52.
@@ -134,6 +135,8 @@ export function NewMessageModal() {
       window.removeEventListener('keydown', onKey);
     };
   }, []);
+
+  useBackDismiss(!(!detail || detail.presentation.hidden), () => setDetail(null));
 
   if (!detail || detail.presentation.hidden) return null;
 

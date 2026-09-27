@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { IonIcon } from '@ionic/react';
 import { childAttrs, appzetAttrs } from './designTimeAttrs';
 import { resolveIcon } from './PrimitiveRenderer';
+import { useBackDismiss } from './backStack';
 
 /**
  * The profile card behind the 3-dot menu on a one-to-one conversation
@@ -100,6 +101,8 @@ export function ChatUserCard() {
       window.removeEventListener(CLOSE_EVENT, onClose);
     };
   }, []);
+
+  useBackDismiss(!(!detail || detail.presentation.hidden), () => setDetail(null));
 
   if (!detail || detail.presentation.hidden) return null;
 

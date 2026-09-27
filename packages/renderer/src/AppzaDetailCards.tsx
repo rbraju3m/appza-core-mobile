@@ -1,5 +1,6 @@
 import { IonIcon } from '@ionic/react';
 import { resolveIcon } from './PrimitiveRenderer';
+import { openExternal } from './externalLink';
 
 /**
  * Read-only cards of rows — the profile's Additional information and
@@ -59,15 +60,6 @@ function readCards(o: Record<string, unknown> | undefined): DetailCard[] {
     .filter((c) => c.rows.length > 0);
 }
 
-/**
- * Opens a link the way the rest of the app does — in the system browser
- * rather than inside the webview, which on a device would replace the app
- * with the page and leave no way back.
- */
-function openExternal(href: string): void {
-  if (typeof window === 'undefined' || !href) return;
-  window.open(href, '_blank', 'noopener,noreferrer');
-}
 
 export function AppzaDetailCards({ overrides }: { overrides?: Record<string, unknown> }) {
   const cards = readCards(overrides);

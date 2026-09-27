@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useBackDismiss } from './backStack';
 
 /**
  * Who voted for one poll option — behind the chevron on a voted row
@@ -88,6 +89,8 @@ export function PollVotersSheet() {
       cancelled = true;
     };
   }, [open]);
+
+  useBackDismiss(!(!open), () => setOpen(null));
 
   if (!open) return null;
 

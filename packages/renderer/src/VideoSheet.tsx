@@ -4,6 +4,7 @@ import { IonIcon } from '@ionic/react';
 import { childAttrs, appzetAttrs } from './designTimeAttrs';
 import { resolveIcon } from './PrimitiveRenderer';
 import { setPostDraft, type PostDraftVideo } from './postDraft';
+import { useBackDismiss } from './backStack';
 
 /**
  * "Attach Media" — the video sheet, Noor's designs 15 to 19.
@@ -226,6 +227,8 @@ export function VideoSheet() {
       ['--appza-icon-size' as string]: p.iconSize,
     };
   }, [detail]);
+
+  useBackDismiss(!(!detail || detail.presentation.hidden), () => setDetail(null));
 
   if (!detail || detail.presentation.hidden) return null;
 

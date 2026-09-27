@@ -231,6 +231,7 @@ import { AppzaPostSchedule } from './PostSchedule';
 import { AppzaPostPreview } from './PostPreview';
 import { useBannerControls, setBannerControls } from './bannerControls';
 import { attach, attachOutline, cloudUploadOutline } from 'ionicons/icons';
+import { openExternal } from './externalLink';
 
 /**
  * Explicit icon registry. Using `import * as icons from 'ionicons/icons'`
@@ -1506,7 +1507,7 @@ function AppzaVideoEmbed({
           if (canEmbed) {
             setPlaying(true);
           } else {
-            window.open(src, '_blank', 'noopener,noreferrer');
+            openExternal(src);
           }
         }}
       >

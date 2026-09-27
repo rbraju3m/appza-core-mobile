@@ -3,6 +3,7 @@ import { IonIcon } from '@ionic/react';
 import { useActionDispatch } from './actionContext';
 import { resolveIcon } from './PrimitiveRenderer';
 import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
+import { useBackDismiss } from './backStack';
 
 // Bottom-sheet role picker opened when the member overflow menu's
 // "Change Membership" row fires (member.change_role). Each role row
@@ -62,6 +63,8 @@ export function MemberRoleSheet() {
       window.removeEventListener(CLOSE_EVENT, onClose);
     };
   }, []);
+
+  useBackDismiss(!(!open || !detail), () => setOpen(false));
 
   if (!open || !detail) return null;
 

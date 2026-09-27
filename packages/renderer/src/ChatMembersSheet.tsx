@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { childAttrs, appzetAttrs } from './designTimeAttrs';
+import { useBackDismiss } from './backStack';
 
 /**
  * The members sheet behind the 3-dot menu on a space or group
@@ -146,6 +147,8 @@ export function ChatMembersSheet() {
       cancelled = true;
     };
   }, [listEndpoint, threadId, authHeader]);
+
+  useBackDismiss(!(!detail || detail.presentation.hidden), () => setDetail(null));
 
   if (!detail || detail.presentation.hidden) return null;
 

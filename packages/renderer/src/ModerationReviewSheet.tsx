@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useBackDismiss } from './backStack';
 
 /**
  * The moderation review modal — Noor's designs 29 and 30.
@@ -182,6 +183,8 @@ export function ModerationReviewSheet() {
       cancelled = true;
     };
   }, [open]);
+
+  useBackDismiss(!(!open), () => setOpen(null));
 
   if (!open) return null;
   const p = open.presentation;

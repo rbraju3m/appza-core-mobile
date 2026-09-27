@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useActionDispatch } from './actionContext';
 import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
+import { useBackDismiss } from './backStack';
 
 // iOS-style center alert opened by member.remove_confirm. Shows the
 // member's display name as the bold title + a short message. Two
@@ -82,6 +83,8 @@ export function MemberRemoveConfirm() {
       window.removeEventListener(CLOSE_EVENT, onClose);
     };
   }, []);
+
+  useBackDismiss(!(!open || !detail), () => { setOpen(false); setInFlight(false); });
 
   if (!open || !detail) return null;
 

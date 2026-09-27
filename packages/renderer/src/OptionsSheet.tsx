@@ -3,6 +3,7 @@ import { IonIcon } from '@ionic/react';
 import { childAttrs, appzetAttrs } from './designTimeAttrs';
 import { resolveIcon } from './PrimitiveRenderer';
 import { applyControlPick, type PopoverStateKey, type ViewModeOption } from './ViewModePopover';
+import { useBackDismiss } from './backStack';
 
 /**
  * A bottom sheet of pickable options with the current one marked —
@@ -159,6 +160,8 @@ export function OptionsSheet() {
       window.removeEventListener('keydown', onKey);
     };
   }, []);
+
+  useBackDismiss(!(!detail || detail.presentation.hidden), () => setDetail(null));
 
   if (!detail || detail.presentation.hidden) return null;
 

@@ -168,6 +168,7 @@ function readPath(root: unknown, path: string): unknown {
 // existing importers are untouched.
 export { readActionDefaultsFromCatalog } from './catalogIndex';
 import { readActionDefaultsFromCatalog } from './catalogIndex';
+import { useBackDismiss } from './backStack';
 
 
 /**
@@ -230,6 +231,8 @@ export function PostOptionsPopover() {
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
+
+  useBackDismiss(!(!open || !detail), () => setOpen(false));
 
   if (!open || !detail) return null;
 

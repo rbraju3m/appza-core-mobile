@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { childAttrs, appzetAttrs } from './designTimeAttrs';
 import { useDataSource } from './dataFetch';
 import { getProfileControls, setProfileControls } from './profileControls';
+import { useBackDismiss } from './backStack';
 
 /**
  * Following / Followers / Blocked, as ONE bottom sheet — doc states 36
@@ -156,6 +157,8 @@ export function FollowSheet() {
     detail ? slug : undefined,
     memberId ? { member_id: memberId } : undefined,
   );
+
+  useBackDismiss(!(!detail || detail.presentation.hidden), () => setDetail(null));
 
   if (!detail || detail.presentation.hidden) return null;
 

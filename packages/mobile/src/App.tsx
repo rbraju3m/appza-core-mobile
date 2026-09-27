@@ -195,7 +195,10 @@ import {
   ModerationReviewSheet,
   announceModerationDone,
 } from '@appza/renderer';
-import { setAuthHeaderProvider } from '@appza/renderer';
+import { setAuthHeaderProvider, setExternalOpener, openExternal, useBackDismiss, dismissTopOverlay } from '@appza/renderer';
+import { App as CapApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import { SecureStorage } from '@aparajita/capacitor-secure-storage';
 import {
   BootstrapEnvelopeSchema,
@@ -244,6 +247,27 @@ const AUTH_STORAGE_KEY = 'appza:auth';
 
 let currentAuthHeader: string | undefined;
 setAuthHeaderProvider(() => currentAuthHeader);
+
+// window.open('_blank') is a no-op in the Android WebView, so links go to Custom Tabs there.
+if (Capacitor.isNativePlatform()) {
+  setExternalOpener((url) => {
+    void Browser.open({ url });
+  });
+}
+
+// Any link that would leave the app (another origin, or target=_blank) opens outside it,
+// including links inside post and comment HTML.
+document.addEventListener(
+  'click',
+  (e) => {
+    const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+    if (!a || !/^https?:$/.test(a.protocol)) return;
+    if (a.target !== '_blank' && a.origin === window.location.origin) return;
+    e.preventDefault();
+    openExternal(a.href);
+  },
+  true,
+);
 
 // Stored auth lives in SecureStorage (Android Keystore on device, localStorage on web).
 // It is async, so main.tsx awaits loadStoredAuth() before mounting and the rest stays synchronous.
@@ -847,6 +871,11 @@ export function App() {
   const uploadEndpointRef = useRef<ImagePickerTarget | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  useBackDismiss(pendingDelete !== null, () => {
+    if (!deleteInFlight) setPendingDelete(null);
+  });
+  useBackDismiss(commentPanel !== null, () => setCommentPanel(null));
+  useBackDismiss(menuOpen, () => setMenuOpen(false));
   const [pullDistance, setPullDistance] = useState(0);
   const shellRef = useRef<HTMLDivElement | null>(null);
 
@@ -1048,6 +1077,35 @@ export function App() {
 
   const envelope = state.kind === 'ok' ? state.envelope : null;
   const catalog = envelope?.catalog ?? null;
+
+  // Hardware back: close the top sheet, else pop a screen, else go Home, else minimise (never exit).
+  const backNavRef = useRef({ screenStack, selectedScreenId, catalog });
+  backNavRef.current = { screenStack, selectedScreenId, catalog };
+  useEffect(() => {
+    const onBack = () => {
+      if (dismissTopOverlay()) return;
+      const { screenStack: stack, selectedScreenId: current, catalog: cat } = backNavRef.current;
+      if (stack.length > 0) {
+        setSelectedScreenId(stack[stack.length - 1] ?? null);
+        setScreenStack(stack.slice(0, -1));
+        return;
+      }
+      const screens = cat?.template_screens ?? [];
+      const onLogin = screens.find((s) => s.id === current)?.app_map_screen_slug === 'login-page';
+      const home = screens.find((s) => s.app_map_screen_slug === 'home');
+      if (home && current !== home.id && !onLogin) {
+        setSelectedScreenId(home.id);
+        return;
+      }
+      if (Capacitor.isNativePlatform()) void CapApp.minimizeApp();
+    };
+    if (import.meta.env.DEV) (window as unknown as { __appzaBack?: () => void }).__appzaBack = onBack;
+    if (!Capacitor.isNativePlatform()) return;
+    const listener = CapApp.addListener('backButton', onBack);
+    return () => {
+      void listener.then((h) => h.remove());
+    };
+  }, []);
 
   // Publish the catalog on a window global so PostOptionsPopover can look
   // up each menu item's action defaults (endpoint / method / patch_key)
@@ -2451,7 +2509,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         });
         return;
       }
-      window.open(url, '_blank', 'noopener,noreferrer');
+      openExternal(url);
       return;
     }
 

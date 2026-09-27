@@ -5,6 +5,7 @@ import { childAttrs, appzetAttrs } from './designTimeAttrs';
 import { resolveIcon } from './PrimitiveRenderer';
 import { setPostDraft, type PostDraftTopic } from './postDraft';
 import { fetchDataSourceOnce } from './dataFetch';
+import { useBackDismiss } from './backStack';
 
 /**
  * "Post to" — the create-post space picker (Noor's design 5).
@@ -173,6 +174,8 @@ export function PostSpaceSheet() {
       window.removeEventListener('keydown', onKey);
     };
   }, []);
+
+  useBackDismiss(!(!detail || detail.presentation.hidden), () => setDetail(null));
 
   if (!detail || detail.presentation.hidden) return null;
 

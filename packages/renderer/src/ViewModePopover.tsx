@@ -10,6 +10,7 @@ import { setMemberDirectoryControls } from './memberDirectoryControls';
 import { setCourseListControls } from './courseListControls';
 import { setCourseStudentsControls } from './courseStudentsControls';
 import { resolveIcon } from './PrimitiveRenderer';
+import { useBackDismiss } from './backStack';
 
 // Floating popover anchored to a DOM element, with a small list of
 // {value,label,icon?} options. Selecting an option calls
@@ -218,6 +219,8 @@ export function ViewModePopover() {
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
+
+  useBackDismiss(!(!open || !detail), () => setOpen(false));
 
   if (!open || !detail) return null;
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { IonIcon } from '@ionic/react';
 import { useActionDispatch } from './actionContext';
 import { resolveIcon } from './PrimitiveRenderer';
+import { useBackDismiss } from './backStack';
 
 /**
  * The report sheet — Courses doc, states 28–29 (a lesson comment's Report
@@ -84,6 +85,8 @@ export function ReportSheet() {
       window.removeEventListener(REPORT_SHEET_RESULT_EVENT, onResult);
     };
   }, []);
+
+  useBackDismiss(!(!detail), () => setDetail(null));
 
   if (!detail) return null;
   const a = detail.args;

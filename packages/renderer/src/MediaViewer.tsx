@@ -3,6 +3,7 @@ import { IonIcon } from '@ionic/react';
 import { childAttrs, appzetAttrs } from './designTimeAttrs';
 import { resolveIcon } from './PrimitiveRenderer';
 import { useInsideDeviceViewport } from './insideDeviceViewport';
+import { useBackDismiss } from './backStack';
 
 // Fullscreen photo viewer for the MEDIA sub-tab.
 //
@@ -166,6 +167,7 @@ export function MediaViewer() {
   }, [open, step]);
 
   const p = detail?.presentation;
+  useBackDismiss(!(!open || !detail || !p || p.hidden), () => setOpen(false));
   if (!open || !detail || !p || p.hidden) return null;
 
   const item = detail.items[index];

@@ -3,6 +3,7 @@ import { IonIcon } from '@ionic/react';
 import { useActionDispatch } from './actionContext';
 import { resolveIcon } from './PrimitiveRenderer';
 import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
+import { useBackDismiss } from './backStack';
 
 // Bottom-sheet "Member actions" list opened by tapping the 3-dot menu on
 // a member card (fc-member-card.on_tap_menu → member.options). Shape is
@@ -63,6 +64,8 @@ export function MemberOptionsSheet() {
       window.removeEventListener(CLOSE_EVENT, onClose);
     };
   }, []);
+
+  useBackDismiss(!(!open || !detail), () => setOpen(false));
 
   if (!open || !detail) return null;
 

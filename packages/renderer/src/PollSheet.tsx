@@ -9,6 +9,7 @@ import {
   type PostDraftPoll,
   type PostDraftPollOption,
 } from './postDraft';
+import { useBackDismiss } from './backStack';
 
 /**
  * "Create poll" — Noor's designs 24 to 29.
@@ -399,6 +400,8 @@ export function PollSheet() {
     put('--appza-done-height', p.doneHeight);
     return v as CSSProperties;
   }, [p]);
+
+  useBackDismiss(!(!open || !detail || !p || p.hidden), () => setOpen(false));
 
   if (!open || !detail || !p || p.hidden) return null;
 

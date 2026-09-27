@@ -3,6 +3,7 @@ import { IonIcon } from '@ionic/react';
 import { childAttrs, appzetAttrs } from './designTimeAttrs';
 import { resolveIcon } from './PrimitiveRenderer';
 import { fetchDataSourceOnce } from './dataFetch';
+import { useBackDismiss } from './backStack';
 
 /**
  * "Add Student" — Courses doc, states 13 and 14.
@@ -148,6 +149,8 @@ export function CourseAddStudentSheet() {
     }, 300);
     return () => clearTimeout(t);
   }, [detail, query]);
+
+  useBackDismiss(!(!detail || detail.presentation.hidden), () => setDetail(null));
 
   if (!detail || detail.presentation.hidden) return null;
   const p = detail.presentation;

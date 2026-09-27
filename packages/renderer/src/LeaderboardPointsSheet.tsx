@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { childAttrs, appzetAttrs } from './designTimeAttrs';
+import { useBackDismiss } from './backStack';
 
 /**
  * The Leaderboard points explainer, behind the circled i on the viewer's
@@ -143,6 +144,8 @@ export function LeaderboardPointsSheet() {
       cancelled = true;
     };
   }, [levelsEndpoint, authHeader]);
+
+  useBackDismiss(!(!detail || detail.presentation.hidden), () => setDetail(null));
 
   if (!detail || detail.presentation.hidden) return null;
 

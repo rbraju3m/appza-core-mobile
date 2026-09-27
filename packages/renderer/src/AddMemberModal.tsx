@@ -4,6 +4,7 @@ import { useActionDispatch } from './actionContext';
 import { resolveIcon } from './PrimitiveRenderer';
 import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
 import { appzetAttrs, childAttrs } from './designTimeAttrs';
+import { useBackDismiss } from './backStack';
 
 // Slug of the catalog AppZet this modal stands in for. Used only to
 // address the builder's Properties panel; the runtime never reads it.
@@ -313,6 +314,8 @@ export function AddMemberModal() {
     const tpl = detail.submitLabelTemplate ?? 'ADD AS {role|upper}';
     return fillTemplate(tpl, selectedRole);
   }, [detail, selectedRole]);
+
+  useBackDismiss(!(!open || !detail), () => handleClose());
 
   if (!open || !detail) return null;
   // `hidden` is an author kill-switch for the whole overlay, same as on
