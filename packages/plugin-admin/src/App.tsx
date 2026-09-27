@@ -2889,6 +2889,8 @@ const AUTH_STORAGE_KEY = 'appza:auth';
 type StoredAuth = {
   username: string;
   token: string;
+  // Application-password uuid, so logout can revoke it.
+  uuid?: string;
   display_name?: string;
   avatar?: string;
   // WP user id returned by /fcom-login. Threaded to the renderer via
@@ -3426,6 +3428,19 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
     case 'auth.logout': {
+      const logoutEndpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
+      if (logoutEndpoint && auth?.uuid) {
+        void fetch(logoutEndpoint, {
+          method: 'POST',
+          credentials: 'omit',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            Authorization: basicAuthHeader(auth),
+          },
+          body: JSON.stringify({ uuid: auth.uuid }),
+        }).catch(() => {});
+      }
       setAuth(null);
       // The picker's payload is one viewer's answer to "where may I
       // post" — spaces, permissions, moderator verdict. Signing out must
@@ -3508,6 +3523,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             display_name: typeof j.display_name === 'string' ? j.display_name : undefined,
             avatar: typeof j.avatar === 'string' ? j.avatar : undefined,
             user_id: userId,
+            uuid: typeof j.uuid === 'string' ? j.uuid : undefined,
           };
           setAuth(stored);
           onLoginSuccess();
@@ -7277,6 +7293,7 @@ type PanelComment = {
   id?: number | string;
   parent_id?: number | string | null;
   message?: string;
+  message_rendered?: string;
   created_at?: string;
   xprofile?: {
     display_name?: string;
@@ -7763,7 +7780,9 @@ function CommentThreadItem({
               marginTop: 2,
               wordBreak: 'break-word',
             }}
-            dangerouslySetInnerHTML={{ __html: String(comment.message ?? '') }}
+            {...(comment.message_rendered != null
+              ? { dangerouslySetInnerHTML: { __html: String(comment.message_rendered) } }
+              : { children: String(comment.message ?? '') })}
           />
           {comment.id != null && (
             <button

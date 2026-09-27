@@ -64,6 +64,7 @@ export function tryHandleLogoutConfirm(
     item: inv.item ?? null,
     removeActionSlug:
       str(argRec.confirm_action_slug) ?? deps.defaultActionSlug ?? 'auth.logout',
+    removeArgs: str(argRec.endpoint) ? { endpoint: str(argRec.endpoint) } : undefined,
   });
 
   return true;
