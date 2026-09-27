@@ -14,6 +14,7 @@ import { getCourseLessonControls } from './courseLessonControls';
 import { getPostDetailControls } from './postDetailControls';
 import { getModerationControls } from './moderationControls';
 import { getViewer } from './viewer';
+import { getAuthHeader } from './authHeader';
 
 /**
  * useDataSource(slug, params) — fetch a list payload for an AppZet's
@@ -83,8 +84,8 @@ export const APPZA_REFRESH_EVENT = 'appza:refresh-data';
  * shell (App.tsx) writes into this bag whenever it activates a screen via
  * nav.push — carrying `pass_item_as_context` items' identifying fields
  * (slug, id) so DS query_params with `source: 'route_param'` can read
- * them at fetch time. Kept as a plain window global (mirroring the
- * __appzaAuthHeader pattern) so the renderer stays free of shell imports.
+ * them at fetch time. Kept as a plain window global so the renderer stays
+ * free of shell imports.
  */
 export function setRouteParams(next: Record<string, unknown> | null | undefined): void {
   if (typeof window === 'undefined') return;
@@ -346,9 +347,7 @@ export async function fetchDataSourceOnce(
   opts?: { bypassCache?: boolean },
 ): Promise<unknown> {
   const authHeader =
-    (typeof window !== 'undefined'
-      ? (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader
-      : undefined) || undefined;
+    getAuthHeader();
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (authHeader) headers.Authorization = authHeader;
   return fetchProxyJson(buildProxyUrl(slug, params, opts?.bypassCache === true), headers);
@@ -453,9 +452,7 @@ export function useDataSource(
     // Header lives on window as a light coupling — App.tsx sets/clears it
     // on login/logout. Sent as the standard `Authorization`; see
     // fetchProxyText for why cookies are omitted.
-    const authHeader = (typeof window !== 'undefined'
-      ? (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader
-      : undefined) || undefined;
+    const authHeader = getAuthHeader();
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (authHeader) headers.Authorization = authHeader;
     // App-side shell (post.create success handler) sets
@@ -617,9 +614,7 @@ export function useDataSourcePaged(
     setLoading(true);
     setError(null);
 
-    const authHeader = (typeof window !== 'undefined'
-      ? (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader
-      : undefined) || undefined;
+    const authHeader = getAuthHeader();
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (authHeader) headers.Authorization = authHeader;
 

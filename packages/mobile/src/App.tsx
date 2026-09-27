@@ -195,6 +195,8 @@ import {
   ModerationReviewSheet,
   announceModerationDone,
 } from '@appza/renderer';
+import { setAuthHeaderProvider } from '@appza/renderer';
+import { SecureStorage } from '@aparajita/capacitor-secure-storage';
 import {
   BootstrapEnvelopeSchema,
   type BootstrapEnvelope,
@@ -211,8 +213,8 @@ import {
  * port of the plugin-admin implementation. Kept in-file for now — the
  * proper extraction into a shared `@appza/app-shell` package is queued.
  * The three axes shared with plugin-admin: (1) StoredAuth persisted in
- * localStorage + mirrored to window.__appzaAuthHeader so useDataSource
- * picks it up; (2) optimistic-UI reactions via imperative DOM writes
+ * the device's secure storage and handed to the renderer through
+ * setAuthHeaderProvider; (2) optimistic-UI reactions via imperative DOM writes
  * (data-appza-item-id + data-appza-primitive-path stamped by renderer);
  * (3) in-viewport overlays (ConfirmDeleteModal, CommentPanel) instead of
  * window.prompt/alert so it works on-device.
@@ -222,7 +224,7 @@ import {
  * attachments are the next slice.
  */
 
-const SITE_URL = (import.meta.env.VITE_APPZA_SITE_URL as string | undefined) ?? 'http://tutor-lms-mobile.local';
+const SITE_URL = (import.meta.env.VITE_APPZA_SITE_URL as string | undefined) ?? (import.meta.env.DEV ? 'http://tutor-lms-mobile.local' : '');
 const TEMPLATE = (import.meta.env.VITE_APPZA_TEMPLATE as string | undefined) ?? 'fluent-community-default';
 
 type FetchState =
@@ -240,6 +242,39 @@ window.appzaCoreConfig = {
 
 const AUTH_STORAGE_KEY = 'appza:auth';
 
+let currentAuthHeader: string | undefined;
+setAuthHeaderProvider(() => currentAuthHeader);
+
+// Stored auth lives in SecureStorage (Android Keystore on device, localStorage on web).
+// It is async, so main.tsx awaits loadStoredAuth() before mounting and the rest stays synchronous.
+let storedAuthCache: StoredAuth | null = null;
+
+function parseStoredAuth(raw: string | null): StoredAuth | null {
+  try {
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed.username === 'string' && typeof parsed.token === 'string' && parsed.username && parsed.token
+      ? (parsed as StoredAuth)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function loadStoredAuth(): Promise<void> {
+  try {
+    let raw = await SecureStorage.getItem(AUTH_STORAGE_KEY);
+    const legacy = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw && legacy) {
+      raw = legacy;
+      await SecureStorage.setItem(AUTH_STORAGE_KEY, legacy);
+    }
+    if (legacy) window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    storedAuthCache = parseStoredAuth(raw);
+  } catch {
+    storedAuthCache = null;
+  }
+}
+
 type StoredAuth = {
   username: string;
   token: string;
@@ -251,32 +286,15 @@ type StoredAuth = {
 };
 
 function readStoredAuth(): StoredAuth | null {
-  try {
-    const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (
-      parsed &&
-      typeof parsed.username === 'string' &&
-      typeof parsed.token === 'string' &&
-      parsed.username &&
-      parsed.token
-    ) {
-      return parsed as StoredAuth;
-    }
-    return null;
-  } catch {
-    return null;
-  }
+  return storedAuthCache;
 }
 
 function writeStoredAuth(a: StoredAuth | null): void {
-  try {
-    if (a) window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(a));
-    else window.localStorage.removeItem(AUTH_STORAGE_KEY);
-  } catch {
-    /* localStorage unavailable — app just runs unauthenticated */
-  }
+  storedAuthCache = a;
+  const write = a ? SecureStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(a)) : SecureStorage.removeItem(AUTH_STORAGE_KEY);
+  write.catch(() => {
+    /* storage unavailable — the session just won't survive a restart */
+  });
 }
 
 /**
@@ -768,7 +786,7 @@ export function App() {
   // the flag for a fresh Edit tap.
   const screenPrefilledRef = useRef<Record<string, true>>({});
   // Read stored auth AND publish it on window during the lazy initializer so
-  // __appzaAuthHeader is set BEFORE any child useEffect fires (React runs
+  // the auth header is set BEFORE any child useEffect fires (React runs
   // child effects first). Without this, useDataSourcePaged's initial fetch
   // in nested PlacementRenderers goes out unauthenticated — the fcom-mobile
   // endpoints return errors, the preview proxy falls back to fixtures, and
@@ -779,10 +797,9 @@ export function App() {
     const stored = readStoredAuth();
     if (stored && typeof window !== 'undefined') {
       const g = window as unknown as {
-        __appzaAuthHeader?: string;
         __appzaCurrentUserId?: number;
       };
-      g.__appzaAuthHeader = basicAuthHeader(stored);
+      currentAuthHeader = basicAuthHeader(stored);
       if (typeof stored.user_id === 'number') g.__appzaCurrentUserId = stored.user_id;
     }
     return stored;
@@ -836,13 +853,13 @@ export function App() {
   const setAuth = useCallback((a: StoredAuth | null) => {
     writeStoredAuth(a);
     setAuthState(a);
-    const g = window as unknown as { __appzaAuthHeader?: string; __appzaCurrentUserId?: number };
+    const g = window as unknown as { __appzaCurrentUserId?: number };
     if (a) {
-      g.__appzaAuthHeader = basicAuthHeader(a);
+      currentAuthHeader = basicAuthHeader(a);
       if (typeof a.user_id === 'number') g.__appzaCurrentUserId = a.user_id;
       else delete g.__appzaCurrentUserId;
     } else {
-      delete g.__appzaAuthHeader;
+      currentAuthHeader = undefined;
       delete g.__appzaCurrentUserId;
     }
   }, []);
@@ -850,9 +867,9 @@ export function App() {
   // Mirror initial auth to window on mount so useDataSource picks it up
   // on the very first bootstrap-consumer render (before any user action).
   useEffect(() => {
-    const g = window as unknown as { __appzaAuthHeader?: string; __appzaCurrentUserId?: number };
+    const g = window as unknown as { __appzaCurrentUserId?: number };
     if (auth) {
-      g.__appzaAuthHeader = basicAuthHeader(auth);
+      currentAuthHeader = basicAuthHeader(auth);
       if (typeof auth.user_id === 'number') g.__appzaCurrentUserId = auth.user_id;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -915,7 +932,7 @@ export function App() {
               id,
               title,
               absolutizeEndpoint(endpoints.rename),
-              (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? '',
+              currentAuthHeader ?? '',
             );
             setDocumentBusy('');
             if (error) setErrorToast(error);
@@ -935,7 +952,7 @@ export function App() {
             const error = await deleteDraftDocument(
               id,
               absolutizeEndpoint(endpoints.remove),
-              (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? '',
+              currentAuthHeader ?? '',
             );
             setDocumentBusy('');
             if (error) setErrorToast(error);
@@ -1324,7 +1341,7 @@ export function App() {
       }
       const list = Array.from(files);
       setUploadingCount((c) => c + list.length);
-      const auth = (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? '';
+      const auth = currentAuthHeader ?? '';
       const accepted = [];
       for (const file of list) {
         const { doc, error } = await uploadDraftDocument(
@@ -1368,7 +1385,7 @@ export function App() {
       const results = await Promise.all(
         list.map(async (file) => {
           try {
-            const video = await uploadDraftVideo(file, endpoint, (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? '', 'audio');
+            const video = await uploadDraftVideo(file, endpoint, currentAuthHeader ?? '', 'audio');
             if (!video || !video.media_id || !video.media_url) {
               setErrorToast(`Could not upload ${file.name}.`);
               return null;
@@ -4147,9 +4164,9 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
           canUpload: player.enabled && player.video_upload_enabled && payload.canUploadVideo,
           embedEnabled: getFcRuntimeSettings().composer.video_embed_enabled,
           onLookup: (u: string) =>
-            lookupVideoOembed(u, absolutizeEndpoint(oembedEndpoint), (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? ''),
+            lookupVideoOembed(u, absolutizeEndpoint(oembedEndpoint), currentAuthHeader ?? ''),
           onUpload: (file: File) =>
-            uploadDraftVideo(file, absolutizeEndpoint(uploadEndpoint), (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? ''),
+            uploadDraftVideo(file, absolutizeEndpoint(uploadEndpoint), currentAuthHeader ?? ''),
         });
       })();
       return;
@@ -4932,7 +4949,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         // own origin and 404s on the phone while working in the browser
         // (P60).
         levelsEndpoint: absolutizeEndpoint(levelsEndpoint),
-        authHeader: ((window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? ''),
+        authHeader: (currentAuthHeader ?? ''),
       });
       return;
     }
@@ -5082,7 +5099,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
           currentCustomizations,
         ),
         listEndpoint: absolutizeEndpoint(membersEndpoint),
-        authHeader: ((window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? ''),
+        authHeader: (currentAuthHeader ?? ''),
         onViewCommunity: (t) => handleAction({
           action_slug: 'chat.view_community',
           args: readActionDefaultsFromCatalog('chat.view_community') ?? undefined,
@@ -5228,7 +5245,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
             headers: {
               'Content-Type': 'application/json',
               Accept: 'application/json',
-              Authorization: ((window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? ''),
+              Authorization: (currentAuthHeader ?? ''),
             },
             body: JSON.stringify({ thread_id: threadId }),
           });
@@ -5298,7 +5315,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       void sendChatMessage({
         endpoint,
         method: typeof argRec.method === 'string' ? argRec.method : 'POST',
-        authHeader: (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? '',
+        authHeader: currentAuthHeader ?? '',
                 absolutize: absolutizeEndpoint,
         createThreadEndpoint:
           typeof argRec.create_thread_endpoint === 'string' && argRec.create_thread_endpoint
@@ -5339,7 +5356,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       void deleteChatMessage(typeof messageId === 'string' || typeof messageId === 'number' ? messageId : '', {
         endpoint,
         method: typeof argRec.method === 'string' ? argRec.method : 'POST',
-        authHeader: (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? '',
+        authHeader: currentAuthHeader ?? '',
         absolutize: absolutizeEndpoint,
         toast: typeof argRec.toast_message === 'string' ? argRec.toast_message : 'Message deleted',
         onError,
@@ -5373,7 +5390,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
       void discardChatAttachment(url, {
         endpoint,
         method: typeof argRec.method === 'string' ? argRec.method : 'POST',
-        authHeader: (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? '',
+        authHeader: currentAuthHeader ?? '',
         absolutize: absolutizeEndpoint,
         onError: onError,
       });
@@ -5390,7 +5407,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         endpoint,
         method: typeof argRec.method === 'string' ? argRec.method : 'POST',
         accept: typeof argRec.accept === 'string' ? argRec.accept : 'image/*',
-        authHeader: (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader ?? '',
+        authHeader: currentAuthHeader ?? '',
         absolutize: absolutizeEndpoint,
         onError,
       });
@@ -5896,7 +5913,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         'Content-Type': 'application/json',
         Accept: 'application/json',
       };
-      const authHeader = (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader;
+      const authHeader = currentAuthHeader;
       if (authHeader) headers.Authorization = authHeader;
       fetch(absolutizeEndpoint(endpoint), { method, headers, credentials: 'omit' })
         .then(async (res) => {
@@ -5991,7 +6008,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         'Content-Type': 'application/json',
         Accept: 'application/json',
       };
-      const authHeader = (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader;
+      const authHeader = currentAuthHeader;
       if (authHeader) headers.Authorization = authHeader;
       fetch(absolutizeEndpoint(endpoint), {
         method,
@@ -6056,8 +6073,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
             ? argRec.users_endpoint
             : '/wp-json/fcom-mobile/api/v1/users/search';
         const spaceSlug = getSpaceDetailControls().space_slug;
-        const authHeader = (window as unknown as { __appzaAuthHeader?: string })
-          .__appzaAuthHeader;
+        const authHeader = currentAuthHeader;
         openAddMemberModal({
           appzetSlug: formSlug,
           // Shared with the plug-in admin so the two shells can't drift
@@ -6112,7 +6128,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         'Content-Type': 'application/json',
         Accept: 'application/json',
       };
-      const authHeader = (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader;
+      const authHeader = currentAuthHeader;
       if (authHeader) headers.Authorization = authHeader;
       fetch(absolutizeEndpoint(endpoint), {
         method,
@@ -6234,7 +6250,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         'Content-Type': 'application/json',
         Accept: 'application/json',
       };
-      const authHeader = (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader;
+      const authHeader = currentAuthHeader;
       if (authHeader) headers.Authorization = authHeader;
       fetch(absolutizeEndpoint(endpoint), {
         method,
@@ -6294,8 +6310,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         const listEndpoint =
           readDataSourceEndpointFromCatalog(dsSlug) ??
           '/wp-json/fcom-mobile/api/v1/spaces/invitations';
-        const authHeader = (window as unknown as { __appzaAuthHeader?: string })
-          .__appzaAuthHeader;
+        const authHeader = currentAuthHeader;
 
         openInviteUserModal({
           appzetSlug: formSlug,
@@ -6344,8 +6359,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
           'Content-Type': 'application/json',
           Accept: 'application/json',
         };
-        const authHeader = (window as unknown as { __appzaAuthHeader?: string })
-          .__appzaAuthHeader;
+        const authHeader = currentAuthHeader;
         if (authHeader) headers.Authorization = authHeader;
         fetch(absolutizeEndpoint(endpoint), {
           method,
@@ -6438,8 +6452,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
           'Content-Type': 'application/json',
           Accept: 'application/json',
         };
-        const authHeader = (window as unknown as { __appzaAuthHeader?: string })
-          .__appzaAuthHeader;
+        const authHeader = currentAuthHeader;
         if (authHeader) headers.Authorization = authHeader;
         fetch(absolutizeEndpoint(endpoint), {
           method,

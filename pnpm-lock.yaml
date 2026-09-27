@@ -17,6 +17,9 @@ importers:
 
   packages/mobile:
     dependencies:
+      '@aparajita/capacitor-secure-storage':
+        specifier: 6.0.1
+        version: 6.0.1
       '@appza/renderer':
         specifier: workspace:*
         version: link:../renderer
@@ -153,6 +156,10 @@ importers:
 
 packages:
 
+  '@aparajita/capacitor-secure-storage@6.0.1':
+    resolution: {integrity: sha512-3enXCck7Uumg3xCvzh4EHHo4mqYAMMhVWQ1db35xDsuRCSKEGFTJVVdOMpwnrOlS6RqzmZEoGB7n5wftbRHRqQ==}
+    engines: {node: '>=16.15.1'}
+
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
     engines: {node: '>=6.9.0'}
@@ -245,6 +252,11 @@ packages:
     peerDependencies:
       '@capacitor/core': ^6.2.0
 
+  '@capacitor/app@6.0.3':
+    resolution: {integrity: sha512-4gFUCbcVz0N/YYN32OBFerocWXslIv3Nc90gDiRsBkJc0plwK6kIUT6PKa5WtW2kfhteUeCVXQbvArH2fH+0Ug==}
+    peerDependencies:
+      '@capacitor/core': ^6.0.0
+
   '@capacitor/cli@6.2.1':
     resolution: {integrity: sha512-JKl0FpFge8PgQNInw12kcKieQ4BmOyazQ4JGJOfEpVXlgrX1yPhSZTPjngupzTCiK3I7q7iGG5kjun0fDqgSCA==}
     engines: {node: '>=18.0.0'}
@@ -252,6 +264,11 @@ packages:
 
   '@capacitor/core@6.2.1':
     resolution: {integrity: sha512-urZwxa7hVE/BnA18oCFAdizXPse6fCKanQyEqpmz6cBJ2vObwMpyJDG5jBeoSsgocS9+Ax+9vb4ducWJn0y2qQ==}
+
+  '@capacitor/ios@6.2.2':
+    resolution: {integrity: sha512-dc9upo3L5wSUVJBJnd7oRGGsiwB2rMe7ZF2bti8hvDVCAZeYMzzw8iqxuUc6cvGBhH2/LsORMBO51/vEQhdmHg==}
+    peerDependencies:
+      '@capacitor/core': ^6.2.0
 
   '@esbuild/aix-ppc64@0.21.5':
     resolution: {integrity: sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ==}
@@ -1242,6 +1259,13 @@ packages:
 
 snapshots:
 
+  '@aparajita/capacitor-secure-storage@6.0.1':
+    dependencies:
+      '@capacitor/android': 6.2.1(@capacitor/core@6.2.1)
+      '@capacitor/app': 6.0.3(@capacitor/core@6.2.1)
+      '@capacitor/core': 6.2.1
+      '@capacitor/ios': 6.2.2(@capacitor/core@6.2.1)
+
   '@babel/code-frame@7.29.7':
     dependencies:
       '@babel/helper-validator-identifier': 7.29.7
@@ -1360,6 +1384,10 @@ snapshots:
     dependencies:
       '@capacitor/core': 6.2.1
 
+  '@capacitor/app@6.0.3(@capacitor/core@6.2.1)':
+    dependencies:
+      '@capacitor/core': 6.2.1
+
   '@capacitor/cli@6.2.1':
     dependencies:
       '@ionic/cli-framework-output': 2.2.8
@@ -1385,6 +1413,10 @@ snapshots:
   '@capacitor/core@6.2.1':
     dependencies:
       tslib: 2.8.1
+
+  '@capacitor/ios@6.2.2(@capacitor/core@6.2.1)':
+    dependencies:
+      '@capacitor/core': 6.2.1
 
   '@esbuild/aix-ppc64@0.21.5':
     optional: true

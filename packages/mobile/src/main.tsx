@@ -9,7 +9,7 @@ import '@ionic/react/css/typography.css';
 import '@appza/renderer/styles.css';
 import './styles.css';
 
-import { App } from './App';
+import { App, loadStoredAuth } from './App';
 
 // Global fetch patch for the Capacitor shell:
 //   1. Bake `Bypass-Tunnel-Reminder: 1` into every request so dev tunnels
@@ -24,7 +24,7 @@ import { App } from './App';
 //      index.html (200 + HTML) back, breaking the JSON parse in every
 //      write-action dispatcher.
 const SITE_URL =
-  (import.meta.env.VITE_APPZA_SITE_URL as string | undefined) ?? 'http://tutor-lms-mobile.local';
+  (import.meta.env.VITE_APPZA_SITE_URL as string | undefined) ?? (import.meta.env.DEV ? 'http://tutor-lms-mobile.local' : '');
 {
   const originalFetch = window.fetch.bind(window);
   window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
@@ -231,8 +231,10 @@ setupIonicReact();
 
 const container = document.getElementById('root');
 if (!container) throw new Error('Root container #root not found');
-createRoot(container).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+void loadStoredAuth().finally(() => {
+  createRoot(container).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+});

@@ -22,7 +22,8 @@ const config: CapacitorConfig = {
     // WebView treats every http:// image as blocked mixed content and
     // silently drops it. Combined with AndroidManifest's
     // usesCleartextTraffic="true" this lets media load.
-    allowMixedContent: true,
+    // Release builds are https-only; set APPZA_ALLOW_MIXED_CONTENT=1 at `cap sync` for LAN dev.
+    allowMixedContent: process.env.APPZA_ALLOW_MIXED_CONTENT === '1',
   },
 };
 

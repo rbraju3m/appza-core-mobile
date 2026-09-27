@@ -552,3 +552,4 @@ export {
   type MediaViewerItem,
   type MediaViewerPresentation,
 } from './MediaViewer';
+export { setAuthHeaderProvider, getAuthHeader } from './authHeader';

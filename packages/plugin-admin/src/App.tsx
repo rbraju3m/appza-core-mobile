@@ -205,6 +205,7 @@ import {
   type PostMenuItem,
   type ViewModeOption,
 } from '@appza/renderer';
+import { setAuthHeaderProvider } from '@appza/renderer';
 
 // Re-exported so existing local consumers (e.g. TopBar) keep working
 // without churning their import path.
@@ -318,27 +319,24 @@ export function App() {
   const setAuth = useCallback((a: StoredAuth | null) => {
     writeStoredAuth(a);
     setAuthState(a);
-    // Mirror the Basic Auth header into a window global so the renderer's
-    // useDataSource can forward it to the preview proxy without importing
-    // any auth state cross-package. Same channel exposes user_id so the
-    // renderer's enrichItemWithMyReactions can flag the viewer's own
-    // reactions on each feed item.
-    const g = window as unknown as { __appzaAuthHeader?: string; __appzaCurrentUserId?: number };
+    // The renderer reads the header through setAuthHeaderProvider; user_id stays on
+    // window for enrichItemWithMyReactions.
+    const g = window as unknown as { __appzaCurrentUserId?: number };
     if (a) {
-      g.__appzaAuthHeader = basicAuthHeader(a);
+      currentAuthHeader = basicAuthHeader(a);
       if (typeof a.user_id === 'number') g.__appzaCurrentUserId = a.user_id;
       else delete g.__appzaCurrentUserId;
     } else {
-      delete g.__appzaAuthHeader;
+      currentAuthHeader = undefined;
       delete g.__appzaCurrentUserId;
     }
   }, []);
   // Bootstrap the window auth header on mount if we already have a stored
   // session (auth was hydrated from localStorage before setAuth ran).
   useEffect(() => {
-    const g = window as unknown as { __appzaAuthHeader?: string; __appzaCurrentUserId?: number };
+    const g = window as unknown as { __appzaCurrentUserId?: number };
     if (auth) {
-      g.__appzaAuthHeader = basicAuthHeader(auth);
+      currentAuthHeader = basicAuthHeader(auth);
       if (typeof auth.user_id === 'number') g.__appzaCurrentUserId = auth.user_id;
     }
     // Also trigger data-source refresh so any in-flight fetches that ran
@@ -2885,6 +2883,9 @@ type AppModeActionDeps = {
  * decodes / mints it; sim just stores + replays.
  */
 const AUTH_STORAGE_KEY = 'appza:auth';
+
+let currentAuthHeader: string | undefined;
+setAuthHeaderProvider(() => currentAuthHeader);
 
 type StoredAuth = {
   username: string;
