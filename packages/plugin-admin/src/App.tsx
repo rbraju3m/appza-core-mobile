@@ -935,8 +935,14 @@ export function App() {
       .__appzaRouteParams?.slug;
     if (existing) return;
     // Fetch the first accessible space via the preview proxy and adopt it.
+    // Signed with the sim's application password, cookies omitted — the
+    // wp-admin cookie carries no REST nonce, so WP would answer as a
+    // guest (see renderer dataFetch fetchProxyText).
     fetch('/wp-json/appza/v1/preview/data?ds=fc-spaces-discover&mode=real', {
-      credentials: 'include',
+      credentials: 'omit',
+      headers: auth
+        ? { Accept: 'application/json', Authorization: basicAuthHeader(auth) }
+        : { Accept: 'application/json' },
     })
       .then((r) => r.json())
       .then((data) => {
@@ -955,7 +961,7 @@ export function App() {
       .catch(() => {
         /* silent — space-detail will just render without space context */
       });
-  }, [currentScreen]);
+  }, [currentScreen, auth]);
 
   // Overlay pending panel edits onto the persisted customizations shape
   // ({ scope: { target_key: { column: value } } }). PlacementRenderer

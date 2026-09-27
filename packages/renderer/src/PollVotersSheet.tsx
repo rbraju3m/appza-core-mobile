@@ -71,12 +71,10 @@ export function PollVotersSheet() {
       `${open.endpoint}?feed_id=${encodeURIComponent(String(open.feedId))}` +
       `&option_slug=${encodeURIComponent(open.optionSlug)}`;
     const headers: Record<string, string> = { Accept: 'application/json' };
-    // The proxy accepts either header; the app publishes the Basic one.
-    if (open.authHeader) {
-      headers.Authorization = open.authHeader;
-      headers['X-Appza-Auth'] = open.authHeader;
-    }
-    void fetch(url, { headers, credentials: 'same-origin' })
+    if (open.authHeader) headers.Authorization = open.authHeader;
+    // `omit`: a wp-admin cookie would shadow the application password
+    // and WP core would answer as a guest (see dataFetch fetchProxyText).
+    void fetch(url, { headers, credentials: 'omit' })
       .then((r) => r.json())
       .then((j) => {
         if (cancelled) return;

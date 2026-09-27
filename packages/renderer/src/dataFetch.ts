@@ -301,10 +301,18 @@ function buildProxyUrl(
 const inFlight = new Map<string, Promise<string>>();
 
 function fetchProxyText(url: string, headers: Record<string, string>): Promise<string> {
-  const key = `${headers['X-Appza-Auth'] ?? ''}\n${url}`;
+  const key = `${headers.Authorization ?? ''}\n${url}`;
   const joined = inFlight.get(key);
   if (joined) return joined;
-  const request = fetch(url, { headers })
+  // `omit`, never the default `same-origin`: in the simulator this page
+  // is wp-admin, and a same-origin fetch carries its logged-in cookie.
+  // WP core resolves the cookie BEFORE the application password
+  // (`wp_validate_logged_in_cookie` and `wp_validate_application_password`
+  // share priority 20, the cookie registered first), then
+  // `rest_cookie_check_errors` finds no nonce and drops the request to a
+  // guest. Without cookies, core validates the Authorization header, and
+  // the proxy trusts nothing else (go-live A2).
+  const request = fetch(url, { headers, credentials: 'omit' })
     .then(async (res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.text();
@@ -329,8 +337,8 @@ async function fetchProxyJson(url: string, headers: Record<string, string>): Pro
  * reason that is easy to get wrong: fcom-mobile authenticates on
  * `is_user_logged_in()`, so a direct browser fetch to it answers 401
  * even from wp-admin (a cookie without a REST nonce is not a session as
- * far as WP REST is concerned). The proxy is where this app's auth
- * actually lives, in both shells.
+ * far as WP REST is concerned). Through the proxy, the same application
+ * password the writes use is what signs the read, in both shells.
  */
 export async function fetchDataSourceOnce(
   slug: string,
@@ -342,7 +350,7 @@ export async function fetchDataSourceOnce(
       ? (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader
       : undefined) || undefined;
   const headers: Record<string, string> = { Accept: 'application/json' };
-  if (authHeader) headers['X-Appza-Auth'] = authHeader;
+  if (authHeader) headers.Authorization = authHeader;
   return fetchProxyJson(buildProxyUrl(slug, params, opts?.bypassCache === true), headers);
 }
 
@@ -440,17 +448,16 @@ export function useDataSource(
     let cancelled = false;
     setState((s) => ({ ...s, loading: true, error: null }));
     // Forward the current user's Application Password (if logged in) to
-    // the preview proxy so it can pass it to user-scoped upstream data
-    // sources (fc-current-user, etc.). Header lives on window as a light
-    // coupling — App.tsx sets/clears it on login/logout. The preview
-    // proxy accepts both `Authorization` and `X-Appza-Auth`; we use the
-    // custom header so any WP layer that might short-circuit on standard
-    // Basic Auth doesn't interfere.
+    // the preview proxy. WP core validates it and the proxy answers as
+    // whoever core authenticated — never as a name read from a header.
+    // Header lives on window as a light coupling — App.tsx sets/clears it
+    // on login/logout. Sent as the standard `Authorization`; see
+    // fetchProxyText for why cookies are omitted.
     const authHeader = (typeof window !== 'undefined'
       ? (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader
       : undefined) || undefined;
     const headers: Record<string, string> = { Accept: 'application/json' };
-    if (authHeader) headers['X-Appza-Auth'] = authHeader;
+    if (authHeader) headers.Authorization = authHeader;
     // App-side shell (post.create success handler) sets
     // __appzaForceRefreshUntil to a future timestamp to signal that any
     // fetch happening in the next few seconds should bypass the proxy
@@ -614,7 +621,7 @@ export function useDataSourcePaged(
       ? (window as unknown as { __appzaAuthHeader?: string }).__appzaAuthHeader
       : undefined) || undefined;
     const headers: Record<string, string> = { Accept: 'application/json' };
-    if (authHeader) headers['X-Appza-Auth'] = authHeader;
+    if (authHeader) headers.Authorization = authHeader;
 
     const mergedParams: Record<string, unknown> = {
       ...(extraParams ?? {}),

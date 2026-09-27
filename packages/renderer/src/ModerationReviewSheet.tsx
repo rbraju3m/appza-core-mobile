@@ -165,11 +165,10 @@ export function ModerationReviewSheet() {
       `${open.endpoint}?${encodeURIComponent(open.idParam)}=${encodeURIComponent(String(open.contentId))}` +
       `&content_type=${encodeURIComponent(open.contentType)}&per_page=20`;
     const headers: Record<string, string> = { Accept: 'application/json' };
-    if (open.authHeader) {
-      headers.Authorization = open.authHeader;
-      headers['X-Appza-Auth'] = open.authHeader;
-    }
-    void fetch(url, { headers, credentials: 'same-origin' })
+    if (open.authHeader) headers.Authorization = open.authHeader;
+    // `omit`: a wp-admin cookie would shadow the application password
+    // and WP core would answer as a guest (see dataFetch fetchProxyText).
+    void fetch(url, { headers, credentials: 'omit' })
       .then((r) => r.json())
       .then((j) => {
         if (cancelled) return;
