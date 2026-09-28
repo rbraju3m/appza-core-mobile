@@ -2,37 +2,15 @@ import { readDataPath } from './dataFetch';
 import type { ActionInvocation } from './actionContext';
 import { openReportSheet, announceReportResult, type ReportReason } from './ReportSheet';
 
-/**
- * Shared implementation of the five catalog-driven post-menu actions —
- * copy_link, pin_top, pin_sidebar, disable_comments, report.
- *
- * Both the Capacitor mobile shell + the WP-admin simulator's app-mode
- * dispatcher call {@link tryHandlePostMenuAction} from their post.*
- * cases; keeping the logic here means the two dispatchers never drift.
- * `post.options` (opens the popover) + `post.delete` (uses each app's
- * own confirm-modal state) stay in the app-side dispatchers because
- * they need shell-specific DOM/state helpers. `post.edit` also lives in
- * each app's dispatcher — it navigates to edit-post-page and dispatches
- * from that screen's appbar CTA with form access.
- */
-
 export type StoredAuthLike = { username: string; token: string };
 
 export type PostMenuDeps = {
-  /** Currently signed-in user (Basic Auth). Null when no session. */
   auth: StoredAuthLike | null;
-  /** Basic-auth header builder — each shell owns its own to stay isolated. */
   authHeader: (auth: StoredAuthLike) => string;
-  /** Red toast for failures. */
   onError: (msg: string) => void;
-  /** Green/info toast for successful operations. */
   onInfo: (msg: string) => void;
 };
 
-/**
- * Returns true when the action_slug is one of the six handled here and
- * has been dispatched. Callers should return early on `true`.
- */
 export function tryHandlePostMenuAction(
   inv: ActionInvocation,
   deps: PostMenuDeps,
@@ -46,9 +24,7 @@ export function tryHandlePostMenuAction(
   const { auth, authHeader, onError, onInfo } = deps;
 
   switch (action_slug) {
-    // A COMMENT link is the post's URL with a #comment-<id> anchor,
-    // which the preview proxy builds — FluentCommunity gives a comment no
-    // URL of its own. Same code path, different default path.
+    // FC gives a comment no URL; the proxy builds the post URL + #comment-<id>.
     case 'comment.copy_link':
     case 'post.copy_link': {
       const urlPath =
@@ -72,10 +48,7 @@ export function tryHandlePostMenuAction(
       return true;
     }
 
-    // `comment.pin` is the same request shape as the three post toggles:
-    // flip a flag, send the id, refresh. It differs only in needing a
-    // SECOND id — every fcom-mobile comment route wants the post's id
-    // alongside the comment's — which `parent_body_key` supplies.
+    // Every fcom-mobile comment route also needs the post's id, via `parent_body_key`.
     case 'comment.pin':
     case 'post.pin_top':
     case 'post.pin_sidebar':
@@ -128,9 +101,6 @@ export function tryHandlePostMenuAction(
         [bodyKey]: feedId,
         [patchKey]: nextValue,
       };
-      // The parent id, when the action declares one. A comment route is
-      // addressed by BOTH ids; a post route declares neither key and this
-      // is a no-op.
       const parentBodyKey =
         typeof argRec.parent_body_key === 'string' && argRec.parent_body_key
           ? argRec.parent_body_key
@@ -145,11 +115,7 @@ export function tryHandlePostMenuAction(
         }
         body[parentBodyKey] = parentId;
       }
-      // Optimistically update the tapped item so if the user immediately
-      // reopens the menu (before the refetch lands) the label + toggle
-      // direction reflect the new state. FC stores comments_disabled as
-      // 'yes'/'no' inside meta; is_sticky/priority are 0/1 top-level
-      // columns — mirrorAssignFromPath handles both shapes.
+      // Optimistic so a reopened menu shows the new state before the refetch lands.
       const revert = applyOptimisticMutation(itemRec, currentStatePath, nextValue, action_slug);
       void sendJson(endpoint, method, body, auth, authHeader).then((result) => {
         if (result.ok) {
@@ -163,14 +129,6 @@ export function tryHandlePostMenuAction(
       return true;
     }
 
-    // The heart on a comment in the inline strip. Same id-pair shape as
-    // comment.pin, and like it, the direction is the caller's to state.
-    //
-    // No optimistic mutation here — the strip owns that (it flips its own
-    // React state on tap, since a comment has no `data-appza-item-id`
-    // wrapper for the post's DOM-patching path to find). This end just
-    // sends it and refreshes, and the refresh carries FluentCommunity's
-    // `liked` back so a failed call self-corrects.
     case 'comment.like': {
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       const method =
@@ -202,11 +160,7 @@ export function tryHandlePostMenuAction(
         onError('Could not identify which comment to like.');
         return true;
       }
-      // Not a toggle, whatever the endpoint is called: FluentCommunity's
-      // toggleReaction reads `state` and REMOVES the reaction when it is
-      // absent, so every like must say which way it is going. `liked` is
-      // set only when the viewer liked it, so absent means "not liked"
-      // and the next state is on.
+      // FC's toggleReaction removes the reaction when `state` is absent, so always send it.
       const rawLiked = readDataPath(effectiveItem, currentStatePath);
       const currentOn =
         rawLiked === 1 || rawLiked === '1' || rawLiked === true || rawLiked === 'yes';
@@ -222,8 +176,7 @@ export function tryHandlePostMenuAction(
         typeof argRec.parent_id_path === 'string' ? argRec.parent_id_path : 'data.post_id';
       const parentId = resolveFeedId(parentPath, itemRec);
       if (parentId === null) {
-        // fcom-mobile 400s without it rather than guessing, so failing
-        // here gives the reason instead of a bare HTTP 400.
+        // fcom-mobile 400s without it; fail here with a reason instead.
         onError('Could not identify which post this comment belongs to.');
         return true;
       }
@@ -233,7 +186,6 @@ export function tryHandlePostMenuAction(
           dispatchRefreshFeed();
         } else {
           onError(result.error);
-          // Put the heart back: the strip already flipped it on tap.
           dispatchRefreshFeed();
         }
       });
@@ -287,10 +239,6 @@ export function tryHandlePostMenuAction(
         onError('Could not identify which post to report.');
         return true;
       }
-      // The report SHEET (Courses doc, states 28–29), when the wiring asks
-      // for it: first call opens it with the site's reasons; the sheet's
-      // SUBMIT calls again with `reason` + `explanation` and hears back
-      // through announceReportResult. Other surfaces keep the prompt path.
       if (argRec.presentation === 'sheet') {
         const errorMsg =
           typeof argRec.error_message === 'string' && argRec.error_message
@@ -363,7 +311,6 @@ export function tryHandlePostMenuAction(
         content_type: contentType,
         [reasonBodyKey]: reason,
       };
-      // Reporting a COMMENT names the post it sits under as well.
       const reportParentKey =
         typeof argRec.parent_body_key === 'string' && argRec.parent_body_key
           ? argRec.parent_body_key
@@ -388,8 +335,6 @@ export function tryHandlePostMenuAction(
   }
 }
 
-// ── Local helpers ────────────────────────────────────────────────────
-
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
@@ -409,12 +354,7 @@ function resolveFeedId(
 
 type SendResult = { ok: true; body: unknown } | { ok: false; error: string };
 
-/**
- * fcom-mobile's envelope-aware POST. Exported so the profile cluster's
- * four follow actions send exactly what the post menu sends — the
- * envelope reports its own status INSIDE a 200, so a caller reading
- * only res.ok calls a rejected write a success.
- */
+/** fcom-mobile reports status inside a 200 envelope, so res.ok alone is not success. */
 export async function sendJson(
   endpoint: string,
   method: string,
@@ -459,10 +399,7 @@ async function copyToClipboard(
   onError: (msg: string) => void,
   toastMsg: string,
 ): Promise<void> {
-  // Prefer the async Clipboard API. Fall back to the execCommand textarea
-  // trick on HTTP origins where navigator.clipboard is either undefined
-  // or blocked by the insecure-context guard — plugin-admin in WP admin
-  // is served over plain http:// on many dev installs.
+  // navigator.clipboard is unavailable on insecure http origins; fall back to execCommand.
   const writeViaLegacy = (): boolean => {
     try {
       const ta = document.createElement('textarea');
@@ -506,14 +443,6 @@ function dispatchRefreshFeed(): void {
   window.dispatchEvent(new CustomEvent('appza:refresh-data'));
 }
 
-/**
- * Locally mutate the tapped item's toggle-state field so a re-open of
- * the popover before the refetch lands sees the new value. Comments
- * disabled paths walk into `data.meta.<key>` (FC stores the flag as
- * 'yes'/'no' inside the JSON meta blob); is_sticky / priority live at
- * `data.<key>` as ints. Returns a revert callback the caller uses if
- * the server rejects the change.
- */
 function applyOptimisticMutation(
   itemRec: Record<string, unknown> | null,
   currentStatePath: string | null,
@@ -523,18 +452,14 @@ function applyOptimisticMutation(
   if (!itemRec || !currentStatePath || !currentStatePath.startsWith('data.')) {
     return () => {};
   }
-  const rel = currentStatePath.slice(5); // drop `data.`
+  const rel = currentStatePath.slice(5);
   const segs = rel.split('.');
   if (segs.length === 0) return () => {};
 
-  // For comments_disabled we mirror FC's on-disk representation ('yes'/'no')
-  // — the visible_when clauses in the SS compare against 'yes'. For
-  // is_sticky / priority we store the int the server persists.
+  // comments_disabled mirrors FC's 'yes'/'no' (visible_when compares 'yes'); the others are ints.
   const nextRepr =
     actionSlug === 'post.disable_comments' ? (nextValue ? 'yes' : 'no') : nextValue;
 
-  // Walk to the parent, ensuring intermediate objects exist. Record the
-  // previous value so we can revert on failure.
   let parent: Record<string, unknown> = itemRec;
   for (let i = 0; i < segs.length - 1; i++) {
     const seg = segs[i]!;

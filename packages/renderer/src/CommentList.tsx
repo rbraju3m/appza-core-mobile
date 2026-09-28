@@ -4,34 +4,6 @@ import { resolveIcon } from './PrimitiveRenderer';
 import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
 import type { ActionInvocation } from './actionContext';
 
-/**
- * The inline comment strip under a feed post (Noor's designs 19, 25, 26).
- *
- * ONE child holding the whole array, the way the card already takes files
- * (children[28]) and audio (children[29]) — not N children per comment.
- * Three reasons it has to be this shape:
- *
- *   - The card is a CSS grid with named areas. A second comment drawn as
- *     seven more children needs seven more area rows, and the grid has
- *     to grow again for the third. A list child needs one.
- *   - "The feed shows at most 2 comments" becomes a builder prop
- *     (`max_rows`) rather than a fact encoded in how many children exist.
- *   - The card's child indices stay stable, which every field_mapping and
- *     saved customization on it depends on.
- *
- * The legacy per-child comment block (children 18..27) is left in the
- * Superstructure and switched off by default rather than deleted — a
- * saved customization may address those indices, and removing them would
- * shift nothing but would make such a row point at a child that no longer
- * means what it did.
- *
- * Actions. A child carries one `on_click_action`, and a comment row needs
- * three (reply, like, the ⋮ menu). So only the MENU rides the child's own
- * invocation; reply and like name their action slugs as props and pull
- * their args out of the catalog, the same way the chat composer's discard
- * button does.
- */
-
 export type CommentEntry = {
   id?: number | string;
   post_id?: number | string;
@@ -45,16 +17,9 @@ export type CommentEntry = {
     user_id?: number;
   };
   permissions?: Record<string, unknown>;
-  /** 'published' | 'pending' — 'pending' is design 33's In Review chip. */
   status?: string;
-  /** Carries `moderation_banner_text`, derived in the proxy. */
   meta?: Record<string, unknown> | null;
-  /**
-   * Set to 1 by FluentCommunity ONLY on a comment this viewer has liked
-   * (`FeedsHelper::tranformFeedData`) — absent means not liked, it is
-   * never sent as 0. Both the feed list and the single-feed path fill it,
-   * so the heart can be honest without us enriching anything.
-   */
+  /** FC sets this to 1 only when liked; absent means not liked. */
   liked?: number | boolean | string;
 };
 
@@ -106,28 +71,15 @@ export function AppzaCommentList({
 }) {
   const comments = readComments(overrides);
 
-  // The tap has to read as ON before the round-trip, and the post's
-  // reaction path cannot be borrowed for it: that one patches the DOM by
-  // `data-appza-item-id`, which addresses a POST. A comment has no such
-  // wrapper, so the strip keeps the toggle in React state instead, keyed
-  // by comment id. The next feed payload carries the server's answer and
-  // takes over (`liked`), so a failed POST self-corrects on refresh
-  // rather than sticking.
+  // Likes live in local state: a comment has no data-appza-item-id wrapper for the post reaction path.
   const [likeFlips, setLikeFlips] = useState<Record<string, boolean>>({});
 
-  // Hooks first, THEN the early return — an empty strip must still call
-  // the same hooks in the same order.
+  // Hooks first, then the early return.
   if (comments.length === 0) return null;
 
-  // Settings → Customization has no switch for this; the designs say two.
-  // A prop rather than a constant so the right panel can change it
-  // without a release.
   const maxRows = count(overrides, 'max_rows', 2);
   const shown = comments.slice(0, maxRows);
 
-  // `total` is the post's real comment count, which can exceed what the
-  // API returned — the feed row carries only the first few. Falls back to
-  // the array length so the link never claims more than it can open.
   const total = count(overrides, 'total', comments.length);
 
   const replySlug = str(overrides, 'reply_action_slug') || 'comment.reply';
@@ -142,16 +94,9 @@ export function AppzaCommentList({
   const showLike = bool(overrides, 'show_like', true);
   const showReply = bool(overrides, 'show_reply', true);
 
-  // "View all 3 comments" — only once there is more than the strip shows.
-  // Two comments on a post with two comments needs no link.
   const viewAllTemplate = str(overrides, 'view_all_label') || 'View all {count} comments';
   const showViewAll = bool(overrides, 'show_view_all', true) && total > shown.length;
 
-  // ---- Moderation, designs 33 and 34 -------------------------------
-  // The same two affordances the post card carries, on a comment. They
-  // live here rather than as Superstructure children for the reason the
-  // whole strip does: the card is a grid of named areas, and a per-
-  // comment row cannot claim one.
   const showReviewChip = bool(overrides, 'show_review_chip', true);
   const showFlagBanner = bool(overrides, 'show_flag_banner', true);
   const reviewChipLabel = str(overrides, 'review_chip_label') || 'In Review';
@@ -171,10 +116,7 @@ export function AppzaCommentList({
       action_slug: reviewSlug,
       args: {
         ...(readActionDefaultsFromCatalog(reviewSlug) ?? {}),
-        // A COMMENT's reports are filtered by parent_id, a post's by
-        // post_id, and FluentCommunity Pro does not error on the wrong
-        // one — it returns every report on the site. The catalog's
-        // default is the post's, so a comment has to say otherwise.
+        // FC Pro returns every report on the site for the wrong filter key; a comment filters by parent_id.
         content_type: 'comment',
         id_param: 'parent_id',
         id_path: 'data.id',
@@ -200,8 +142,7 @@ export function AppzaCommentList({
         const key = String(c.id ?? idx);
         const serverLiked = isLiked(c);
         const liked = likeFlips[key] ?? serverLiked;
-        // Only ever off by the one tap this viewer made: the server count
-        // already includes their like when `liked` is set.
+        // The server count already includes the viewer's like when `liked` is set.
         const likes =
           count(c as unknown as Record<string, unknown>, 'reactions_count', 0) +
           (liked === serverLiked ? 0 : liked ? 1 : -1);
@@ -251,10 +192,6 @@ export function AppzaCommentList({
                   aria-label="Comment options"
                   onClick={(e) => {
                     e.stopPropagation();
-                    // The MENU is the child's own action, so it arrives
-                    // already resolved with its item list and gating.
-                    // Re-point `item` at THIS comment — the invocation the
-                    // renderer built is scoped to the post.
                     if (!action) return;
                     dispatch({
                       ...action,
@@ -271,8 +208,6 @@ export function AppzaCommentList({
 
             <div
               className="appza-comment-body"
-              // Sanitized upstream by PreviewProxyController's wp_kses
-              // pass, the same one the post body goes through.
               dangerouslySetInnerHTML={{ __html: c.message_rendered ?? '' }}
             />
 
@@ -319,24 +254,11 @@ export function AppzaCommentList({
           className="appza-comment-view-all"
           onClick={(e) => {
             e.stopPropagation();
-            // Deliberately NOT stopping at the strip: this opens the post,
-            // which is where the whole thread lives. The catalog wires it
-            // through the card's own on_tap_view_more.
             const slug = str(overrides, 'view_all_action_slug') || 'post.open';
             dispatch({
               action_slug: slug,
               args: readActionDefaultsFromCatalog(slug) ?? undefined,
-              // The POST's id AND slug, both bound as scalars. A
-              // field_mapping of bare `data` resolves to nothing —
-              // mappings walk a PATH under the row — so binding the whole
-              // object arrived undefined and "View all" opened nothing.
-              //
-              // The slug is not optional. post-detail's DataSource binds
-              // `route.post_slug` and post.open fills that bag from this
-              // item, so an id-only dispatch landed on the screen with
-              // nothing to look up: the card drew "Text / Text" while the
-              // comment list underneath it (which binds route.id) was
-              // perfectly correct. P149's shape, one key lower down.
+              // Scalars, not bare `data` (which resolves to undefined); post-detail looks up by route.post_slug.
               item: { id: overrides?.post_id, slug: overrides?.post_slug },
             });
           }}

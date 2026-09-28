@@ -3,14 +3,6 @@ import { useActionDispatch } from './actionContext';
 import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
 import { useBackDismiss } from './backStack';
 
-// iOS-style center alert opened by member.remove_confirm. Shows the
-// member's display name as the bold title + a short message. Two
-// stacked-width buttons separated by dividers: Cancel (blue) and
-// Remove from space (red bold). Confirming dispatches the wired
-// remove action (default `member.remove`) through the shared
-// dispatcher so the HTTP call sits alongside every other action
-// handler in App.tsx.
-
 const OPEN_EVENT = 'appza:open-member-remove-confirm';
 const CLOSE_EVENT = 'appza:close-member-remove-confirm';
 
@@ -19,28 +11,11 @@ type OpenDetail = {
   message?: string;
   cancelLabel?: string;
   confirmLabel?: string;
-  /**
-   * In-flight caption. Defaults to the member-removal wording; the
-   * invitation-delete flow reuses this same alert and passes its own.
-   */
   busyLabel?: string;
-  /**
-   * 'row' puts Cancel and the destructive action side by side. Opt-in:
-   * the member-removal wording ("Remove from space") is too long to sit
-   * beside Cancel, so that flow keeps the stacked default.
-   */
+  // Opt-in: "Remove from space" is too long to sit beside Cancel.
   actionsLayout?: 'row' | 'stacked' | 'material';
-  /**
-   * 'primary' draws the confirm button in the cancel button's blue rather
-   * than red. The member-status dialogs (Pending / Blocked / Active) are
-   * reversible from the next tab over, and every one of those designs
-   * draws both buttons alike.
-   */
   confirmTone?: 'destructive' | 'primary';
-  /**
-   * Draws the alert above the moderation review modal (1400), which opens
-   * it over itself for Dismiss and Unpublish (design 10).
-   */
+  // Draws above the moderation review modal (1400), which opens it over itself.
   raised?: boolean;
   item: unknown;
   removeActionSlug?: string;
@@ -105,8 +80,7 @@ export function MemberRemoveConfirm() {
           : undefined,
       item: detail.item,
     });
-    // Handler in App.tsx closes the dialog via closeMemberRemoveConfirm
-    // on both success + failure so the busy state is capped.
+    // The App.tsx handler closes the dialog on success and failure, capping the busy state.
   };
 
   const message = detail.message ?? 'Remove this member from the space?';

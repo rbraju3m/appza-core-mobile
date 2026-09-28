@@ -3,44 +3,13 @@ import { sendJson, type StoredAuthLike } from './postMenuHandlers';
 import type { ActionInvocation } from './actionContext';
 import { closeMemberRemoveConfirm, openMemberRemoveConfirm } from './MemberRemoveConfirm';
 
-/**
- * The profile's two pictures — doc states 2 to 5.
- *
- * ---------------------------------------------------------------------
- * One endpoint, one shape, and an empty string for "remove"
- * ---------------------------------------------------------------------
- *
- * FluentCommunity takes the avatar and the cover through the same call:
- * `PUT /profile/{username}` with `data.avatar` or `data.cover_photo`,
- * which fcom-mobile forwards verbatim from `/members/photo-update`. A URL
- * sets the picture; an EMPTY STRING removes it, and patchProfile sweeps
- * the old Media row on the way out. So set and remove differ only in the
- * value, and the avatar and the cover differ only in the key — which is
- * why `field` is a parameter and there is one writer here, not four.
- *
- * ---------------------------------------------------------------------
- * Why changing a picture is two requests
- * ---------------------------------------------------------------------
- *
- * The upload alone attaches the picture to nothing. FluentCommunity
- * resolves the URL back to its Media row with `Helper::getMediaFromUrl`
- * at SAVE time and marks it active then; an uploaded-but-unsaved row is
- * inactive and gets swept. So the picker uploads, and its sink writes the
- * returned URL to the profile. Abandoning the flow half way leaves an
- * inactive row FluentCommunity cleans up itself — the same posture the
- * comment composer's attachments already take.
- *
- * The picker itself is the SHELL's: it needs a mounted file input. Each
- * shell passes its own `pickImage`, which is the only part of this that
- * could not live in the renderer.
- */
+// An empty string removes a picture. The upload alone attaches nothing: FC activates the Media row only when the URL is saved to the profile.
 
 export type ProfilePhotoActionDeps = {
   auth: StoredAuthLike | null;
   authHeader: (auth: StoredAuthLike) => string;
   onError: (msg: string) => void;
   onInfo: (msg: string) => void;
-  /** The shell's file picker. Uploads, then hands back the URLs. */
   pickImage: (target: {
     endpoint: string;
     method: string;
@@ -64,7 +33,6 @@ function str(v: unknown): string | undefined {
   return typeof v === 'string' && v !== '' ? v : undefined;
 }
 
-/** The two keys FluentCommunity's patchProfile recognises as pictures. */
 function isPhotoField(v: unknown): v is 'avatar' | 'cover_photo' {
   return v === 'avatar' || v === 'cover_photo';
 }
@@ -74,7 +42,6 @@ function dispatchRefresh(): void {
   window.dispatchEvent(new CustomEvent(APPZA_REFRESH_EVENT));
 }
 
-/** Returns true when the action was one of these and has been handled. */
 export function tryHandleProfilePhotoAction(
   inv: ActionInvocation,
   deps: ProfilePhotoActionDeps,
@@ -104,11 +71,6 @@ export function tryHandleProfilePhotoAction(
   const method = (str(argRec.method) ?? 'POST').toUpperCase();
   const noun = field === 'avatar' ? 'profile photo' : 'cover';
 
-  /**
-   * The one write. `url` is a media URL to set it, or '' to remove it.
-   * `closeConfirm` is true only on the remove path, where a dialog is
-   * waiting on the result.
-   */
   const save = (url: string, closeConfirm: boolean): void => {
     if (memberId === null) {
       deps.onError(`Could not update this ${noun} — no member.`);
@@ -130,8 +92,6 @@ export function tryHandleProfilePhotoAction(
     )
       .then((result) => {
         if (!result.ok) {
-          // FluentCommunity's own sentence — "Invalid media image. Please
-          // upload a new one." — says more than anything here could.
           deps.onError(result.error);
           return;
         }
@@ -139,8 +99,7 @@ export function tryHandleProfilePhotoAction(
           str(argRec.toast_message) ??
             (url === '' ? `Your ${noun} has been removed` : `Your ${noun} has been updated`),
         );
-        // The write bumps the viewer's preview-cache generation, so the
-        // refetch reads the new picture rather than the cached one.
+        // The write bumps the preview-cache generation, so the refetch sees the new picture.
         dispatchRefresh();
       })
       .finally(() => {
@@ -154,10 +113,7 @@ export function tryHandleProfilePhotoAction(
         endpoint: str(argRec.upload_endpoint) ?? UPLOAD_ENDPOINT,
         method: 'POST',
         accept: str(argRec.accept) ?? 'image/*',
-        // ONE picture, so only the first URL is used. The picker is
-        // shared with the composer, which is multi-select; a member who
-        // picks three covers gets the first and no error, which is what
-        // every gallery does.
+        // One picture: the shared picker is multi-select, so only the first URL is used.
         sink: (urls: string[]) => {
           const url = urls.find((u) => typeof u === 'string' && u !== '');
           if (!url) {
@@ -179,13 +135,6 @@ export function tryHandleProfilePhotoAction(
     }
 
     case 'profile.remove_photo_confirm': {
-      // Design 5: a bold question, one line under it, CANCEL and REMOVE
-      // side by side. No member name — unlike the member dialogs, the
-      // title IS the whole question, so `subject` carries it.
-      //
-      // Both buttons are drawn alike in the design, so the tone is
-      // 'primary' rather than destructive. Removing a cover is undone by
-      // uploading another one.
       openMemberRemoveConfirm({
         subject: str(argRec.title) ?? 'Remove cover?',
         message: str(argRec.message) ?? 'This removes your current photo.',
@@ -196,9 +145,7 @@ export function tryHandleProfilePhotoAction(
         confirmTone: 'primary',
         item: effectiveItem,
         removeActionSlug: str(argRec.remove_action_slug) ?? 'profile.remove_photo',
-        // The confirm dispatches back through the shared dispatcher, so
-        // everything the writer needs has to travel with it — the dialog
-        // has no memory of the row it was opened from beyond `item`.
+        // The confirm re-dispatches, so everything the writer needs must travel on its args.
         removeArgs: {
           field,
           save_endpoint: saveEndpoint,

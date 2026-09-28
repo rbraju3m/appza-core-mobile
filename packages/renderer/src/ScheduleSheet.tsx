@@ -5,26 +5,11 @@ import { resolveIcon } from './PrimitiveRenderer';
 import { useInsideDeviceViewport } from './insideDeviceViewport';
 import { useBackDismiss } from './backStack';
 
-// Bottom-sheet date + time picker for scheduling a document post.
-//
-// Bespoke React for the same reason as the modals: a month grid with
-// navigation, a selected day and a time field is local, stateful UI that
-// the primitive composer can't express. It opts back into the builder by
-// hand via childAttrs/appzetAttrs — the indices below MUST match the
-// `children` array of the fc-schedule-sheet superstructure.
-//
-// FluentCommunity Pro's SchedulePostHandler decides whether a post is
-// really scheduled, and it enforces two rules we mirror here so the user
-// finds out before the round trip:
-//   - only moderators/admins may schedule (server-side, from the space
-//     role — nothing the client can assert)
-//   - the time must be at least 30 minutes out
-// Past days are disabled outright; the 30-minute rule is checked on
-// confirm, because it depends on the time as well as the date.
+// Child indices below MUST match the fc-schedule-sheet superstructure's children array.
+// Mirrors FC Pro's 30-minute minimum, checked on confirm since it depends on the time too.
 
 export const SCHEDULE_SHEET_APPZET_SLUG = 'fc-schedule-sheet';
 
-/** Minutes FC Pro requires between now and a scheduled post. */
 const MIN_LEAD_MINUTES = 30;
 
 export type SchedulePresentation = {
@@ -40,7 +25,6 @@ export type SchedulePresentation = {
   showEyebrow: boolean;
   showHandle: boolean;
   minLeadMinutes: number;
-  // style knobs — all optional, all fall back to the stock design
   sheetBgColor?: string;
   sheetRadius?: string;
   backdropColor?: string;
@@ -65,10 +49,8 @@ export type SchedulePresentation = {
 
 type OpenDetail = {
   appzetSlug?: string;
-  /** 'YYYY-MM-DD HH:MM:SS' — seeds the grid when re-opening. */
   value?: string;
   presentation: SchedulePresentation;
-  /** Fired with the chosen 'YYYY-MM-DD HH:MM:SS'. */
   onConfirm?: (value: string) => void;
   childStyles?: Record<number, CSSProperties>;
 };
@@ -87,7 +69,6 @@ export function closeScheduleSheet(): void {
   window.dispatchEvent(new CustomEvent(CLOSE_EVENT));
 }
 
-/** Live-preview patch from the builder, addressed by AppZet slug. */
 export function patchScheduleSheet(
   appzetSlug: string,
   patch: { presentation?: SchedulePresentation; childStyles?: Record<number, CSSProperties> },
@@ -97,8 +78,6 @@ export function patchScheduleSheet(
     new CustomEvent(PATCH_EVENT, { detail: { appzetSlug, patch } }),
   );
 }
-
-/* ---------------------------------------------------------------- */
 
 function pad(n: number): string {
   return n < 10 ? `0${n}` : String(n);
@@ -119,10 +98,6 @@ function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
-/**
- * Day cells for a month, padded with nulls so the 1st lands under its
- * weekday column.
- */
 function monthCells(year: number, month: number): Array<number | null> {
   const first = new Date(year, month, 1);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -238,8 +213,7 @@ export function ScheduleSheet() {
       return;
     }
     setOpen(false);
-    // Local wall-clock, not toISOString(): FC parses this in the site's
-    // timezone, so sending UTC would silently shift the post.
+    // Local wall-clock: FC parses this in the site's timezone.
     detail.onConfirm?.(
       `${ymd(when)} ${pad(when.getHours())}:${pad(when.getMinutes())}:00`,
     );

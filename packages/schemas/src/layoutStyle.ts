@@ -1,21 +1,6 @@
 import { z } from 'zod';
 
-/**
- * DC#20 provisional — per-primitive LayoutStyle.
- *
- * The `layout` column value stored in wp_appza_customizations under
- * scope=appzet_primitive. Deep-optional across the board: every knob
- * is opt-in, and undefined branches fall back to catalog / renderer
- * defaults through leaf-level merge (P26 Part 4).
- *
- * Numeric values are treated as pixels by the renderer's
- * layoutStyleToCss helper; strings pass through untouched (so callers
- * can express `%`, `rem`, `auto`, etc.). Colors are CSS color strings.
- *
- * Shape mirrors web devtools' box-model + typography + flex sections so
- * the plug-in-admin Layout editor can render one control per field with
- * no extra translation layer.
- */
+// Numbers are pixels; strings pass through (%, rem, auto).
 
 const SpacingSchema = z
   .object({

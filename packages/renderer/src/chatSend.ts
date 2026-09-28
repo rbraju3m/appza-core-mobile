@@ -1,31 +1,13 @@
 import { getChatControls, setChatControls } from './chatControls';
 import { getRouteParams } from './dataFetch';
 
-/**
- * The conversation write path: sending a message, deleting one, and
- * attaching an image.
- *
- * Lives here rather than in each shell's dispatcher for the reason
- * documentSubmit.ts records — the same sequence duplicated across two
- * shells is exactly how half-wired controls happen (P69). The shells
- * supply only what differs: how to build an auth header, how to
- * absolutize a path, and what to say on success or failure.
- *
- * Every endpoint arrives from the action's param_schema. Nothing here
- * has a URL of its own.
- */
-
 export type ChatWriteDeps = {
-  /** From the action's args — never hardcoded in the shell. */
   endpoint: string;
   method?: string;
-  /** e.g. `Basic <base64>`. Empty means "not signed in". */
   authHeader: string;
-  /** Site-absolute in the mobile app; identity in the WP simulator. */
   absolutize?: (path: string) => string;
   onError: (message: string) => void;
   onInfo?: (message: string) => void;
-  /** Called after a successful write, so the shell can refetch. */
   onSuccess?: () => void;
 };
 
@@ -48,29 +30,13 @@ function ok(res: Response, json: Envelope | null): boolean {
   return status === undefined || (status >= 200 && status < 300);
 }
 
-/**
- * Which conversation the write is for.
- *
- * thread_id and space_slug are alternatives — the CHAT sub-tab only ever
- * knows a slug — and the endpoints take either, which is why nothing
- * here has to resolve one into the other first.
- */
 function target(): Record<string, unknown> | null {
   const chat = getChatControls();
   if (chat.thread_id !== '') return { thread_id: Number(chat.thread_id) };
   if (chat.space_slug !== '') return { space_slug: chat.space_slug };
-  // An intent is a target too, and the one case where the write CREATES
-  // the conversation rather than posting to it. Handled by the caller —
-  // see sendChatMessage — because it is a different endpoint and a
-  // different body, not a different id.
   if (chat.intent_user_id !== '') return { intent_id: Number(chat.intent_user_id) };
 
-  // Fall back to the route params. The two are written together by
-  // chat.open, but the data sources read the route bag while the writes
-  // read the slice, and only the route bag survives a screen restored
-  // from outside that action — a deep link, or the simulator's screen
-  // picker. Reading both means the composer cannot end up pointed at a
-  // conversation the message list is not showing.
+  // Only the route bag survives a screen restored outside chat.open (deep link, simulator picker).
   const route = getRouteParams();
   const threadId = route.thread_id;
   if (typeof threadId === 'number' || (typeof threadId === 'string' && threadId !== '')) {
@@ -83,18 +49,8 @@ function target(): Record<string, unknown> | null {
 }
 
 export type ChatSendDeps = ChatWriteDeps & {
-  /**
-   * Where a DM that does not exist yet is created. FluentCommunity makes
-   * the thread and posts the first message in one call, so this is a
-   * different endpoint from the ordinary send — supplied by the action's
-   * args like every other URL here.
-   */
+  // FC creates the thread and posts the first message in one call.
   createThreadEndpoint?: string;
-  /**
-   * Called with the id of the thread the create returned, so the shell
-   * can adopt it: from the next send on, this is an ordinary
-   * conversation.
-   */
   onThreadCreated?: (threadId: number) => void;
 };
 
@@ -116,12 +72,7 @@ export async function sendChatMessage(deps: ChatSendDeps): Promise<void> {
     return;
   }
 
-  // The create path. FluentCommunity's `createIntendedThread` looks for
-  // an existing one-to-one thread first and appends to it, so this is
-  // safe to call whether or not the two have spoken before — which is
-  // also why the screen does not resolve a thread up front. Its body is
-  // its own shape: `message`, not `text`, and no attachments (the
-  // endpoint takes none).
+  // FC's createIntendedThread appends to an existing 1:1 thread, so this is safe either way; body uses `message`, no attachments.
   const creating = chat.thread_id === '' && chat.space_slug === '' && chat.intent_user_id !== '';
   if (creating) {
     const endpoint = deps.createThreadEndpoint;
@@ -171,15 +122,11 @@ export async function sendChatMessage(deps: ChatSendDeps): Promise<void> {
   if (chat.attachments.length > 0) body.media = chat.attachments;
   if (chat.reply_to_id !== '') {
     body.reply_to = Number(chat.reply_to_id);
-    // FluentCommunity stores the quoted text verbatim rather than
-    // re-reading the replied-to message, so we send back what the strip
-    // was showing.
+    // FC stores the quoted text verbatim rather than re-reading the replied-to message.
     body.reply_text = chat.reply_to_text;
   }
 
-  // Clear optimistically. A send that fails restores the draft below —
-  // leaving the text in place until the round trip lands makes a slow
-  // connection look like a dead button, and the user types over it.
+  // Clear optimistically; a failed send restores it.
   const restore = {
     draft: chat.draft,
     attachments: chat.attachments,
@@ -258,18 +205,7 @@ export async function deleteChatMessage(
   }
 }
 
-/**
- * Throw away a pending attachment, row and file.
- *
- * FluentCommunity creates the Media row at UPLOAD time, so an image the
- * user picks and then changes their mind about outlives the composer.
- * The endpoint refuses anything a sent message is already showing, so a
- * stale URL here cannot gut a conversation.
- *
- * The local list is cleared first either way: the thumbnail has to go
- * when it is tapped, and a failed sweep is the daily job's problem, not
- * something to make the user look at.
- */
+// FC creates the Media row at upload time, so a dropped pick must be deleted server-side.
 export async function discardChatAttachment(
   url: string,
   deps: ChatWriteDeps,
@@ -294,28 +230,16 @@ export async function discardChatAttachment(
     });
     const json = (await res.json().catch(() => null)) as Envelope | null;
     if (!ok(res, json)) {
-      // Deliberately quiet: the thumbnail is already gone, the file is
-      // invisible to the user, and the scheduled sweep will take it.
+      // Quiet on purpose: the scheduled sweep takes the file.
       // eslint-disable-next-line no-console
       console.warn('[appza] discarding the attachment failed:', messageFrom(json, res.status, ''));
     }
   } catch {
-    // Same reasoning — never surface this.
+    // Same — never surface this.
   }
 }
 
-/**
- * Pick one image and upload it, holding the returned URL until the
- * message that carries it is sent.
- *
- * Two steps rather than one because FluentCommunity has nothing to
- * attach a Media row to until the message exists — the send call
- * re-resolves each URL back to its row.
- *
- * A hidden <input type="file"> rather than a native picker plugin: the
- * Android WebView routes it to the system chooser, which is the same
- * path the document picker already takes on a real device.
- */
+// FC has nothing to attach a Media row to until the message exists; the send re-resolves each URL.
 export function pickAndUploadChatImage(deps: ChatWriteDeps & { accept?: string }): void {
   if (typeof document === 'undefined') return;
   if (!deps.authHeader) {
@@ -355,8 +279,7 @@ export function pickAndUploadChatImage(deps: ChatWriteDeps & { accept?: string }
         const res = await fetch(abs(deps.endpoint), {
           method: (deps.method ?? 'POST').toUpperCase(),
           credentials: 'omit',
-          // No Content-Type: the browser has to set the multipart
-          // boundary itself, and naming it here strips it.
+          // No Content-Type: the browser must set the multipart boundary.
           headers: { Accept: 'application/json', Authorization: deps.authHeader },
           body: form,
         });

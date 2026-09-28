@@ -12,27 +12,14 @@ import { readPickerOptions } from './ViewModePopover';
 import { childStylesFromCustomizations, optionsSheetPresentation } from './modalPresentation';
 import { closeMemberRemoveConfirm, openMemberRemoveConfirm } from './MemberRemoveConfirm';
 
-/**
- * The All Members screen's actions — the search field, the status tabs,
- * the sort sheet, and the status change with its confirm.
- *
- * Shared between the Capacitor shell and the WP-admin simulator for the
- * reason every handler in this package is: two dispatchers implementing
- * one action drift, and only one of them is ever the one photographed.
- *
- * Follow and unfollow are NOT here. They are `user.follow` /
- * `user.unfollow`, the profile's own two actions, and tryHandleProfileAction
- * already does them.
- */
+// Follow/unfollow are not here: they are user.follow / user.unfollow, handled by tryHandleProfile.
 
 export type MemberDirectoryActionDeps = {
   auth: StoredAuthLike | null;
   authHeader: (auth: StoredAuthLike) => string;
   onError: (msg: string) => void;
   onInfo: (msg: string) => void;
-  /** The shell's catalog lookup for an overlay AppZet's authored props. */
   readAppzetProps: (slug: string) => Record<string, unknown>;
-  /** The right panel's live edits, for the sheet's per-child styles. */
   customizations: unknown;
 };
 
@@ -57,7 +44,6 @@ function dispatchRefresh(): void {
   window.dispatchEvent(new CustomEvent(APPZA_REFRESH_EVENT));
 }
 
-/** Returns true when the action was one of these and has been handled. */
 export function tryHandleMemberDirectoryAction(
   inv: ActionInvocation,
   deps: MemberDirectoryActionDeps,
@@ -71,8 +57,7 @@ export function tryHandleMemberDirectoryAction(
     effectiveItem && typeof effectiveItem === 'object'
       ? (effectiveItem as Record<string, unknown>)
       : null;
-  // A runtime value — the typed text, the tapped tab — arrives on the args
-  // from some primitives and on the item from others.
+  // A runtime value arrives on args from some primitives and on the item from others.
   const runtimeValue =
     typeof argRec.value === 'string'
       ? argRec.value
@@ -82,9 +67,6 @@ export function tryHandleMemberDirectoryAction(
 
   switch (action_slug) {
     case 'members.set_search': {
-      // Every keystroke, including the ⨯ clear. Both DataSources bind
-      // `search`, so the write is a refetch — debounced to one request when
-      // the typing stops.
       debounceSearch('members', runtimeValue ?? '', (search) =>
         setMemberDirectoryControls({ search }),
       );
@@ -92,8 +74,7 @@ export function tryHandleMemberDirectoryAction(
     }
 
     case 'members.set_tab': {
-      // A closed set: this value is sent to FluentCommunity as `status`
-      // and is what the four empty states gate on.
+      // A closed set: sent to FluentCommunity as `status`, and the empty states gate on it.
       if (isStatus(runtimeValue)) setMemberDirectoryControls({ status: runtimeValue });
       return true;
     }
@@ -141,8 +122,6 @@ export function tryHandleMemberDirectoryAction(
     }
 
     case 'member.status_confirm': {
-      // Designs 7, 8 and 12: the member's name, one question, CANCEL and
-      // the status. Nothing is written until the second button.
       const subjectPath = str(argRec.subject_path) ?? 'data.display_name';
       const rawSubject = readDataPath(effectiveItem, subjectPath);
       const status = str(argRec.status);
@@ -197,15 +176,11 @@ export function tryHandleMemberDirectoryAction(
       void sendJson(endpoint, method, { member_id: memberId, status }, deps.auth, deps.authHeader)
         .then((result) => {
           if (!result.ok) {
-            // FluentCommunity's own sentence — "Sorry, you cannot change the
-            // status of another admin" — says more than anything here could.
             deps.onError(result.error);
             return;
           }
           deps.onInfo(str(argRec.toast_message) ?? 'Member status has been updated');
-          // Confirming moves you to the tab the member went to (designs 7,
-          // 8, 12). The write bumps the viewer's preview-cache generation,
-          // so the refetch below reads the new status, not a cached one.
+          // The write bumps the preview-cache generation, so the refetch reads the new status.
           const thenTab = str(argRec.then_tab) ?? status;
           if (isStatus(thenTab)) setMemberDirectoryControls({ status: thenTab });
           dispatchRefresh();

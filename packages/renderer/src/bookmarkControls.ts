@@ -1,38 +1,14 @@
 import { useEffect, useState } from 'react';
 import { cancelDebouncedSearch } from './searchDebounce';
 
-// Saved Posts screen controls — the search string, the sort key, which of
-// the three layouts is showing, and the derived verdict the gated
-// placements read.
-//
-// The sixth event-backed slice, same shape as the other five
-// (feedControls / spacesControls / spaceDetailControls / chatControls /
-// leaderboardControls). Still duplicated rather than abstracted into a
-// slice manager: the shape has not drifted across six of them, and the
-// day it does the divergence is the interesting part.
-
 export type BookmarkViewMode = 'timeline' | 'card' | 'list';
 
 export type BookmarkControls = {
-  // Authored — the sort sheet writes it. fc-bookmarks binds it as its
-  // `order_by_type` query param, so a pick is a refetch rather than a
-  // reorder of the page already loaded. Values are FluentCommunity's own
-  // Helper::getPostOrderOptions() keys.
+  // FluentCommunity Helper::getPostOrderOptions() keys; bound as `order_by_type`, so a change refetches.
   sort: string;
-  // Authored — the layout sheet writes it. Nothing refetches: the rows
-  // are already there, only which AppZet variant draws them changes.
   viewMode: BookmarkViewMode;
-  // Authored — the search pill writes it on every keystroke, including
-  // the ⨯ clear (which fires with an empty value). Bound as `search`, so
-  // the match runs server-side against the same query the portal uses.
   search: string;
-  // Derived, NOT authored: PlacementRenderer publishes it after each
-  // fetch. 'list' | 'no-match' | 'empty' | 'loading'.
-  //
-  // Three placements gate on this one string, and they have to — a
-  // placement can gate on state and never on data (P75), and the
-  // difference between "nothing saved" and "nothing matched" is the
-  // search value, which no placement can see either.
+  // Published by PlacementRenderer after each fetch; placements can gate on state but never on data.
   view: string;
 };
 
@@ -57,18 +33,10 @@ function readFromStorage(): BookmarkControls {
     if (!raw) return DEFAULTS;
     const parsed = JSON.parse(raw) as Partial<BookmarkControls>;
     return {
-      // Both are genuine preferences — how you like your saved posts
-      // sorted and shaped is worth remembering across visits, the same
-      // way feedControls remembers them for the feed.
       sort: typeof parsed.sort === 'string' && parsed.sort ? parsed.sort : DEFAULTS.sort,
       viewMode: isViewMode(parsed.viewMode) ? parsed.viewMode : DEFAULTS.viewMode,
-      // Never restored. Reopening the screen on a search you typed last
-      // week would show "No matches" over a list that is not actually
-      // empty, and the reason would be off screen in a field you have to
-      // scroll to.
+      // Never restored: a stale search or verdict paints "No matches"/empty over a real list.
       search: DEFAULTS.search,
-      // Never restored: it describes the CURRENT fetch. A stale 'empty'
-      // would paint the empty state over a list still loading.
       view: DEFAULTS.view,
     };
   } catch {
@@ -86,8 +54,7 @@ export function setBookmarkControls(patch: Partial<BookmarkControls>): void {
   const next: BookmarkControls = {
     sort: typeof patch.sort === 'string' && patch.sort ? patch.sort : current.sort,
     viewMode: isViewMode(patch.viewMode) ? patch.viewMode : current.viewMode,
-    // Deliberately NOT guarded on truthiness: '' is the value the ⨯
-    // clear sends, and it is the whole point of the clear button.
+    // Not truthiness-guarded: '' is what the clear button sends.
     search: typeof patch.search === 'string' ? patch.search : current.search,
     view: typeof patch.view === 'string' ? patch.view : current.view,
   };
@@ -102,30 +69,19 @@ export function setBookmarkControls(patch: Partial<BookmarkControls>): void {
   current = next;
   if (typeof window !== 'undefined') {
     try {
-      // Only the two preferences persist (see the type comments).
       window.localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({ sort: next.sort, viewMode: next.viewMode }),
       );
     } catch {
-      // best-effort — in-memory `current` still wins for the running session
+      // best-effort
     }
     window.dispatchEvent(new CustomEvent(EVENT, { detail: next }));
   }
 }
 
-/**
- * Put the screen back in its landing state on mount.
- *
- * Only the search and the verdict: sort and layout are preferences and
- * are meant to survive. Called by the shells when the Saved Posts screen
- * becomes active, the same job resetLeaderboardControls does next door.
- */
 export function resetBookmarkControls(): void {
-  // Drop any keystroke still waiting out its debounce interval first.
-  // A write armed on the way out of the screen would land AFTER this
-  // reset and put the abandoned search string back, so reopening Saved
-  // Posts would show "No matches" over a list that is not empty.
+  // A pending debounced write would land after this reset and restore the old search.
   cancelDebouncedSearch('bookmarks');
   setBookmarkControls({ search: '', view: 'loading' });
 }

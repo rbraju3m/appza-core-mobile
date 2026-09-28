@@ -6,26 +6,7 @@ import { resolveIcon } from './PrimitiveRenderer';
 import { setPostDraft, type PostDraftVideo } from './postDraft';
 import { useBackDismiss } from './backStack';
 
-/**
- * "Attach Media" — the video sheet, Noor's designs 15 to 19.
- *
- * Three ways to put a video on a post, and they are genuinely different
- * operations rather than three shapes of one: an oEmbed URL is looked up
- * on the server and answers with markup; an iframe is pasted whole and
- * looked up by nobody; an upload is a file that becomes a FluentPlayer
- * media row. So each tab owns its own field, its own hint, its own idea
- * of "ready", and only the frame is shared.
- *
- * The Upload tab exists only where FluentPlayer says it may: the plugin
- * active, its `video_upload` switch on, and the viewer's role matching
- * `video_upload_role`. That verdict is resolved per request on the
- * space-picker payload and handed in — it cannot be read from the cached
- * bootstrap, because it is a question about who is asking.
- *
- * The lookup and the upload are the SHELL's, passed in as callbacks. Both
- * are HTTP with auth, and both shells already own that seam; the sheet
- * stays a sheet.
- */
+// The Upload tab gate is per-viewer, so it comes from the space-picker payload, not the cached bootstrap.
 
 export const VIDEO_SHEET_APPZET_SLUG = 'fc-post-video-sheet';
 export const VIDEO_SHEET_CHILD_COUNT = 5;
@@ -46,7 +27,6 @@ export type VideoSheetPresentation = {
   oembedTab: string;
   htmlTab: string;
   uploadTab: string;
-  /** Shown on both text tabs before anything is typed — the design's. */
   emptyHint: string;
   oembedHint: string;
   htmlHint: string;
@@ -97,13 +77,9 @@ export type VideoSheetPresentation = {
 type OpenDetail = {
   appzetSlug?: string;
   presentation: VideoSheetPresentation;
-  /** FluentPlayer's upload gate, resolved for this viewer. */
   canUpload: boolean;
-  /** Settings → Customization → the oEmbed switch. */
   embedEnabled: boolean;
-  /** Looks a URL up through fcom-mobile's /feeds/oembed. */
   onLookup: (url: string) => Promise<VideoOembedResult | null>;
-  /** Uploads one file through fcom-mobile's FluentPlayer proxy. */
   onUpload: (file: File) => Promise<PostDraftVideo | null>;
   childStyles?: Record<number, CSSProperties>;
 };
@@ -137,8 +113,7 @@ export function VideoSheet() {
     const onOpen = (e: Event) => {
       const ce = e as CustomEvent<OpenDetail>;
       if (!ce.detail) return;
-      // Every open starts clean. A URL left over from a sheet the user
-      // dismissed would attach a video they had already decided against.
+      // Every open starts clean, or a dismissed URL would still attach.
       setDetail(ce.detail);
       setTab(ce.detail.embedEnabled ? 'oembed' : 'upload');
       setUrl('');
@@ -162,10 +137,7 @@ export function VideoSheet() {
     };
   }, []);
 
-  // Look the URL up once it stops changing. The design shows the player
-  // appearing under the field BEFORE Attach is pressed, so the lookup
-  // cannot wait for the button — and firing per keystroke would ask the
-  // server about every prefix of a pasted URL.
+  // Debounced: the design shows the player before Attach, and per-keystroke would query every prefix.
   const lookup = detail?.onLookup;
   useEffect(() => {
     if (!detail || tab !== 'oembed') return;
@@ -243,9 +215,6 @@ export function VideoSheet() {
   ];
   const shownTabs = tabs.filter((t) => t.enabled);
 
-  // The hint is per tab AND per state, which is what the designs show:
-  // both text tabs read the same generic line until something is typed,
-  // then each says what it actually accepts.
   const hint =
     tab === 'oembed'
       ? url.trim() === ''
@@ -351,9 +320,6 @@ export function VideoSheet() {
               {looked && (
                 <div
                   className="appza-video-sheet-preview"
-                  // FluentCommunity's own oEmbed output, generated
-                  // server-side from a provider allow-list — the same
-                  // markup its portal renders.
                   dangerouslySetInnerHTML={{ __html: looked.html }}
                 />
               )}
@@ -387,9 +353,6 @@ export function VideoSheet() {
                     const video = await detail.onUpload(file);
                     setUploading(false);
                     if (video) {
-                      // An upload has nothing left to confirm — the file is
-                      // already on the server by the time it returns, so a
-                      // second Attach tap would only be ceremony.
                       setPostDraft({ video });
                       closeVideoSheet();
                     }
@@ -430,14 +393,6 @@ export function VideoSheet() {
   );
 }
 
-/**
- * The attached video, drawn the same way in the composer and in the
- * preview — designs 20 and 21.
- *
- * One function rather than two copies: the two surfaces differ only in
- * whether a discard badge rides on top, and a player that looked
- * different in the preview from the composer would defeat the preview.
- */
 export function AppzaDraftVideo({
   video,
   onRemove,
@@ -451,9 +406,6 @@ export function AppzaDraftVideo({
   return (
     <span className="appza-draft-video" data-kind={video.kind}>
       {video.kind === 'upload' && video.media_url ? (
-        // A real file, so a real player — controls, no autoplay, and
-        // metadata only, because a composer should not spend the user's
-        // data buffering something they are about to post.
         <video src={video.media_url} controls preload="metadata" playsInline />
       ) : video.html ? (
         <span
@@ -475,32 +427,7 @@ export function AppzaDraftVideo({
   );
 }
 
-/**
- * The `media` payload for a post, built from the draft's video.
- *
- * ⚠ FluentCommunity accepts exactly two shapes here, and neither is
- * obvious from the field names:
- *
- *  - **oEmbed**: `type: 'oembed'` with a `url` it re-parses server-side.
- *    Its branch explicitly EXCLUDES `player == 'fluent_player'`.
- *  - **Pasted iframe**: `type: 'iframe_html'` — not `custom_html`, which
- *    is what we sent and which matches no branch at all. Moderators only;
- *    FeedsHelper::canEmbedRawHtml drops it for anyone else.
- *
- * A FluentPlayer UPLOAD is neither. It is picked up by a different
- * plugin entirely — FluentCommunity's FluentPlayer module hooks
- * `new_feed_data` and looks for `media.player == 'fluent_player'`, the
- * PLAYER key, not the type. We were sending `type: 'fluent_player'` with
- * no `player` key, so FluentCommunity's branch skipped it (wrong type)
- * and FluentPlayer's skipped it too (no player) — the upload vanished
- * between them, silently, and the post published with no video.
- *
- * The shape below is copied from what the portal actually stored for an
- * uploaded video on this site, field for field, rather than inferred.
- *
- * Returns null when the draft's video has nothing usable, so the caller
- * can leave `media` off the body entirely.
- */
+// FC takes only `oembed` (url) or `iframe_html` (moderators); an upload needs `player: 'fluent_player'` or FC and FluentPlayer both skip it.
 export function buildVideoMediaPayload(
   video: PostDraftVideo,
 ): Record<string, unknown> | null {
@@ -513,9 +440,7 @@ export function buildVideoMediaPayload(
   if (video.kind === 'upload' && video.media_id && video.media_url) {
     const title = video.title ?? '';
     return {
-      // 'oembed' is right even for an upload: that is the type
-      // FluentPlayer stores, and `player` is what routes it away from
-      // FluentCommunity's own oEmbed parser.
+      // 'oembed' even for an upload: `player` routes it to FluentPlayer instead of FC's parser.
       type: 'oembed',
       url: video.media_url,
       content_type: 'video',
@@ -543,19 +468,7 @@ function s(v: unknown): string {
   return typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '';
 }
 
-/**
- * Look a video URL up through fcom-mobile's `/feeds/oembed`.
- *
- * ⚠ The URL rides the QUERY STRING even though the route is a POST.
- * fcom-mobile's handler forwards `get_query_params()` to FluentCommunity
- * and nothing else, so a JSON body reaches the endpoint and is dropped —
- * the call answers 422 "No oembed data found" for a URL that resolves
- * perfectly well. That is how this arrived: the previous implementation
- * posted a body and had never worked.
- *
- * One implementation, called by both shells with their own auth header
- * and their own resolved endpoint (P100).
- */
+// The URL rides the query string: fcom-mobile forwards only query params, so a JSON body is dropped (422).
 export async function lookupVideoOembed(
   url: string,
   endpoint: string,
@@ -585,12 +498,6 @@ export async function lookupVideoOembed(
   }
 }
 
-/**
- * Upload one video (or audio) file through fcom-mobile's FluentPlayer
- * proxy. Every gate — the plugin being active, the `video_upload` switch,
- * the viewer's role, the mime type, the file size — is FluentCommunity's
- * and is enforced upstream, so a refusal comes back as its message.
- */
 export async function uploadDraftVideo(
   file: File,
   endpoint: string,
@@ -618,9 +525,6 @@ export async function uploadDraftVideo(
       kind: 'upload',
       media_id: s(items.id) || s(items.media_id),
       media_url: mediaUrl,
-      // The portal stores the filename on the media_preview, and the
-      // player shows it. Prefer whatever the server named the file;
-      // fall back to what was picked.
       title: s(items.title) || file.name,
     };
   } catch {

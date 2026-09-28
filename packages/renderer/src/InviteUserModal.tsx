@@ -7,24 +7,9 @@ import { useInsideDeviceViewport } from './insideDeviceViewport';
 import { appzetAttrs, childAttrs } from './designTimeAttrs';
 import { useBackDismiss } from './backStack';
 
-// Slug of the catalog AppZet this modal stands in for. Used only to
-// address the builder's Properties panel; the runtime never reads it.
 const DEFAULT_APPZET_SLUG = 'fc-invite-user-modal';
 
-// Centered modal opened by member.invite. Two tabs in one shell:
-//
-//   1. Invitations → the space's existing invitations. Each row can
-//      copy its link, resend itself, or be deleted (behind a confirm).
-//   2. Invite User → email + optional name + membership role, with a
-//      submit whose caption flips to "INVITE AS {ROLE}" once a role
-//      is picked.
-//
-// Presentation only, per P65: every row control and the submit go out
-// through the shared ActionDispatch context, and App.tsx owns the HTTP,
-// the clipboard write, the toast and the confirm dialog. The rows
-// themselves arrive pre-composed from fc-space-invitations — `title`
-// and `meta_line` are built server-side because their shape is
-// conditional and has to stay identical to the web portal.
+// Presentation only: HTTP, clipboard, toast and confirm live in App.tsx via ActionDispatch.
 
 export type InviteRoleOption = {
   value: string;
@@ -55,26 +40,21 @@ type InviteTab = 'invitations' | 'invite';
 
 type OpenDetail = {
   title?: string;
-  // Tabs
   tabInvitationsLabel?: string;
   tabInviteLabel?: string;
   showInvitationCount?: boolean;
   defaultTab?: InviteTab;
-  // Invitation rows
   copyLinkLabel?: string;
   copyLinkIcon?: string;
   resendLabel?: string;
   deleteIcon?: string;
   invitedByPrefix?: string;
   emptyLabel?: string;
-  // Delete confirm copy. Authored on the AppZet, so it rides the
-  // dispatch rather than letting the action's param_schema defaults
-  // shadow whatever the site admin typed.
+  // Rides the dispatch so the action's param_schema defaults don't shadow the admin's copy.
   deleteConfirmTitle?: string;
   deleteConfirmMessage?: string;
   deleteCancelLabel?: string;
   deleteConfirmLabel?: string;
-  // Form
   emailLabel?: string;
   emailPlaceholder?: string;
   nameLabel?: string;
@@ -85,7 +65,6 @@ type OpenDetail = {
   helperText?: string;
   submitLabelEmpty?: string;
   submitLabelTemplate?: string;
-  // Style knobs read off the AppZet's default_props_override
   chipPalette?: InviteChipPalette;
   copyLinkColor?: string;
   deleteColor?: string;
@@ -93,37 +72,21 @@ type OpenDetail = {
   submitTextColor?: string;
   submitDisabledBgColor?: string;
   listMaxHeight?: string;
-  // Wiring
   listEndpoint?: string;
   spaceSlug?: string;
   authHeader?: string;
-  /**
-   * WP REST nonce (window.appzaCoreConfig?.restNonce). Sent as
-   * `X-WP-Nonce` so the plugin-admin can authenticate off the WP
-   * session cookie instead of the mobile shell's Basic Auth. Same
-   * dual-wire arrangement as the add-member picker.
-   */
+  // Sent as X-WP-Nonce so plugin-admin authenticates via the WP cookie instead of Basic Auth.
   restNonce?: string;
   submitActionSlug?: string;
   submitArgs?: Record<string, unknown>;
   copyActionSlug?: string;
   resendActionSlug?: string;
   deleteActionSlug?: string;
-  /**
-   * Catalog slug of the AppZet whose props drove this open. Carried so
-   * the builder can select the right row when the modal is clicked in
-   * the simulator — the shell resolves it from the opener action's
-   * `form_appzet_slug`, which may point at a customer's own variant.
-   */
   appzetSlug?: string;
 
-  // --- Visibility ---
   hidden?: boolean;
   showClose?: boolean;
 
-  // --- Style. Each lands on the root as a CSS custom property and is
-  // read by styles.css with the stock value as fallback, so an unset
-  // prop costs nothing and needs no branch here. ---
   closeIcon?: string;
   modalMaxWidth?: string;
   modalPadding?: string;
@@ -144,15 +107,9 @@ type OpenDetail = {
   helperTextColor?: string;
   submitRadius?: string;
 
-  /**
-   * Per-child Wrapper overrides as inline CSS, by superstructure child
-   * index. Composed AppZets get the equivalent from PlacementRenderer;
-   * a bespoke overlay has to be handed it.
-   */
   childStyles?: Record<number, CSSProperties>;
 };
 
-/** Slug-addressed so a patch reaches only the modal it was authored for. */
 type PatchDetail = { appzetSlug: string; patch: Partial<OpenDetail> };
 
 export function openInviteUserModal(detail: OpenDetail): void {
@@ -165,14 +122,7 @@ export function closeInviteUserModal(): void {
   window.dispatchEvent(new CustomEvent(CLOSE_EVENT));
 }
 
-/**
- * Re-authors an already-open modal in place. The builder calls this when
- * a prop changes while the modal is on screen — re-opening instead would
- * reset the active tab and any half-typed invite, so editing a label
- * would yank the form out from under the user.
- *
- * No-op when the modal is closed; the next open reads fresh props anyway.
- */
+// Patches in place: re-opening would reset the tab and a half-typed invite.
 export function patchInviteUserModal(
   appzetSlug: string,
   patch: Partial<OpenDetail>,
@@ -193,11 +143,6 @@ function fillTemplate(tpl: string, role: InviteRoleOption | null): string {
   });
 }
 
-/**
- * Loose enough to keep the button live for anything plausibly an
- * address — the endpoint is the real authority and returns a readable
- * message when it disagrees.
- */
 function looksLikeEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
@@ -211,15 +156,12 @@ export function InviteUserModal() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
-  // Form
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState<InviteRoleOption | null>(null);
   const [roleOpen, setRoleOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const dispatch = useActionDispatch();
-  // In the plug-in admin the card caps its height against the simulated
-  // phone screen; on mobile it sizes to the real one.
   const embedded = useInsideDeviceViewport(open);
 
   useEffect(() => {
@@ -237,9 +179,7 @@ export function InviteUserModal() {
       setRole(null);
       setRoleOpen(false);
       setSubmitting(false);
-      // Show the spinner on the very first paint rather than the
-      // empty state — the fetch effect runs on this same tick but its
-      // own setLoading only lands on the next render.
+      // Spinner on first paint: the fetch effect's setLoading lands a render late.
       setLoading(true);
       setOpen(true);
     };
@@ -267,9 +207,6 @@ export function InviteUserModal() {
     };
   }, []);
 
-  // Every mutation the shell performs ends with appza:refresh-data, so
-  // the list repopulates itself after an invite, a resend or a delete
-  // without the modal needing to know which one happened.
   useEffect(() => {
     if (!open || typeof window === 'undefined') return;
     const onRefresh = () => setTick((t) => t + 1);
@@ -313,9 +250,7 @@ export function InviteUserModal() {
             ? (rec.response as Record<string, unknown> | undefined)
             : undefined;
 
-        // Our endpoint answers HTTP 200 and carries the real outcome
-        // in response.status, so a permission failure would otherwise
-        // render as an empty list rather than an error.
+        // Our endpoint answers 200 with the real outcome in response.status.
         const innerStatus =
           inner && typeof inner.status === 'number' ? (inner.status as number) : null;
         const ok = innerStatus !== null ? innerStatus === 200 : res.ok;
@@ -381,10 +316,6 @@ export function InviteUserModal() {
     [dispatch],
   );
 
-  /**
-   * Author-set confirm copy, dropping any key the author left blank so
-   * the action's own defaults still fill the gap.
-   */
   const deleteConfirmArgs = useMemo(() => {
     const out: Record<string, unknown> = {};
     if (detail?.deleteConfirmTitle) out.subject = detail.deleteConfirmTitle;
@@ -397,8 +328,6 @@ export function InviteUserModal() {
   useBackDismiss(!(!open || !detail), () => handleClose());
 
   if (!open || !detail) return null;
-  // `hidden` is an author kill-switch for the whole overlay, same as on
-  // any other AppZet — honoured before anything else renders.
   if (detail.hidden) return null;
 
   const closeIcon = resolveIcon(detail.closeIcon ?? 'close');
@@ -428,10 +357,7 @@ export function InviteUserModal() {
         role: role.value,
       },
     });
-    // App.tsx closes the modal on success and surfaces the message on
-    // failure. Release the busy state either way after a grace period
-    // so a failed submit leaves the form intact and re-submittable
-    // rather than stranding a dead spinner.
+    // Release busy after a grace period so a failed submit stays re-submittable.
     window.setTimeout(() => setSubmitting(false), 1500);
   };
 
@@ -458,9 +384,6 @@ export function InviteUserModal() {
     borderRadius: detail.submitRadius || undefined,
   };
 
-  // Authored style lands as custom properties on the backdrop; every
-  // rule in styles.css reads `var(--appza-iu-*, <stock value>)`, so an
-  // unset prop is simply absent and the default survives.
   const styleVars = {
     '--appza-iu-backdrop': detail.backdropColor,
     '--appza-iu-bg': detail.modalBgColor,
@@ -689,9 +612,7 @@ export function InviteUserModal() {
               >
                 {detail.roleLabel ?? 'Membership Role'}
               </div>
-              {/* In-flow menu, not absolutely positioned: the modal
-                  clips overflow, so an absolute menu would render off
-                  screen and the trigger would read as a dead button. */}
+              {/* In-flow: the modal clips overflow, so an absolute menu would render off screen. */}
               <div
                 className="appza-invite-user-role"
                 style={childStyle(10)}
@@ -751,12 +672,7 @@ export function InviteUserModal() {
               )}
             </div>
 
-            {/* Tag on the footer, not the button: the submit is
-                `disabled` until email + role are filled, and browsers
-                fire no click on a disabled control, so a tag on the
-                button itself would make this child unselectable. Also
-                mirrors the composed path, where the stamps live on the
-                ss-child wrapper rather than the primitive. */}
+            {/* Tag on the footer: a disabled submit gets no clicks, so it would be unselectable. */}
             <div
               className="appza-invite-user-footer"
               style={childStyle(12)}

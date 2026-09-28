@@ -9,35 +9,7 @@ import { AppzaPollPreview } from './PollSheet';
 import { AppzaDocumentsPreview } from './PostDocuments';
 import { useFcRuntimeSettings } from './fcRuntimeSettings';
 
-/**
- * The post preview — Noor's designs 9, 11 and 12.
- *
- * What the draft will look like once it is posted, drawn from the
- * postDraft slice. Nothing here is fetched: the post does not exist yet,
- * it has no id, no timestamp and no reactions, and the whole point of
- * the screen is to answer "what will this look like" before any of that
- * is true.
- *
- * Its own Superstructure rather than a second AppZet on fc-post-card,
- * for the same reason. The feed card carries a 3-dot menu, a topic pill,
- * a verified badge, reaction COUNTS and a mood — none of which a draft
- * has — and its child indices are addressed by field_mappings and saved
- * customizations, so a preview riding it would have to fake a feed row
- * and then hide two thirds of it. The designs are a simpler card, and
- * this draws that card.
- *
- * MODERN vs CLASSIC is FluentCommunity's Settings → Customization →
- * Rich Media Post Layout, read from the runtime store. Modern puts the
- * media above the author block, edge to edge; classic puts it under the
- * body. Designs 11 and 12 are the same draft under the two settings.
- *
- * ⚠ The FEED card does not honour that setting yet — it is classic-only,
- * which is what this site is set to, so the two agree today. Teaching
- * fc-post-card the modern order means a second `grid-template-areas`
- * block in BOTH of its scopes (feed and space-detail); see the warning
- * above its rules in styles.css. Tracked as follow-up, not silently
- * skipped.
- */
+// fc-post-card is classic-only; modern needs a second grid-template-areas block in both its scopes.
 
 export type PostPreviewProps = {
   overrides?: Record<string, unknown>;
@@ -57,8 +29,7 @@ function bool(o: Record<string, unknown> | undefined, k: string, fallback: boole
   return fallback;
 }
 
-/** See the note in PostComposer — App mode is a class on an ancestor, so
- *  this has to be re-read rather than sampled once at mount. */
+/** App mode is a class on an ancestor, so re-read rather than sample once at mount. */
 function useDesignTime(): boolean {
   const [designTime, setDesignTime] = useState(false);
   useEffect(() => {
@@ -81,9 +52,6 @@ export function AppzaPostPreview({ overrides }: PostPreviewProps) {
   const { composer: settings } = useFcRuntimeSettings();
   const designTime = useDesignTime();
 
-  // Bound from fc-current-user through the AppZet's field_mappings — the
-  // author of a draft is always the viewer, so there is nothing to look
-  // up per post.
   const authorName = str(overrides, 'author_name') || (designTime ? 'Test User' : '');
   const authorAvatar = str(overrides, 'author_avatar');
 
@@ -102,15 +70,9 @@ export function AppzaPostPreview({ overrides }: PostPreviewProps) {
   const showComment = bool(overrides, 'show_comment', true);
   const showBookmark = bool(overrides, 'show_bookmark', true);
 
-  // 'auto' follows the site setting, which is what the preview wants —
-  // it is answering a question about this site. The explicit values exist
-  // so an author can see the other layout without changing the site.
   const layoutProp = str(overrides, 'layout') || 'auto';
   const layout = layoutProp === 'auto' ? settings.rich_post_layout : layoutProp;
 
-  // How many tiles the grid shows before the rest collapse into "+N".
-  // Design 14 shows four with a +2 on the last. A single image is not a
-  // one-cell grid — it takes the full width, as design 11 and 12 draw it.
   const gridTiles = Math.max(1, Number.parseInt(str(overrides, 'grid_tiles'), 10) || 4);
   const overflowPrefix = str(overrides, 'overflow_prefix') || '+';
 
@@ -121,11 +83,6 @@ export function AppzaPostPreview({ overrides }: PostPreviewProps) {
   const meta =
     showSpace && spaceName ? `${nowLabel}${metaSeparator}${spaceName}` : nowLabel;
 
-  // "Nothing to preview yet" answers an EMPTY draft, so every kind of
-  // attachment has to count — a poll with no caption is very much
-  // something to preview, and so is a photo. Before this the label was
-  // keyed on the title alone, which is why a draft carrying only images
-  // announced it had nothing in it, directly above the images.
   const nothingToPreview =
     title === '' &&
     draft.body === '' &&
@@ -135,31 +92,14 @@ export function AppzaPostPreview({ overrides }: PostPreviewProps) {
     draft.audios.length === 0 &&
     draft.documents.length === 0;
 
-  // Images now; video, audio, a poll and attached files join them as
-  // their chunks land. The design-time sample keeps both layouts
-  // stylable when the draft carries nothing.
   const images = draft.images;
   const audios = draft.audios;
-  // The discard badge, designs 21 and 23 — a `×` on the video and on
-  // each audio row, INSIDE the preview. Noor's call 2026-08-27: it
-  // discards exactly the way the composer's does, writing the same
-  // draft actions, so the two screens cannot disagree about what is
-  // attached.
-  //
-  // Photos deliberately have none: design 14 draws the tiles bare, and
-  // a `+2` tile is not a file you could remove anyway — it stands for
-  // several. Discarding an image stays a composer job.
-  //
-  // Design time draws it too, so the builder can style the badge.
   const showRemove = bool(overrides, 'show_remove', true);
   const removeIcon = str(overrides, 'remove_icon') || 'close';
   const onRemoveAudio = showRemove ? removePostDraftAudio : undefined;
   const onRemoveVideo = showRemove ? removePostDraftVideo : undefined;
   let media: React.ReactNode = null;
   if (audios.length > 0) {
-    // Audio wins the media slot when it is the only thing attached, and
-    // sits above the rest when it is not — design 23 puts the players
-    // where the photo would go.
     media = (
       <>
         <AppzaDraftAudioList
@@ -192,9 +132,6 @@ export function AppzaPostPreview({ overrides }: PostPreviewProps) {
         {shown.map((image, i) => (
           <span key={image.url} className="appza-post-preview-tile">
             <img src={image.url} alt="" />
-            {/* The overflow badge rides the LAST shown tile rather than
-                replacing it — design 14 dims that photo and writes the
-                count over it, so the tile is still part of the picture. */}
             {hidden > 0 && i === shown.length - 1 && (
               <span className="appza-post-preview-overflow">{`${overflowPrefix}${hidden}`}</span>
             )}
@@ -233,13 +170,7 @@ export function AppzaPostPreview({ overrides }: PostPreviewProps) {
         <span className="appza-post-preview-empty">{emptyBodyLabel}</span>
       ) : null}
 
-      {/* The poll — designs 28 and 29. It sits under the body and ABOVE
-          the classic media block, and it stays there in the modern
-          layout while the photos move to the top: FluentCommunity's own
-          SurveyRenderer takes a `hasTopMedia` prop precisely because the
-          survey does not travel with the media. It is also not exclusive
-          with it — a survey is the only thing that claims `content_type`,
-          and media rides in `meta` either way. */}
+      {/* FC's SurveyRenderer keeps the survey under the body even when media moves to the top. */}
       {draft.poll && (
         <AppzaPollPreview
           poll={draft.poll}
@@ -249,10 +180,6 @@ export function AppzaPostPreview({ overrides }: PostPreviewProps) {
         />
       )}
 
-      {/* Attached documents — design 31. Its own card under the body,
-          in both layouts: a document post has no rich media to move to
-          the top, because documents are exclusive with everything the
-          modern layout exists to reposition. */}
       {draft.documents.length > 0 && (
         <AppzaDocumentsPreview
           documents={draft.documents}

@@ -1,14 +1,5 @@
 import type { AppZet, Catalog, Superstructure } from '@appza/schemas';
 
-/**
- * Pre-indexed catalog for O(1) row lookups during a render pass.
- *
- * Building the maps once via useMemo at the renderer boundary avoids
- * O(rows * primitives) Array.find walks during each render. Child slugs
- * in a Superstructure can be either a Primitive OR another Superstructure,
- * so we keep separate maps and let the caller try-Primitive-then-Superstructure.
- */
-
 export type PrimitiveRow = {
   slug: string;
   name?: string;
@@ -19,25 +10,9 @@ export type DataSourceRow = {
   id: number;
   slug: string;
   endpoint?: string;
-  /**
-   * When set, this source reads a renderer state slice instead of
-   * fetching — `endpoint` is '' on such rows and the binding is the
-   * discriminator. Shape: `state.<slice>.<key>`, resolved through the
-   * same getters `query_params` bindings use, and expected to hold an
-   * array. Used by the Search screen's recent-search list, whose four
-   * per-scope histories are device-local and have no endpoint anywhere.
-   */
+  /** Reads an array from a `state.<slice>.<key>` slice instead of fetching; `endpoint` is '' on such rows. */
   client_state_binding?: string | null;
   http_method?: string;
-  /**
-   * Declarative query-param config. Two shapes:
-   *   - legacy plain map:      `{ foo: 'bar' }` — sent verbatim
-   *   - source-tagged entries: `{ topic_slug: { source: 'state',
-   *     binding: 'state.space_detail_controls.topic_slug', default: '' } }`
-   *   - route param entries:   `{ slug: { source: 'route_param',
-   *     binding: 'route.slug' } }`
-   * Resolved at render time by `resolveQueryParams` in dataFetch.
-   */
   query_params?: Record<string, unknown> | null;
 };
 
@@ -83,13 +58,6 @@ export function indexCatalog(catalog: Catalog): CatalogIndex {
   };
 }
 
-/**
- * Read an action's `param_schema.<field>.default` values from the catalog
- * cached on `window.__appzaCatalog` (published by both the mobile shell +
- * plugin-admin at bootstrap time). Returns `null` when the catalog is
- * unavailable or the action isn't listed. The dispatcher shells that use
- * this popover set the global via `setCatalogGlobal()` below.
- */
 export function readActionDefaultsFromCatalog(
   actionSlug: string,
 ): Record<string, unknown> | null {

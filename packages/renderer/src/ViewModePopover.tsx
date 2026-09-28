@@ -12,27 +12,12 @@ import { setCourseStudentsControls } from './courseStudentsControls';
 import { resolveIcon } from './PrimitiveRenderer';
 import { useBackDismiss } from './backStack';
 
-// Floating popover anchored to a DOM element, with a small list of
-// {value,label,icon?} options. Selecting an option calls
-// setFeedControls({viewMode}) and closes the popover. Opened via the
-// `openViewModePopover(...)` helper below — the App-side dispatcher for
-// `feed.set_view_mode` calls it after resolving the anchor from the
-// toolbar's stamped data attributes.
-//
-// Kept in the renderer package so both mobile + plugin-admin can mount
-// one <ViewModePopover /> at the app root and share the exact same UX.
-
 export type ViewModeOption = {
   value: string;
   label: string;
   icon?: string;
 };
 
-/**
- * Read an action wiring's `args.options` into the {value,label,icon}
- * rows a picker draws. Every option list in the catalog has this shape,
- * and every dispatcher case was parsing it again by hand.
- */
 export function readPickerOptions(raw: unknown): ViewModeOption[] {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -62,62 +47,35 @@ export type PopoverStateKey =
   | 'course_students_sort_by'
   | 'course_students_sort_dir';
 
-/**
- * Write a picked option into whichever control slice the key names.
- *
- * Lives here rather than inside the popover because the Saved Posts
- * screen draws the SAME choice as a bottom sheet (Noor's designs 3 and
- * 5) — two frames, one rule about what a pick means. Splitting it would
- * be two places to add the next state key to, and one of them would get
- * forgotten.
- */
 export function applyControlPick(stateKey: PopoverStateKey, value: string): void {
   if (stateKey === 'sort') {
     setFeedControls({ sort: value });
     return;
   }
   if (stateKey === 'spaces_sort') {
-    // Sort keys are catalog-driven now (fc-space-card.sort_specs).
-    // Any non-empty string is accepted; the renderer's spec lookup
-    // falls back to title-asc when the value isn't mapped.
     if (value.length > 0) setSpacesControls({ sort: value as SpacesSort });
     return;
   }
   if (stateKey === 'space_detail_sort') {
-    // fc-space-post-toolbar sort. Writes into spaceDetailControls.sort;
-    // fc-space-feeds' order_by_type query_param binds to this state key
-    // and auto-refetches when it changes.
     if (value.length > 0) setSpaceDetailControls({ sort: value });
     return;
   }
   if (stateKey === 'bookmarks_sort') {
-    // fc-bookmarks binds order_by_type to this key, so the pick is a
-    // refetch — same contract as space_detail_sort above.
     if (value.length > 0) setBookmarkControls({ sort: value });
     return;
   }
   if (stateKey === 'post_detail_comment_sort') {
-    // The one pick here that is NOT a refetch. FluentCommunity's
-    // getComments is hardcoded to created_at ASC and takes no sort
-    // parameter, so the thread component reorders rows it already holds
-    // — see postDetailControls.comment_sort. `touched` is what stops the
-    // next payload's space default overwriting the choice.
+    // Not a refetch: FC's getComments takes no sort, so the thread reorders rows it holds; `touched` stops the space default overwriting the pick.
     if (value.length > 0) {
       setPostDetailControls({ comment_sort: value, comment_sort_touched: true });
     }
     return;
   }
   if (stateKey === 'profile_follow_sort') {
-    // A refetch, unlike the comment sort directly above: FC's
-    // FollowController reads sort_by ('id' | 'alphabetical') and both
-    // follow DataSources bind it as a query param.
     if (value.length > 0) setProfileControls({ follow_sort: value });
     return;
   }
   if (stateKey === 'member_directory_sort_by') {
-    // All Members. Both halves of the sort sheet are refetches: the
-    // directory and its summary bind sort_by + sort_dir as query params,
-    // and FluentCommunity sorts server-side.
     if (value.length > 0) setMemberDirectoryControls({ sort_by: value });
     return;
   }
@@ -126,15 +84,10 @@ export function applyControlPick(stateKey: PopoverStateKey, value: string): void
     return;
   }
   if (stateKey === 'course_list_sort') {
-    // Courses (state 4). A refetch: fc-course-list binds sort_by, and
-    // FluentCommunity sorts server-side.
     if (value.length > 0) setCourseListControls({ sort_by: value });
     return;
   }
   if (stateKey === 'course_students_sort_by') {
-    // A course's Students page (state 10). Both halves are refetches:
-    // fc-course-students binds sort_by + sort_dir, and FluentCommunity
-    // sorts server-side.
     if (value.length > 0) setCourseStudentsControls({ sort_by: value });
     return;
   }
@@ -204,8 +157,7 @@ export function ViewModePopover() {
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key === 'Escape') setOpen(false);
     };
-    // Bind on the next tick so the click that opened us doesn't
-    // immediately close us.
+    // Bind on the next tick so the opening click doesn't close us.
     const touchOpts: AddEventListenerOptions = { capture: true, passive: true };
     const t = setTimeout(() => {
       document.addEventListener('mousedown', onDoc, true);
@@ -224,8 +176,6 @@ export function ViewModePopover() {
 
   if (!open || !detail) return null;
 
-  // Anchor to the right edge of the trigger button, top-aligned to its
-  // bottom (dropdown-below convention). Clamp to viewport.
   const menuWidth = 180;
   const gap = 6;
   const viewportW = typeof window !== 'undefined' ? window.innerWidth : 0;

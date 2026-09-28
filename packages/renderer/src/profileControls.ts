@@ -1,51 +1,13 @@
 import { useEffect, useState } from 'react';
 
-// Whose profile is on screen, and which tab of it.
-//
-// One key does almost all the work: `member_id`. Both endpoints the
-// profile needs take it —
-//
-//   /members/profile?member_id=N   the header (fcom-mobile resolves the
-//                                  XProfile by user_id; `username` is the
-//                                  only other accepted key)
-//   /feeds?user_id=N               that member's posts. MEASURED: it is
-//                                  the only param that narrows /feeds by
-//                                  author. `author_id` and `username` are
-//                                  ignored, and so is a key that does not
-//                                  exist.
-//
-// — so the shell publishes one number and both data sources follow.
-//
-// Two screens ride the same Superstructure and differ only in where that
-// number comes from: the bottom-nav `profile` publishes the VIEWER's id,
-// and `profile-page-details` publishes the member row it was opened
-// with. Neither screen has to know about the other.
-//
-// Session-only, deliberately. Which profile you were last looking at is
-// not a preference, and persisting it would open the app on a stranger.
+// Session-only: persisting it would reopen the app on a stranger's profile.
 
 export type ProfileControls = {
-  /** The user whose profile is being drawn. 0 = nobody yet. */
   member_id: number;
-  /** Active tab slug. FluentCommunity's own profile navs name these. */
   tab: string;
-  /**
-   * Which of the two follow lists the `profile-follows` screen shows —
-   * 'followings' or 'followers'.
-   *
-   * The portal keeps both at one address behind a two-item strip
-   * (`/portal/u/<name>/follow/followings`), so this app does too: one
-   * screen, one strip, and the header count that was tapped decides
-   * which item opens.
-   */
   follow_view: string;
-  /**
-   * The follow lists' search box. Server-side: FluentCommunity matches
-   * display_name OR username, so this is a query param rather than a
-   * client-side filter over a loaded page.
-   */
   follow_search: string;
-  /** FluentCommunity's own keys — 'id' is Most Recent, 'alphabetical'. */
+  // FluentCommunity's own keys: 'id' (Most Recent) or 'alphabetical'.
   follow_sort: string;
 };
 
@@ -54,7 +16,6 @@ const EVENT = 'appza:profile-controls-change';
 const DEFAULTS: ProfileControls = {
   member_id: 0,
   tab: 'posts',
-  // The portal opens on Following, and so does this.
   follow_view: 'followings',
   follow_search: '',
   follow_sort: 'id',
@@ -77,8 +38,7 @@ export function setProfileControls(patch: Partial<ProfileControls>): void {
       typeof patch.follow_view === 'string' && patch.follow_view
         ? patch.follow_view
         : current.follow_view,
-    // Empty string is a REAL value here — clearing the search box has to
-    // clear the param — so this cannot use the truthiness test above.
+    // Empty string is a real value: clearing the search must clear the param.
     follow_search:
       typeof patch.follow_search === 'string' ? patch.follow_search : current.follow_search,
     follow_sort:
@@ -100,15 +60,7 @@ export function setProfileControls(patch: Partial<ProfileControls>): void {
   }
 }
 
-/**
- * The `state.profile_controls.*` entries a DataSource query param or a
- * clause can read.
- *
- * `member_id` is published as a STRING because query params are strings
- * on the wire and an empty one is how `resolveQueryParams` decides to
- * omit a param entirely — which is what should happen before any profile
- * is chosen, rather than fetching `?member_id=0`.
- */
+// member_id as a string: an empty param is omitted instead of fetching ?member_id=0.
 export function profileStateEntries(state: ProfileControls): Record<string, unknown> {
   return {
     'profile_controls.member_id': state.member_id > 0 ? String(state.member_id) : '',
@@ -125,10 +77,7 @@ export function useProfileControls(): ProfileControls {
     if (typeof window === 'undefined') return;
     const onChange = () => setState(current);
     window.addEventListener(EVENT, onChange);
-    // Re-read once the listener is up — the shell publishes on screen
-    // activation, which can land between this component's render and
-    // this effect. The feed controls learned that the hard way in
-    // chunk 5: the event fired into a subscriber that did not exist yet.
+    // Re-read: the shell may publish between render and this effect.
     setState(current);
     return () => window.removeEventListener(EVENT, onChange);
   }, []);

@@ -1,36 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useBackDismiss } from './backStack';
 
-/**
- * The moderation review modal — Noor's designs 29 and 30.
- *
- * Opened by an ACTION rather than mounted by a placement, like the poll
- * voters sheet and the options sheet, so it fetches its own list and has
- * no useDataSource anywhere in its tree. No URL is written down here:
- * every endpoint arrives from the catalog action's args (D51).
- *
- * Two tabs, and only one of them fetches. **Details** draws the content
- * the banner was attached to, which the caller already holds — the row
- * that drew the banner IS the post — so opening the modal shows
- * something instantly rather than a spinner over a post you were just
- * looking at. **Reports** is the fetch.
- *
- * The CTAs do not act here. They hand their verb to `onAct`, and
- * moderationActions opens the doc's confirm and sends the write. This
- * modal closes when that write reports success, which it announces on a
- * window event — the confirm can be cancelled, so closing optimistically
- * would be a lie.
- *
- * Opened two ways. From the flagged banner on a post it offers Dismiss and
- * Unpublish, as it always has. From a report row on the Moderation screen
- * (doc states 9–32) the row says which of the four buttons its status
- * allows — Dismiss, Unpublish, Publish, Delete — and which report they act
- * on.
- */
+// The CTAs only hand their verb to onAct; the modal closes on MODERATION_DONE_EVENT, since the confirm can still be cancelled.
 
 export type ModerationReport = {
   id?: number | string;
-  /** Derived by the plug-in: the bold line design 30 draws. */
   headline?: string;
   explanation?: string;
   created_at?: string;
@@ -38,12 +12,10 @@ export type ModerationReport = {
   reason?: string;
   reason_label?: string;
   reporter_name?: string;
-  /** Design 12's face. Empty on an auto-flag. */
   reporter_avatar?: string;
   is_auto_flagged?: boolean;
 };
 
-/** The four verbs a review can offer. */
 export type ModerationReviewAct = 'dismiss' | 'unpublish' | 'publish' | 'delete';
 
 export type ModerationReviewPresentation = {
@@ -53,9 +25,7 @@ export type ModerationReviewPresentation = {
   unpublishLabel: string;
   publishLabel: string;
   deleteLabel: string;
-  /** Design 28's bold line over an auto-flag, in place of a reporter. */
   autoFlagHeading: string;
-  /** Design 12's "Reported for Spam" under the reporter's name. */
   reportedForPrefix: string;
   reportedAtPrefix: string;
   postedInPrefix: string;
@@ -73,15 +43,13 @@ export type ModerationReviewPresentation = {
   deleteConfirmTitle: string;
   deleteConfirmMessage: string;
   deleteConfirmCta: string;
-  /** The actions the CTAs dispatch. See the note on their catalog props. */
   setStatusActionSlug: string;
   deleteActionSlug: string;
 };
 
 export type ModerationReviewOpenDetail = {
-  /** Where the reports live. From the action's param_schema. */
   endpoint: string;
-  /** `post_id` for a post, `parent_id` for a comment — FC Pro's own split. */
+  // `post_id` for a post, `parent_id` for a comment: FC Pro's own split.
   idParam: string;
   contentId: number | string;
   contentType: string;
@@ -92,27 +60,16 @@ export type ModerationReviewOpenDetail = {
     authorAvatar?: string;
     spaceTitle?: string;
     reportedAt?: string;
-    /** Design 9's picture under the words. */
     mediaUrl?: string;
   };
-  /**
-   * Which buttons to draw. Absent on the banner path, which offers Dismiss
-   * and Unpublish.
-   */
   buttons?: Partial<Record<ModerationReviewAct, boolean>>;
-  /**
-   * The report the buttons act on. From a report row it is that row's; on
-   * the banner path it is the first fetched report.
-   */
   reportId?: number | string;
   presentation: ModerationReviewPresentation;
   authHeader?: string;
-  /** Fired for each CTA; moderationActions owns the confirm + request. */
   onAct: (act: ModerationReviewAct, reportId: number | string) => void;
 };
 
 const OPEN_EVENT = 'appza:open-moderation-review';
-/** The app announces a successful status write here; we close on it. */
 export const MODERATION_DONE_EVENT = 'appza:moderation-review-done';
 
 export function openModerationReview(detail: ModerationReviewOpenDetail): void {
@@ -156,9 +113,7 @@ export function ModerationReviewSheet() {
     };
   }, []);
 
-  // Fetched on OPEN rather than on first tab switch: the Reports tab
-  // carries its own count in the label, so the number has to be known
-  // before anyone taps it.
+  // Fetched on open: the Reports tab label carries the count.
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -167,8 +122,7 @@ export function ModerationReviewSheet() {
       `&content_type=${encodeURIComponent(open.contentType)}&per_page=20`;
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (open.authHeader) headers.Authorization = open.authHeader;
-    // `omit`: a wp-admin cookie would shadow the application password
-    // and WP core would answer as a guest (see dataFetch fetchProxyText).
+    // `omit`: a wp-admin cookie would shadow the application password and WP would answer as a guest.
     void fetch(url, { headers, credentials: 'omit' })
       .then((r) => r.json())
       .then((j) => {
@@ -189,15 +143,11 @@ export function ModerationReviewSheet() {
   if (!open) return null;
   const p = open.presentation;
   const count = reports?.length ?? 0;
-  // FluentCommunity acts on reports.data[0] and its update marks every
-  // report on the content anyway, so on the banner path the first is the
-  // one to send. A report row names its own — Delete removes that one.
+  // FC acts on reports.data[0] and marks every report on the content, so the banner path sends the first.
   const actableId =
     open.reportId ?? (reports && reports.length > 0 ? reports[0]?.id : undefined);
   const canAct = actableId !== undefined && actableId !== null;
   const buttons = open.buttons ?? { dismiss: true, unpublish: true };
-  // Design order: Dismiss · Unpublish · Publish · Delete, drawing only
-  // those this report's status allows (designs 9, 26, 31).
   const cta: Array<{ act: ModerationReviewAct; label: string; className: string }> = [
     { act: 'dismiss', label: p.dismissLabel, className: 'appza-modreview-dismiss' },
     { act: 'unpublish', label: p.unpublishLabel, className: 'appza-modreview-unpublish' },
@@ -222,8 +172,6 @@ export function ModerationReviewSheet() {
               </span>
             )}
           </div>
-          {/* Every design draws a close cross; the backdrop tap is not
-              discoverable. */}
           <button
             type="button"
             className="appza-modreview-close"
@@ -293,8 +241,6 @@ export function ModerationReviewSheet() {
                 reports.map((r, i) => {
                   const time = r.created_at_relative ?? r.created_at ?? '';
                   const why = r.explanation || (r.is_auto_flagged ? r.reason_label : '') || '';
-                  // An auto-flag has no one behind it: design 28 draws the
-                  // site rule as the heading and the rule's reason below.
                   if (r.is_auto_flagged || !r.reporter_name) {
                     return (
                       <div className="appza-modreview-report is-auto" key={r.id ?? i}>
@@ -306,7 +252,6 @@ export function ModerationReviewSheet() {
                       </div>
                     );
                   }
-                  // Design 12: face, name, "Reported for Spam", time, note.
                   return (
                     <div className="appza-modreview-report is-person" key={r.id ?? i}>
                       {r.reporter_avatar ? (

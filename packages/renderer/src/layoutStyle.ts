@@ -1,15 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { LayoutStyle } from '@appza/schemas';
 
-/**
- * Converts a LayoutStyle (author-declared, JSON-serialisable knobs) into
- * a React CSSProperties object suitable for inline `style={}` on the
- * primitive wrapper element.
- *
- * Numeric values are treated as pixels; strings pass through untouched
- * so callers can express `%`, `rem`, `auto`, etc. Undefined branches
- * produce no CSS at all — leaving the browser / Ionic default in place.
- */
 export function layoutStyleToCss(ls: LayoutStyle | undefined): CSSProperties {
   if (!ls) return {};
   const s: CSSProperties = {};
@@ -57,10 +48,6 @@ export function layoutStyleToCss(ls: LayoutStyle | undefined): CSSProperties {
   if (ls.textAlign !== undefined) s.textAlign = ls.textAlign;
 
   if (ls.flex) {
-    // Any flex knob implies flex display — spare callers from setting it
-    // explicitly. If they set display via a future knob, we lose to them
-    // by insertion order (React style objects don't collide predictably;
-    // this is the common case).
     s.display = 'flex';
     if (ls.flex.direction !== undefined) s.flexDirection = ls.flex.direction;
     if (ls.flex.wrap !== undefined) s.flexWrap = ls.flex.wrap;
@@ -78,7 +65,6 @@ export function layoutStyleToCss(ls: LayoutStyle | undefined): CSSProperties {
   return s;
 }
 
-/** True when the object would produce at least one CSS property. */
 export function hasLayoutStyle(ls: LayoutStyle | undefined): boolean {
   if (!ls) return false;
   return Object.keys(ls).length > 0;
@@ -100,8 +86,7 @@ function applyBorderSide(
   if (!b) return;
   if (b.width !== undefined) {
     (s as Record<string, unknown>)[`border${side}Width`] = px(b.width);
-    // A width without an explicit style renders as `none` by CSS default;
-    // pick `solid` so a naked width knob still draws a line.
+    // A bare width renders nothing under CSS's default `none` style.
     if (b.style === undefined && b.width > 0) {
       (s as Record<string, unknown>)[`border${side}Style`] = 'solid';
     }

@@ -5,15 +5,6 @@ import { resolveIcon } from './PrimitiveRenderer';
 import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
 import { useBackDismiss } from './backStack';
 
-// Bottom-sheet role picker opened when the member overflow menu's
-// "Change Membership" row fires (member.change_role). Each role row
-// dispatches `member.set_role` with the picked value — the dispatcher in
-// App.tsx handles the HTTP call (POST /spaces/add-member with role).
-//
-// Design: uppercase subject header, bold "Change Membership" title,
-// selectable row for each role (icon + label), current role gets a
-// highlighted background + a check icon on the right.
-
 export type MemberRoleOption = {
   value: string;
   label: string;

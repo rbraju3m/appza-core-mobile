@@ -6,20 +6,7 @@ import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
 import { appzetAttrs, childAttrs } from './designTimeAttrs';
 import { useBackDismiss } from './backStack';
 
-// Slug of the catalog AppZet this modal stands in for. Used only to
-// address the builder's Properties panel; the runtime never reads it.
 const DEFAULT_APPZET_SLUG = 'fc-add-member-modal';
-
-// Centered modal opened by member.add. Three visual states in one shell:
-//   1. no user picked  → search input + result list
-//   2. user picked     → chip with X on top; role dropdown enabled
-//   3. role picked     → submit becomes "ADD AS {ROLE|upper}" + enabled
-//
-// Submit dispatches the wired submit action slug (default `member.add`)
-// through the shared ActionDispatch context — the App.tsx handler owns
-// the actual POST /wp-json/fcom-mobile/api/v1/spaces/add-member call.
-// The picked user_id + role ride the invocation args, so the handler
-// doesn't need to reach back into modal-local state.
 
 export type AddMemberRoleOption = {
   value: string;
@@ -56,32 +43,15 @@ type OpenDetail = {
   usersEndpoint?: string;
   spaceSlug?: string;
   authHeader?: string;
-  /**
-   * WP REST nonce (window.appzaCoreConfig?.restNonce). Sent as
-   * `X-WP-Nonce` on the users-search fetch when present. Lets the
-   * plugin-admin authenticate via the WP session cookie instead of
-   * relying on Basic Auth from the app-mode login flow — otherwise
-   * the picker returns 401 whenever the site admin hasn't logged
-   * into the mobile shell.
-   */
+  // X-WP-Nonce lets plugin-admin authenticate via the WP cookie; without it the picker 401s.
   restNonce?: string;
   submitActionSlug?: string;
   submitArgs?: Record<string, unknown>;
-  /**
-   * Catalog slug of the AppZet whose props drove this open. Carried so
-   * the builder can select the right row when the modal is clicked in
-   * the simulator — the shell resolves it from the opener action's
-   * `form_appzet_slug`, which may point at a customer's own variant.
-   */
   appzetSlug?: string;
 
-  // --- Visibility ---
   hidden?: boolean;
   showClose?: boolean;
 
-  // --- Style. Every one of these lands on the root as a CSS custom
-  // property; styles.css reads them with the stock value as fallback, so
-  // an unset prop costs nothing and no branch is needed per knob. ---
   closeIcon?: string;
   searchIcon?: string;
   modalMaxWidth?: string;
@@ -103,15 +73,9 @@ type OpenDetail = {
   submitRadius?: string;
   submitDisabledBgColor?: string;
 
-  /**
-   * Per-child Wrapper overrides as inline CSS, by superstructure child
-   * index. Composed AppZets get the equivalent from PlacementRenderer;
-   * a bespoke overlay has to be handed it.
-   */
   childStyles?: Record<number, CSSProperties>;
 };
 
-/** Slug-addressed so a patch reaches only the modal it was authored for. */
 type PatchDetail = { appzetSlug: string; patch: Partial<OpenDetail> };
 
 export function openAddMemberModal(detail: OpenDetail): void {
@@ -124,14 +88,7 @@ export function closeAddMemberModal(): void {
   window.dispatchEvent(new CustomEvent(CLOSE_EVENT));
 }
 
-/**
- * Re-authors an already-open modal in place. The builder calls this when
- * a prop changes while the modal is on screen — re-opening instead would
- * throw away the search text and picked user, so editing a label would
- * reset the form under the user.
- *
- * No-op when the modal is closed; the next open reads fresh props anyway.
- */
+// Patches in place: re-opening would drop the search text and picked user.
 export function patchAddMemberModal(
   appzetSlug: string,
   patch: Partial<OpenDetail>,
@@ -187,10 +144,7 @@ export function AddMemberModal() {
       setSelectedRole(null);
       setSubmitting(false);
       setRoleOpen(false);
-      // Kick loading to true immediately so the initial paint shows
-      // the spinner row instead of the "no users" empty state — the
-      // fetch effect runs on the same tick but its own setLoading
-      // lands on the next render.
+      // Spinner on first paint: the fetch effect's setLoading lands a render late.
       setLoading(true);
       setOpen(true);
     };
@@ -218,24 +172,18 @@ export function AddMemberModal() {
     };
   }, []);
 
-  // Focus the search input once the modal opens.
   useEffect(() => {
     if (!open) return;
     const id = window.setTimeout(() => searchInputRef.current?.focus(), 80);
     return () => window.clearTimeout(id);
   }, [open]);
 
-  // Debounce the search query (250ms) so we don't hammer the DS on
-  // every keystroke.
   useEffect(() => {
     if (!open) return;
     const id = window.setTimeout(() => setDebouncedQuery(query.trim()), 250);
     return () => window.clearTimeout(id);
   }, [query, open]);
 
-  // Fetch users from the search endpoint whenever the debounced query
-  // or space slug changes. The endpoint may not yet exist on the
-  // fcom-mobile plugin — surface a soft warning instead of exploding.
   useEffect(() => {
     if (!open || !detail || selectedUser) return;
     const endpoint = detail.usersEndpoint;
@@ -252,10 +200,6 @@ export function AddMemberModal() {
 
     setLoading(true);
     setError(null);
-    // Send cookies + WP nonce when the shell provided one so a
-    // WP-admin session authenticates the request; fall back to
-    // Basic Auth (mobile shell / app-mode) when nonce is missing.
-    // WP core picks whichever wire the caller ships.
     void fetch(url.toString(), {
       method: 'GET',
       credentials: detail.restNonce ? 'include' : 'omit',
@@ -274,10 +218,7 @@ export function AddMemberModal() {
           jsonRec && 'response' in jsonRec
             ? (jsonRec.response as Record<string, unknown> | undefined)
             : undefined;
-        // Payload shape varies: our appza-core endpoint puts data at the
-        // top level (`{response:{status,message}, data:[]}`), fcom-mobile
-        // endpoints usually put it inside `response.data` or `response.items`,
-        // and raw WP list endpoints just return a top-level array. Try all.
+        // Payload shape varies by endpoint: top-level data, response.data/items, or a bare array.
         const dataArr = Array.isArray(jsonRec?.data)
           ? (jsonRec!.data as unknown[])
           : Array.isArray(jsonRec?.items)
@@ -318,8 +259,6 @@ export function AddMemberModal() {
   useBackDismiss(!(!open || !detail), () => handleClose());
 
   if (!open || !detail) return null;
-  // `hidden` is an author kill-switch for the whole overlay, same as on
-  // any other AppZet — honoured before anything else renders.
   if (detail.hidden) return null;
 
   const closeIcon = resolveIcon(detail.closeIcon ?? 'close');
@@ -327,9 +266,6 @@ export function AddMemberModal() {
   const caretIcon = roleOpen ? resolveIcon('chevron-up') : resolveIcon('chevron-down');
   const chipCloseIcon = resolveIcon('close');
 
-  // Authored style lands as custom properties on the backdrop; every
-  // rule in styles.css reads `var(--appza-am-*, <stock value>)`, so an
-  // unset prop is simply absent and the default survives.
   const styleVars = {
     '--appza-am-backdrop': detail.backdropColor,
     '--appza-am-bg': detail.modalBgColor,
@@ -390,9 +326,7 @@ export function AddMemberModal() {
         role: selectedRole.value,
       },
     });
-    // The App.tsx handler decides when to close (success/failure). Fall
-    // back to closing on our own after a short grace so a broken handler
-    // doesn't strand the modal open forever.
+    // Fallback close so a broken handler can't strand the modal open.
     window.setTimeout(() => {
       setSubmitting(false);
       setOpen(false);
@@ -603,12 +537,7 @@ export function AddMemberModal() {
           </div>
         </div>
 
-        {/* The design-time tag sits on the footer, not the button. The
-            submit is `disabled` until a user and role are picked, and
-            browsers fire no click at all on a disabled control — tagged
-            directly, this child could never be selected in the builder.
-            Tagging the wrapper also mirrors the composed path, where the
-            stamps live on the ss-child wrapper rather than the primitive. */}
+        {/* Tag on the footer: a disabled submit gets no clicks, so it would be unselectable. */}
         <div
           className="appza-add-member-footer"
           style={childStyle(8)}

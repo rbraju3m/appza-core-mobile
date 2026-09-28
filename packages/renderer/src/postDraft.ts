@@ -3,19 +3,7 @@ import { useEffect, useState } from 'react';
 import { getFcComposerSettings } from './fcRuntimeSettings';
 import { getDocumentDraft } from './documentDraft';
 
-// The create-post composer's draft — what the user has typed, where it
-// is going, and what the space they chose allows.
-//
-// Held in a slice rather than in the DOM for the same reason the chat
-// draft is: other things write it. Picking a space replaces the topic
-// chips and can invalidate the selection; opening the screen from a
-// post's 3-dot menu prefills it; posting clears it; and the appbar's
-// Post button — which is a different AppZet on a different placement —
-// has to know whether the draft is postable at all.
-//
-// Mirrors the chatControls / bookmarkControls event-backed store
-// pattern. Not persisted: a draft restored into a session that has moved
-// on posts into a space the user is no longer looking at.
+// Not persisted: a restored draft would post into a space the user has moved on from.
 
 export type PostDraftTopic = {
   id: string;
@@ -24,157 +12,64 @@ export type PostDraftTopic = {
 };
 
 export type PostDraftImage = {
-  /** The public URL the upload returned — what `media_images` carries. */
   url: string;
-  /** FluentCommunity's Media row id, when the upload reported one. */
   media_id?: string;
 };
 
-/**
- * The one video a post may carry. FluentCommunity allows exactly one, and
- * it is exclusive with images — `content_type` is a single value.
- */
+// FC allows one video per post, exclusive with images.
 export type PostDraftVideo = {
   kind: 'oembed' | 'html' | 'upload';
-  /** oEmbed only — the source URL, which is what post.create sends. */
   url?: string;
-  /** The markup to render: the provider's iframe, or the pasted one. */
   html?: string;
-  /** oEmbed poster, when the provider gave one. */
   image?: string;
   provider?: string;
   title?: string;
-  /** Upload only — FluentPlayer's media row. */
   media_id?: string;
   media_url?: string;
 };
 
-/**
- * One attached audio. FluentPlayer owns the file; the post stores a
- * reference to it in `meta.audio_medias`.
- */
 export type PostDraftAudio = {
   media_id: string;
   url: string;
   title: string;
 };
 
-/**
- * One poll option.
- *
- * `slug` is present only for an option that already exists on the server
- * — a post being EDITED. FluentCommunity refuses an edit that drops an
- * existing option or blanks its label
- * (`FeedsHelper::getSurveyOptionsUpdateError`), because votes are
- * recorded against the slug and removing it would orphan them. So a
- * slug'd row is neither removable nor blankable, and the sheet has to
- * know which rows those are. A newly-added option omits it; the server
- * issues one on save.
- */
+// `slug` marks an existing option: FC refuses an edit that drops or blanks one (votes are keyed on it).
 export type PostDraftPollOption = {
   label: string;
   slug?: string;
 };
 
-/**
- * The attached poll — FluentCommunity calls it a survey.
- *
- * NOT exclusive with the other media, unlike images and video. A survey
- * is the only thing that sets `content_type = 'survey'`; an image or
- * video post stays `'text'` and carries its media in `meta`, verified
- * against this site's own rows. FluentCommunity's SurveyRenderer even
- * takes a `hasTopMedia` prop for the case where a post has both. So a
- * poll rides alongside whatever else is attached.
- */
+// Not exclusive with other media: only a survey sets content_type, images/video live in meta.
 export type PostDraftPoll = {
   type: 'single_choice' | 'multi_choice';
   options: PostDraftPollOption[];
-  /**
-   * 'YYYY-MM-DD HH:MM:SS' in the site's wall-clock, or '' for a poll
-   * that never closes — which is what the portal's "Leave blank for not
-   * end" means, and what FluentCommunity stores when the field is empty.
-   */
+  // Site wall-clock 'YYYY-MM-DD HH:MM:SS', or '' for never closes.
   end_date: string;
 };
 
-/**
- * One attached document — designs 30 and 31.
- *
- * Uploaded on pick, the way the portal's own composer does it, so the
- * shape here is exactly what `Media::getPrivateFileMeta()` returns and
- * what `document_ids` wants back.
- *
- * `id` and `media_key` are both kept because two different endpoints
- * need different ones: `/documents/update` and `/documents/delete` take
- * the row `id`, while FluentCommunity matches `document_ids` entries by
- * `media_key`.
- */
+// Rename/delete take `id`; FC matches `document_ids` by `media_key`.
 export type PostDraftDocument = {
-  /** Media row id — what rename and delete are addressed by. */
   id: string;
-  /** What `document_ids` is matched on when the post is saved. */
   media_key: string;
-  /** Display name. Editable: the design's pencil. */
   title: string;
-  /** FluentCommunity's private download URL, for the preview's glyph. */
   url: string;
   type: string;
 };
 
-/** Where the post is going. '' until the user has chosen. */
 export type PostDraftTarget = '' | 'space' | 'profile';
 
-/**
- * Where a post being EDITED is being moved to — the edit screen's
- * "Move to a different space" checkbox.
- *
- * A separate axis from `target`, and that separation is the point.
- * `target` describes where the post IS, which the "Posted in:" row keeps
- * showing while the move is being chosen (Noor's design 4 draws
- * "Posted in: General" above a destination chip reading "Start Here").
- * Writing the pick into `target` would move the label the user is
- * reading to decide.
- *
- *   ''         the box is unticked — nothing moves
- *   'current'  ticked, nothing picked yet. The chip shows the post's own
- *              space (design 2), and Save sends no move at all — so
- *              ticking the box and changing nothing is a no-op rather
- *              than a write the server would refuse.
- *   'space'    a real destination, in `move_space_id`
- *   'profile'  out of every space and onto the author's profile
- */
+// Separate from `target`, which keeps showing where the post IS. 'current' = ticked but nothing picked: Save sends no move.
 export type PostDraftMoveTarget = '' | 'current' | 'space' | 'profile';
 
 export type PostDraft = {
-  /**
-   * The post being EDITED, or null when composing a new one.
-   *
-   * Set by the prefill, cleared by `resetPostDraft` — which `nav.push`
-   * runs on entry to BOTH composer screens, so it cannot survive into a
-   * fresh compose.
-   *
-   * Two gates need it: documents live in a different slice while
-   * editing, and the composer's own paperclip writes somewhere
-   * `post.edit` deliberately does not read.
-   */
+  // null when composing; cleared by resetPostDraft on entry to both composer screens.
   edit_feed_id: number | null;
 
-  /**
-   * May THIS viewer move THIS post to another space?
-   *
-   * Comes off the post's own permissions bag
-   * (`data.permissions.can_move_space`), which the plug-in derives from
-   * FluentCommunity's server rule — `community_admin` globally or in the
-   * post's space — and NOT from the portal's looser checkbox, which
-   * shows for a moderator whose write the API then refuses.
-   *
-   * False for everyone else, and false on a fresh compose: there is
-   * nothing to move.
-   */
+  // From the post's permissions bag (FC's server rule), not the portal's looser checkbox.
   can_move_space: boolean;
-  /** The checkbox itself. */
   move_target: PostDraftMoveTarget;
-  /** FluentCommunity's space **id** — what `new_space_id` wants. */
+  // FC space id, what `new_space_id` wants.
   move_space_id: string;
   move_space_title: string;
   move_space_logo: string;
@@ -183,103 +78,39 @@ export type PostDraft = {
   target: PostDraftTarget;
   space_slug: string;
   space_title: string;
-  /** Avatar image for the chip. Empty when the space has none. */
   space_logo: string;
-  /** FluentCommunity's per-space emoji, drawn when there is no logo. */
   space_emoji: string;
-  /** 'public' | 'private' | 'secret' — decides the padlock vs globe. */
   space_privacy: string;
-  /**
-   * Whether the announcement email may be sent to THIS space. FC gates
-   * it on being a moderator globally OR of the space being posted to, so
-   * both halves matter and the second only arrives with the space.
-   */
+  // FC allows announce for a moderator globally OR of this space.
   space_can_announce: boolean;
-  /** The space's Document Library switch plus its who-can-upload rule. */
   space_can_upload_documents: boolean;
-  /** The space refuses a post with no topic on it. */
   topic_required: boolean;
 
-  /** Global community moderator — the half of the announce/schedule gate
-   * that is true before any space is chosen. */
   viewer_is_moderator: boolean;
 
   title: string;
   body: string;
 
-  /** The chips offered, which are a property of the chosen space. */
   topics: PostDraftTopic[];
-  /** The chips picked, as topic ids. */
   topic_ids: string[];
 
   announcement: boolean;
 
-  /**
-   * Images uploaded and waiting to be posted, in pick order.
-   *
-   * Capped at the site's Max Media Per Post. FluentCommunity enforces the
-   * same cap server-side by SLICING the array, so an over-long list would
-   * not error — it would silently drop the tail. Refusing the pick is the
-   * honest version of that.
-   */
+  // Capped at Max Media Per Post; FC silently slices an over-long list server-side.
   images: PostDraftImage[];
 
-  /**
-   * The attached video, or null. One at a time and exclusive with images:
-   * FluentCommunity stores a single `content_type` per post, so attaching
-   * a video to a draft that already carries photos would post one of them
-   * and silently drop the other.
-   */
+  // Exclusive with images: FC stores a single content_type.
   video: PostDraftVideo | null;
 
-  /**
-   * Attached audio, in pick order. NOT exclusive with the other media:
-   * FluentCommunity stores `meta.audio_medias` independently of
-   * `content_type`, so a post can carry audio alongside images or a
-   * video — which is why the exclusivity rule above names only those two.
-   */
+  // Not exclusive: meta.audio_medias is independent of content_type.
   audios: PostDraftAudio[];
 
-  /**
-   * The attached poll, or null. Designs 24 to 29.
-   *
-   * Rides alongside the rest for the reason given on PostDraftPoll: a
-   * survey is the only content_type a poll claims, and media lives in
-   * meta regardless.
-   */
   poll: PostDraftPoll | null;
 
-  /**
-   * Attached documents — designs 30 and 31.
-   *
-   * Exclusive with EVERYTHING else, which is the strongest rule on this
-   * slice and the only one the designs draw directly: design 30's attach
-   * bar has a paperclip and nothing else.
-   *
-   * The reason is FluentCommunity's, not ours. A request carrying
-   * `content_type: 'document'` runs `validateAndSaveDocuments`, which
-   * sets `content_type = 'document'` AFTER `processFeedMetaData` has
-   * already set it to 'survey' for a poll — so a draft with both posts
-   * as a document and the poll is written to meta where nothing renders
-   * it. Images and video lose the same way. The portal solves it the
-   * same way we do: its composer has a `hasActiveApp` computed that is
-   * true when content_type is 'document', and while it holds, the survey,
-   * audio and image blocks are not rendered at all.
-   */
+  // Exclusive with everything: FC's document handling sets content_type last and the rest is lost.
   documents: PostDraftDocument[];
 
-  /**
-   * When the post should publish — 'YYYY-MM-DD HH:MM:SS' in the site's
-   * wall-clock, or '' to publish now. Design 10's grey strip.
-   *
-   * FluentCommunity Pro's SchedulePostHandler takes it on the create
-   * request and, if it is at least 30 minutes out, sets `status =
-   * 'scheduled'` and queues the publish. It is **silently ignored for a
-   * non-moderator** — `if (!is_admin) return $data;` — so a member who
-   * could reach the control would set a time and watch the post publish
-   * immediately. That is why the calendar glyph is gated rather than
-   * merely erroring.
-   */
+  // '' = now. FC Pro silently ignores it for non-moderators, which is why the control is gated.
   scheduled_at: string;
 };
 
@@ -371,14 +202,7 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
     scheduled_at: str(patch, 'scheduled_at', current.scheduled_at),
   };
 
-  // Documents take the whole post. FluentCommunity resolves exactly one
-  // `content_type`, and the document filter runs last — so a draft
-  // carrying documents plus anything else would post as a document and
-  // drop the rest into meta where nothing draws it. Attaching the first
-  // document clears the others; attaching other media clears the
-  // documents. The attach bar hides the losing half either way
-  // (`has_documents` / `can_attach_documents`), so this only fires for a
-  // caller that got there another way.
+  // Documents take the whole post; the attach bar normally prevents reaching this.
   if (Array.isArray(patch.documents) && patch.documents.length > 0) {
     next.images = [];
     next.video = null;
@@ -394,11 +218,7 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
     next.documents = [];
   }
 
-  // A post is one kind of thing. Attaching a video clears the photos and
-  // vice versa, because FluentCommunity's `content_type` is a single
-  // value — sending both would post one and silently drop the other, and
-  // the composer would have shown the user both right up to the moment
-  // they pressed Post.
+  // Video and images are exclusive: one content_type per post.
   if (patch.video != null && next.images.length > 0 && !Array.isArray(patch.images)) {
     next.images = [];
   }
@@ -406,39 +226,23 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
     next.video = null;
   }
 
-  // Changing where the post goes invalidates everything that described
-  // the previous destination. The topic chips belong to the space, so a
-  // selection carried across would submit topic ids the new space has
-  // never heard of — FluentCommunity rejects the post, and the user sees
-  // chips that look chosen but are not in the list any more. Same
-  // invariant chatControls enforces when the thread changes.
-  //
-  // The announcement flag goes with it: it is a permission on the
-  // destination, not a preference of the author's.
+  // A new destination invalidates its topic ids and the announce/schedule verdicts.
   const moved = next.target !== current.target || next.space_slug !== current.space_slug;
   if (moved) {
     next.topic_ids = Array.isArray(patch.topic_ids) ? patch.topic_ids : [];
     if (typeof patch.announcement !== 'boolean') next.announcement = false;
-    // Scheduling goes with it for the same reason. FluentCommunity grants
-    // it to a moderator of the space being posted to, so a time set for
-    // one destination may be worth nothing at the next — and FC ignores a
-    // schedule it will not honour SILENTLY, publishing immediately. A
-    // strip that still read "Scheduled for…" would be a lie.
+    // FC silently publishes immediately a schedule it won't honour at the new space.
     if (typeof patch.scheduled_at !== 'string') next.scheduled_at = '';
   }
 
-  // Unticking the box drops the destination with it. Leaving the pick
-  // behind would mean re-ticking silently re-arms a move the user
-  // cancelled — and the chip is the only thing that ever showed it.
+  // Unticking drops the pick, so re-ticking cannot silently re-arm a cancelled move.
   if (next.move_target === '' || next.move_target === 'current') {
     next.move_space_id = '';
     next.move_space_title = '';
     next.move_space_logo = '';
     next.move_space_emoji = '';
   }
-  // A viewer who may not move the post has no move to hold. The verdict
-  // arrives with the prefill, after the screen has already drawn, so
-  // this is the clause that cleans up if it arrives false.
+  // The verdict arrives with the prefill, after first draw.
   if (!next.can_move_space) {
     next.move_target = '';
     next.move_space_id = '';
@@ -486,13 +290,7 @@ export function setPostDraft(patch: Partial<PostDraft>): void {
   }
 }
 
-/**
- * Add or remove one topic chip, respecting the cap.
- *
- * Returns false when the tap was refused because the cap is reached —
- * the composer flashes the label rather than silently ignoring it, which
- * is how the design communicates the limit.
- */
+// Returns false when refused at the cap, so the composer can flash the label.
 export function togglePostDraftTopic(id: string, max: number): boolean {
   const picked = current.topic_ids.includes(id);
   if (picked) {
@@ -504,14 +302,7 @@ export function togglePostDraftTopic(id: string, max: number): boolean {
   return true;
 }
 
-/**
- * Append uploaded images, stopping at the cap.
- *
- * Returns how many were REFUSED, so the caller can say so — a picker
- * that silently drops half of what you chose is the failure this is
- * written to avoid. Duplicates are dropped too: the same URL twice would
- * post the same image twice.
- */
+// Returns how many were refused.
 export function addPostDraftImages(images: PostDraftImage[], max: number): number {
   const have = current.images;
   const room = max > 0 ? Math.max(0, max - have.length) : images.length;
@@ -522,25 +313,12 @@ export function addPostDraftImages(images: PostDraftImage[], max: number): numbe
   return fresh.length - accepted.length;
 }
 
-/**
- * Drop one image from the draft.
- *
- * Local only, deliberately. FluentCommunity creates the Media row at
- * upload time as an inactive draft and attaches it when the post is
- * saved; fcom-mobile's `/feeds/media-delete` removes a media preview from
- * an EXISTING feed and requires a feed_id, so there is nothing it could
- * be called with here. An abandoned upload stays inactive, which is
- * exactly what the portal leaves behind too.
- */
+// Local only: FC keeps an abandoned upload as an inactive draft row, like the portal.
 export function removePostDraftImage(url: string): void {
   if (!current.images.some((i) => i.url === url)) return;
   setPostDraft({ images: current.images.filter((i) => i.url !== url) });
 }
 
-/**
- * Append uploaded audio, stopping at FluentPlayer's per-post ceiling.
- * Returns how many were refused, same contract as the image adder.
- */
 export function addPostDraftAudios(items: PostDraftAudio[], max: number): number {
   const have = current.audios;
   const room = max > 0 ? Math.max(0, max - have.length) : items.length;
@@ -551,32 +329,17 @@ export function addPostDraftAudios(items: PostDraftAudio[], max: number): number
   return fresh.length - accepted.length;
 }
 
-/** Drop one audio from the draft. Local only, as with the images. */
 export function removePostDraftAudio(mediaId: string): void {
   if (!current.audios.some((a) => a.media_id === mediaId)) return;
   setPostDraft({ audios: current.audios.filter((a) => a.media_id !== mediaId) });
 }
 
-/** Drop the attached video. Local only, for the same reason images are. */
 export function removePostDraftVideo(): void {
   if (current.video === null) return;
   setPostDraft({ video: null });
 }
 
-/**
- * Attach or replace the poll, dropping the rows the server would drop
- * anyway.
- *
- * FluentCommunity skips any option with an empty label when it formats
- * the survey (`FeedsHelper::processFeedContent`), so a draft that kept
- * them would show the author a count the post is not going to have. The
- * trailing blank row the sheet keeps for typing is exactly such a row,
- * which is why this is filtered here rather than in the sheet.
- *
- * Returns false — and attaches nothing — when fewer than two options
- * survive, because a one-option poll is not a poll and FluentCommunity
- * would store it as one.
- */
+// FC skips empty-label options, so they are dropped here; fewer than two attaches nothing.
 export function setPostDraftPoll(poll: PostDraftPoll): boolean {
   const options = poll.options
     .map((o) => ({ ...o, label: o.label.trim() }))
@@ -592,28 +355,12 @@ export function setPostDraftPoll(poll: PostDraftPoll): boolean {
   return true;
 }
 
-/**
- * Drop the poll.
- *
- * Local only and, unlike the media, genuinely free: a poll that was
- * never posted has no server-side row at all. Editing a post that
- * already HAS one is a different matter — FluentCommunity keeps the
- * existing survey unless the whole content type changes — so the sheet
- * offers this only where it can be honoured.
- */
 export function removePostDraftPoll(): void {
   if (current.poll === null) return;
   setPostDraft({ poll: null });
 }
 
-/**
- * Append uploaded documents.
- *
- * No cap: FluentCommunity applies none to `document_ids`, and inventing
- * one here would refuse a post the server would have accepted. Duplicates
- * are dropped by `media_key` — the same file picked twice would otherwise
- * appear twice on the post.
- */
+// No cap: FC applies none to `document_ids`.
 export function addPostDraftDocuments(docs: PostDraftDocument[]): void {
   const have = current.documents;
   const seen = new Set(have.map((d) => d.media_key));
@@ -622,22 +369,12 @@ export function addPostDraftDocuments(docs: PostDraftDocument[]): void {
   setPostDraft({ documents: [...have, ...fresh] });
 }
 
-/**
- * Drop one document from the draft.
- *
- * Local only — the SERVER-side removal is the caller's, because unlike
- * an image or an audio file a document genuinely can be deleted before
- * it is attached to anything: `/documents/delete` resolves an upload with
- * no `feed_id` and permits it as long as the media belongs to the asking
- * user. The shells make that call and then come here, so a failed delete
- * leaves the row visible rather than silently losing the user's file.
- */
+// Local only; the shells delete server-side first, so a failed delete keeps the row.
 export function removePostDraftDocument(id: string): void {
   if (!current.documents.some((d) => d.id === id)) return;
   setPostDraft({ documents: current.documents.filter((d) => d.id !== id) });
 }
 
-/** Rename one document locally, after `/documents/update` has agreed. */
 export function renamePostDraftDocument(id: string, title: string): void {
   const trimmed = title.trim();
   if (trimmed === '') return;
@@ -647,57 +384,21 @@ export function renamePostDraftDocument(id: string, title: string): void {
   });
 }
 
-/**
- * The draft as flat `state.*` keys.
- *
- * ONE builder, used by both the screen's placement-level `visible_when`
- * bag and the child-level evaluator, because the two would otherwise
- * describe the same fact in two vocabularies — and a clause written
- * against the wrong one fails silently in the direction that hides a
- * control (P104).
- *
- * Everything is 'yes' / 'no' rather than a boolean: placements have
- * always been authored that way, and one shape across both levels is
- * worth more than matching the slice's own types.
- */
+// One builder for both placement and child visible_when, so the two vocabularies cannot drift.
 export function postDraftStateEntries(draft: PostDraft): Record<string, unknown> {
   const hasOtherMedia =
     draft.images.length > 0 ||
     draft.video !== null ||
     draft.audios.length > 0 ||
     draft.poll !== null;
-  // Documents live in TWO slices, and the gate has to see both.
-  //
-  // Creating a post puts them on this draft. EDITING one puts them in
-  // `documentDraft`, behind `fc-edit-document-files` — a split chunk 7
-  // made deliberately, because only that slice can tell "the user
-  // removed them all" from "we never learned what they were", and an
-  // empty `document_ids` DELETES every file. Merging the slices would
-  // throw that distinction away.
-  //
-  // So the gate reads both instead. Without this the attach bar showed
-  // all five glyphs while editing a document post, where creating one
-  // leaves only the paperclip — an edit could reach a draft state that
-  // create refuses.
-  //
-  // Scoped to `edit_feed_id`: the add-document screen uses the same
-  // slice, and its files are not an attachment on THIS composer.
+  // Editing keeps documents in documentDraft (an empty `document_ids` deletes every file), so read both.
   const editing = draft.edit_feed_id !== null;
   const editDoc = getDocumentDraft();
   const editingDocuments = editing && editDoc.edit_feed_id !== null && editDoc.files.length > 0;
   const hasDocuments = draft.documents.length > 0 || editingDocuments;
-  // The moderator verdict: a global community moderator, or a moderator
-  // of the space being posted to. FluentCommunity resolves the two the
-  // same way for BOTH the announcement email and scheduling
-  // (`hasPermissionOrInCurrentSpace('community_moderator', $space)`), so
-  // the derivation is shared — but each control gets its own key, because
-  // a calendar gated on something called `can_announce` is a puzzle for
-  // whoever reads the catalog next.
+  // FC grants announce and scheduling on the same rule; separate keys keep the catalog readable.
   const isModerator = draft.viewer_is_moderator || draft.space_can_announce;
   return {
-    // A VERDICT, not a flag the user sets: FluentCommunity grants the
-    // announcement email to a global moderator OR to a moderator of the
-    // space being posted to, so it can turn on when the destination does.
     'post_draft.can_announce':
       draft.viewer_is_moderator || draft.space_can_announce ? 'yes' : 'no',
     'post_draft.target': draft.target,
@@ -705,55 +406,15 @@ export function postDraftStateEntries(draft: PostDraft): Record<string, unknown>
     'post_draft.can_upload_documents': draft.space_can_upload_documents ? 'yes' : 'no',
     'post_draft.has_documents': hasDocuments ? 'yes' : 'no',
     'post_draft.has_other_media': hasOtherMedia ? 'yes' : 'no',
-    // The paperclip's own gate, pre-combined. Two facts — may this
-    // viewer attach documents to this space, and is the draft still free
-    // to become a document post — but one clause, because a control that
-    // needs two conditions is easier to get wrong as two rows in the
-    // catalog than as one derived key here.
-    // ...and never while EDITING. The composer's paperclip writes to
-    // this draft, and `post.edit` deliberately does not read it — the
-    // edit screen's own file block owns documents there, because only
-    // that slice can tell "removed them all" from "never knew what they
-    // were". A glyph that uploads into a slice nobody reads is worse
-    // than no glyph, so it is not drawn.
-    //
-    // ⚠ The consequence, stated plainly: a NON-document post cannot gain
-    // its first document on the edit screen, because the edit file block
-    // renders only for posts that already have some. That gap is older
-    // than this gate and is not closed by it.
+    // Never while editing: post.edit ignores this draft's documents.
     'post_draft.can_attach_documents':
       draft.space_can_upload_documents && !hasOtherMedia && !editing ? 'yes' : 'no',
-    // The EDIT screen's own file block. TWO reasons it can belong there,
-    // and they are different questions:
-    //
-    //   the post already CARRIES files — they have to be listed, renamed
-    //   and removable, whatever the space's settings say today;
-    //
-    //   or the space would let this viewer ADD one, which is what lets a
-    //   plain text post gain its first document.
-    //
-    // It used to be the second alone, and that lost the first. On this
-    // box every document post lives in a space whose Document Library
-    // switch is OFF, so `can_upload_documents` is false for everyone
-    // (FluentCommunity ANDs the switch into it, User::getSpacePermissions)
-    // — the block hid, and editing a post with two PDFs attached showed
-    // no files at all. Nothing was destroyed (post.edit leaves
-    // `document_ids` alone on an unseeded draft) but the screen lied
-    // about what the post held.
-    //
-    // `!hasOtherMedia` guards only the ADD half: documents take the whole
-    // post, so adding one to a post carrying images, a video or a poll
-    // would silently discard the rest. It must not gate the LISTING —
-    // files that exist have to be visible.
+    // Listing existing files must not depend on the space's upload switch; `!hasOtherMedia` guards only adding.
     'post_draft.can_edit_documents':
       editing && (editingDocuments || (draft.space_can_upload_documents && !hasOtherMedia))
         ? 'yes'
         : 'no',
     'post_draft.is_editing': editing ? 'yes' : 'no',
-    // The edit screen's "Move to a different space" row. A verdict about
-    // the VIEWER and this POST, so it can only be true while editing —
-    // `can_move_space` is false on a fresh compose because nothing came
-    // in to set it.
     'post_draft.can_move_space': draft.can_move_space && editing ? 'yes' : 'no',
     'post_draft.can_schedule': isModerator ? 'yes' : 'no',
     'post_draft.has_schedule': draft.scheduled_at !== '' ? 'yes' : 'no',
@@ -761,29 +422,7 @@ export function postDraftStateEntries(draft: PostDraft): Record<string, unknown>
   };
 }
 
-/**
- * Is there enough here for FluentCommunity to accept?
- *
- * Every clause mirrors a refusal the server already makes, so the pale
- * Post button of designs 1 and 4 says the same thing the round trip would
- * — before the round trip:
- *
- *  - **a message**: `/feeds/create` declares `message` required, and the
- *    shells short-circuit an empty one with "Write something to post."
- *  - **a destination**: FeedsController refuses a post with no space
- *    unless the site allows global posts.
- *  - **a topic where the space demands one**: "Please select at least one
- *    topic to post in this space."
- *  - **a title where the site demands one**: `post_title_pref` is
- *    'required'. That one is a SITE setting rather than a draft field,
- *    which is why this reads the runtime store — the verdict genuinely
- *    depends on both, and putting a copy of the pref on the draft would
- *    be one more thing to keep in step.
- *
- * Attachments deliberately do NOT count. FluentCommunity requires a
- * message even on a post that is nothing but a photo, so a draft with an
- * image and no words is not postable and the button must say so.
- */
+// Mirrors FC's own refusals. Attachments don't count: FC requires a message even on a photo post.
 function isPostable(draft: PostDraft): boolean {
   if (draft.body.trim() === '') return false;
   if (draft.target === '') return false;
@@ -792,27 +431,12 @@ function isPostable(draft: PostDraft): boolean {
   return true;
 }
 
-/**
- * Tick or untick "Move to a different space".
- *
- * Ticking arms the move at `'current'` — the post's own space, which is
- * what design 2 draws in the chip the moment the box is checked. It is
- * deliberately NOT a real destination: Save sends nothing for it, so a
- * user who ticks the box, looks at the list and changes their mind
- * leaves the post exactly where it was.
- *
- * A no-op for a viewer without the verdict, so a stray call cannot draw
- * a control FluentCommunity would refuse to honour.
- */
+// Ticking arms 'current', which Save treats as no move.
 export function togglePostDraftMove(on: boolean): void {
   if (on && !current.can_move_space) return;
   setPostDraft({ move_target: on ? 'current' : '' });
 }
 
-/**
- * Back to an empty composer. Called when the create-post screen is left,
- * so the next visit does not open holding the last one's text.
- */
 export function resetPostDraft(): void {
   const wasEmpty = JSON.stringify(current) === JSON.stringify(DEFAULTS);
   current = { ...DEFAULTS };

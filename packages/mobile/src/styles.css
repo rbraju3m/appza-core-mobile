@@ -137,8 +137,6 @@ body {
 }
 
 .appza-menu-item {
-  /* flex, not block: a row may carry an icon. When the menu has no icons
-     (they are all-or-none) the gap collapses and this reads as before. */
   display: flex;
   align-items: center;
   gap: 12px;

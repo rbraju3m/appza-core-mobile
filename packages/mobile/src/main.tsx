@@ -11,18 +11,7 @@ import './styles.css';
 
 import { App, loadStoredAuth } from './App';
 
-// Global fetch patch for the Capacitor shell:
-//   1. Bake `Bypass-Tunnel-Reminder: 1` into every request so dev tunnels
-//      (loca.lt) don't return their HTML "click to continue" interstitial
-//      that WebView fetch() can't click through. Harmless against real
-//      backends — WordPress ignores unknown headers.
-//   2. Rewrite root-relative /wp-json/... URLs to the build-time SITE_URL.
-//      Catalog action wirings ship with relative endpoints so the plugin-
-//      admin sim (browser origin = WP site) can hit them directly. On
-//      Android WebView the JS origin is https://localhost — a relative
-//      /wp-json call would hit Capacitor's local static server and get
-//      index.html (200 + HTML) back, breaking the JSON parse in every
-//      write-action dispatcher.
+// Catalog endpoints are root-relative; on Android the origin is https://localhost, so /wp-json would hit Capacitor's static server and get index.html.
 const SITE_URL =
   (import.meta.env.VITE_APPZA_SITE_URL as string | undefined) ?? (import.meta.env.DEV ? 'http://tutor-lms-mobile.local' : '');
 {
@@ -30,8 +19,7 @@ const SITE_URL =
   window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
     let target: RequestInfo | URL = input;
     let targetHref = '';
-    // Only rewrite string URLs — a Request object already has its own
-    // absolute-URL contract and re-wrapping it would drop the body.
+    // A Request object is left alone — re-wrapping it would drop the body.
     if (typeof input === 'string' && input.startsWith('/')) {
       target = SITE_URL.replace(/\/$/, '') + input;
       targetHref = target as string;
@@ -45,9 +33,7 @@ const SITE_URL =
     } else if (input instanceof Request) {
       targetHref = input.url;
     }
-    // Bypass-Tunnel-Reminder header is only meaningful for loca.lt; adding
-    // it on other hosts triggers a CORS preflight that fails against static
-    // uploads (no allow-headers echo), breaking image loads. Scope tightly.
+    // loca.lt only: elsewhere the extra header triggers a CORS preflight that breaks static image loads.
     if (/(^|\.)loca\.lt(:|\/|$)/i.test(targetHref)) {
       const headers = new Headers(
         init?.headers ?? (input instanceof Request ? input.headers : undefined),
@@ -59,18 +45,7 @@ const SITE_URL =
   };
 }
 
-// Visible in-app debug panel — hovers at the bottom of the screen and
-// shows the last N console log/warn/error lines. Tap the header to
-// collapse/expand. A stopgap so on-device diagnostics don't require
-// chrome://inspect.
-//
-// OFF unless the build asks for it. It shipped in every APK unmounted
-// by nothing — a black box over the bottom third of the screen, which
-// is fine for the team diagnosing something and wrong for anyone else
-// holding the phone. Vite inlines this at build time, so a normal build
-// drops the whole block rather than shipping a dead branch:
-//
-//   VITE_APPZA_DEBUG_PANEL=1 npm run build
+// Opt-in (VITE_APPZA_DEBUG_PANEL=1); Vite drops the block from normal builds.
 if ((import.meta.env.VITE_APPZA_DEBUG_PANEL as string | undefined) === '1') {
   const MAX_LINES = 40;
   const lines: string[] = [];
@@ -152,20 +127,15 @@ if ((import.meta.env.VITE_APPZA_DEBUG_PANEL as string | undefined) === '1') {
   });
 
   document.addEventListener('DOMContentLoaded', ensurePanel);
-  // Trace initial state so user sees SOMETHING even before events fire.
   console.log('[appza-mobile] boot · location.origin=' + window.location.origin);
 }
 
-// Belt-and-braces: on Capacitor Android WebViews the ServiceWorker fetch
-// event doesn't always intercept native <img> loads (varies by WebView
-// vendor + version). Watch the DOM for new <img>s pointing at absolute
-// http(s) URLs and swap their src for a blob URL fetched through the
-// header-injecting window.fetch above. Redundant when SW works — harmless.
+// Some Android WebViews bypass the SW for native <img> loads, so re-fetch them through the patched fetch as blobs.
 const IMG_BLOB_CACHE = new Map<string, string>();
 function rewriteImgToBlob(img: HTMLImageElement) {
   const src = img.getAttribute('src') ?? '';
   if (!src) return;
-  if (!/^https?:\/\//i.test(src)) return; // ignore blob:/data:/relative
+  if (!/^https?:\/\//i.test(src)) return;
   if (img.dataset.appzaBlobified === '1') return;
   img.dataset.appzaBlobified = '1';
   img.dataset.appzaOriginalSrc = src;
@@ -186,7 +156,6 @@ function rewriteImgToBlob(img: HTMLImageElement) {
       img.dataset.appzaBlobified = '';
     });
 }
-// Sweep existing imgs at boot, then watch for new ones.
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('img').forEach(rewriteImgToBlob);
 });
@@ -200,7 +169,6 @@ const imgObserver = new MutationObserver((records) => {
         }
       });
     } else if (r.type === 'attributes' && r.target instanceof HTMLImageElement) {
-      // src changed on an existing <img>; re-blobify if it's a fresh http URL.
       const el = r.target;
       const src = el.getAttribute('src') ?? '';
       if (/^https?:\/\//i.test(src) && el.dataset.appzaOriginalSrc !== src) {
@@ -217,10 +185,7 @@ imgObserver.observe(document.documentElement, {
   attributeFilter: ['src'],
 });
 
-// SW only rewrites loca.lt requests (see public/sw.js). Skip registration
-// when the backend isn't a loca.lt tunnel — on Capacitor's https://localhost
-// origin the WebView often can't fetch /sw.js and the failure surfaces in
-// the debug panel as "Failed to fetch" with no useful effect either way.
+// The SW only matters for loca.lt; on https://localhost the WebView often can't fetch /sw.js.
 if ('serviceWorker' in navigator && /(^|\.)loca\.lt(:|\/|$)/i.test(SITE_URL)) {
   navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((err) => {
     console.warn('[appza-mobile] SW registration failed:', err);

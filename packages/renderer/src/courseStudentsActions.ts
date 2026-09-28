@@ -13,28 +13,12 @@ import {
 } from './CourseAddStudentSheet';
 import { sendJson, type StoredAuthLike } from './postMenuHandlers';
 
-/**
- * A course's Students page (Courses doc, states 8–15): the search, the
- * sort sheet, the Add Student sheet with its confirm, and Remove with its
- * confirm.
- *
- * Both writes are fcom-mobile's wrappers of the calls FluentCommunity's
- * portal makes — POST admin/courses/{id}/students {user_id} and DELETE
- * admin/courses/{id}/students/{user_id}. Every word the dialogs and toasts
- * say travels on the action's args (`{name}`, `{course}` filled here), so
- * the right panel owns them.
- *
- * Shared between the Capacitor shell and the WP-admin simulator.
- */
-
 export type CourseStudentsActionDeps = {
   auth: StoredAuthLike | null;
   authHeader: (auth: StoredAuthLike) => string;
   onError: (msg: string) => void;
   onInfo: (msg: string) => void;
-  /** The shell's catalog lookup for an overlay AppZet's authored props. */
   readAppzetProps: (slug: string) => Record<string, unknown>;
-  /** The right panel's live edits, for an overlay's per-child styles. */
   customizations: unknown;
 };
 
@@ -87,7 +71,6 @@ function addStudentPresentation(props: Record<string, unknown>): CourseAddStuden
   };
 }
 
-/** Returns true when the action was one of these and has been handled. */
 export function tryHandleCourseStudentsAction(inv: ActionInvocation, deps: CourseStudentsActionDeps): boolean {
   const { action_slug, args, item, binding_root } = inv;
   if (!HANDLED.has(action_slug)) return false;
@@ -101,14 +84,11 @@ export function tryHandleCourseStudentsAction(inv: ActionInvocation, deps: Cours
     case 'course_students.set_search': {
       const value =
         typeof argRec.value === 'string' ? argRec.value : itemRec && typeof itemRec.value === 'string' ? itemRec.value : '';
-      // Every keystroke, the ⨯ clear included (state 9) — one request when
-      // the typing stops.
       debounceSearch('course_students', value, (search) => setCourseStudentsControls({ search }));
       return true;
     }
 
     case 'course_students.set_sort': {
-      // "Sort members" (state 10): Sort by and Order, one sheet.
       const sortOptions = readPickerOptions(argRec.options);
       const orderOptions = readPickerOptions(argRec.order_options);
       if (sortOptions.length === 0) {
@@ -147,7 +127,6 @@ export function tryHandleCourseStudentsAction(inv: ActionInvocation, deps: Cours
     }
 
     case 'course_students.open_add': {
-      // The appbar's row is the course (fc-course-detail).
       const courseId = num(readDataPath(effectiveItem, str(argRec.course_id_path) ?? 'data.id'));
       const courseTitle = String(readDataPath(effectiveItem, str(argRec.course_title_path) ?? 'data.title') ?? '');
       if (courseId === null) {
@@ -162,7 +141,6 @@ export function tryHandleCourseStudentsAction(inv: ActionInvocation, deps: Cours
         dataSourceSlug: str(argRec.users_data_source) ?? 'fc-course-other-users',
         courseId,
         eyebrow: courseTitle || undefined,
-        // State 15: "Add <name> to this course?" — CANCEL and ADD.
         onPick: (user) => {
           openMemberRemoveConfirm({
             subject: str(argRec.confirm_title) ?? 'Add Student',
@@ -173,8 +151,7 @@ export function tryHandleCourseStudentsAction(inv: ActionInvocation, deps: Cours
             actionsLayout: 'material',
             confirmTone: 'primary',
             item: { user_id: user.user_id, display_name: user.display_name, course_id: courseId, course_title: courseTitle },
-            // Named in the catalog's args, or the snapshot walker never
-            // ships the action to the phone.
+            // Must be named in the catalog's args, or the snapshot walker never ships the action.
             removeActionSlug: str(argRec.confirm_action_slug) ?? 'course.add_student',
           });
         },
@@ -183,7 +160,6 @@ export function tryHandleCourseStudentsAction(inv: ActionInvocation, deps: Cours
     }
 
     case 'course.remove_student_confirm': {
-      // State 12: "Remove <name> from this course?" — CANCEL and REMOVE.
       const name = String(readDataPath(effectiveItem, str(argRec.subject_path) ?? 'data.display_name') ?? '');
       openMemberRemoveConfirm({
         subject: str(argRec.confirm_title) ?? 'Remove student',

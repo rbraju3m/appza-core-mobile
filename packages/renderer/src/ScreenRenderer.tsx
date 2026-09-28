@@ -40,36 +40,11 @@ type ScreenRendererProps = {
   customizations?: unknown;
   selectedAppzetSlug?: string | null;
   onSelectAppzet?: (slug: string | null) => void;
-  /**
-   * How deep the shell's screen stack is. With it, a push opens at the
-   * top and back returns to where the reader left off; without it the one
-   * IonContent keeps whatever offset the previous screen had. See
-   * screenScrollMemory.
-   */
   navDepth?: number;
 };
 
 type SlotKey = 'header' | 'main' | 'footer' | 'actions' | 'other';
 
-/**
- * Renders a single TemplateScreen into an Ionic app shell.
- *
- * Shell layout (per Slice 1, before chrome AppZets exist in Slice 2):
- *   IonApp > IonPage > IonHeader (appbar) | IonContent (main + actions + other) | IonFooter (tab nav)
- *
- * When chrome Superstructures land in Slice 2, the appbar/footer come from
- * Template.appbar_placements / .nav_placements; until then, a fallback
- * appbar shows the screen slug so the frame still reads as an app.
- *
- * Tokens cascade (DC#09 Q2 visual cascade + DC#13 Q2 customer overrides):
- *   Layer 1: catalog Template.tokens
- *   Layer 2: customizations.template.<slug>.tokens (leaf-level REPLACE)
- *   Layer 3: catalog TemplateScreen.screen_tokens (per-screen narrowing)
- *   Layer 4: customizations.template_screen.<slug>.screen_tokens (override)
- *
- * Resolved tokens become CSS custom properties on the renderer root, so
- * Ionic components inside the subtree pick them up automatically.
- */
 export function ScreenRenderer({
   screen,
   catalog,
@@ -106,9 +81,7 @@ export function ScreenRenderer({
     };
   }, [catalog.template, screen, customizations]);
 
-  // Read state slices that placement-level visible_when may reference.
-  // Adding a slice here is enough — the evaluator looks up state.<key>
-  // out of the assembled `stateBag` at match time.
+  // A slice any placement's visible_when reads must be subscribed here, or its gate compares against undefined.
   const spacesControls = useSpacesControls();
   const spaceDetailControls = useSpaceDetailControls();
   const chatControls = useChatControls();
@@ -117,55 +90,17 @@ export function ScreenRenderer({
   const bookmarkControls = useBookmarkControls();
   const searchControls = useSearchControls();
   const postDraft = usePostDraft();
-  // Subscribed, not read directly: postDraftStateEntries consults the
-  // document draft for the attach bar's gate, so the bag has to be
-  // rebuilt when that slice moves.
   const documentDraft = useDocumentDraft();
   const fcSettings = useFcRuntimeSettings();
-  // Who is looking. Subscribed here so every placement gate re-evaluates
-  // on sign-in and sign-out — a guest feed and a member feed are not the
-  // same screen, and the difference must not wait for another render.
   const viewer = useViewer();
-  // Feed banner. Subscribed here because the banner PLACEMENT gates on
-  // `feed_banner.dismissed` — the × has to remove the whole card, and a
-  // Superstructure that hides all of its own children still leaves its
-  // padded white box behind.
   const bannerControls = useBannerControls();
-  // Whose profile, and which of its tabs. The five tab bodies are
-  // PLACEMENTS on one screen gated on `profile_controls.tab`, the way
-  // space-detail's sub-tabs are — so this slice has to be in the bag or
-  // every one of those gates compares against undefined and the screen
-  // renders a header and nothing else.
   const profileControls = useProfileControls();
   const memberDirectoryControls = useMemberDirectoryControls();
   const moderationControls = useModerationControls();
   const courseListControls = useCourseListControls();
-  // Whether each list that named an `empty_state_key` came back with
-  // rows. Subscribed here for the same reason as the slice above: the
-  // empty states are PLACEMENTS, and a gate that cannot see this value
-  // compares against undefined and never shows.
   const listVerdicts = useListVerdicts();
 
-  // The bottom-nav profile screen IS the viewer's own, so it should say
-  // so however you arrive at it.
-  //
-  // `member_id` used to be published only by the navigation dispatcher —
-  // the branch that runs when a tap NAVIGATES to this screen. The
-  // simulator's screen picker selects a screen directly and never
-  // dispatches, so previewing the profile left member_id at 0: the
-  // source was called with no member, /members/profile answered "User is
-  // not found", and every AppZet on the screen fell back to its
-  // primitives' placeholder labels — the "Text / Text / Button" preview
-  // Noor reported on 2026-09-01. The same gap hit any deep link.
-  //
-  // Here rather than in the two shells because the picker exists in one
-  // of them and the nav path in both, and a fix in one dispatcher is a
-  // fix the other silently lacks.
-  //
-  // Only fires when the screen is not ALREADY showing this viewer, so
-  // switching tabs does not reset the tab. A guest publishes nothing:
-  // a signed-out viewer has no profile, and an empty screen is the
-  // truthful answer there.
+  // Published here, not only on navigation: the simulator's screen picker never dispatches, so the profile would load with no member.
   const screenSlug = screen.app_map_screen_slug;
   const viewerId = viewer.user_id;
   const shownMemberId = profileControls.member_id;
@@ -175,10 +110,7 @@ export function ScreenRenderer({
     if (shownMemberId === viewerId) return;
     setProfileControls({ member_id: viewerId, tab: 'posts' });
   }, [screenSlug, viewerId, shownMemberId]);
-  // Placement-level visible_when reads out of this bag via
-  // `binding.slice(6)` (i.e. `state.<key>` → `<key>`). Register nested
-  // paths as flat keys so `state.space_detail_controls.active_subtab`
-  // resolves without a dot-walk helper.
+  // Nested paths registered as flat keys: the evaluator reads `binding.slice(6)` without a dot-walk.
   const stateBag: Record<string, unknown> = useMemo(
     () => ({
       spaces_tab: spacesControls.tab,
@@ -192,58 +124,24 @@ export function ScreenRenderer({
       'space_detail_controls.documents_view': spaceDetailControls.documents_view,
       'space_detail_controls.media_type': spaceDetailControls.media_type,
       'space_detail_controls.media_view': spaceDetailControls.media_view,
-      // Conversation screen. `messages_view` is the only one a placement
-      // gates on today; the reply keys are here so the reply bar can be
-      // a placement of its own rather than a child the composer hides.
       'chat_controls.messages_view': chatControls.messages_view,
       'chat_controls.can_send': chatControls.can_send,
       'chat_controls.reply_to_id': chatControls.reply_to_id,
       'chat_controls.thread_id': chatControls.thread_id,
       'chat_controls.space_slug': chatControls.space_slug,
-      // Leaderboard. Both keys a placement gates on are VERDICTS, not
-      // counts — `levels_view` decides whether VIEW ALL exists,
-      // `ranks_view` whether the empty state shows (P75). The two
-      // authored keys are here too so the strip and the button can be
-      // read back without a second subscription.
       'leaderboard_controls.range': leaderboardControls.range,
       'leaderboard_controls.levels_scope': leaderboardControls.levels_scope,
       'leaderboard_controls.levels_view': leaderboardControls.levels_view,
       'leaderboard_controls.ranks_view': leaderboardControls.ranks_view,
-      // Saved Posts. `view` is the three-way VERDICT the search pill,
-      // the toolbar and both empty states gate on — 'list' | 'no-match'
-      // | 'empty' | 'loading' (P75). `search` is here so the difference
-      // between the two empty designs stays readable from a placement
-      // if it ever needs to be.
-      // The profile's five tabs. `member_id` rides along so a placement
-      // can tell "no profile chosen yet" from a chosen one without a
-      // second subscription.
       'profile_controls.tab': profileControls.tab,
       'profile_controls.member_id': profileControls.member_id,
-      // Which of the two follow lists the strip is showing.
       'profile_controls.follow_view': profileControls.follow_view,
-      // All Members. `status` is what the four empty states gate on,
-      // beside the directory's own list verdict.
       ...memberDirectoryStateEntries(memberDirectoryControls),
-      // Moderation's tab — what its per-tab empty states gate on.
       ...moderationStateEntries(moderationControls),
       ...courseListStateEntries(courseListControls),
-      // Catalog-named list verdicts (2026-09-02). Every key any mounted
-      // AppZet with an `empty_state_key` has published, flattened the
-      // same way the hand-written verdicts above are, so a placement
-      // gates on `state.list_verdicts.<key>`. Spread rather than listed
-      // because the CATALOG names these, not this file.
       ...Object.fromEntries(
         Object.entries(listVerdicts).map(([key, verdict]) => [`list_verdicts.${key}`, verdict]),
       ),
-      // Post detail. Two VERDICTS and nothing else a placement gates on:
-      // `comments_view` decides between the thread's sort row and the
-      // empty state, `can_comment` between the composer and design 11's
-      // SIGN IN TO COMMENT. Both are published by the fetch, not authored
-      // by a tap — a placement can read state but cannot count rows or
-      // read a permission bag (P75).
-      //
-      // `comment_sort` rides along so the sort ROW can read back what it
-      // is currently showing without a second subscription.
       'post_detail_controls.comments_view': postDetailControls.comments_view,
       'post_detail_controls.can_comment': postDetailControls.can_comment,
       'post_detail_controls.comment_sort': postDetailControls.comment_sort,
@@ -252,45 +150,17 @@ export function ScreenRenderer({
       'bookmark_controls.search': bookmarkControls.search,
       'bookmark_controls.sort': bookmarkControls.sort,
       'bookmark_controls.view_mode': bookmarkControls.viewMode,
-      // Search. Three keys carry the whole screen.
-      //
-      // `view` is the six-way verdict everything except the three result
-      // cards gates on: 'recent' | 'prompt' | 'typing' | 'loading' |
-      // 'results' | 'no-match'.
-      //
-      // `active_scope` is what the three result CARDS gate on, and it is
-      // deliberately not `tab`: it stays '' until the query is long enough,
-      // so a short query mounts no card, fires no request, and cannot ask
-      // /feeds for everything it has with an empty search. It also keeps
-      // exactly one card mounted, which is what makes one request per
-      // settled query true rather than three.
-      //
-      // `tab` is here because the two-condition no-match placements pair it
-      // with `view` — the AND-list case the evaluator below grew for.
+      // `active_scope` stays '' until the query is long enough, so no result card mounts or asks /feeds with an empty search.
       'search_controls.view': searchControls.view,
       'search_controls.active_scope': searchControls.active_scope,
       'search_controls.tab': searchControls.tab,
       'search_controls.post_scope': searchControls.post_scope,
       'search_controls.query': searchControls.query,
       'search_controls.noun': searchControls.noun,
-      // Create post. Built by postDraftStateEntries so this bag and the
-      // CHILD-level evaluator in PlacementRenderer describe the draft
-      // identically — two vocabularies for the same fact is how a clause
-      // ends up silently hiding a control (P104). The announcement row is
-      // its own placement gated on `can_announce` rather than a child the
-      // composer hides, which is what makes Noor's design 4 a catalog
-      // decision (P75).
+      // Built by postDraftStateEntries so this bag and the child-level evaluator describe the draft identically.
       ...postDraftStateEntries(postDraft),
-      // The viewer. `viewer.is_guest` is the key a screen branches on —
-      // signed out AND allowed to be here — rather than a bare
-      // !is_logged_in, which is also true on a locked site where the
-      // screen should never have rendered. See viewer.ts.
+      // Branch on `viewer.is_guest`, not !is_logged_in, which is also true on a locked site.
       ...viewerStateEntries(viewer),
-      // Feed banner. Built by bannerStateEntries for the same reason the
-      // draft is — the CHILD-level evaluator in PlacementRenderer gates
-      // the View More row and the extra CTA slots on these same three
-      // keys, and two spellings of one fact is how a clause ends up
-      // silently hiding a control.
       ...bannerStateEntries(bannerControls),
     }),
     [
@@ -324,8 +194,6 @@ export function ScreenRenderer({
       memberDirectoryControls,
       moderationControls,
       courseListControls,
-      // The whole map, not one key: the catalog names these, so there is
-      // no fixed list to depend on.
       listVerdicts,
       bookmarkControls.view,
       bookmarkControls.search,
@@ -337,21 +205,11 @@ export function ScreenRenderer({
       searchControls.post_scope,
       searchControls.query,
       searchControls.noun,
-      // The whole draft, not five of its fields. postDraftStateEntries
-      // derives `has_documents` / `has_other_media` from the attachment
-      // arrays, so a memo keyed on the old five would keep serving a
-      // stale bag the moment a document was attached — and the attach
-      // bar would not change until something else moved.
+      // The whole draft: has_documents / has_other_media derive from the attachment arrays.
       postDraft,
       documentDraft,
-      // The whole viewer, not its two fields: viewerStateEntries also
-      // derives `is_guest` from the SITE's access level, so the bag has
-      // to be rebuilt when the settings land as well.
+      // The whole viewer: is_guest also derives from the site's access level.
       viewer,
-      // The whole slice: bannerStateEntries compares dismissedUntil
-      // against the clock, so a memo keyed on its fields alone would
-      // still be right — but the slice is three fields and naming them
-      // buys nothing.
       bannerControls,
       fcSettings,
     ],
@@ -361,9 +219,6 @@ export function ScreenRenderer({
   type PlacementEntry = {
     appzet_slug: string;
     props_override: Record<string, unknown> | null;
-    // React key, derived from the placement's position in the UNFILTERED
-    // list. See the note on `key=` below for why it cannot be the index
-    // of the filtered one.
     key: string;
   };
   const bySlot = new Map<SlotKey, PlacementEntry[]>();
@@ -372,13 +227,8 @@ export function ScreenRenderer({
     const slot = normalizeSlot(rawSlot);
     const appzet_slug = typeof p['appzet_slug'] === 'string' ? (p['appzet_slug'] as string) : '';
     if (!appzet_slug) continue;
-    // Placement-level visible_when — currently only supports state.* bindings.
-    // Failing-open on unparseable shapes keeps a stale catalog from silently
-    // dropping placements the renderer doesn't recognize yet.
+    // Fails open on unparseable shapes so a stale catalog doesn't silently drop placements.
     if (!evaluatePlacementVisibleWhen(p as Record<string, unknown>, stateBag)) continue;
-    // Placement-level props_override rides along with the placement; the
-    // renderer inspects `data_source_slug` on it to steer DS resolution
-    // for THIS placement only.
     const rawPropsOverride = p['props_override'];
     const props_override =
       rawPropsOverride && typeof rawPropsOverride === 'object' && !Array.isArray(rawPropsOverride)
@@ -396,15 +246,9 @@ export function ScreenRenderer({
   const otherList = bySlot.get('other') ?? [];
 
   const templateChrome = readTemplateChrome(catalog);
-  // Per-screen appbar override wins over the template's default chrome
-  // (create-post-page needs its own "Post" button + back arrow instead of
-  // the feed's hamburger + search). NULL/empty falls back to template.
   const screenAppbar = readScreenAppbar(screen);
   const appbarPlacements = screenAppbar.length > 0 ? screenAppbar : templateChrome.appbar;
-  // Per-screen nav override. Deliberately NOT the appbar's rule: here an
-  // EMPTY list is an answer, not a miss. null = inherit the template's
-  // nav; [] = this screen has none, which is what post-preview says
-  // (design 9 draws the preview with no footer).
+  // null inherits the template's nav; [] means this screen has none.
   const screenNav = readScreenNav(screen);
   const navPlacements = screenNav ?? templateChrome.nav;
 
@@ -414,14 +258,7 @@ export function ScreenRenderer({
     <IonApp
       className="appza-renderer-app"
       data-screen-slug={screen.app_map_screen_slug}
-      // FluentCommunity's Rich Media Post Layout, stamped on the root so
-      // the FEED card can honour it the way the preview already does.
-      // The preview reads the setting in TSX because it composes its own
-      // markup; fc-post-card is a Superstructure whose order is CSS, so
-      // the setting has to reach a selector. Modern lifts the media above
-      // the author block and runs it edge to edge; nothing else moves —
-      // poll and documents stay under the body in both layouts, which is
-      // the same rule PostPreview follows.
+      // Stamped on the root so fc-post-card, whose order is CSS, can honour FluentCommunity's rich media layout.
       data-fc-rich-post-layout={fcSettings.composer.rich_post_layout}
       style={cssVars as React.CSSProperties}
     >
@@ -466,23 +303,7 @@ export function ScreenRenderer({
             <div className="appza-renderer-screen">
               {mainList.length > 0 && (
                 <section className="appza-renderer-slot" data-slot="main">
-                  {/*
-                    Keyed by the placement's position in the UNFILTERED
-                    list, never by its index in this filtered one.
-
-                    A `visible_when` placement leaves no element behind
-                    when it fails, so the filtered indices of everything
-                    AFTER it shift by one — and with an index-derived key
-                    React reads that as "different component here" and
-                    unmounts + remounts every survivor. On Saved Posts
-                    that cost two extra fetches of the whole bookmark
-                    list every time the search box appeared or vanished:
-                    the card placement had done nothing, but its key moved
-                    from 2 to 0 and its useDataSource started over.
-
-                    Same family as P90 — a failing child leaves no gap, so
-                    nothing positional can address a placement.
-                  */}
+                  {/* Keyed by position in the unfiltered list: a hidden placement would shift the indices and remount (and refetch) every survivor. */}
                   {mainList.map((p) => (
                     <PlacementRenderer
                       key={`main:${p.key}`}
@@ -530,17 +351,6 @@ export function ScreenRenderer({
           )}
         </IonContent>
 
-        {/*
-          A screen's own footer and the template's nav bar BOTH render,
-          screen footer above, nav pinned at the bottom — Noor's call:
-          the footer has to read the same on every page, so the nav is
-          never displaced by a screen that brings its own controls.
-
-          It used to be either/or, and in the wrong direction: the nav
-          won, so a `footer` placement could never render at all on a
-          template that ships one, and the conversation's composer and
-          profile-page-edit's Save button were both silently dropped.
-        */}
         {(navPlacements.length > 0 || footerList.length > 0) && (
           <IonFooter className="appza-renderer-footer">
             {footerList.length > 0 && (
@@ -628,15 +438,7 @@ function readScreenAppbar(screen: TemplateScreen): ChromePlacement[] {
   return out;
 }
 
-/**
- * Per-screen bottom-nav override.
- *
- * Returns null when the screen says nothing (inherit the template's nav)
- * and an ARRAY when it does — including an empty one, which means this
- * screen has no nav at all. That third state is the whole reason this
- * exists and is why it cannot share readScreenAppbar's shape: the appbar
- * falls back on an empty list, so it can never express "none".
- */
+/** null inherits the template's nav; [] means none (unlike the appbar, which falls back on empty). */
 function readScreenNav(screen: TemplateScreen): ChromePlacement[] | null {
   const raw = (screen as unknown as Record<string, unknown>)['nav_placements'];
   if (!Array.isArray(raw)) return null;
@@ -677,26 +479,7 @@ function readScreenTitle(screen: TemplateScreen): string {
   return screen.app_map_screen_slug ?? '';
 }
 
-/**
- * Placement-level `visible_when` evaluator. Supports `state.<key>` bindings
- * only for now (data.* has no meaning at placement level — placements are
- * pre-item). Fail-open on missing / unparseable shapes so a catalog that
- * ships an unknown op or binding root still shows the placement.
- *
- * Two accepted shapes:
- *
- *   { binding: 'state.spaces_tab', op: '==', value: 'all' }            one clause
- *   [ { ... }, { ... } ]                                               ALL must pass
- *
- * The list form arrived with the Search screen (2026-08-23), whose no-match
- * placements have to say "this tab AND nothing matched" — two facts that no
- * single binding holds. The alternative was deriving another slice key per
- * such pair, which would have meant minting one forever.
- *
- * It is an AND-list, not an OR-list, to match the per-child `conditions`
- * grammar D45 already locked. Nothing here is an OR: a placement that needs
- * one is two placements.
- */
+/** One clause or an AND-list; fails open on unknown shapes or roots. */
 function evaluatePlacementVisibleWhen(
   placement: Record<string, unknown>,
   stateBag: Record<string, unknown>,
@@ -704,8 +487,7 @@ function evaluatePlacementVisibleWhen(
   const vw = placement['visible_when'];
   if (!vw || typeof vw !== 'object') return true;
   if (Array.isArray(vw)) {
-    // An EMPTY list is not "hide everything" — it is a catalog row that
-    // says nothing, and saying nothing has always meant show.
+    // An empty list says nothing, which has always meant show.
     if (vw.length === 0) return true;
     return vw.every((clause) =>
       clause && typeof clause === 'object' && !Array.isArray(clause)
@@ -716,7 +498,6 @@ function evaluatePlacementVisibleWhen(
   return evaluateVisibleWhenClause(vw as Record<string, unknown>, stateBag);
 }
 
-/** One `{binding, op, value}` clause. See the grammar note above. */
 function evaluateVisibleWhenClause(
   rec: Record<string, unknown>,
   stateBag: Record<string, unknown>,
@@ -730,21 +511,10 @@ function evaluateVisibleWhenClause(
   if (binding.startsWith('state.')) {
     resolved = stateBag[binding.slice(6)];
   } else if (binding.startsWith('settings.')) {
-    // The site's FluentCommunity configuration, which a CHILD's gate has
-    // been able to read for a long time. A placement's could not, and the
-    // failure was silent in the worst direction: an unknown root FAILS
-    // OPEN, so a placement gated on `settings.leaderboard_enabled` drew
-    // unconditionally and looked gated. Found 2026-09-16, one chunk after
-    // the profile level bar shipped with exactly that gate.
-    //
-    // Safe to read here: it is cached site config, available
-    // synchronously, and not a row — a placement is evaluated before
-    // anything is fetched, which is why `data.*` still has no meaning.
+    // settings.* is cached site config, so safe here; as an unknown root it would fail open and only look gated.
     resolved = readDataPath(getFcRuntimeSettings(), binding.replace(/^settings\./, 'data.'));
   } else {
-    // Unknown root — fail open. `data.*` has no meaning at placement
-    // level: nothing is bound yet. A row fact has to be gated on the
-    // CHILD, which is evaluated once the row exists.
+    // Unknown root fails open; `data.*` has no meaning before anything is fetched.
     return true;
   }
 
@@ -766,13 +536,6 @@ function evaluateVisibleWhenClause(
   }
 }
 
-/**
- * Which bottom-nav tab points at the screen being shown — 1-based, as the
- * tab actions are named (`on_tap_tab3`) — so the stylesheet can colour it
- * (Courses designs 1–4 draw the current tab in blue). Read off the nav
- * AppZet's own wiring, so moving a tab in the right panel moves the
- * highlight with it. Undefined on a screen no tab opens.
- */
 function activeNavTab(
   navPlacements: Array<{ appzet_slug: string }>,
   catalogIndex: CatalogIndex,
@@ -790,9 +553,6 @@ function activeNavTab(
       if (!m || !wiring || typeof wiring !== 'object') continue;
       const args = (wiring as { args?: Record<string, unknown> }).args;
       if (args && args.target_screen_slug === screenSlug) return m[1];
-      // A screen reached THROUGH a tab keeps it lit — course details
-      // under Courses (designs 5–7). The nav's own wiring names them,
-      // so it stays a right-panel edit.
       if (args && Array.isArray(args.also_active_on) && args.also_active_on.includes(screenSlug)) return m[1];
     }
   }

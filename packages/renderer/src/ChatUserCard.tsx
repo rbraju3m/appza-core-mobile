@@ -4,26 +4,10 @@ import { childAttrs, appzetAttrs } from './designTimeAttrs';
 import { resolveIcon } from './PrimitiveRenderer';
 import { useBackDismiss } from './backStack';
 
-/**
- * The profile card behind the 3-dot menu on a one-to-one conversation
- * (designs 5 and 6): avatar, name, a copyable @handle, the activity
- * line, then BLOCK USER and DELETE CONVERSATION.
- *
- * A centred card rather than a bottom sheet, because that is what the
- * designs show — the members sheet for a space rises from the bottom,
- * this one sits in the middle.
- *
- * The two designs differ in exactly one string. FluentCommunity blanks
- * its own `last_activity` once it is older than five minutes, so the API
- * answers the question with a boolean and both wordings are props —
- * neither is computed here.
- *
- * Bespoke React, opened by event, and it opts back into the builder by
- * hand: the indices below MUST match the `children` array of the
- * fc-chat-user-card superstructure.
- */
+// FC blanks last_activity after five minutes, so the API sends a boolean and both wordings are props.
 
 export const CHAT_USER_CARD_APPZET_SLUG = 'fc-chat-user-card';
+// Indices must match the fc-chat-user-card superstructure's `children` array.
 export const CHAT_USER_CARD_CHILD_COUNT = 8;
 
 export type ChatUserCardPresentation = {
@@ -57,7 +41,6 @@ export type ChatUserCardPresentation = {
 
 type OpenDetail = {
   appzetSlug?: string;
-  /** The thread row — title, photo, initials, handle, is_active_now. */
   thread: Record<string, unknown>;
   presentation: ChatUserCardPresentation;
   onBlock?: (thread: Record<string, unknown>) => void;

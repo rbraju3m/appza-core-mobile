@@ -8,21 +8,6 @@ type Props = {
   onChange: (v: string | undefined) => void;
 };
 
-/**
- * Icon picker for the PropertiesPanel Options tab. Replaces the plain
- * text-with-datalist input for icon-flavored PropMeta fields.
- *
- * Trigger button shows the current icon's glyph + name; opening it
- * reveals a popover with a search box + a grid of every icon in
- * ICON_REGISTRY (rendered as its actual glyph via IonIcon). Click a
- * glyph → sets the value + closes. Search filters names by substring.
- *
- * Closes on Escape or on click outside the popover.
- *
- * Popover anchors below the trigger inside the panel. When the panel
- * is scrolled, the popover follows because it's positioned relative
- * to the trigger's wrapper.
- */
 export function IconPicker({ value, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
@@ -31,9 +16,7 @@ export function IconPicker({ value, onChange }: Props) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
 
-  // Portal the popover to <body> with position: fixed so it escapes
-  // .appza-props-panel-section's overflow:hidden (which was clipping
-  // the dropdown, making it look like it was "under" other layers).
+  // Portal to <body> with position: fixed to escape the panel section's overflow:hidden.
   useEffect(() => {
     if (!open) return;
     const update = () => {

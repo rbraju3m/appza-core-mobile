@@ -4,23 +4,6 @@ import { useActionDispatch } from './actionContext';
 import { resolveIcon } from './PrimitiveRenderer';
 import { useBackDismiss } from './backStack';
 
-/**
- * The report sheet — Courses doc, states 28–29 (a lesson comment's Report
- * Comment).
- *
- * "REPORT — Why are you reporting this?", the site's own reasons (FC's
- * `/report-reasons`, read by the handler), one pick with a check, "Add
- * details (Optional)" with a live N/1000 counter that cannot pass 1000,
- * and SUBMIT REPORT disabled until a reason is picked. While sending it
- * reads "Submitting…" and is disabled; on success the sheet closes (the
- * handler toasts); on failure it stays open with the pick and the text
- * kept and shows the server's message. It opens empty every time.
- *
- * The write is the same action that opened it, dispatched again with the
- * reason and details on its args — so the endpoint and body shape stay in
- * the catalog and in one handler.
- */
-
 export type ReportReason = { value: string; label: string };
 
 type OpenDetail = {
@@ -31,7 +14,6 @@ type OpenDetail = {
 };
 
 const OPEN_EVENT = 'appza:open-report-sheet';
-/** The handler's answer to a submit: `{ ok, message }`. */
 export const REPORT_SHEET_RESULT_EVENT = 'appza:report-sheet-result';
 
 export function openReportSheet(detail: OpenDetail): void {
@@ -62,7 +44,6 @@ export function ReportSheet() {
     const onOpen = (e: Event) => {
       const d = (e as CustomEvent<OpenDetail>).detail;
       if (!d) return;
-      // "The sheet opens empty every time."
       setReason('');
       setDetails('');
       setSending(false);
@@ -111,7 +92,6 @@ export function ReportSheet() {
       aria-label={word(a, 'sheet_title', 'Why are you reporting this?')}
       className="appza-member-sheet-backdrop"
       onClick={(e) => {
-        // "Closing the sheet without submitting reports nothing."
         if (e.target === e.currentTarget && !sending) setDetail(null);
       }}
     >

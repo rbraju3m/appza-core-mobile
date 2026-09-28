@@ -3,26 +3,6 @@ import { sendJson, type StoredAuthLike } from './postMenuHandlers';
 import type { ActionInvocation } from './actionContext';
 import { openMemberRemoveConfirm, closeMemberRemoveConfirm } from './MemberRemoveConfirm';
 
-/**
- * The profile tabs' two destructive acts — doc states 57, 58 and 62, 63.
- *
- *   Spaces tab   ⋮ on a space → "Remove this member from the space?"
- *   Comments tab trash on a comment → "Delete comment?"
- *
- * Both dialogs are the Material alert designs 45 and 48 already use —
- * left-aligned title and question, CANCEL and the act as blue text — so
- * they open MemberRemoveConfirm rather than the post-delete dialog, which
- * is a different design.
- *
- * Every word arrives on the action's args. The TITLE of the space
- * dialog is read off the row: design 58 writes "Start Here", which is a
- * space name in the mock, over a card for a different space — so the
- * row's own title is what goes there.
- *
- * Both writes are fcom-mobile's wrappers, and both refresh the lists on
- * success, so the removed space or comment leaves the tab.
- */
-
 export type ProfileTabActionDeps = {
   auth: StoredAuthLike | null;
   authHeader: (auth: StoredAuthLike) => string;

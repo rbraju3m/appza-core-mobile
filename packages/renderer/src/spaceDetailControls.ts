@@ -1,47 +1,14 @@
 import { useEffect, useState } from 'react';
 
-// Space Detail screen controls — active sub-tab + topic filter + sort +
-// currently-viewed space slug. Written by App-side action dispatchers
-// (space_detail.set_subtab / .set_topic / .set_sort, plus a screen-mount
-// setter for space_slug), read by PlacementRenderer to (a) evaluate
-// state.space_detail_controls.* placement + child visible_when clauses,
-// and (b) resolve state-bound DS query_params so fc-space-feeds refetches
-// when topic_slug / sort change.
-//
-// Mirrors the spacesControls / feedControls event-backed store pattern —
-// small enough to keep duplicated rather than abstract into a slice
-// manager. localStorage persistence survives page reloads + Capacitor
-// app restarts (WebView localStorage maps to Android app-scoped storage).
-
 export type SpaceDetailControls = {
   active_subtab: string;
   topic_slug: string;
   sort: string;
   space_slug: string;
-  // DOCUMENTS sub-tab (2026-08-16). `documents_search` is written by the
-  // documents.set_search action and bound as a query param on the
-  // fc-space-documents DS, so typing refetches server-side.
   documents_search: string;
-  // Derived, NOT authored: PlacementRenderer publishes which of the three
-  // documents designs the tab is currently in — 'list' | 'empty' (space has
-  // no documents at all) | 'no-match' (search returned nothing) | 'loading'.
-  // Placement visible_when clauses gate the search bar and the two empty
-  // states off this single string, which is why it exists as state rather
-  // than as local component state. Deliberately NOT persisted (see below).
+  // Derived by PlacementRenderer, not authored; never persisted.
   documents_view: string;
-  // MEDIA sub-tab (2026-08-17). Authored — the Photos/Videos/Audios strip
-  // writes it, and fc-space-media binds it as its `type` query param, so a
-  // tab tap refetches.
-  //
-  // '' means "not on the media tab". That is load-bearing, not tidiness: a
-  // placement visible_when carries exactly ONE clause, so the photo grid's
-  // clause is `media_type in ['photos','videos']` and cannot also say "and
-  // only on the media tab". Left at 'photos' after leaving, the grid would
-  // render underneath the POSTS feed. See the invariant in the setter.
   media_type: string;
-  // Derived, same contract as documents_view: 'list' | 'empty' | 'loading'.
-  // Only the empty state needs it — which of the two content shapes renders
-  // is decided by media_type, which is authored.
   media_view: string;
 };
 
@@ -59,7 +26,6 @@ const DEFAULTS: SpaceDetailControls = {
   media_view: 'loading',
 };
 
-/** The tab media_type is seeded to on entering the MEDIA sub-tab. */
 const DEFAULT_MEDIA_TYPE = 'photos';
 
 function readFromStorage(): SpaceDetailControls {
@@ -78,15 +44,9 @@ function readFromStorage(): SpaceDetailControls {
         typeof parsed.sort === 'string' && parsed.sort.length > 0 ? parsed.sort : DEFAULTS.sort,
       space_slug:
         typeof parsed.space_slug === 'string' ? parsed.space_slug : DEFAULTS.space_slug,
-      // Also never restored: the search input is uncontrolled, so a restored
-      // term would filter the list against a field that renders blank.
+      // Not restored: the search input is uncontrolled, so a restored term would filter against a blank field.
       documents_search: DEFAULTS.documents_search,
-      // Never restored — it describes the *current* fetch, and a stale
-      // 'list' would flash the search bar over an empty space on mount.
       documents_view: DEFAULTS.documents_view,
-      // Neither media key is restored, for both reasons at once: media_type
-      // is per-visit (the setter re-seeds it on entering the tab) and
-      // media_view describes the current fetch.
       media_type: DEFAULTS.media_type,
       media_view: DEFAULTS.media_view,
     };
@@ -117,21 +77,12 @@ export function setSpaceDetailControls(patch: Partial<SpaceDetailControls>): voi
     media_type: typeof patch.media_type === 'string' ? patch.media_type : current.media_type,
     media_view: typeof patch.media_view === 'string' ? patch.media_view : current.media_view,
   };
-  // Invariant: documents_view / documents_search describe the DOCUMENTS tab
-  // of the CURRENT space only. Placement visible_when takes a single clause,
-  // so the documents chrome gates on documents_view alone — without this
-  // reset a stale 'list' would keep the search bar on screen after switching
-  // to POSTS, or carry an empty space's view into the next space.
+  // Reset per space/tab: a stale documents_view would keep the search bar up on POSTS.
   if (next.active_subtab !== 'documents' || next.space_slug !== current.space_slug) {
     next.documents_view = 'loading';
     next.documents_search = '';
   }
-  // Same invariant for MEDIA, and here it is doing more than housekeeping.
-  // The photo grid's placement gates on `media_type in [photos, videos]`
-  // ALONE — a placement predicate is a single clause and cannot also test
-  // the sub-tab. Blanking media_type off the tab is what stops the grid
-  // rendering underneath the POSTS feed; re-seeding it on the way in is
-  // what makes Photos the landing tab every visit.
+  // Blanking media_type off the tab keeps the photo grid (a single visible_when clause) off the POSTS feed.
   if (next.active_subtab !== 'media' || next.space_slug !== current.space_slug) {
     next.media_type = '';
     next.media_view = 'loading';
@@ -154,10 +105,7 @@ export function setSpaceDetailControls(patch: Partial<SpaceDetailControls>): voi
   current = next;
   if (typeof window !== 'undefined') {
     try {
-      // The documents_* and media_* keys are per-visit, not preferences
-      // (see the type comments) — persisting them would restore state the
-      // UI can't show, and a restored media_type would put the grid on the
-      // POSTS tab on the next cold start.
+      // documents_* and media_* are per-visit; persisting them would restore state the UI can't show.
       const {
         documents_view: _view,
         documents_search: _search,
@@ -167,7 +115,7 @@ export function setSpaceDetailControls(patch: Partial<SpaceDetailControls>): voi
       } = next;
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
     } catch {
-      // best-effort — in-memory `current` still wins for the running session
+      // best-effort
     }
     window.dispatchEvent(new CustomEvent(EVENT, { detail: next }));
   }

@@ -1,49 +1,16 @@
 import { useEffect, useRef } from 'react';
 
-/**
- * The edit form's Social Links card — design 40.
- *
- * ---------------------------------------------------------------------
- * Why this is one primitive and not a row of children
- * ---------------------------------------------------------------------
- *
- * The number of rows is a SITE SETTING: FluentCommunity ships eleven
- * providers and a site enables whichever it wants, so the card is four
- * rows here and one on the next install. A Superstructure's children are
- * a fixed list addressed by index — every field mapping, every visibility
- * property and the save's `param_map` name `children[N]` — so a variable
- * number of them has no expression there at all.
- *
- * The other half is the row's SHAPE. Each is a label, a grey prefix box
- * carrying the provider's domain, and the handle field; the existing
- * variadic template stamps ONE element per item, which is enough for a
- * tab strip and not for this.
- *
- * ---------------------------------------------------------------------
- * The inputs are real, and the save reads them from the DOM
- * ---------------------------------------------------------------------
- *
- * Deliberately NOT controlled against a store slice. Everything else on
- * this form seeds from the payload and then lets the DOM own the value,
- * which is how `profile.save` collects it — a slice here would mean the
- * one card on the screen that the collector cannot see, and both halves
- * of that cost a feature (P: controlled fields and the DOM).
- *
- * So each field carries `data-appza-social-provider`, and the save
- * gathers them by that attribute into the `social_links` object
- * FluentCommunity wants: provider key to bare handle, never a URL.
- */
+// Uncontrolled on purpose: profile.save collects these inputs from the DOM by SOCIAL_PROVIDER_ATTR.
 
 export type SocialLinkField = {
   key: string;
   label: string;
-  /** Drawn as the grey prefix. FluentCommunity never stores it. */
+  // Drawn as the prefix only; FluentCommunity stores the bare handle.
   domain: string;
   placeholder: string;
   value: string;
 };
 
-/** Marks a field the save collects. One place, so both halves agree. */
 export const SOCIAL_PROVIDER_ATTR = 'data-appza-social-provider';
 
 function readString(o: Record<string, unknown> | undefined, key: string): string | undefined {
@@ -71,10 +38,7 @@ export function AppzaSocialLinks({ overrides }: { overrides?: Record<string, unk
   const rootRef = useRef<HTMLDivElement | null>(null);
   const seeded = useRef(false);
 
-  // SEEDED once, then the DOM owns it — the same contract SeededIonInput
-  // keeps for every other field on this form. Re-seeding on each render
-  // would overwrite what the member is typing the moment anything else
-  // on the screen re-renders.
+  // Seeded once, then the DOM owns it; re-seeding would overwrite typing on any re-render.
   useEffect(() => {
     if (seeded.current || !rootRef.current || fields.length === 0) return;
     seeded.current = true;
@@ -86,8 +50,6 @@ export function AppzaSocialLinks({ overrides }: { overrides?: Record<string, unk
     }
   }, [fields]);
 
-  // A site with no providers enabled draws no card at all, rather than a
-  // heading over nothing. The doc's condition for this whole section.
   if (fields.length === 0) return null;
 
   const heading = readString(overrides, 'heading') ?? 'Social Links';
@@ -124,20 +86,7 @@ export function AppzaSocialLinks({ overrides }: { overrides?: Record<string, unk
   );
 }
 
-/**
- * Every social handle currently on screen, as FluentCommunity's
- * `social_links` object.
- *
- * EVERY enabled provider is included, empty ones too. That is what makes
- * clearing a link work: `updateProfile` skips the whole block when the
- * object is falsy, then `array_filter`s what it gets — so sending only
- * the filled ones can never remove the last remaining link, and sending
- * all of them removes exactly the ones the member emptied.
- *
- * Read from the document rather than from one AppZet's subtree: the card
- * is its own placement, sibling to the form the save names, and there is
- * only ever one of it on a screen.
- */
+// Includes empty providers: updateProfile array_filters the object, so that is how a cleared link gets removed.
 export function collectSocialLinks(): Record<string, string> {
   if (typeof document === 'undefined') return {};
   const out: Record<string, string> = {};

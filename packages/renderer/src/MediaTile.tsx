@@ -1,26 +1,7 @@
 import { IonIcon } from '@ionic/react';
 import { resolveIcon } from './PrimitiveRenderer';
 
-/**
- * One tile in the MEDIA sub-tab's photo / video grid.
- *
- * Why this is a bespoke primitive rather than an ion-img: a video has no
- * thumbnail to show. FluentCommunity generates no posters, and the
- * gallery payload's `settings.posterSrc` is empty for every row we have,
- * so the only route to a first frame is a real <video preload="metadata">
- * element — which is exactly what the FluentCommunity portal does on the
- * same screen.
- *
- * The element is chosen from `kind`, never from `media_type`: videos and
- * audio share media_type 'fluent_player' upstream and are split by
- * settings.viewType, which the API has already resolved into `kind` for
- * us.
- *
- * Tapping is handled by the wrapper the PlacementRenderer puts around
- * this (the AppZet's on_tap_tile action), so there is no click handler
- * here — a photo opens the viewer, a video goes to its post, and the
- * dispatcher branches on kind.
- */
+// FC generates no video posters; a <video preload="metadata"> is the only way to get a first frame.
 
 export type MediaTileKind = 'image' | 'video' | 'audio';
 
@@ -46,9 +27,6 @@ export function AppzaMediaTile({ overrides }: { overrides?: Record<string, unkno
   const showPlayBadge = bool(overrides, 'show_play_badge', true);
   const playIcon = resolveIcon(str(overrides, 'play_icon') || 'play');
 
-  // A tile with no URL would render an empty box with a broken-image
-  // glyph. The list already hides itself when there are no rows, so this
-  // only fires on a malformed row — draw the plain surface instead.
   if (url === '') {
     return <span className="appza-media-tile appza-media-tile-empty" aria-hidden="true" />;
   }
@@ -61,13 +39,9 @@ export function AppzaMediaTile({ overrides }: { overrides?: Record<string, unkno
         <video
           className="appza-media-tile-media"
           src={url}
-          // metadata only: enough for the browser to paint a first frame,
-          // without pulling the whole file down for a thumbnail.
           preload="metadata"
           muted
           playsInline
-          // Not a player — the tap navigates to the post. Controls would
-          // invite a play that never happens.
           controls={false}
           aria-label={alt || undefined}
         />

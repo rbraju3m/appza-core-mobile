@@ -1,20 +1,6 @@
 import { useEffect, useState } from 'react';
 
-// Spaces list controls — tab + search string + sort key. Written by
-// App-side action dispatchers (spaces.set_tab / spaces.set_search /
-// spaces.set_sort), read by PlacementRenderer to (a) evaluate
-// state.spaces_tab bindings on the spaces screen placements so the
-// active tab's card list is visible while the inactive one is hidden,
-// and (b) filter/sort the visible items client-side v1.
-//
-// Same event-backed store pattern as feedControls — small enough to
-// justify the duplication over a generic slice manager. localStorage
-// persistence survives page reloads + Capacitor app restarts.
-
-// Both tab AND sort values are catalog-driven. Any string accepted;
-// PlacementRenderer resolves the picked sort against the fc-space-card
-// AppZet's default_props.sort_specs (each entry declares { value, field,
-// dir }) so adding a sort option is a JSON edit, not a code change.
+// Catalog-driven; PlacementRenderer resolves the sort against fc-space-card's default_props.sort_specs.
 export type SpacesTab = string;
 export type SpacesSort = string;
 
@@ -74,7 +60,7 @@ export function setSpacesControls(patch: Partial<SpacesControls>): void {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {
-      // best-effort — in-memory `current` still wins for the running session
+      // best-effort
     }
     window.dispatchEvent(new CustomEvent(EVENT, { detail: next }));
   }

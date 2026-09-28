@@ -4,44 +4,12 @@ import { childAttrs, appzetAttrs } from './designTimeAttrs';
 import { resolveIcon } from './PrimitiveRenderer';
 import { useBackDismiss } from './backStack';
 
-/**
- * "New Message" — doc states 51 and 52.
- *
- * ---------------------------------------------------------------------
- * This replaces a screen push, and that is D81's reversal
- * ---------------------------------------------------------------------
- *
- * D81 wired a profile's Message button to `chat.open_dm`, which pushed
- * the conversation screen carrying an INTENT, because FluentCommunity
- * cannot create an empty one-to-one thread. The doc draws a modal
- * instead — FluentCommunity's own portal has the same one — and Noor
- * chose the doc on 2026-09-16. The constraint is unchanged and is what
- * shapes this: the first message IS the create, so the modal has nothing
- * to do until there is text, and SEND is disabled until then (design 51
- * draws it outlined; design 52 filled).
- *
- * `chat.open_dm` and the intent handling behind it stay. Nothing on the
- * profile names them any more, but they are the route a future "message"
- * entry point without a composer of its own would take.
- *
- * ---------------------------------------------------------------------
- * The text is local state, deliberately
- * ---------------------------------------------------------------------
- *
- * Nothing else reads a draft that only exists while this is open, and
- * nothing seeds it — so a slice would be a second owner with no reader.
- * The WRITE is the shell's, handed in as `onSend`, which resolves whether
- * it worked: a failure keeps the text, so a bad connection costs the
- * member nothing they typed.
- */
+// FC can't create an empty one-to-one thread: the first message IS the create, so SEND waits for text.
+// A failed onSend keeps the text.
 
 export const NEW_MESSAGE_MODAL_APPZET_SLUG = 'fc-new-message-modal';
 
-/**
- * Children the builder can select, in the order the markup stamps them.
- * MUST match the `children` array of the fc-new-message-modal
- * superstructure.
- */
+// Must match the fc-new-message-modal superstructure's `children` array.
 export const NEW_MESSAGE_MODAL_CHILD_COUNT = 6;
 
 export type NewMessagePresentation = {
@@ -82,7 +50,6 @@ type OpenDetail = {
   presentation: NewMessagePresentation;
   childStyles?: Record<number, CSSProperties>;
   recipient: NewMessageRecipient;
-  /** Performs the write. Resolves true when the message was sent. */
   onSend: (text: string) => Promise<boolean>;
 };
 

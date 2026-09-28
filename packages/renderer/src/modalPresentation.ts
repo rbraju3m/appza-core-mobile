@@ -18,27 +18,12 @@ import type { VideoSheetPresentation } from './VideoSheet';
 import type { PollSheetPresentation } from './PollSheet';
 import type { ModerationReviewPresentation } from './ModerationReviewSheet';
 
-// Maps an overlay AppZet's authored props (snake_case, as stored in
-// default_props_override) onto the camelCase payload its component
-// consumes.
-//
-// This lives in the renderer, not in a shell, because BOTH shells open
-// these modals and each had grown its own partial copy of the mapping.
-// The copies drifted: between them they carried roughly a third of the
-// declared props, so the Properties panel showed 30 and 58 controls of
-// which most were wired to nothing. Every colour, every size, `hidden`
-// and `show_close` were authored, saved, and silently dropped on the
-// floor. One mapping, used by both, is the only version of this that
-// stays honest — if a prop is in the catalog it gets read here, and a
-// panel control that does nothing becomes a visible omission in one
-// file rather than an invisible gap across two.
+// Both shells use this one mapping; per-shell copies drifted and silently dropped props.
 
-/** Reads a string prop, treating '' as unset so CSS falls back. */
 function str(v: unknown): string | undefined {
   return typeof v === 'string' && v !== '' ? v : undefined;
 }
 
-/** Reads a size prop. Bare numbers get 'px'; strings pass through. */
 function size(v: unknown): string | undefined {
   if (typeof v === 'number' && Number.isFinite(v)) return `${v}px`;
   return str(v);
@@ -58,8 +43,6 @@ function roleList<T extends { value: string; label: string }>(
     .filter((r) => typeof r.value === 'string' && typeof r.label === 'string')
     .map(map);
   if (out.length > 0) return out;
-  // Sensible default if the catalog is somehow bare — matches the seeded
-  // role_options on both modals.
   return [
     { value: 'member', label: 'Member' },
     { value: 'moderator', label: 'Moderator' },
@@ -67,15 +50,7 @@ function roleList<T extends { value: string; label: string }>(
   ].map((r) => map(r as unknown as Record<string, unknown>));
 }
 
-/**
- * Per-child Wrapper overrides (width / height / gap / padding / border …)
- * as inline CSS, keyed by superstructure child index.
- *
- * A composed AppZet gets these from PlacementRenderer's
- * computeChildLayoutStyles. A bespoke overlay renders its own DOM, so it
- * has to be handed the same thing — otherwise the Wrapper tab saves
- * happily and the card never moves.
- */
+// A bespoke overlay renders its own DOM, so it must be handed the Wrapper styles PlacementRenderer gives composed AppZets.
 export function childStylesFromCustomizations(
   appzetSlug: string,
   childCount: number,
@@ -96,13 +71,11 @@ export function childStylesFromCustomizations(
   return out;
 }
 
-/** Superstructure child counts — the tagging in each modal must match. */
 export const ADD_MEMBER_CHILD_COUNT = 9;
 export const INVITE_USER_CHILD_COUNT = 13;
 export const SCHEDULE_SHEET_CHILD_COUNT = 10;
 export const MEDIA_VIEWER_CHILD_COUNT = 5;
 
-/** Weekday initials, comma-separated in the catalog so they're editable. */
 function weekdayList(raw: unknown): string[] {
   if (Array.isArray(raw)) {
     const out = raw.filter((d): d is string => typeof d === 'string');
@@ -137,8 +110,7 @@ export function schedulePresentation(props: Record<string, unknown>): SchedulePr
     hidden: bool(props.hidden, false),
     showEyebrow: bool(props.show_eyebrow, true),
     showHandle: bool(props.show_handle, true),
-    // FC Pro rejects anything closer than 30 minutes; the catalog can
-    // raise it but not lower it past what the server will accept.
+    // FC Pro rejects anything closer than 30 minutes.
     minLeadMinutes: num(props.min_lead_minutes, 30),
     sheetBgColor: str(props.sheet_bg_color),
     sheetRadius: size(props.sheet_radius),
@@ -231,9 +203,6 @@ export function addMemberPresentation(props: Record<string, unknown>) {
 
 export function invitePresentation(props: Record<string, unknown>) {
   const chipPalette: InviteChipPalette = {
-    // Colours stay on the AppZet keyed by the semantic tone the endpoint
-    // stamps per row, so a role chip and a status chip are themed
-    // independently without the endpoint knowing about colour at all.
     success: {
       bg: str(props.chip_success_bg_color),
       text: str(props.chip_success_text_color),
@@ -310,19 +279,6 @@ export function invitePresentation(props: Record<string, unknown>) {
   };
 }
 
-/**
- * fc-chat-members-sheet — the 3-dot sheet on a space or group
- * conversation (design 3).
- *
- * The two role maps come out of one authored array so a customer edits
- * a single list: `[{ value, label, bg_color, text_color }]`. Splitting
- * label from colour into two props would let them fall out of step.
- */
-/**
- * The follow sheet's frame (doc states 36-39). Same shape as every other
- * presentation helper here: the AppZet's authored props in, a typed bag
- * out, so both shells read one set of defaults rather than two.
- */
 export function followSheetPresentation(
   props: Record<string, unknown>,
 ): FollowSheetPresentation {
@@ -331,8 +287,6 @@ export function followSheetPresentation(
     followersLabel: str(props.followers_label) ?? 'Followers',
     blockedLabel: str(props.blocked_label) ?? 'Blocked',
     unblockLabel: str(props.unblock_label) ?? 'Unblock',
-    // One sentence per tab. An empty Blocked list is good news and should
-    // not read like the other two.
     emptyFollowings: str(props.empty_followings) ?? 'Not following anyone yet.',
     emptyFollowers: str(props.empty_followers) ?? 'No followers yet.',
     emptyBlocked: str(props.empty_blocked) ?? 'No blocked members.',
@@ -359,10 +313,6 @@ export function followSheetPresentation(
   };
 }
 
-/**
- * fc-new-message-modal — the profile's Message button (designs 51, 52).
- * Every word and colour is the AppZet's; the fallbacks are the designs'.
- */
 export function newMessagePresentation(props: Record<string, unknown>): NewMessagePresentation {
   return {
     title: str(props.title) ?? 'New Message',
@@ -375,7 +325,7 @@ export function newMessagePresentation(props: Record<string, unknown>): NewMessa
     showRecipient: bool(props.show_recipient, true),
     modalBgColor: str(props.modal_bg_color),
     modalRadius: size(props.modal_radius),
-    // A percentage of the screen, never a vh (P91).
+    // A percentage of the screen, never vh: in the simulator vh measures the page, not the device frame.
     modalMinHeight: str(props.modal_min_height),
     backdropColor: str(props.backdrop_color),
     titleColor: str(props.title_color),
@@ -439,14 +389,6 @@ export function chatMembersPresentation(
   };
 }
 
-/**
- * fc-chat-user-card — the 3-dot card on a one-to-one conversation
- * (designs 5 and 6).
- *
- * Both activity wordings are props: the two designs differ in exactly
- * that one string, and which shows is decided by a boolean the API
- * publishes, not by anything computed here.
- */
 export function chatUserCardPresentation(
   props: Record<string, unknown>,
 ): ChatUserCardPresentation {
@@ -480,14 +422,6 @@ export function chatUserCardPresentation(
   };
 }
 
-/**
- * fc-leaderboard-points-sheet — the explainer behind the circled i on
- * the viewer's card (designs 5 and 6).
- *
- * Both paragraphs are props, not constants. FluentCommunity's own copy
- * is translated, and a site that words its gamification differently
- * should be able to say so without a build.
- */
 export function leaderboardPointsPresentation(
   props: Record<string, unknown>,
 ): LeaderboardPointsPresentation {
@@ -507,9 +441,7 @@ export function leaderboardPointsPresentation(
     showLevelsList: bool(props.show_levels_list, true),
     sheetBgColor: str(props.sheet_bg_color),
     sheetRadius: size(props.sheet_radius),
-    // Not size(): the design is a viewport fraction (72vh), and size()
-    // would leave a bare number unitless-to-px, which is not the shape
-    // this one wants.
+    // Not size(): this one is a vh fraction.
     sheetMaxHeight: str(props.sheet_max_height),
     handleColor: str(props.handle_color),
     titleColor: str(props.title_color),
@@ -527,14 +459,6 @@ export function leaderboardPointsPresentation(
   };
 }
 
-/**
- * fc-options-sheet — the sort and layout bottom sheets on Saved Posts
- * (Noor's designs 5 and 3).
- *
- * One mapper for both. The two AppZets ride the same Superstructure and
- * differ only in a title and a row list, and the row list travels on the
- * action that opens the sheet rather than on the sheet itself.
- */
 export function optionsSheetPresentation(
   props: Record<string, unknown>,
 ): OptionsSheetPresentation {
@@ -549,9 +473,7 @@ export function optionsSheetPresentation(
     showCheck: bool(props.show_check, true),
     sheetBgColor: str(props.sheet_bg_color),
     sheetRadius: size(props.sheet_radius),
-    // Not size(): a percentage of the screen, never a vh — inside the
-    // simulator the device frame is a box on a much taller page and vh
-    // would measure the page (P91).
+    // A percentage of the screen, never vh: in the simulator vh measures the page, not the device frame.
     sheetMaxHeight: str(props.sheet_max_height),
     backdropColor: str(props.backdrop_color),
     handleColor: str(props.handle_color),
@@ -578,27 +500,10 @@ export function optionsSheetPresentation(
   };
 }
 
-/**
- * fc-post-menu-sheet — the 3-dot post menu drawn as a bottom sheet
- * (design 4).
- *
- * `destructiveColor` deliberately has NO fallback. Design 4 draws Delete
- * in the same colour as every row above it, so an unset value means the
- * row inherits the label colour; a site that wants the red warning back
- * sets it in the right panel.
- */
+// `destructiveColor` has no fallback on purpose: unset inherits the label colour.
 export function postMenuSheetPresentation(
   props: Record<string, unknown>,
-  /**
-   * The ACTION's own `sheet_title`, when it has one, and it WINS.
-   *
-   * One sheet AppZet frames both the post menu and the comment menu, so
-   * its authored eyebrow can only say one thing — it says POST. Design
-   * 24's comment sheet says COMMENT. The action knows which menu it is
-   * opening and the shared frame cannot, so the more specific value has
-   * to win; reading the AppZet first just returns 'POST' forever, which
-   * is what it did on the first attempt.
-   */
+  // The action's sheet_title wins: one shared sheet frames both the post and comment menus.
   eyebrowOverride?: string,
 ): PostMenuSheetPresentation {
   return {
@@ -631,13 +536,6 @@ export function postMenuSheetPresentation(
   };
 }
 
-/**
- * fc-profile-link-row — the "Saved posts" row under the profile header.
- *
- * A composed AppZet, not an overlay, so PlacementRenderer already binds
- * its labels and glyphs. What it cannot bind is a colour, which is what
- * this hands to the stylesheet.
- */
 export function profileLinkRowVars(props: Record<string, unknown>): CSSProperties {
   return {
     ['--appza-row-bg-color' as string]: str(props.row_bg_color),
@@ -654,22 +552,11 @@ export function profileLinkRowVars(props: Record<string, unknown>): CSSPropertie
   };
 }
 
-/**
- * fc-post-space-sheet — "Post to", the create-post space picker
- * (design 5).
- *
- * `public_label` / `private_label` / `secret_label` have real defaults
- * rather than falling through to the raw privacy string: FluentCommunity
- * stores 'secret', and the design writes words a member reads, not
- * database values.
- */
 export function postSpaceSheetPresentation(
   props: Record<string, unknown>,
 ): PostSpaceSheetPresentation {
   return {
     title: str(props.title) ?? 'Post to',
-    // The same sheet, opened from the edit screen's "Move to a different
-    // space" chip. FluentCommunity's own edit modal words it this way.
     moveTitle: str(props.move_title) ?? 'Select destination',
     profileLabel: str(props.profile_label) ?? 'On my profile',
     emptyLabel: str(props.empty_label) ?? 'No spaces to post in',
@@ -687,8 +574,7 @@ export function postSpaceSheetPresentation(
     secretLabel: str(props.secret_label) ?? 'Secret',
     sheetBgColor: str(props.sheet_bg_color),
     sheetRadius: size(props.sheet_radius),
-    // A percentage, never a vh — inside the simulator the device frame
-    // is a box on a much taller page and vh would measure the page (P91).
+    // A percentage of the screen, never vh: in the simulator vh measures the page, not the device frame.
     sheetMaxHeight: str(props.sheet_max_height),
     backdropColor: str(props.backdrop_color),
     handleColor: str(props.handle_color),
@@ -714,13 +600,6 @@ export function postSpaceSheetPresentation(
   };
 }
 
-/**
- * fc-post-video-sheet — "Attach Media" (designs 15-19).
- *
- * `empty_hint` is shared by the two text tabs on purpose: the designs
- * show both reading the same generic line until something is typed, and
- * only then saying what each actually accepts.
- */
 export function videoSheetPresentation(props: Record<string, unknown>): VideoSheetPresentation {
   return {
     eyebrow: str(props.eyebrow) ?? 'EMBED',
@@ -776,27 +655,6 @@ export function videoSheetPresentation(props: Record<string, unknown>): VideoShe
   };
 }
 
-/**
- * "Create poll" — designs 24 to 29.
- *
- * Shares the calendar's knobs with `schedulePresentation` by name but
- * not by mapping: the two sheets have different Superstructures and
- * therefore different props rows, and folding them together would mean
- * one sheet's Properties panel silently editing the other's.
- */
-/**
- * fc-moderation-review — the review modal (Noor's designs 29 to 32).
- *
- * Every string it draws, including both confirm dialogs, so designs 31
- * and 32 are catalog text rather than two copies in two shells.
- *
- * The unpublish label deliberately keeps Noor's wording rather than
- * FluentCommunity's. FC's own modal computes it from the content's state
- * — "Unpublish Post" while live, "Remove Post" once it is not, and
- * "Approve Post" in place of Dismiss — and design 29 draws one pair
- * regardless. The designs win; a builder who wants FC's phrasing can
- * type it here.
- */
 export function moderationReviewPresentation(
   props: Record<string, unknown>,
 ): ModerationReviewPresentation {
@@ -862,9 +720,7 @@ export function pollSheetPresentation(props: Record<string, unknown>): PollSheet
     showTitle: bool(props.show_title, true),
     showEndDate: bool(props.show_end_date, true),
     showRemove: bool(props.show_remove, true),
-    // FluentCommunity's own picker greys nothing, so this is ours: a
-    // poll that closed before its post existed is not a state an author
-    // can mean. One switch back to the portal's behaviour.
+    // FC's own picker allows past dates; this is our stricter default.
     allowPastEndDate: bool(props.allow_past_end_date, false),
     sheetBgColor: str(props.sheet_bg_color),
     sheetRadius: size(props.sheet_radius),

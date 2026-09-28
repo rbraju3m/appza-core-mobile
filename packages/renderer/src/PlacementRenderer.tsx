@@ -54,27 +54,10 @@ import { publishCommentsView } from './CommentThread';
 import { getPostDraft, postDraftStateEntries, usePostDraft } from './postDraft';
 import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
 
-/**
- * Data source slugs whose AppzetPlacements render an infinite-scroll
- * list instead of a single-fetch list. Add a slug here and the renderer
- * automatically switches to `useDataSourcePaged` (page/per_page params
- * to the upstream) and appends an IonInfiniteScroll trigger under the
- * items. Upstream must accept WP-style `page` + `per_page` query args.
- *
- * Kept as a small allowlist rather than a schema flag because the set
- * changes rarely; when a new paginated data source lands, add its slug
- * here + wire a matching per_page default in PAGE_SIZE_BY_SLUG.
- */
 const PAGINATED_DATA_SOURCES = new Set<string>(['fc-feed', 'fc-space-members', 'fc-members-directory', 'fc-moderation-reports']);
 const PAGE_SIZE_BY_SLUG: Record<string, number> = {
   'fc-feed': 10,
-  // Members page size matches the FC portal's own paginate() default so
-  // one "page" of the mobile list roughly matches what admins see on the
-  // web. Larger spaces (100s of members) trigger IonInfiniteScroll to
-  // fetch subsequent pages; the fcom-mobile /members endpoint accepts
-  // `page` + `per_page` and short-page terminates the load.
   'fc-space-members': 20,
-  // What the portal's All Members page asks for.
   'fc-members-directory': 24,
 };
 
@@ -84,16 +67,6 @@ type PlacementRendererProps = {
   customizations?: unknown;
   selectedAppzetSlug?: string | null;
   onSelectAppzet?: (slug: string | null) => void;
-  /**
-   * Placement-level `props_override` from the TemplateScreen placement row.
-   * Highest-priority source for a few knobs the placement wants to steer
-   * without editing the shared AppZet:
-   *   - `data_source_slug` — swap the resolved DataSource for this render
-   *     only. Wins over both the AppZet's `default_data_source_id` AND its
-   *     `data_source_by_state`. Used by the space-detail placement of
-   *     fc-post-card to point it at fc-space-feeds without cloning the
-   *     AppZet.
-   */
   propsOverride?: Record<string, unknown> | null;
 };
 
@@ -124,37 +97,6 @@ function spacingStyle(spacing: SpacingOverride | undefined): React.CSSProperties
 type ChildOverrides = Record<number, Record<string, unknown>>;
 type HiddenIndices = ReadonlySet<number>;
 
-/**
- * Walks one placement: AppZet -> Superstructure -> children. Children
- * resolve as either Primitives (rendered as Ionic React widgets) or
- * nested Superstructures (recursed). Depth cap = 4 to keep us safe
- * against catalog cycles; DC#10 Q6's 3-level cap is enforced upstream
- * at admin POST, this is defense-in-depth.
- *
- * DC#16 prop binding: AppZet `default_props_override` values flow to the
- * top-level SS's children via `properties_schema[*].binds_to` (positional
- * grammar — `children[<index>].<propName>`). Nested Superstructures
- * receive no overrides at v1 (scope deferred).
- */
-// Map from timeline appzet slug -> {card, list} variant slugs. When
-// picking Card or List used to SWAP THE APPZET — fc-post-card became
-// fc-post-grid-item or fc-post-list-item, each its own Superstructure
-// with its own children. It no longer does, and the reason is the whole
-// of chunk 8: those two carried 11 and 9 children against the timeline's
-// 35, so nothing chunks 1 to 7 built ever reached them. A post under
-// review drew no chip in Card view. Every child would have had to be
-// built three times, and twice it never was.
-//
-// One Superstructure now, three LAYOUTS, switched by the `data-view-mode`
-// stamped on the list wrapper below and read by CSS — the same shape
-// `rich_post_layout` already uses to move media above the author row on
-// that same grid. A child added tomorrow appears in all three for free.
-//
-// This map survives for the half that was never about swapping: WHICH
-// slice decides the mode, and the DataSource that slice is authoritative
-// for. Saved Posts has a toolbar of its own writing a slice of its own,
-// so without both fields picking Card on the feed would reshape the
-// saved list behind it.
 const VIEW_MODE_VARIANTS: Record<
   string,
   { controls: 'feed' | 'bookmarks'; governingDs: string }
@@ -169,9 +111,6 @@ const VIEW_MODE_VARIANTS: Record<
   },
 };
 
-// Which control slice each sort/layout toolbar reflects. Both toolbars
-// ride the same Superstructure (fc-feed-toolbar) — they are two AppZets,
-// not two shapes — so the slug is what distinguishes them.
 const TOOLBAR_CONTROL_SLICES: Record<string, 'feed' | 'bookmarks'> = {
   'fc-feed-toolbar': 'feed',
   'fc-bookmarks-toolbar': 'bookmarks',
@@ -185,26 +124,11 @@ export function PlacementRenderer({
   onSelectAppzet,
   propsOverride,
 }: PlacementRendererProps) {
-  // Read view mode + sort up here so we can swap the appzet BEFORE
-  // resolving baseAppzet's SS / data source / props overrides — otherwise
-  // the swap would fight the memoized derivations below. feedSort is
-  // consumed by useDataSourcePaged further down (fc-feed order_by_type).
   const { viewMode: feedViewMode, sort: feedSort } = useFeedControls();
-  // spacesControls drives client-side search + sort on the space list
-  // AppZets (fc-space-card / fc-space-card-my). Read unconditionally so
-  // hook order stays stable; only applied below when the current AppZet's
-  // data source is spaces-scoped.
+  // Every slice below is read unconditionally so hook order stays stable.
   const { tab: spacesTab, search: spacesSearch, sort: spacesSort } = useSpacesControls();
-  // The profile's tab strip marks its active entry the same way the
-  // space sub-tabs do — an attribute on the AppZet root plus the entry's
-  // own data-value — so ONE tab is underlined rather than all five.
   const profileControls = useProfileControls();
   const { tab: profileTab, follow_view: followView } = profileControls;
-  // spaceDetailControls drives the Space Detail screen (active sub-tab,
-  // topic filter, sort). Read unconditionally to keep hook order stable —
-  // fc-space-feeds' query_params bind against these values, and per-child
-  // state.space_detail_controls.* visible_when clauses read them via
-  // localStateBag below.
   const {
     active_subtab: spaceDetailActiveSubtab,
     topic_slug: spaceDetailTopicSlug,
@@ -213,82 +137,30 @@ export function PlacementRenderer({
     documents_search: spaceDetailDocumentsSearch,
     media_type: spaceDetailMediaType,
   } = useSpaceDetailControls();
-  // FluentCommunity portal customization: mirrors Settings → Customization
-  // → "Members List Layout". Read here so the fc-member-card wrapper can
-  // stamp a data-fc-member-layout attribute for the CSS to swap between
-  // the 2-column grid and the horizontal list layout. Read unconditionally
-  // for stable hook order (subscribes to a small store; no cost when
-  // unused by non-member AppZets).
   const fcSettings = useFcRuntimeSettings();
   const { member_list_layout: fcMemberListLayout } = fcSettings;
-  // Add-document draft — read unconditionally for stable hook order. Only
-  // the topic chips consume it, to mark several chips active at once.
   const documentDraft = useDocumentDraft();
-  // The create-post draft, subscribed to for the same reason: child
-  // `visible_when` clauses now read `state.post_draft.*`, and the attach
-  // bar has to re-evaluate the moment a document is attached. The clause
-  // evaluator reads the store directly; this hook is what makes the
-  // component re-render so it is asked again.
+  // Subscribed so child clauses on state.post_draft.* re-evaluate; the evaluator reads the store directly.
   const composerDraft = usePostDraft();
   const chatControls = useChatControls();
-  // Leaderboard screen controls. Read unconditionally for stable hook
-  // order, same as every slice above — the ranking strip needs `range`
-  // to mark its active tab, and the two verdicts are published from
-  // here after the levels and ranks fetches land.
   const leaderboardControls = useLeaderboardControls();
-  // The viewer. Read unconditionally for stable hook order, same as
-  // every slice above — a child's visible_when can gate on
-  // `state.viewer.is_logged_in`, which is how the composer teaser
-  // disappears on a logged-out feed (design 17).
   const viewer = useViewer();
-  // Feed banner. Read unconditionally for stable hook order, same as
-  // every slice above — the View More row and CTA slots 2..4 are children
-  // whose visible_when reads `state.feed_banner.*`, and the clause
-  // evaluator consults the store directly, so this hook is what makes
-  // the component re-render and ask again.
   const bannerControls = useBannerControls();
-  // Saved Posts controls. Read unconditionally for stable hook order,
-  // same as every slice above — the toolbar reflects sort and layout,
-  // fc-bookmarks binds search and sort as query params, and the
-  // three-way empty verdict is published from here after each fetch.
   const bookmarkControls = useBookmarkControls();
-  // All Members — read unconditionally for stable hook order. The tab
-  // strip reads `status`, the toolbar's sort button reads `sort_by`.
   const memberDirectory = useMemberDirectoryControls();
-  // The Moderation screen's tab. Subscribed here so a tap re-renders the
-  // list, whose `status` query param is resolved from it at render time.
   const moderationControls = useModerationControls();
-  // The Courses screen (Courses doc, states 1–4): the tab strip reads
-  // `tab`, the chips `topic_slug`, the sort row `sort_by`.
   const courseList = useCourseListControls();
-  // Course details (states 5–7): subscribed so a section tap re-renders
-  // its card — the lesson rows gate on the open set (childStateBag).
   useCourseDetailControls();
-  // A course's Students page: the sort button names the sort that is on.
   const courseStudents = useCourseStudentsControls();
-  // The lesson screen: < > and a lesson row change the lesson slug, a
-  // query param of fc-course-lesson — subscribed so the placement re-keys
-  // its fetch and draws the new lesson instead of keeping the old row.
   useCourseLessonControls();
   const postDetailControls = usePostDetailControls();
-  // Search screen controls. Read unconditionally for stable hook order,
-  // same as every slice above — both strips read it to mark their active
-  // entry, three DataSources bind it as query params, and the fetch
-  // verdict is published from here.
   const searchControls = useSearchControls();
   const draftTopicValues = useMemo(
     () => new Set(documentDraft.topic_ids.map((id) => String(id))),
     [documentDraft.topic_ids],
   );
   const requestedAppzet = catalogIndex.appzetBySlug.get(appzetSlug);
-  // Placement-level data_source_slug override wins when deciding whether
-  // the view-mode swap applies. The swap is governed by feedControls,
-  // which fc-feed-toolbar writes on the home/feed screens against the
-  // fc-feed DS. When a placement rebinds the AppZet to a different DS
-  // (e.g. space-detail's fc-post-card → fc-space-feeds), feedControls
-  // isn't the authoritative view-mode — skipping the swap keeps the
-  // AppZet on its default (timeline) layout instead of picking up a
-  // stale global card/list mode carried over from a prior /feed visit.
+  // A placement that rebinds the DS isn't governed by feedControls, so it keeps the timeline layout.
   const placementDsForVariant =
     propsOverride && typeof propsOverride['data_source_slug'] === 'string'
       ? (propsOverride['data_source_slug'] as string)
@@ -304,22 +176,11 @@ export function PlacementRenderer({
         !placementDsForVariant));
   const variantViewMode =
     variantSpec?.controls === 'bookmarks' ? bookmarkControls.viewMode : feedViewMode;
-  // The layout this list is drawing, or undefined where no slice governs
-  // — space-detail, search and post-detail have no layout control, and an
-  // absent attribute is what the CSS reads as Timeline.
+  // Undefined where no slice governs layout; an absent attribute is what the CSS reads as Timeline.
   const listViewMode = variantGovernedDs ? variantViewMode : undefined;
   const baseAppzet = requestedAppzet;
 
-  // === Option data sources ===
-  // AppZets can declare `option_data_sources: { <prop_name>: <ds_slug> }`
-  // to populate option-list children (e.g. fc-post-information's space
-  // picker). Fetch each and inject the mapped {value,label} items into
-  // default_props_override under prop_name — the SS properties_schema
-  // binding then routes it to whichever child prop needs it.
-  //
-  // The fetches are delegated to <OptionDataSourceFetcher /> child
-  // components so hook order stays stable regardless of how many entries
-  // are configured. Each reports its items upward via handleOptionLoaded.
+  // Option fetches are delegated to <OptionDataSourceFetcher /> children so hook order stays stable.
   const optionDsEntries = useMemo(() => {
     const map = baseAppzet?.option_data_sources ?? null;
     if (!map || typeof map !== 'object') return [] as Array<[string, string]>;
@@ -346,10 +207,6 @@ export function PlacementRenderer({
     [],
   );
 
-  // Apply customizations.appzet.<slug>.default_props_override on top of the
-  // catalog's default_props_override (leaf-level merge). The customization
-  // is where the right-side properties panel persists user edits — same
-  // cascade as DC#13 Q2 customer overrides.
   const appzet = baseAppzet
     ? {
         ...baseAppzet,
@@ -361,41 +218,13 @@ export function PlacementRenderer({
             'default_props_override',
             baseAppzet.default_props_override ?? {},
           ) as Record<string, unknown>),
-          // The PLACEMENT's own props, which until now were read for
-          // `data_source_slug` and nothing else — so a key called
-          // props_override silently did nothing unless it happened to be
-          // that one.
-          //
-          // It is what lets one screen dress a shared AppZet without
-          // cloning it: post-detail places fc-post-card with
-          // `show_comments: false`, because the card's inline strip of
-          // two comments plus a "View all N" link is right in a feed and
-          // absurd on the screen that link opens. Sits ABOVE the
-          // customization layer deliberately — a placement is authored in
-          // the catalog, and an admin's own edit to the AppZet should not
-          // be overruled by it... which is why it goes here, before the
-          // per-screen customization merge below rather than after.
+          // Placement props go before the per-screen customization merge so an admin's own edit still wins.
           ...(propsOverride ?? {}),
-          // Fetched option lists override any static default for the same
-          // prop — the live catalog value is the truer one.
           ...optionData,
-          // The comment sort row names the order it is currently in
-          // (design 12's "Earliest first"). Same shape as the toolbar's
-          // sort_button_text below, and here for the same reason: the
-          // label is STATE, and no field_mapping can bind state — it
-          // walks a path under a data row, and this control has no data
-          // source at all.
+          // The label is state, and no field_mapping can bind state.
           ...(baseAppzet.slug === 'fc-comment-sort'
             ? { label: commentSortLabel(postDetailControls.comment_sort) }
             : {}),
-          // The follow lists' sort row rides the SAME Superstructure and
-          // needs the same treatment against a different slice — keyed
-          // off the APPZET slug, which is why the branch above tests
-          // `baseAppzet.slug` rather than the Superstructure's. The two
-          // labels come from the action's own options list, so renaming
-          // "Most Recent" is a catalog edit.
-          // All Members' sort button says which sort is on, like the
-          // follow sort row below — state, which no field_mapping reads.
           ...(baseAppzet.slug === 'fc-members-toolbar'
             ? {
                 sort_label: followSortLabel(
@@ -406,8 +235,6 @@ export function PlacementRenderer({
                 ),
               }
             : {}),
-          // The Students page's sort button (state 10: "Start Date"),
-          // All Members' rule against the course students' slice.
           ...(baseAppzet.slug === 'fc-course-students-toolbar'
             ? {
                 sort_label: followSortLabel(
@@ -418,8 +245,6 @@ export function PlacementRenderer({
                 ),
               }
             : {}),
-          // The Courses sort row names the sort that is on (design 1's
-          // "Alphabetical ▾"), from the action's own option labels.
           ...(baseAppzet.slug === 'fc-courses-sort'
             ? {
                 sort_button_text: followSortLabel(
@@ -440,22 +265,6 @@ export function PlacementRenderer({
                 ),
               }
             : {}),
-          // A sort/layout toolbar reflects the persisted preference in its
-          // own controls — the sort button reads "<sort_label> <label>",
-          // where <label> comes from scanning the action wiring's
-          // args.options for the current value. No match falls back to the
-          // raw key, which is better than showing the prefix alone.
-          //
-          // TWO toolbars now, against two different slices: the feed's
-          // (feedControls) and Saved Posts' (bookmarkControls). Keyed off
-          // the slug rather than branching, the way the leaderboard tabs
-          // taught activeChildValue a second slug rather than forking the
-          // Superstructure.
-          //
-          // `sort_label` is read here rather than hard-coded. It has been
-          // authored on fc-feed-toolbar since that toolbar shipped and
-          // nothing ever consumed it — a control in the right panel that
-          // did nothing (P74).
           ...(TOOLBAR_CONTROL_SLICES[baseAppzet.slug]
             ? (() => {
                 const slice = TOOLBAR_CONTROL_SLICES[baseAppzet.slug]!;
@@ -476,12 +285,7 @@ export function PlacementRenderer({
                   isRecord(sortWiring) && isRecord((sortWiring as Record<string, unknown>).args)
                     ? (((sortWiring as Record<string, unknown>).args as Record<string, unknown>).options)
                     : undefined;
-                // The FEED's button names the row the SHEET will draw, so
-                // it reads the same merged list the dispatcher opens with
-                // — otherwise a sort the admin added in FluentCommunity
-                // would open a sheet that has it and a button that shows
-                // the raw key. Saved Posts keeps the catalog list; its
-                // rows are not site-driven.
+                // Same merged list the sheet opens with, so a site-added sort shows its label, not the raw key.
                 const catalogRows = readPickerOptions(opts);
                 const rows =
                   slice === 'feed'
@@ -490,22 +294,13 @@ export function PlacementRenderer({
                 let label = sortValue;
                 const match = rows.find((o) => o.value === sortValue);
                 if (match) label = match.label;
-                // View-toggle icon reflects current view mode so the user
-                // sees immediate feedback of their pick (grid for card,
-                // rows for list, lines for timeline).
                 const viewIcon =
                   viewValue === 'card'
                     ? 'grid-outline'
                     : viewValue === 'list'
                       ? 'reorder-four-outline'
                       : 'list-outline';
-                // FluentCommunity's two "Disable ... Change" switches, as
-                // a FORCED-OFF only. Writing `true` when the site allows
-                // the picker would clobber a builder who turned it off in
-                // the panel; writing `false` when the site forbids it is
-                // the one direction where the site has to win. Applied
-                // for the feed only — both switches are feed settings,
-                // and Saved Posts rides the same Superstructure.
+                // Forced-off only: the site wins when it forbids the picker, but never re-enables one a builder turned off.
                 const siteDisables =
                   slice === 'feed'
                     ? {
@@ -531,16 +326,8 @@ export function PlacementRenderer({
   const ss = appzet?.superstructure_id
     ? catalogIndex.superstructureById.get(appzet.superstructure_id)
     : undefined;
-  // data_source_by_state resolution: when the AppZet declares one, read
-  // the state binding (e.g. 'state.spaces_tab') out of the local
-  // stateBag, look up the matching entry in ds_by_value, and resolve
-  // that DS by slug. Falls back to default_data_source_id when the
-  // state value is unmapped OR the AppZet has no state-scoped config.
-  // Adding a state slice here is enough — grows the same way as
-  // ScreenRenderer's stateBag.
   const localStateBag: Record<string, unknown> = {
-    // The viewer, keyed the same way ScreenRenderer keys it so a CHILD
-    // gate and a PLACEMENT gate read one vocabulary (P104).
+    // Keyed the same way ScreenRenderer keys it so child and placement gates share one vocabulary.
     ...Object.fromEntries(
       Object.entries(viewerStateEntries(viewer)).map(([k, v]) => [`state.${k}`, v]),
     ),
@@ -549,18 +336,12 @@ export function PlacementRenderer({
     'state.spaces_sort': spacesSort,
     'state.feed_sort': feedSort,
     'state.feed_view_mode': feedViewMode,
-    // Nested slice.key form — matches the seeder's bindings on
-    // fc-space-feeds query_params + space-detail placement visible_when.
     'state.space_detail_controls.active_subtab': spaceDetailActiveSubtab,
     'state.space_detail_controls.topic_slug': spaceDetailTopicSlug,
     'state.space_detail_controls.sort': spaceDetailSort,
     'state.space_detail_controls.space_slug': spaceDetailSpaceSlug,
     'state.leaderboard_controls.range': leaderboardControls.range,
     'state.leaderboard_controls.levels_scope': leaderboardControls.levels_scope,
-    // Saved Posts. `search` and `sort` are what fc-bookmarks binds as
-    // query params, so writing either is a refetch; `view` is the
-    // three-way verdict the search pill, the toolbar and the two empty
-    // states all gate on.
     'state.bookmark_controls.search': bookmarkControls.search,
     'state.bookmark_controls.sort': bookmarkControls.sort,
     'state.bookmark_controls.view_mode': bookmarkControls.viewMode,
@@ -599,11 +380,7 @@ export function PlacementRenderer({
       stateResolvedDs = catalogIndex.dataSourceBySlug.get(dsSlug);
     }
   }
-  // Placement-level props_override.data_source_slug wins over EVERYTHING
-  // else (state-scoped map + AppZet default). Lets a single placement
-  // rebind the shared AppZet's DS without cloning the AppZet — e.g. the
-  // space-detail screen places fc-post-card against fc-space-feeds while
-  // the community-page placement keeps fc-feed.
+  // Placement-level data_source_slug wins over the state-scoped map and the AppZet default.
   const placementDsSlug =
     propsOverride && typeof propsOverride['data_source_slug'] === 'string'
       ? (propsOverride['data_source_slug'] as string)
@@ -618,23 +395,10 @@ export function PlacementRenderer({
       ? catalogIndex.dataSourceById.get(appzet.default_data_source_id)
       : undefined);
 
-  // Always call BOTH hooks to keep hook order stable across renders
-  // regardless of whether the data source is paginated. Only one is
-  // "active" per render: the paginated hook receives the slug only when
-  // this data source is in PAGINATED_DATA_SOURCES, otherwise it's
-  // passed undefined and returns an inert empty state. Same trick for
-  // the non-paginated hook. Never gate a hook behind an `if`.
+  // Both hooks always run (never gate a hook behind an `if`); the inactive one gets an undefined slug.
   const isPaginated = !!dataSource && PAGINATED_DATA_SOURCES.has(dataSource.slug);
   const pagedSlug = isPaginated ? dataSource!.slug : undefined;
-  // Resolve declarative DS.query_params (state / route_param sources) at
-  // render time. State hooks read above already trigger re-render on
-  // change → the resulting stringified params bumps the hooks' extraKey
-  // → paged: reset to page 1 + refetch, static: refetch. No explicit
-  // refresh-event round-trip needed for state-driven param changes.
-  //
-  // fc-feed retains the hardcoded order_by_type: feedSort fallback for
-  // pre-space-detail callers that never registered query_params on the
-  // fc-feed DS row. Explicit query_params on the DS wins if present.
+  // Explicit query_params on the DS win over fc-feed's hardcoded order_by_type fallback.
   const resolvedParams = dataSource ? resolveQueryParams(dataSource.query_params) : {};
   const pagedExtraParams =
     pagedSlug === 'fc-feed' && !dataSource?.query_params
@@ -648,9 +412,7 @@ export function PlacementRenderer({
   });
   const staticSlug = isPaginated ? undefined : dataSource?.slug;
   const staticParams = Object.keys(resolvedParams).length > 0 ? resolvedParams : undefined;
-  // A source declaring `client_state_binding` reads a renderer state slice
-  // instead of fetching (the Search screen's recent-search list). The hook
-  // never sees the catalog, so the binding has to travel with the slug.
+  // The hook never sees the catalog, so the client_state_binding travels with the slug.
   const clientStateBinding = dataSource?.client_state_binding || null;
   const staticState = useDataSource(staticSlug, staticParams, clientStateBinding);
   const dataState = isPaginated
@@ -658,19 +420,10 @@ export function PlacementRenderer({
         items: pagedState.items,
         loading: pagedState.loading,
         error: pagedState.error,
-        // The paged hook accumulates across pages, so there is no single
-        // params key its items belong to. Nothing paginated publishes a
-        // verdict today; if one ever does, this needs the same treatment.
         stale: false,
       }
     : staticState;
 
-  // Sibling DS for _config_apply — some AppZets (fc-space-switcher,
-  // fc-space-subtabs) source their per-space overrides from a sibling DS
-  // (fc-space-detail) that's not their primary data source. Hook is called
-  // unconditionally to keep hook order stable across renders; slug is
-  // undefined when the AppZet either has no _config_apply meta or points
-  // at its own DS (in which case dataState above already has the payload).
   const configApplyRaw = (appzet?.default_props_override as Record<string, unknown> | undefined)?.[
     '_config_apply'
   ];
@@ -694,13 +447,7 @@ export function PlacementRenderer({
       : undefined,
   );
 
-  // IonInfiniteScroll requires the parent to call `complete()` on the
-  // element ref once the load-more fetch has actually landed — otherwise
-  // its spinner disappears before the new items render (jank) OR stays
-  // stuck if we forget entirely. Track a "loadMore in flight" flag and
-  // fire complete() when the paged hook's `loading` transitions back to
-  // false. `wasLoadingMore` prevents firing on the very first page load
-  // (there's no infinite scroll to complete at that point).
+  // IonInfiniteScroll needs complete() only once the load-more has landed, or its spinner janks or sticks.
   const infiniteScrollRef = useRef<HTMLIonInfiniteScrollElement | null>(null);
   const wasLoadingMore = useRef(false);
   useEffect(() => {
@@ -715,22 +462,10 @@ export function PlacementRenderer({
     }
   }, [isPaginated, pagedState.loading]);
 
-  // DOCUMENTS sub-tab (2026-08-16). The tab has three designs — list,
-  // "No documents yet", "No matches" — and the search bar is absent from
-  // the first. None of that is decidable at placement level, which only
-  // sees state, so the AppZet bound to the documents DS publishes which
-  // design applies and the sibling placements gate on it.
-  //
-  // Scoped to this one DS deliberately: it's the same narrow special-case
-  // shape as the fc-spaces-all / fc-spaces-my search-and-sort branch below,
-  // and generalising it (every DS publishing a count into state) would put
-  // a write in every list AppZet's render path for one consumer.
   const publishesDocumentsView = (dataSource?.slug ?? '') === 'fc-space-documents';
   useEffect(() => {
     if (!publishesDocumentsView) return;
-    // Hold the last resolved view while a refetch is in flight. Publishing
-    // 'loading' on every keystroke would unmount the search bar (which is
-    // gated on this value) mid-typing and throw away the field's text.
+    // Hold the last view during a refetch: publishing 'loading' would unmount the search bar mid-typing.
     if (dataState.loading) return;
     const view =
       dataState.items.length > 0
@@ -746,53 +481,26 @@ export function PlacementRenderer({
     spaceDetailDocumentsSearch,
   ]);
 
-  // MEDIA sub-tab (2026-08-17). Same P75 shape as documents above, one
-  // design simpler: which of the two content shapes renders is decided by
-  // media_type, which the tab strip authors, so only the empty state needs
-  // a published verdict.
-  //
-  // BOTH content AppZets bind this DS, and only one of them is mounted at a
-  // time (the placements gate on media_type), so whichever is on screen is
-  // the one publishing. There is no "no-match" case — the media tabs have
-  // no search.
   const publishesMediaView = (dataSource?.slug ?? '') === 'fc-space-media';
   useEffect(() => {
     if (!publishesMediaView) return;
-    // Hold the previous verdict across a refetch. Publishing 'loading' on a
-    // tab switch would flash the empty state between Photos and Videos.
+    // Hold across a refetch, or the empty state flashes between tabs.
     if (dataState.loading) return;
     setSpaceDetailControls({ media_view: dataState.items.length > 0 ? 'list' : 'empty' });
   }, [publishesMediaView, dataState.loading, dataState.items.length]);
 
-  // Conversation screen (2026-08-18). Same P75 shape again, and the
-  // simplest instance of it: one content AppZet, one empty state, no
-  // search. The message list is NOT gated on this — it has to stay
-  // mounted to run the fetch that decides the verdict in the first
-  // place.
+  // The message list isn't gated on this: it has to stay mounted to run the fetch.
   const publishesMessagesView = (dataSource?.slug ?? '') === 'fc-chat-messages';
   useEffect(() => {
     if (!publishesMessagesView) return;
-    // Hold the previous verdict across a refetch, so sending a message
-    // does not flash "No messages yet" between the POST and the reload.
     if (dataState.loading) return;
     setChatControls({ messages_view: dataState.items.length > 0 ? 'list' : 'empty' });
   }, [publishesMessagesView, dataState.loading, dataState.items.length]);
 
-  // Leaderboard (2026-08-19). Two more P75 verdicts, one per card.
-  //
-  // The levels card publishes THREE states rather than the usual two,
-  // because VIEW ALL has three reasons not to be there and a placement
-  // predicate is a single clause: a guest gets no card at all ('empty'),
-  // an expanded card has nothing left to show ('complete'), and so does a
-  // community configured with three levels or fewer. `has_more` is
-  // decided server-side and stamped on every row, so this reads the
-  // first row rather than counting anything.
+  // `has_more` is decided server-side and stamped on every row, so the first row answers.
   const publishesLevelsView = (dataSource?.slug ?? '') === 'fc-leaderboard-levels';
   useEffect(() => {
     if (!publishesLevelsView) return;
-    // Hold the last verdict across a refetch. Publishing 'loading' when
-    // VIEW ALL is tapped would unmount the button mid-press and the
-    // expanded card would arrive with the tap looking like it missed.
     if (dataState.loading) return;
     const first = dataState.items[0];
     const view =
@@ -804,30 +512,14 @@ export function PlacementRenderer({
     setLeaderboardControls({ levels_view: view });
   }, [publishesLevelsView, dataState.loading, dataState.items]);
 
-  // The ranking card's empty state. Zero rows reads two ways — nobody has
-  // scored in this range, and the viewer may not see who has — and both
-  // land here deliberately: the plug-in answers a denial with an empty
-  // list rather than an error, because an error would fall through the
-  // proxy into fixture data.
+  // The plug-in answers a denial with an empty list: an error would fall through the proxy into fixture data.
   const publishesRanksView = (dataSource?.slug ?? '') === 'fc-leaderboard-ranks';
   useEffect(() => {
     if (!publishesRanksView) return;
-    // Hold across the refetch a tab tap triggers, or the empty state
-    // flashes between Last 7 days and All time.
     if (dataState.loading) return;
     setLeaderboardControls({ ranks_view: dataState.items.length > 0 ? 'list' : 'empty' });
   }, [publishesRanksView, dataState.loading, dataState.items.length]);
 
-  // The same P75 verdict, but keyed by the CATALOG rather than by a
-  // DataSource slug written into this file (2026-09-02). An AppZet that
-  // sets `empty_state_key` publishes 'loading' / 'list' / 'empty' under
-  // `state.list_verdicts.<key>`; one that does not is untouched, so no
-  // existing screen changes behaviour. See listVerdicts.ts for why the
-  // five publishers above are left alone.
-  //
-  // The profile tabs need it because three of them share one screen and
-  // each needs its own answer, and the follow lists because a list with
-  // no rows is what this box actually has.
   const emptyStateKey =
     typeof (appzet?.default_props_override as Record<string, unknown> | undefined)?.[
       'empty_state_key'
@@ -836,42 +528,20 @@ export function PlacementRenderer({
       : '';
   useEffect(() => {
     if (!emptyStateKey) return;
-    // Hold the last verdict across a refetch, exactly as the publishers
-    // above do: a tab switch or a follow/unfollow refetch would otherwise
-    // flash the empty state over a list that has rows.
     if (dataState.loading) return;
     setListVerdict(emptyStateKey, dataState.items.length > 0 ? 'list' : 'empty');
   }, [emptyStateKey, dataState.loading, dataState.items.length]);
   useEffect(() => {
     if (!emptyStateKey) return;
-    // Drop the key when the list unmounts — a hidden profile tab is an
-    // unmounted placement, and a stale 'empty' left behind by Spaces
-    // would paint an empty state under Courses.
+    // Drop the key on unmount, or a stale 'empty' paints under another tab.
     return () => clearListVerdict(emptyStateKey);
   }, [emptyStateKey]);
 
-  // Saved Posts (2026-08-19). The same P75 shape as the documents tab,
-  // and for the same reason: three designs — the list, "No saved posts
-  // yet" and "No matches" — and the difference between the last two is
-  // the SEARCH VALUE, which a placement cannot see any more than it can
-  // see a row count.
-  //
-  // The card publishing this is deliberately ungated: it has to stay
-  // mounted to run the fetch that decides the verdict in the first place.
+  // Ungated on purpose: it has to stay mounted to run the fetch that decides the verdict.
   const publishesBookmarksView = (dataSource?.slug ?? '') === 'fc-bookmarks';
   useEffect(() => {
     if (!publishesBookmarksView) return;
-    // Hold the last verdict while a refetch is in flight. Publishing
-    // 'loading' on every keystroke would unmount the search pill — which
-    // gates on this value — mid-typing and throw away the text in it.
-    //
-    // `loading` alone is not enough: it is set in an effect, so in the
-    // commit where the search changes this still reads false next to the
-    // PREVIOUS search's items. Clearing a search that had matched nothing
-    // therefore published 'empty' — zero items, no search text — and the
-    // search pill and sort strip vanished until the full list landed 1.7s
-    // later. `stale` says the items belong to different params, which is
-    // the question actually being asked.
+    // `stale`, not just `loading`: loading is set in an effect, so this commit still pairs the new search with the old items.
     if (dataState.loading || dataState.stale) return;
     const view =
       dataState.items.length > 0
@@ -888,24 +558,7 @@ export function PlacementRenderer({
     bookmarkControls.search,
   ]);
 
-  // Admin defaults for the feed's sort and layout, applied ONCE and only
-  // to a viewer who has never chosen. Nothing seeded this slice before:
-  // it started at its own hard `latest` / `timeline`, and the block above
-  // overwrites the toolbar's `default_sort` / `default_view_mode` props
-  // with the CURRENT slice values before they could reach anything — so
-  // the builder's control and the admin's setting were both dead.
-  //
-  // The two settings are asymmetric, and that is FluentCommunity's
-  // asymmetry rather than ours. `default_feed_sort_by` genuinely stores
-  // an empty string for "no preference", so an empty one falls through
-  // to the builder's prop. `default_feed_layout` defaults to `timeline`
-  // in FC's own $defaults array and is never empty, so the site always
-  // has an answer and the site's answer wins — a community admin's
-  // explicit choice outranks the app's, since it is their community.
-  //
-  // `sort_options` is the "bootstrap has landed" signal; it is `[]` until
-  // the envelope arrives, and seeding off pre-envelope defaults would
-  // apply FC's factory settings rather than this site's.
+  // Applied once, only to a viewer who never chose; waits for `sort_options` so it seeds from the site, not FC's factory defaults.
   const isFeedToolbar = baseAppzet?.slug === 'fc-feed-toolbar';
   const authoredToolbarProps = (baseAppzet?.default_props_override ?? null) as Record<
     string,
@@ -920,58 +573,27 @@ export function PlacementRenderer({
         ? authoredToolbarProps.default_sort
         : '';
     const sort = feed.default_sort_by || authoredSort;
-    // No fallback to the toolbar's `default_view_mode` prop, and not by
-    // oversight: `default_layout` is never empty, so a fallback here
-    // would be a branch that cannot run. The prop stays in the panel as
-    // the pre-envelope default and is otherwise inert — worth saying out
-    // loud rather than leaving as a control that quietly does nothing.
+    // No fallback to `default_view_mode`: FluentCommunity's `default_feed_layout` is never empty.
     const viewMode: FeedViewMode = feed.default_layout;
     seedFeedControls({ ...(sort ? { sort } : {}), viewMode });
   }, [isFeedToolbar, fcSettings.feed, authoredToolbarProps]);
 
-  // The feed banner's CTA overflow — half of the `collapsible` verdict
-  // the View More row gates on. The other half is the description's
-  // measured height, published by AppzaRichText, and the OR is joined in
-  // bannerStateEntries so neither writer has to know about the other.
-  //
-  // Counted here rather than expressed as a clause because "more than
-  // two" is a comparison the grammar has no operator for; the same
-  // question was answered for the post card's like count by sending an
-  // empty string from the proxy and gating on `exists`, which works for
-  // one boolean and not for a count the renderer also has to act on.
+  // Counted here: the clause grammar has no "more than two" operator.
   const publishesBannerCtas = (dataSource?.slug ?? '') === 'fc-welcome-banner';
   useEffect(() => {
     if (!publishesBannerCtas) return;
-    // Hold the last verdict across a refetch, like the verdicts above:
-    // publishing `false` mid-fetch would retract the row under the
-    // reader's finger.
     if (dataState.loading) return;
     const first = dataState.items[0];
     const ctas = isRecord(first) && Array.isArray(first.ctaButtons) ? first.ctaButtons : [];
     setBannerControls({ hasExtraCtas: ctas.length > 2 });
   }, [publishesBannerCtas, dataState.loading, dataState.items]);
 
-  // Search (2026-08-23). Three DIFFERENT sources publish into ONE key,
-  // and that only works because exactly one of them is ever mounted:
-  // the three result cards gate on `active_scope`, which holds a single
-  // tab value at a time and '' while the query is too short. Nothing here
-  // arbitrates between them, because nothing has to.
-  //
-  // Narrower than the bookmarks verdict next door: this one only ever
-  // says what the FETCH found. The three states that happen with no card
-  // mounted — a history to show, no history, a query too short — are
-  // derived inside the slice from the query and the recents, because no
-  // fetch is running to publish them.
+  // Three sources share this key; only one result card is ever mounted, gated on `active_scope`.
   const searchResultSlugs = ['fc-search-posts', 'fc-search-members', 'fc-search-spaces'];
   const publishesSearchView = searchResultSlugs.includes(dataSource?.slug ?? '');
   useEffect(() => {
     if (!publishesSearchView) return;
-    // `stale`, not just `loading` — P99. In the commit where the query
-    // changes, `loading` still reads false beside the PREVIOUS query's
-    // items, so a verdict taken here would be taken about the wrong
-    // answer. On this screen that would flash "No matching posts" over
-    // results that are about to arrive, and tear the no-match state on
-    // and off between every pair of keystrokes.
+    // `stale`, not just `loading`: this commit still pairs the new query with the previous items.
     if (dataState.loading || dataState.stale) {
       publishSearchFetchView('loading');
       return;
@@ -979,15 +601,7 @@ export function PlacementRenderer({
     publishSearchFetchView(dataState.items.length > 0 ? 'results' : 'no-match');
   }, [publishesSearchView, dataState.loading, dataState.stale, dataState.items.length]);
 
-  // The composer's gate. A footer placement has no row of its own to
-  // read, and a placement can read state and nothing else — so whether
-  // there is a conversation to post to has to be published here, by the
-  // AppZet that resolved the thread.
-  //
-  // Covers three cases with one string: no thread resolved at all (a
-  // deep link, or the Chat tab before its list exists), a thread the
-  // viewer has left, and a blocked one-to-one — FluentCommunity answers
-  // all three with can_send_message false.
+  // A footer placement reads only state, so the composer's gate is published here.
   const publishesThreadState = (dataSource?.slug ?? '') === 'fc-chat-thread';
   useEffect(() => {
     if (!publishesThreadState) return;
@@ -997,21 +611,7 @@ export function PlacementRenderer({
     setChatControls({ can_send: canSend ? 'yes' : 'no' });
   }, [publishesThreadState, dataState.loading, dataState.items]);
 
-  // ── Post detail (2026-09-01) ───────────────────────────────────────
-  //
-  // Two publishes, from the two DataSources the screen binds. Both live
-  // here for P149's reason: the verdicts belong to RENDERING the screen,
-  // not to the tap that led there. Published from the tap alone, a deep
-  // link, the simulator's screen picker or a back-navigation would all
-  // arrive with a stale gate and draw the wrong footer.
-  //
-  // The POST decides two of them. `can_comment` is three-valued because
-  // "no composer, sign in" and "no composer at all" are different
-  // screens (design 11 versus nothing), and a boolean cannot say which.
-  // `comment_sort` is SEEDED, not set: FluentCommunity puts the space's
-  // "Default Comment Sort By" on every feed row it renders, and it is a
-  // default — once the reader picks an order themselves it stands, which
-  // is what `comment_sort_touched` guards.
+  // Published on render, not on the tap, so deep links and the simulator picker get the right gate.
   const publishesPostDetail = (dataSource?.slug ?? '') === 'fc-post-detail';
   const postDetailRow = publishesPostDetail ? dataState.items[0] : undefined;
   const postDetailRowKey =
@@ -1032,9 +632,7 @@ export function PlacementRenderer({
       return;
     }
     const meta = isRecord(row.meta) ? row.meta : {};
-    // FluentCommunity's own switch, off the post's 3-dot menu. When it
-    // is on NOBODY comments — not the author, not a moderator — so it
-    // outranks the viewer question entirely.
+    // FluentCommunity's comments-off switch applies to everyone, moderators included.
     const commentsOff = meta.comments_disabled === 'yes';
     const canComment = commentsOff ? 'no' : getViewer().is_logged_in ? 'yes' : 'signin';
 
@@ -1047,28 +645,11 @@ export function PlacementRenderer({
       patch.comment_sort = normalizeCommentSort(row.default_comment_sort_by);
     }
     setPostDetailControls(patch as Partial<ReturnType<typeof getPostDetailControls>>);
-    // Keyed on the row's IDENTITY, not the items array: `items` is a new
-    // array on every render, and an effect that writes state on every
-    // render is a loop with a fetch in it.
+    // Keyed on the row's identity: `items` is new every render, and this effect writes state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [publishesPostDetail, dataState.loading, postDetailRowKey]);
 
-  // The THREAD decides whether there is one. `stale` as well as
-  // `loading` — P99: in the commit where the post changes, `loading`
-  // still reads false beside the PREVIOUS post's comments, and a verdict
-  // taken there would flash the old thread's answer over the new post.
-  // ── A lesson's discussion (Courses chunk 6, states 22–29) ─────────
-  //
-  // The post-detail thread, sort, empty state and composer all read this
-  // slice, so the lesson publishes into it what a post does: WHICH feed
-  // row (a lesson is one), and whether the viewer may comment. Published
-  // once, by the header AppZet — three AppZets bind the lesson row.
-  //
-  // `can_comment`: 'yes' a student or the course admin; 'no' anyone else
-  // (they read); 'off' the lesson or course takes no comments — the
-  // discussion placements gate on != 'off', the composer on 'yes'. The
-  // sort is not remembered (state 23): a new lesson resets the "touched"
-  // flag in the slice, and an untouched sort is Earliest first.
+  // `stale` as well as `loading`, or the previous post's comments decide the verdict.
   const publishesLessonDiscussion =
     (dataSource?.slug ?? '') === 'fc-course-lesson' && baseAppzet?.slug === 'fc-course-lesson-header';
   const lessonRow = publishesLessonDiscussion ? dataState.items[0] : undefined;
@@ -1103,18 +684,7 @@ export function PlacementRenderer({
     publishCommentsView(dataState.items.length > 0 ? 'list' : 'empty');
   }, [publishesCommentsView, dataState.loading, dataState.stale, dataState.items.length]);
 
-  // A conversation is the one screen where the other side changes it
-  // while you are looking at it. FluentCommunity ships realtime OFF by
-  // default (`realtime_enabled: no`), so without this the only way a
-  // message from the other person appears is a send, a screen change or
-  // a window focus — which reads as a chat that has stopped working.
-  //
-  // The interval is an AppZet prop rather than a constant, so a customer
-  // can slow it down or switch it off entirely; 0 means off. It refetches
-  // the whole list rather than walking the `new messages` cursor because
-  // the refresh event is the mechanism every other mutation already uses,
-  // and a second path into the same list is a second thing to keep
-  // correct.
+  // FluentCommunity ships realtime off, so poll; an interval of 0 disables it.
   const pollIntervalMs = (() => {
     if (!publishesMessagesView) return 0;
     const raw = (appzet?.default_props_override as Record<string, unknown> | null | undefined)
@@ -1127,8 +697,6 @@ export function PlacementRenderer({
     if (pollIntervalMs <= 0) return;
     if (typeof window === 'undefined') return;
     const tick = () => {
-      // Never poll over a screen nobody is looking at, and never while a
-      // fetch is already in flight.
       if (document.hidden) return;
       window.dispatchEvent(
         new CustomEvent('appza:refresh-data', { detail: { data_source: messagesDsSlug } }),
@@ -1141,26 +709,9 @@ export function PlacementRenderer({
   if (!appzet) return <MissingNode label={`unknown appzet: ${appzetSlug}`} />;
   if (!ss) return <MissingNode label={`appzet ${appzet.slug} has no superstructure`} />;
 
-  // === _data_prop_mirror ===
-  // Generic bridge from a resolved DS response into a named AppZet prop.
-  // Declared as a meta key inside default_props_override (piggybacked to
-  // avoid an AppZet-column migration):
-  //   default_props_override._data_prop_mirror:
-  //     { data_path: 'data.topics', prop: 'topics' }
-  //     - `data_path` starting with 'data.' reads FROM the first fetched
-  //       item (single-object DS shape — e.g. fc-space-detail's topics
-  //       array lives on the row itself).
-  //     - `data_path: ''` (or missing) uses the entire items array
-  //       verbatim — for list DSes like fc-spaces-discover whose whole
-  //       return should populate a `spaces` prop.
-  // Only mirrors when the target prop is empty/absent so authors can
-  // hardcode a static list if they don't want the DS-driven behaviour.
-  // Runs BEFORE readExpandedChildren so children_from_prop sees the
-  // mirrored array on the same render pass — no second commit needed.
+  // Runs before readExpandedChildren so children_from_prop sees the mirrored array in the same pass.
   const dpoBag = (appzet.default_props_override ?? null) as Record<string, unknown> | null;
-  // Set when the mirror below hands the WHOLE items array to a prop.
-  // The AppZet has then consumed the list itself, and the row loop far
-  // below must not ALSO repeat over it — see `isWholeListMirrored`.
+  // Set when the whole items array went to a prop, so the row loop must not repeat over it too.
   let wholeListMirrored = false;
   const mirrorSpecRaw = dpoBag ? dpoBag['_data_prop_mirror'] : undefined;
   const mirrorSpec =
@@ -1180,17 +731,12 @@ export function PlacementRenderer({
     if (isEmptyArray || missing) {
       let mirrored: unknown = undefined;
       if (!dataPath) {
-        // Whole items array (list DS → prop expects a list of records).
         mirrored = dataState.items;
         wholeListMirrored = true;
       } else if (dataPath.startsWith('data.') && dataState.items.length > 0) {
-        // Nested read from the first item (single-object DS shape).
         mirrored = readDataPath(dataState.items[0], dataPath);
       }
       if (Array.isArray(mirrored) && mirrored.length > 0) {
-        // Mutating the freshly-cloned override bag from line 181 —
-        // safe because that spread produced a new object owned by this
-        // render. Cast keeps the schema-level `nullable` type quiet.
         (appzet as { default_props_override: Record<string, unknown> }).default_props_override = {
           ...(appzet.default_props_override ?? {}),
           [propName]: mirrored,
@@ -1199,28 +745,6 @@ export function PlacementRenderer({
     }
   }
 
-  // === _config_apply ===
-  // Per-space (or per-context) runtime overrides mirrored from a DS field
-  // onto this AppZet's default_props_override. Powers the per-space
-  // config knobs on the Space Detail screen (fc-space-switcher /
-  // fc-space-subtabs / fc-space-cover / fc-space-topics) without needing
-  // a per-space AppZet clone.
-  //
-  //   default_props_override._config_apply:
-  //     { data_source_slug?: 'fc-space-detail',   // optional; own DS if omitted
-  //       data_path: 'data.appza_config.subtabs',
-  //       merge_into: 'default_props' | 'prop:<name>' }
-  //
-  //   - merge_into='default_props': the config value at data_path must be
-  //     an object; its keys are merged onto default_props_override
-  //     (config wins). Use for scalar knobs like {section_header,
-  //     all_label, hidden, height, ...}.
-  //   - merge_into='prop:<name>': the config value at data_path replaces
-  //     the named prop wholesale. Use for array-shaped configs like
-  //     `subtabs` where the customer's list fully replaces the default.
-  //
-  // Runs after _data_prop_mirror so mirrored array is already in place
-  // before overrides are applied.
   if (
     configApplySpec &&
     typeof configApplySpec.data_path === 'string' &&
@@ -1229,8 +753,6 @@ export function PlacementRenderer({
     const dataPath = configApplySpec.data_path;
     const mergeIntoRaw =
       typeof configApplySpec.merge_into === 'string' ? configApplySpec.merge_into : 'default_props';
-    // Pick the DS payload — sibling (fc-space-detail on switcher/subtabs)
-    // or own DS (topics reads its own fc-space-detail; cover ditto).
     const sourceItems = siblingConfigSlug ? siblingConfigState.items : dataState.items;
     if (sourceItems.length > 0) {
       const configValue = readDataPath(sourceItems[0], dataPath);
@@ -1243,30 +765,11 @@ export function PlacementRenderer({
         } else if (mergeIntoRaw.startsWith('prop:')) {
           const propName = mergeIntoRaw.slice('prop:'.length);
           if (propName.length > 0) {
-            // A `prop:` config REPLACES the catalog list wholesale, which
-            // is right for labels, order and hidden — those are the
-            // customer's call. It is wrong for `requires_permission`: a
-            // gate is catalog POLICY, and the admin API cannot even
-            // write one (SpaceConfigController's subtab sanitizer allows
-            // only value/label/hidden/icon/target_screen). So a space
-            // that saved a subtabs override silently un-gated every tab
-            // the catalog gated — DOCUMENTS drew there even with the
-            // space's document library switched off.
-            //
-            // `on_click_action` is the same kind of key. It names the
-            // EVENT an entry fires, which the AppZet's actions map
-            // resolves — CHAT uses it to PUSH the conversation screen
-            // instead of switching a sub-tab. The sanitizer drops it
-            // too, so an override of a list containing CHAT would leave
-            // that tab switching to a sub-tab nothing renders.
-            //
-            // Carry both across by matching on `value`. An entry that
-            // names its own keeps it.
+            // Carry requires_permission and on_click_action across a `prop:` override: SpaceConfigController's sanitizer drops both.
             const CATALOG_OWNED_ENTRY_KEYS = ['requires_permission', 'on_click_action'] as const;
             const baseEntries = (appzet.default_props_override ?? {})[propName];
             let nextValue: unknown = configValue;
             if (Array.isArray(nextValue) && Array.isArray(baseEntries)) {
-              // value → { key → catalog value }, for the keys above only.
               const owned = new Map<string, Record<string, string>>();
               for (const base of baseEntries) {
                 if (!isRecord(base) || typeof base.value !== 'string') continue;
@@ -1302,39 +805,17 @@ export function PlacementRenderer({
     }
   }
 
-  // === Directive post-processing ===
-  // After _config_apply has splattered scalar overrides onto
-  // default_props_override, apply the well-known DIRECTIVE keys that
-  // manipulate the mirrored data arrays rather than just replacing
-  // props verbatim. These keys are handled here because they need to
-  // read AND WRITE the same `spaces` / `topics` mirror; the plain
-  // splat can't express filter+reorder semantics.
-  //
-  // Skip-render directives (hidden) short-circuit the whole AppZet by
-  // returning early below — after we've built the wrapper skeleton so
-  // the placement slot still occupies the same order in the DOM tree
-  // (React key stability).
+  // `hidden` returns early only after the wrapper is built, so the placement keeps its DOM order.
   {
     const dpo = (appzet.default_props_override ?? {}) as Record<string, unknown>;
-    // hidden = true → the whole strip disappears; renderer returns a
-    // zero-height sentinel so surrounding placements don't reflow around
-    // an absent node in a way that shifts layout mid-transition.
     if (dpo['hidden'] === true) {
       return <span data-appza-hidden-appzet={appzet.slug} style={{ display: 'none' }} />;
     }
-    // spaces_whitelist (fc-space-switcher) — filter mirrored entries by
-    // slug, preserving whitelist order. Missing/empty whitelist = keep
-    // full list. Applied only when the AppZet has a mirrored `spaces`
-    // array; safe no-op otherwise.
     const readSlug = (v: unknown): string | undefined => {
       if (!isRecord(v)) return undefined;
       const s = (v as Record<string, unknown>).slug;
       return typeof s === 'string' ? s : undefined;
     };
-    // Directive lists accept two shapes:
-    //   - array of strings (runtime config JSON)
-    //   - comma-separated string (right-panel string input)
-    // Empty string / empty array are treated equivalently as "no filter".
     const parseSlugList = (raw: unknown): string[] => {
       if (Array.isArray(raw)) {
         return raw.filter((s): s is string => typeof s === 'string' && s.length > 0);
@@ -1363,9 +844,6 @@ export function PlacementRenderer({
         };
       }
     }
-    // topic_order + hidden_topics (fc-space-topics) — filter first, then
-    // reorder. Unlisted topics keep their post-mirror order after any
-    // explicitly-ordered entries.
     const hiddenTopics = parseSlugList(dpo['hidden_topics']);
     const topicOrder = parseSlugList(dpo['topic_order']);
     if ((hiddenTopics.length > 0 || topicOrder.length > 0) && Array.isArray(dpo['topics'])) {
@@ -1403,17 +881,6 @@ export function PlacementRenderer({
     }
   }
 
-  // Variadic children expansion: when the SS opts into children_from_prop
-  // (e.g. 'tabs'), replicate ss.children[0] once per array entry. Falls
-  // back to the static-children path when the prop is absent OR the
-  // array is empty. Per-entry leaf values (label→text, value, icon, ...)
-  // land in `entryOverrides` which we merge into baseChildOverrides so
-  // the tab labels + values render off the AppZet default_props.
-  // Permissions bag for `requires_permission` tab entries. Read from the
-  // same row _config_apply resolves — the sibling DS when one is declared
-  // (fc-space-subtabs / fc-media-tabs both point at fc-space-detail),
-  // otherwise the AppZet's own first row. Undefined until it lands, which
-  // the entry filter treats as "show the entry".
   const permissionsSource = siblingConfigSlug ? siblingConfigState.items : dataState.items;
   const entryPermissions = isRecord(permissionsSource[0])
     ? ((permissionsSource[0] as Record<string, unknown>).permissions as
@@ -1434,23 +901,13 @@ export function PlacementRenderer({
       ...expanded.entryOverrides[i],
     };
   }
-  // Add-document screen: two labels are stateful rather than static, so
-  // they are resolved here instead of being fixed catalog props. Both
-  // still READ their text from catalog props — this only chooses which
-  // prop applies, so nothing becomes uneditable.
   if (appzet.slug === 'fc-add-document-appbar' && documentDraft.submitting) {
     const busy = readAppzetProp(ss, appzet, 'submit_busy_label');
     if (typeof busy === 'string' && busy !== '') {
       baseChildOverrides[2] = { ...(baseChildOverrides[2] ?? {}), text: busy };
     }
   }
-  // The Post button's two states — designs 1 and 4 pale, design 10 solid.
-  //
-  // Painted through the CHILD OVERRIDE rather than a stylesheet rule,
-  // because ThemedIonButton writes the button's surface onto
-  // `::part(native)` with `!important`; an attribute-scoped rule loses to
-  // that no matter how specific it is. Going through the override means
-  // the pale fill takes exactly the path the authored one does.
+  // Through the child override, not a stylesheet: ThemedIonButton paints ::part(native) with !important.
   if (
     appzet.slug === 'fc-create-post-appbar' &&
     postDraftStateEntries(composerDraft)['post_draft.can_post'] !== 'yes'
@@ -1464,19 +921,7 @@ export function PlacementRenderer({
       baseChildOverrides[2] = { ...(baseChildOverrides[2] ?? {}), text_color: paleText };
     }
   }
-  // The edit screen's file block draws the post's files whenever it has
-  // any — but its dropzone is an UPLOAD, and FluentCommunity Pro guards
-  // that on the space's Document Library switch
-  // (`verifyUserPermisson($user, 'can_upload_documents')`). A post can
-  // outlive that switch being turned off, so the two halves are gated
-  // separately: the list on the files existing, the dropzone on the
-  // permission.
-  //
-  // Stamped here rather than authored as a `visible_when`, because a
-  // child clause cannot reach INSIDE a bespoke primitive — the dropzone
-  // is one element of `appza-file-picker`, not a child of the
-  // Superstructure. Same reason the create appbar's pale CTA is stamped
-  // a few lines up.
+  // The dropzone is gated separately: FluentCommunity Pro guards uploads on the space's Document Library switch.
   if (appzet.slug === 'fc-edit-document-files' && !composerDraft.space_can_upload_documents) {
     baseChildOverrides[0] = { ...(baseChildOverrides[0] ?? {}), show_dropzone: false };
   }
@@ -1489,68 +934,28 @@ export function PlacementRenderer({
   }
 
   const hiddenIndices = computeHiddenIndices(ss, appzet);
-  // Child `visible_when` on the SINGLE (no data source) path.
-  //
-  // It used to be evaluated only on the repeat path, where there is a row
-  // to read — so a clause on an AppZet that binds no data source was
-  // parsed, carried into the snapshot, and then never consulted. The
-  // composer is exactly that case: it has no row, and the glyphs that
-  // exist only under a plugin switch have nowhere else to be gated.
-  //
-  // `data.*` clauses resolve to undefined here, which is the honest
-  // answer when there is no item; `settings.*` resolve against the site's
-  // FluentCommunity configuration; `state.*` against the composer draft.
+  // `data.*` clauses resolve to undefined here: there is no row.
   const singlePathHidden = useMemo(() => {
     const dataHidden = computeDataHiddenIndices(readChildren(ss), null);
     if (dataHidden.size === 0) return hiddenIndices;
     return new Set<number>([...hiddenIndices, ...dataHidden]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    // documentDraft is in here because the attach bar's document-mode
-    // gate reads BOTH slices: creating a post keeps files on the
-    // composer draft, editing one keeps them in the document draft.
   }, [ss, hiddenIndices, fcSettings, composerDraft, documentDraft]);
   const childLayoutStyles = computeChildLayoutStyles(appzet, ss, customizations);
 
-  // When `children_from_prop` is active AND actually expanded from a
-  // resolved DS (via _data_prop_mirror), the DS's items array is
-  // ALREADY being consumed as per-child data — replicated once per
-  // entry inside `expanded.children`. In that case the outer
-  // `items.map` loop below would render the whole strip once per DS
-  // item, producing the "each chip appears N times" duplication seen
-  // on fc-space-switcher. Detect this and force the static single-
-  // wrapper branch below by treating the AppZet as data-source-less.
+  // A strip already expanded from the DS items must not also repeat per item, or each chip draws N times.
   const cfpProp = (ss as unknown as { children_from_prop?: unknown }).children_from_prop;
   const isVariadicFromDs =
     typeof cfpProp === 'string' &&
     cfpProp.length > 0 &&
     Object.keys(expanded.entryOverrides).length > 0;
 
-  // Nested repeat: the SS wants variadic children but the AppZet holds
-  // no such array, so each DS row supplies its own (a document card
-  // expanding its files). Expansion then has to happen per item rather
-  // than once up here, and the outer row loop must NOT collapse — which
-  // it doesn't, because `expanded` came back static so isVariadicFromDs
-  // stayed false.
   const isVariadicFromItem =
     typeof cfpProp === 'string' && cfpProp.length > 0 && !isVariadicFromDs;
 
-  // The same collapse, for an AppZet that consumes the whole list
-  // WITHOUT children_from_prop.
-  //
-  // fc-space-switcher expands one child per row, so the variadic check
-  // above catches it. The comment thread does not: it has exactly one
-  // child, and that child is handed the entire array — because a thread
-  // has to be reordered and nested as a whole, which a per-row render
-  // can never do. Left to the row loop below, the whole thread would
-  // draw once per comment.
-  //
-  // Guarded on the mirror having actually FIRED (an author-set prop
-  // wins, and an empty result mirrors nothing), so an AppZet whose
-  // mirror did not apply still repeats per row as it always did.
+  // Same collapse for an AppZet handed the whole list without children_from_prop (the comment thread).
   const isWholeListMirrored = wholeListMirrored;
 
-  // Pull spacing override (Properties-panel-edited values) and apply
-  // as inline style on the AppZet wrapper.
   const overrides = (appzet.default_props_override ?? null) as Record<string, unknown> | null;
   const spacing = overrides && typeof overrides['spacing'] === 'object'
     ? (overrides['spacing'] as SpacingOverride)
@@ -1573,18 +978,11 @@ export function PlacementRenderer({
     .filter(Boolean)
     .join(' ');
 
-  // Sub-mount used by both render branches below. Each entry mounts once
-  // per (propName, dsSlug) pair and fires a useDataSource fetch; results
-  // flow back into `optionData` via handleOptionLoaded and land in
-  // appzet.default_props_override on the next render.
   const optionFetchers =
     optionDsEntries.length > 0 ? (
       <>
         {optionDsEntries.map(([propName, dsSlug]) => {
-          // Resolve the DS's own query_params for this fetch (route.slug
-          // for fc-space-detail, etc.) — without this, OptionDataSourceFetcher
-          // fetches with no params and returns [] for any route-param
-          // bound DS (topic dropdown stayed empty on create/edit post).
+          // Without the DS's own query_params a route-param bound source fetches with none and returns [].
           const optDs = catalogIndex.dataSourceBySlug.get(dsSlug);
           const optParams = optDs
             ? resolveQueryParams(optDs.query_params)
@@ -1602,15 +1000,7 @@ export function PlacementRenderer({
       </>
     ) : null;
 
-  // Style-variable stamping. Two sources feed into --appza-* CSS
-  // custom props on the AppZet wrapper:
-  //   1. `_style` bag (used by the per-space runtime config, where a
-  //      nested object keeps knobs grouped)
-  //   2. FLAT root keys on default_props_override whose name matches a
-  //      known style knob — this is the shape the right-panel
-  //      Properties editor writes (each schema entry is flat).
-  // Flat keys win over _style bag when both present (right-panel edit
-  // is the authoritative author intent).
+  // Flat right-panel keys win over the `_style` bag.
   const STYLE_KNOBS = new Set<string>([
     'gap',
     'chip_radius',
@@ -1625,7 +1015,6 @@ export function PlacementRenderer({
     'aspect_ratio',
     'overlay_gradient',
     'overlay_text_color',
-    // All Members (2026-09-15) — toolbar, strip and directory card.
     'row_bg_color',
     'search_bg_color',
     'search_border_color',
@@ -1651,10 +1040,8 @@ export function PlacementRenderer({
     'follow_text_color',
     'following_text_color',
     'divider_color',
-    // Profile tabs (2026-09-16) — the comment card and the space ⋮.
     'comment_bg_color',
     'remove_member_icon_color',
-    // Member card + members-actions knobs (2026-08-06).
     'grid_columns',
     'card_gap',
     'card_bg_color',
@@ -1679,9 +1066,7 @@ export function PlacementRenderer({
     'add_bg_color',
     'add_text_color',
     'add_radius',
-    // Space Documents sub-tab knobs (2026-08-16).
     'title_color',
-    // The Moderation card's Post / Comment label.
     'type_color',
     'file_row_color',
     'file_icon_color',
@@ -1702,11 +1087,6 @@ export function PlacementRenderer({
     'fab_size',
     'fab_offset_bottom',
     'fab_offset_end',
-    // Space Media sub-tab knobs (2026-08-17). grid_columns, aspect_ratio,
-    // row_padding, gap, height, font_weight, chip_text_color, chip_radius,
-    // active_bg_color, active_text_color and title_color/title_size are
-    // already above — the media AppZets reuse them by design so one CSS
-    // vocabulary covers the whole screen.
     'track_bg_color',
     'track_radius',
     'track_padding',
@@ -1726,10 +1106,6 @@ export function PlacementRenderer({
     'time_color',
     'progress_color',
     'progress_track_color',
-    // Chat knobs (2026-08-18). `row_gap`, `time_color`, `gap` and
-    // `font_weight` are already above — the chat AppZets reuse them on
-    // purpose, so one CSS vocabulary covers the screen rather than a
-    // parallel chat_* set.
     'avatar_size',
     'avatar_bg_color',
     'avatar_text_color',
@@ -1756,8 +1132,6 @@ export function PlacementRenderer({
     'group_gap',
     'list_padding',
     'list_bg_color',
-    // fc-chat-home-fab. The `fab_*` knobs above belong to the documents
-    // FAB, which is a different Superstructure with a different shape.
     'bg_color',
     'icon_color',
     'icon_size',
@@ -1765,12 +1139,6 @@ export function PlacementRenderer({
     'shadow',
     'offset_right',
     'offset_bottom',
-    // Leaderboard knobs (2026-08-19). `card_*`, `avatar_size`,
-    // `avatar_bg_color`, `name_color`, `row_gap`, `row_padding`,
-    // `title_color`, `title_size`, `divider_color`, `icon_color`,
-    // `height`, `font_weight`, `bg_color`, `active_color` and `gap` are
-    // already above and are reused on purpose — one CSS vocabulary for
-    // the whole app rather than a parallel leaderboard_* set.
     'avatar_ring_color',
     'badge_bg_color',
     'badge_text_color',
@@ -1812,18 +1180,9 @@ export function PlacementRenderer({
     'points_color',
     'points_size',
     'points_weight',
-    // Saved Posts strip (2026-08-19). `row_padding`, `icon_color` and
-    // `divider_color` are already above and reused on purpose.
     'sort_text_color',
     'sort_icon_color',
     'view_icon_color',
-    // Search screen (2026-08-23). `track_*`, `row_padding`, `row_gap`,
-    // `active_bg_color`, `active_color`, `active_border_color`,
-    // `font_size`, `font_weight`, `gap`, `icon_color`, `icon_size`,
-    // `text_color`, `divider_color`, `title_color`, `title_size`,
-    // `title_weight`, `letter_spacing` and the `search_*` set are all
-    // already above and reused on purpose — same rule as every block
-    // before this one: one CSS vocabulary, not a parallel search_* set.
     'tab_bg_color',
     'tab_text_color',
     'tab_border_color',
@@ -1835,16 +1194,7 @@ export function PlacementRenderer({
     'remove_size',
     'row_height',
     'text_size',
-    // Create post (2026-08-24). `card_bg_color`, `card_padding`,
-    // `card_radius`, `row_gap`, `row_padding`, `title_color`,
-    // `title_size`, `title_weight`, `divider_color`, `icon_color`,
-    // `icon_size` and `body_size` are already above and reused on
-    // purpose — one CSS vocabulary, not a parallel composer_* set.
-    //
-    // The topic chips deliberately do NOT reuse `chip_bg_color` /
-    // `chip_radius`: those carry Ionic aliases (--background,
-    // --border-radius) that inherit through the wrapper and would repaint
-    // the five attach buttons sitting inside the same card.
+    // Topic chips don't reuse chip_*: those carry Ionic aliases that would repaint the attach buttons in the same card.
     'page_bg_color',
     'card_margin',
     'card_border_color',
@@ -1892,12 +1242,6 @@ export function PlacementRenderer({
     'box_checked_tick_color',
     'label_color',
     'label_size',
-    // "Move to a different space" — the edit screen's row (2026-09-06).
-    // Its own `move_box_*` set rather than reusing the announcement
-    // row's `box_*`: both checkboxes sit on the same screen and the
-    // designs draw them differently (the announcement tick is outlined
-    // when off, the move square is empty), so one vocabulary here would
-    // mean styling one of them by accident.
     'move_gap',
     'move_box_gap',
     'move_box_size',
@@ -1914,10 +1258,6 @@ export function PlacementRenderer({
     'move_chip_radius',
     'move_chip_padding',
     'move_chip_gap',
-    // Post preview (2026-08-24). `card_*`, `avatar_size`,
-    // `avatar_bg_color`, `name_*`, `meta_color`, `title_*`, `body_*`,
-    // `divider_color`, `icon_color`, `icon_size` and `row_gap` are
-    // already above and reused on purpose.
     'author_gap',
     'meta_size',
     'empty_color',
@@ -1932,7 +1272,6 @@ export function PlacementRenderer({
     'close_color',
     'close_size',
     'close_weight',
-    // Images on the composer and in the preview (2026-08-24).
     'image_columns',
     'image_gap',
     'image_aspect',
@@ -1947,15 +1286,10 @@ export function PlacementRenderer({
     'overflow_color',
     'overflow_size',
     'overflow_weight',
-    // Attached audio (2026-08-24).
     'audio_gap',
     'audio_remove_bg_color',
     'audio_remove_color',
-    // The poll strip on the composer and the poll block in the preview
-    // (2026-08-25). Both are drawn by bespoke primitives on PLACED
-    // AppZets, so unlike the sheet's own knobs — which travel through
-    // pollSheetPresentation — these have to be stamped as CSS variables
-    // here, or the Properties panel edits nothing.
+    // Bespoke primitives on placed AppZets only see panel edits through these CSS variables.
     'poll_bg_color',
     'poll_text_color',
     'poll_size',
@@ -1985,9 +1319,6 @@ export function PlacementRenderer({
     'poll_votes_color',
     'poll_votes_size',
     'poll_votes_gap',
-    // Attached documents (2026-08-25) — the composer's rows and the
-    // preview's card. Shared names on purpose: a file that looked
-    // different in the preview would defeat the preview.
     'doc_gap',
     'doc_row_gap',
     'doc_row_height',
@@ -2008,7 +1339,6 @@ export function PlacementRenderer({
     'doc_heading_size',
     'doc_heading_weight',
     'doc_heading_padding',
-    // The schedule strip and the Post CTA's pale state (2026-08-25).
     'strip_margin',
     'strip_padding',
     'strip_height',
@@ -2026,9 +1356,6 @@ export function PlacementRenderer({
     'strip_clear_size',
     'cta_disabled_bg_color',
     'cta_disabled_color',
-    // Courses (arc sweep, 2026-09-23). The stylesheet read these from
-    // chunk 1 on, but nothing stamped them, so the right panel's value
-    // never reached the card, the details, the lesson or the quiz.
     'cover_bg_color',
     'button_bg_color',
     'button_text_color',
@@ -2039,14 +1366,7 @@ export function PlacementRenderer({
     'status_icon_color',
     'video_icon_color',
   ]);
-  // Aliases: some knobs also drive Ionic's own CSS custom properties
-  // directly. Custom props inherit through shadow DOM (unlike `background`
-  // set via `::part(native)` which has cascade quirks), so stamping the
-  // Ionic-native var name on the wrapper is the reliable path to live
-  // Ionic-component updates.
-  //   chip_bg_color   → --background          (ion-button surface)
-  //   chip_text_color → --color               (ion-button label)
-  //   chip_radius     → --border-radius       (ion-button + ion-chip)
+  // Custom props inherit through shadow DOM, so Ionic-native aliases are stamped too.
   const IONIC_ALIASES: Record<string, string[]> = {
     chip_bg_color:   ['--background'],
     chip_text_color: ['--color'],
@@ -2072,15 +1392,6 @@ export function PlacementRenderer({
     if (k in dpoForStyle) stampVar(k, dpoForStyle[k]);
   }
 
-  // No data source: render once with static overrides. Child actions still
-  // apply (login button, create-post button, etc. — anything that doesn't
-  // need per-item data context) so we compute them with a null item.
-  // Two toolbar knobs that are layout decisions rather than colours, so
-  // they reach CSS as attributes rather than as custom properties. The
-  // feed's strip puts sort at the right end; Saved Posts puts it at the
-  // left with the layout glyph pushed to the far right, and draws no
-  // hairline above itself. Both are authored on the AppZet, so a
-  // customer can swap either strip round from the right panel.
   const toolbarProps = (appzet?.default_props_override ?? {}) as Record<string, unknown>;
   const toolbarAlign =
     baseAppzet && TOOLBAR_CONTROL_SLICES[baseAppzet.slug]
@@ -2106,20 +1417,12 @@ export function PlacementRenderer({
               ? String(documentDraft.files.length > 0 && !documentDraft.submitting)
               : undefined
           }
-          /* Same mechanism, for the composer's send button: it has to
-             look awake once there is something to send, and the button is
-             a plain ion-button with no view of the draft. */
           data-appza-can-send={
             appzet.slug === 'fc-chat-input'
               ? String(chatControls.draft.trim().length > 0 || chatControls.attachments.length > 0)
               : undefined
           }
-          /* And again for the Post button. `can_post` mirrors
-             FluentCommunity's OWN refusals — a message, a destination, a
-             topic where the space demands one, a title where the site
-             does — so the pale button of designs 1 and 4 says what the
-             round trip would say. Stamped only for the CREATE appbar;
-             the edit appbar shares the shell and is left alone. */
+          /* `can_post` mirrors FluentCommunity's own refusals; stamped only for the create appbar. */
           data-appza-can-post={
             appzet.slug === 'fc-create-post-appbar'
               ? String(postDraftStateEntries(composerDraft)['post_draft.can_post'] === 'yes')
@@ -2158,26 +1461,12 @@ export function PlacementRenderer({
               appzet.slug === 'fc-space-topics' ? spaceDetailTopicSlug :
               appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug :
               appzet.slug === 'fc-spaces-tabs' ? spacesTab :
-              // Rides fc-space-subtabs' Superstructure but reads a
-              // different slice, so it cannot fall into the first branch.
               appzet.slug === 'fc-leaderboard-tabs' ? leaderboardControls.range :
-              // Search's two strips (2026-08-23). One Superstructure wearing
-              // two looks, reading two different keys of the same slice — so,
-              // like the leaderboard above, neither can fall into an earlier
-              // branch. The active entry is marked with data-active rather
-              // than by pairing a wrapper attribute against each value, which
-              // is what the CSS keys on.
               appzet.slug === 'fc-search-tabs' ? searchControls.tab :
               appzet.slug === 'fc-search-scope-tabs' ? searchControls.post_scope :
-              // See the note at the sibling call site below.
               appzet.slug === 'fc-follow-tabs' ? followView :
-              // All Members' status strip — the profile strip's
-              // Superstructure reading a different slice.
               appzet.slug === 'fc-members-tabs' ? memberDirectory.status :
-              // Moderation's four statuses, on the media tabs' pill.
               appzet.slug === 'fc-moderation-tabs' ? moderationControls.status :
-              // Courses: All | My on the spaces strip, topic chips on the
-              // space topics strip — each reading its own slice.
               appzet.slug === 'fc-courses-tabs' ? courseList.tab :
               appzet.slug === 'fc-courses-topics' ? courseList.topic_slug :
               undefined
@@ -2192,11 +1481,7 @@ export function PlacementRenderer({
     );
   }
 
-  // hide_while_loading — opt-in. An AppZet whose very EXISTENCE is the
-  // answer its data source gives draws nothing until that answer lands.
-  // The All Members status strip is the case: its row says whether the
-  // viewer may see the tabs at all, and a placeholder strip would show a
-  // member the admin tabs for as long as the fetch takes.
+  // The row says whether the viewer may see this at all, so a placeholder would leak it.
   if (
     (appzet.default_props_override as Record<string, unknown> | undefined)?.['hide_while_loading'] ===
       true &&
@@ -2206,33 +1491,15 @@ export function PlacementRenderer({
     return <>{optionFetchers}</>;
   }
 
-  // draw_while_loading — opt-in, for an AppZet whose static parts must work
-  // before its row lands. The data-bound app bars are the case (2026-09-17):
-  // a skeleton stood where the back arrow should be for as long as the
-  // profile, post or space took to fetch — 1-3s on this box — and a tap on
-  // it did nothing. With this on, the placeholder is skipped and the bar
-  // draws against the empty row the list below already falls back to:
-  // the arrow and the authored title are live at once, and every child
-  // gated on the row appears when the row does. `data-appza-loading` on
-  // the wrapper lets the stylesheet hold back what must not be tapped
-  // early — a ⋯ whose menu rows all gate on that row.
+  // Static parts stay live before the row lands; `data-appza-loading` lets CSS hold back what must not be tapped early.
   const drawingWhileLoading =
     (appzet.default_props_override as Record<string, unknown> | undefined)?.['draw_while_loading'] ===
       true &&
     dataState.loading &&
     dataState.items.length === 0;
 
-  // Only show the loading placeholder on the very first fetch. Once we
-  // have items, keep rendering them during background refetches — otherwise
-  // any refresh (window focus, explicit refresh event) unmounts the whole
-  // subtree, resetting local component state like the video-embed's
-  // `playing` flag, which reads as "video hides when clicked".
+  // Placeholder only on the first fetch: unmounting on refetch would reset local state like the video's `playing`.
   if (dataState.loading && dataState.items.length === 0 && !drawingWhileLoading) {
-    // How many placeholder rows read as "this layout". One is right for a
-    // single-fetch AppZet and wrong for a grid — a lone tile where six are
-    // about to appear reads as a broken screen rather than a loading one.
-    // `skeleton_count` on the AppZet overrides, so a customer who changes
-    // a grid's column count can keep the placeholder honest.
     const authoredCount = Number(
       (appzet.default_props_override as Record<string, unknown> | undefined)?.['skeleton_count'],
     );
@@ -2256,11 +1523,6 @@ export function PlacementRenderer({
     );
   }
 
-  // Empty state — a paginated data source that returned zero items (e.g.
-  // 'unanswered' sort with no matching posts, or a fresh community with
-  // an empty feed). Non-paginated single-fetch keeps the previous behavior
-  // of rendering one empty card, which is useful for spot-fetched appzets
-  // that always exist (e.g. current user avatar).
   if (
     isPaginated &&
     !dataState.loading &&
@@ -2282,11 +1544,7 @@ export function PlacementRenderer({
     );
   }
 
-  // hide_when_empty — opt-in for AppZets whose empty state is rendered by a
-  // SIBLING placement rather than by this one (fc-document-card hands the
-  // empty + no-match designs to fc-documents-empty). Without it a
-  // non-paginated DS with zero rows falls through to the single-empty-card
-  // fallback below and paints a ghost card under the real empty state.
+  // Without hide_when_empty a zero-row list paints a ghost card under the sibling empty state.
   if (
     (appzet.default_props_override as Record<string, unknown> | undefined)?.['hide_when_empty'] ===
       true &&
@@ -2296,14 +1554,6 @@ export function PlacementRenderer({
     return <>{optionFetchers}</>;
   }
 
-  // Spaces list: apply client-side search + sort against spacesControls.
-  // Scoped by data source slug (fc-spaces-all / fc-spaces-my) so other
-  // AppZets sharing the list layout aren't affected. Search matches
-  // title OR description (case-insensitive substring). Sort is now
-  // catalog-driven: fc-space-card.default_props.sort_specs is an array
-  // of { value, field, dir } entries. Renderer picks the entry whose
-  // value === spacesSort and sorts generically by that field + dir.
-  // Unmapped value / missing sort_specs → title-asc fallback.
   let filteredItems = dataState.items;
   const dsSlug = dataSource?.slug ?? '';
   if (dsSlug === 'fc-spaces-all' || dsSlug === 'fc-spaces-my') {
@@ -2325,11 +1575,6 @@ export function PlacementRenderer({
     });
   }
 
-  // `row_visible_when` — the child clause grammar, asked of each ROW. A
-  // row that fails is not drawn, and with `hide_when_empty` a list left
-  // with none draws nothing at all: the course instructor card when
-  // FluentCommunity hides the instructor (`data.show_instructor`), where
-  // the row still exists because the header and the button read it too.
   const rowGate = (appzet.default_props_override as Record<string, unknown> | undefined)?.[
     'row_visible_when'
   ];
@@ -2348,14 +1593,6 @@ export function PlacementRenderer({
     }
   }
 
-  // When children_from_prop consumed the DS items directly (via
-  // _data_prop_mirror expanding one child per row), the SS template
-  // has ALREADY been replicated once per space/topic/tab inside
-  // `expanded.children`. If we ALSO map the items array here we'd
-  // render the whole strip once per row (fc-space-switcher showed
-  // each chip twice → NxN duplication). Collapse to a single virtual
-  // item so the list wrapper stays (keeping the -list CSS selectors +
-  // data-* attributes) but the strip renders exactly once.
   const items = isVariadicFromDs || isWholeListMirrored
     ? [{}]
     : filteredItems.length > 0
@@ -2363,11 +1600,7 @@ export function PlacementRenderer({
     : [{}];
   const ssChildren = expanded.children;
 
-  // `data-leaderboard-levels-view` below: the levels card is the TOP half
-  // of a white container whose bottom half is the VIEW ALL button — until
-  // the button goes, at which point the list has to round its own bottom
-  // corners. A stylesheet cannot see a sibling that is not there, so the
-  // verdict it would need is stamped on the wrapper instead.
+  // A stylesheet can't see a missing sibling, so the verdict is stamped on the wrapper.
   return (
     <>
       {optionFetchers}
@@ -2394,11 +1627,7 @@ export function PlacementRenderer({
           appzet.slug === 'fc-member-card'
             ? (fcMemberListLayout === 'grid' ? 'grid' : 'list')
             : ss?.slug === 'fc-directory-member-card'
-              ? // All Members: FluentCommunity's "Members List Layout"
-                // decides, unless the right panel's `layout` says grid or
-                // list (Noor, 2026-09-15). Keyed on the Superstructure so
-                // a derived AppZet keeps the behaviour.
-                (() => {
+              ? (() => {
                   const chosen = (appzet.default_props_override as Record<string, unknown> | undefined)?.['layout'];
                   if (chosen === 'grid' || chosen === 'list') return chosen;
                   return fcMemberListLayout === 'grid' ? 'grid' : 'list';
@@ -2408,29 +1637,16 @@ export function PlacementRenderer({
         style={Object.keys(styleVars).length > 0 ? (styleVars as React.CSSProperties) : undefined}
       >
       {items.map((item, idx) => {
-        // Enrich the raw item with computed viewer-scoped fields (e.g.
-        // whether the current user has liked / bookmarked this item)
-        // so field_mappings can bind icon + color straight off the data
-        // without renderer needing to know about reactions.
         const enrichedItem = enrichItemWithMyReactions(item);
-        // Nested-repeat case: this row carries its own children array,
-        // so the template expands here instead of at AppZet level.
         const itemExpanded = isVariadicFromItem
           ? readExpandedChildren(ss, appzet, enrichedItem)
           : null;
         const effChildren = itemExpanded ? itemExpanded.children : ssChildren;
         let itemOverrides = mergeFieldMappingsOntoOverrides(baseChildOverrides, appzet, enrichedItem);
         if (itemExpanded) {
-          // Copy before stamping per-index entries — the merge helper's
-          // result must not be shared across rows or one card's files
-          // would leak into the next.
+          // Copy before stamping, or one row's files leak into the next.
           itemOverrides = { ...itemOverrides };
-          // Props bound to the TEMPLATE child (`binds_to:
-          // 'children[<template>].<prop>'`) describe every expanded copy,
-          // not just the first — the document card's download glyph is one
-          // such prop. computeChildOverrides only ever stamps the literal
-          // index, so seed each expanded row from the template's bucket and
-          // let the per-entry values win over it.
+          // Seed each expanded row from the template's bucket: computeChildOverrides only stamps the literal index.
           const templateBase = baseChildOverrides[itemExpanded.templateIndex];
           for (const idxStr of Object.keys(itemExpanded.entryOverrides)) {
             const i = Number(idxStr);
@@ -2441,12 +1657,6 @@ export function PlacementRenderer({
             };
           }
         }
-        // Member-card special: prepend prefixes to username / joined /
-        // active + format joined/active as relative time + stamp initials
-        // fallback for the avatar. Kept out of the generic mapping path
-        // so other cards don't pick up date formatting they didn't
-        // opt in to. All three prefixes are AppZet default_props so the
-        // admin can toggle @ off or relocalize the labels.
         if (appzet.slug === 'fc-member-card') {
           itemOverrides = applyMemberCardTransforms(itemOverrides, appzet, enrichedItem);
         }
@@ -2456,15 +1666,7 @@ export function PlacementRenderer({
             ? hiddenIndices
             : new Set<number>([...hiddenIndices, ...dataHidden]);
         const childOpenUrls = computeChildOpenUrls(effChildren, enrichedItem);
-        // `items` is the post-filter row set in render order, so an action
-        // that operates on the collection (the media viewer's paging) sees
-        // exactly what the user sees, at the index they tapped.
         const childActions = computeChildActions(effChildren, appzet, enrichedItem, items, idx);
-        // Stamp the item's identifier on the wrapper so the shell can
-        // target one specific card imperatively (e.g. flip a reaction
-        // icon after like/bookmark without a full data refetch). We
-        // accept either `id` or `_id` since Source Integrations vary,
-        // and coerce to string for use in DOM selectors.
         const rawItemId = isRecord(item)
           ? ((item as Record<string, unknown>).id ?? (item as Record<string, unknown>)._id)
           : undefined;
@@ -2472,16 +1674,6 @@ export function PlacementRenderer({
           typeof rawItemId === 'string' || typeof rawItemId === 'number'
             ? String(rawItemId)
             : undefined;
-        // A per-row DATA value the stylesheet needs. The leaderboard's
-        // trophy is gold, silver or bronze depending on `medal`, and a
-        // field mapping can only reach a child's props — it cannot reach
-        // CSS. So an AppZet may name one field whose value is stamped on
-        // the row wrapper as `data-row-variant`, and the stylesheet keys
-        // off that.
-        //
-        // Deliberately ONE field and no path walking: this exists to let
-        // a design express a per-row variant, not to become a second
-        // binding language alongside field_mappings.
         const rawVariantField = (appzet.default_props_override as
           | Record<string, unknown>
           | undefined)?.['row_variant_field'];
@@ -2526,23 +1718,10 @@ export function PlacementRenderer({
                 appzet.slug === 'fc-space-switcher' ? spaceDetailSpaceSlug :
                 appzet.slug === 'fc-spaces-tabs' ? spacesTab :
                 appzet.slug === 'fc-leaderboard-tabs' ? leaderboardControls.range :
-                // Search's two strips (2026-08-23). One Superstructure wearing
-                // two looks, reading two different keys of the same slice — so,
-                // like the leaderboard above, neither can fall into an earlier
-                // branch. The active entry is marked with data-active rather
-                // than by pairing a wrapper attribute against each value, which
-                // is what the CSS keys on.
                 appzet.slug === 'fc-search-tabs' ? searchControls.tab :
                 appzet.slug === 'fc-search-scope-tabs' ? searchControls.post_scope :
-                // The follow lists' Following | Followers strip — the
-                // profile strip's Superstructure reading a different key
-                // of the same slice, so it cannot fall into the first
-                // branch.
                 appzet.slug === 'fc-follow-tabs' ? followView :
-              // All Members' status strip — the profile strip's
-              // Superstructure reading a different slice.
               appzet.slug === 'fc-members-tabs' ? memberDirectory.status :
-              // Moderation's four statuses, on the media tabs' pill.
               appzet.slug === 'fc-moderation-tabs' ? moderationControls.status :
               appzet.slug === 'fc-courses-tabs' ? courseList.tab :
               appzet.slug === 'fc-courses-topics' ? courseList.topic_slug :
@@ -2576,22 +1755,7 @@ export function PlacementRenderer({
   );
 }
 
-/**
- * Skeleton placeholder for an AppZet whose data is loading. The wrapper
- * carries the AppZet's slug so per-slug CSS can shape the skeleton to
- * match the real content (post-card = header row + body + media block;
- * composer teaser = avatar + input pill; feed banner = wide block).
- * Everything animates via the shared `appza-shimmer` keyframe defined
- * in styles.css — no JS timing, purely CSS.
- */
-/**
- * Placeholder rows per AppZet, chosen to match the shape the screen is
- * about to show. Anything unlisted keeps the old behaviour — three for a
- * paginated list, one otherwise.
- */
 const SKELETON_COUNTS: Record<string, number> = {
-  // One entry, because there is one card. The grid and list variants are
-  // gone; those layouts are CSS on this same AppZet now.
   'fc-post-card': 3,
   'fc-space-card': 3,
   'fc-member-card': 6,
@@ -2614,17 +1778,6 @@ function AppzetSkeleton({ slug }: { slug: string }) {
   );
 }
 
-/**
- * Fires a useDataSource fetch for one entry of an AppZet's
- * option_data_sources map and reports the mapped {value,label} items
- * back to the parent via onLoaded. Renders null — presence is purely
- * to keep hook order stable per (propName, dsSlug) pair.
- *
- * Mapping heuristic: `slug` (fallback `id`) → value; `title` (fallback
- * `name`, then `slug`/`id`) → label. If a Source's DS returns a
- * different shape, add `value_path`/`label_path` on the DataSource row
- * and read them here — deferred until a second use case surfaces.
- */
 function OptionDataSourceFetcher({
   propName,
   dsSlug,
@@ -2639,13 +1792,6 @@ function OptionDataSourceFetcher({
   const { items, loading, error } = useDataSource(dsSlug, params);
   useEffect(() => {
     if (loading || error) return;
-    // Some option props (e.g. `topic_options` on fc-post-information)
-    // source from a DS whose payload is a single object with a nested
-    // array — fc-space-detail returns `{topics: [{slug,title,...}, ...]}`
-    // as its single item, and we want the topics list as the option
-    // set, not the wrapping space object. Detect by prop name so we
-    // don't reshape unrelated single-item responses. Extendable via a
-    // catalog-side items_path if a third case surfaces.
     let source: unknown[] = items;
     if (propName === 'topic_options' && items.length === 1 && isRecord(items[0])) {
       const rec = items[0] as Record<string, unknown>;
@@ -2655,10 +1801,7 @@ function OptionDataSourceFetcher({
       .map((raw) => {
         if (!raw || typeof raw !== 'object') return null;
         const rec = raw as Record<string, unknown>;
-        // FC's /feeds/create + /feeds/update expect topic_ids (array of
-        // ints), so for topic_options the option value must be the topic
-        // id, not the slug. Other option DSes (space_options etc.) keep
-        // the slug-first fallback since their endpoints key on slug.
+        // FluentCommunity's /feeds/create and /feeds/update take topic_ids, so topic options key on id.
         const value =
           propName === 'topic_options'
             ? String(rec.id ?? rec.slug ?? '')
@@ -2672,27 +1815,6 @@ function OptionDataSourceFetcher({
   return null;
 }
 
-/**
- * Resolves each child's `on_click_action` (event name in the AppZet's
- * `actions` map) into a ready-to-dispatch ActionInvocation. The AppZet's
- * per-event wiring supplies the action_slug + any static args; the current
- * data item rides along so the shell can resolve `data.<path>` params.
- */
-/**
- * Enrich an item with computed viewer-scoped keys so field_mappings can
- * bind reaction icon + color directly off the data. Only fluent-community
- * shape today (item.reactions is an array of `{ user_id, type }`); a
- * missing reactions array or missing viewer id is a no-op (returns the
- * item unchanged). Handles both flat items and `{ data: {...} }` wrappers.
- *
- * The viewer id is read from `window.__appzaCurrentUserId`, populated by
- * the shell after auth.login. Reactions are matched exactly on numeric
- * user_id — anonymous viewers see the default outline icons.
- *
- * Emitted keys on the item:
- *   _like_icon / _like_color         — 'heart' + 'primary' when reacted, else defaults
- *   _bookmark_icon / _bookmark_color — 'bookmark' + 'primary' when reacted, else defaults
- */
 function enrichItemWithMyReactions(item: unknown): unknown {
   if (!isRecord(item)) return item;
   const viewerId =
@@ -2701,12 +1823,7 @@ function enrichItemWithMyReactions(item: unknown): unknown {
       : null;
   const src = (item as Record<string, unknown>);
   const myTypes = new Set<string>();
-  // Preferred: `my_reactions` array injected server-side by the plug-in
-  // proxy (batch DB read of the viewer's rows in wp_fcom_post_reactions).
-  // Falls back to walking `reactions[]` for Sources / envs that don't
-  // enrich server-side — the feed's built-in reactions list only carries
-  // `type='like'` in FC (bookmarks are filtered out there), so the
-  // server-side path is the only way to detect bookmark state.
+  // FluentCommunity's reactions list omits bookmarks, so bookmark state needs the proxy's `my_reactions`.
   const myServer = src.my_reactions
     ?? (isRecord(src.data) ? (src.data as Record<string, unknown>).my_reactions : undefined);
   if (Array.isArray(myServer)) {
@@ -2729,13 +1846,7 @@ function enrichItemWithMyReactions(item: unknown): unknown {
   }
   const enriched: Record<string, unknown> = { ...src };
   enriched._like_icon = myTypes.has('like') ? 'heart' : 'heart-outline';
-  // `medium` is Ionic's neutral gray — used for the un-reacted resting
-  // state so the icon looks quiet. Field mappings ignore null/undefined,
-  // so we ALWAYS emit a real string here otherwise un-reacting would
-  // leave the previous color stuck on the button.
-  // BLUE when liked, not red. Noor's design 18 draws the filled heart
-  // and the filled bookmark in the same brand blue, which is also what
-  // FluentCommunity's own portal does — `danger` was our invention.
+  // Always a real string: field mappings ignore null, which would leave the old colour stuck.
   enriched._like_color = myTypes.has('like') ? 'primary' : 'medium';
   enriched._bookmark_icon = myTypes.has('bookmark') ? 'bookmark' : 'bookmark-outline';
   enriched._bookmark_color = myTypes.has('bookmark') ? 'primary' : 'medium';
@@ -2770,12 +1881,6 @@ function computeChildActions(
   return out;
 }
 
-/**
- * Merges per-item data values into the child-override map using the
- * AppZet's `field_mappings`. Mapping shape: `{ "children[<i>].<prop>": "data.<path>" }`.
- * Values resolved from `item` override anything in `base` (data wins over
- * static defaults — the live value is the truer one).
- */
 function mergeFieldMappingsOntoOverrides(
   base: ChildOverrides,
   appzet: AppZet,
@@ -2802,17 +1907,6 @@ function mergeFieldMappingsOntoOverrides(
   return result;
 }
 
-/**
- * Post-processes fc-member-card per-item overrides:
- *   - children[0].initials  ← 2-letter initials from display_name (for
- *                             the avatar's initials-fallback badge)
- *   - children[0].alt       ← display_name (accessibility)
- *   - children[3].text      ← username_prefix + username (default '@')
- *   - children[6].text      ← joined_prefix + relativeTime(created_at)
- *   - children[7].text      ← active_prefix + relativeTime(last_activity)
- * Prefixes come off the AppZet's default_props_override so all three
- * are editable from the right panel.
- */
 function applyMemberCardTransforms(
   base: ChildOverrides,
   appzet: AppZet,
@@ -2832,9 +1926,6 @@ function applyMemberCardTransforms(
   const createdAt = readDataPath(item, 'data.created_at');
   const lastActivity = readDataPath(item, 'data.xprofile.last_activity');
 
-  // children[0] avatar — initials fallback. When avatar_mode=initials
-  // we drop the src so the primitive's fallback branch renders the
-  // colored initials badge unconditionally (matches the mock design).
   if (typeof displayName === 'string') {
     const bucket0 = result[0] ?? {};
     bucket0.initials = computeInitials(displayName);
@@ -2844,31 +1935,24 @@ function applyMemberCardTransforms(
     }
     result[0] = bucket0;
   }
-  // children[1] menu button — always force empty text so the button
-  // renders icon-only. Without this, the fallback primitive.name
-  // ("Button") paints under the icon (visible as "Bu" / "TT"-like
-  // artifacts clipped by the button's small width).
+  // Force empty text, or the fallback name "Button" paints under the icon.
   const bucket1 = result[1] ?? {};
   bucket1.text = '';
   result[1] = bucket1;
-  // children[3] @username
   if (typeof username === 'string' && username !== '') {
     const bucket3 = result[3] ?? {};
     bucket3.text = usernamePrefix + username;
     result[3] = bucket3;
   } else {
-    // Hide bucket when username missing so we don't render an empty '@'
     const bucket3 = result[3] ?? {};
     bucket3.text = '';
     result[3] = bucket3;
   }
-  // children[6] joined date
   if (typeof createdAt === 'string' && createdAt !== '') {
     const bucket6 = result[6] ?? {};
     bucket6.text = joinedPrefix + formatRelativeTime(createdAt);
     result[6] = bucket6;
   }
-  // children[7] active date
   if (typeof lastActivity === 'string' && lastActivity !== '') {
     const bucket7 = result[7] ?? {};
     bucket7.text = activePrefix + formatRelativeTime(lastActivity);
@@ -2881,10 +1965,6 @@ function applyMemberCardTransforms(
   return result;
 }
 
-/**
- * Extracts up to 2-letter uppercase initials from a display name.
- * "Rashedul Raju" → "RR"; "raju" → "R"; "Test User1" → "TU".
- */
 function computeInitials(name: string): string {
   const trimmed = name.trim();
   if (trimmed === '') return '';
@@ -2898,18 +1978,10 @@ function computeInitials(name: string): string {
   return (first + last).toUpperCase();
 }
 
-/**
- * Compact relative-time formatter. Accepts either:
- *   - ISO / mysql datetime — parses + computes diff from now
- *   - Already-relative form ("1mo", "3d", "2w") — appends " ago"
- * The preview-proxy pre-normalizes `created_at` on some payloads
- * (fc-feeds, fc-space-members) but leaves `xprofile.last_activity`
- * raw, so we need to accept both shapes.
- */
+/** The proxy pre-normalizes some created_at values but leaves last_activity raw, so accept both. */
 function formatRelativeTime(input: string): string {
   const trimmed = input.trim();
   if (trimmed === '') return '';
-  // Already-relative (e.g. "1mo", "2w", "23h") — append " ago".
   if (/^\d+\s*(s|m|min|h|hr|d|w|mo|y|yr)$/i.test(trimmed)) {
     return trimmed + ' ago';
   }
@@ -2939,53 +2011,12 @@ type SuperstructureRendererProps = {
   depth: number;
   childOverrides?: ChildOverrides;
   hiddenIndices?: HiddenIndices;
-  /**
-   * Per-child LayoutStyle overrides. Applied only at depth 0 (v1
-   * flat-only lock — nested SS primitives inherit their parent AppZet's
-   * wrapper and cannot be addressed individually yet).
-   */
   childLayoutStyles?: Record<number, LayoutStyle>;
-  /**
-   * Per-child URLs resolved from `on_click_open_url` bindings against the
-   * current data item. When set, the child wrapper is rendered as an
-   * `<a target="_blank">` so a tap opens the URL externally. Applied at
-   * depth 0 (per-item resolution requires the data context).
-   */
   childOpenUrls?: Record<number, string>;
-  /**
-   * Per-child resolved ActionInvocations from `on_click_action` bindings.
-   * When set for index N, the child wrapper handles onClick by calling the
-   * ActionContext dispatcher.
-   */
   childActions?: Record<number, ActionInvocation>;
-  /**
-   * AppZet slug used to compose the DOM `data-appza-primitive-path`
-   * attribute at depth 0. The plug-in-admin's click-capture composes
-   * `<appzet.slug>#<data-appza-primitive-path>` into the customization
-   * composite key. Undefined at depth > 0.
-   */
   appzetSlugForPath?: string;
-  /**
-   * When set, stamps `data-active="true"` onto the child wrapper whose
-   * `data-value` equals this string. Used by the space-detail topics chip
-   * strip / subtabs / switcher so per-chip active-state CSS rules
-   * (blue border on the active chip) can key off a plain attribute
-   * selector instead of trying to correlate two ancestor attributes.
-   * Passed only at depth 0; deeper children ignore it.
-   */
   activeChildValue?: string;
-  /**
-   * Multi-select variant. The add-document topic chips are not a filter
-   * strip — several can be on at once — so `data-active` also matches
-   * against this set when present.
-   */
   activeChildValues?: ReadonlySet<string>;
-  /**
-   * Pre-expanded child list. Used at depth 0 when the SS opts into
-   * `children_from_prop` — the caller reads the AppZet's tabs array
-   * and expands `ss.children[0]` as a template. When undefined we fall
-   * back to `readChildren(ss)`, which is the static-children path.
-   */
   expandedChildren?: SSChild[];
 };
 
@@ -3024,33 +2055,12 @@ function SuperstructureRenderer({
         const childLayoutStyle = isTopLevel ? childLayoutStyles?.[idx] : undefined;
         const openUrl = isTopLevel ? childOpenUrls?.[idx] : undefined;
         const action = isTopLevel ? childActions?.[idx] : undefined;
-        // Self-action primitives (ion-select) fire dispatch from their own
-        // native event, not the wrapper's onClick — otherwise clicking to
-        // open the dropdown would dispatch before the user picks a value.
-        //
-        // BUT: when the SS explicitly wires the child's `on_click_action`
-        // (i.e. the tap semantics ARE the whole event source, as with
-        // fc-post-composer-teaser's ion-input pill), the wrapper still
-        // needs the onClick. Otherwise the placeholder-only input pill
-        // swallows the tap and no navigation fires. `child.on_click_action`
-        // is the SS-level authoritative signal for "the whole wrapper is
-        // a tap target regardless of primitive class".
-        // A self-action primitive normally keeps its action to itself. The
-        // exception is ion-input, which is also used as a tap-to-navigate
-        // pill (fc-post-composer-teaser) — there the wrapper tap IS the
-        // event. Nothing else has a meaningful "tap the row" reading: a
-        // stray wrapper click on a toggle would dispatch a change that
-        // never happened.
+        // ion-input doubles as a tap-to-navigate pill; for other self-action primitives a wrapper tap would dispatch a change that never happened.
         const primitiveSelfHandles =
           SELF_ACTION_PRIMITIVES.has(child.slug) &&
           !(child.on_click_action && child.slug === 'ion-input');
         const wrapperAction = action && !primitiveSelfHandles ? action : undefined;
-        // A self-action primitive gets the action EVEN WHEN the SS also
-        // wires on_click_action: the two fire on different events (value
-        // change vs tap), so handing it to the wrapper alone left every
-        // search input inert — it only dispatched on click, with no value.
-        // The composer teaser, which wants the tap, is unaffected: it
-        // navigates away, so its ionInput never fires.
+        // Self-action primitives get the action even with on_click_action: value change and tap are different events.
         const primitiveAction =
           action && SELF_ACTION_PRIMITIVES.has(child.slug) ? action : undefined;
         const rendered = renderChild(
@@ -3085,10 +2095,7 @@ function SuperstructureRenderer({
               if (!isTopLevel || (activeChildValue === undefined && !activeChildValues)) {
                 return undefined;
               }
-              // Only mark active when the child has an EXPLICIT `value`
-              // override — the empty-string "All" chip is fine, but the
-              // static "Choose topic" section header (no value key) must
-              // not falsely match activeChildValue=''.
+              // Only an explicit `value` override matches, so a value-less header can't match ''.
               const bucket = childOverrides?.[idx];
               if (!bucket || !('value' in bucket)) return undefined;
               const v = bucket.value;
@@ -3100,14 +2107,7 @@ function SuperstructureRenderer({
             onClick={wrapperAction
               ? (e) => {
                   e.stopPropagation();
-                  // Stamp the child's declared `value` onto action.item so
-                  // tab/segmented dispatchers can read the picked value the
-                  // same way ion-select does. Also carry the entry's
-                  // identifying keys (slug, id, space, ...) — variadic
-                  // children (fc-space-switcher, fc-space-topics) fire
-                  // actions like nav.push{pass_item_as_context} which read
-                  // ctx.slug, not ctx.value. `text` is presentation only
-                  // and stays out of the item payload.
+                  // Variadic children fire actions that read ctx.slug, so carry the entry's identifying keys too.
                   const bucket = (childOverrides?.[idx] ?? {}) as Record<string, unknown>;
                   const entryPayload: Record<string, unknown> = {};
                   for (const [k, v] of Object.entries(bucket)) {
@@ -3139,8 +2139,7 @@ function SuperstructureRenderer({
                 rel="noopener noreferrer"
                 download={
                   child.download
-                    ? // Save under the name the row shows, not the
-                      // storage filename FC generated.
+                    ? // The name the row shows, not FC's storage filename.
                       (typeof childOverrides?.[idx]?.text === 'string'
                         ? (childOverrides[idx].text as string)
                         : '')
@@ -3192,59 +2191,17 @@ type VisibleWhenClause = {
   binding: string;
   op: VisibleWhenOp;
   value?: unknown;
-  /**
-   * Read the comparison value off the bound row instead of the catalog —
-   * `data.<path>`. For a gate that asks a per-ROW question of shared
-   * state: "is THIS section in the open set" is
-   * `{ binding: 'state.course_detail.open_sections', op: 'contains',
-   *    value_from: 'data.id' }`.
-   */
   value_from?: string;
 };
 
-/**
- * One clause, or a LIST of clauses that must all hold.
- *
- * The list arrived with the attach bar: the audio glyph needs
- * FluentPlayer's switch AND a draft that has not become a document post,
- * which is two facts about two different things. Placement-level
- * `visible_when` has taken an array since the search screen; children now
- * take the same shape, so there is one grammar rather than two.
- */
 type VisibleWhen = VisibleWhenClause | VisibleWhenClause[];
 
 type SSChild = {
   slug: string;
   visible_when?: VisibleWhen;
   on_click_open_url?: string;
-  /**
-   * When set, clicking the child fires the named event from the AppZet's
-   * `actions` map (e.g. `on_tap_composer`, `on_tap_back`). The renderer
-   * looks up the action wiring, resolves data-bound args, and calls the
-   * ActionContext's dispatch. The shell handles the actual side effect
-   * (navigation, HTTP, etc.) — the renderer stays presentation-only.
-   */
   on_click_action?: string;
-  /**
-   * Template-only. On the SS template child of a `children_from_prop` SS
-   * (i.e. `ss.children[0]` unless `template_index` overrides), declares
-   * explicit per-entry prop stamping. Shape: `{ <prop>: 'entry.<path>' }`.
-   * For each expanded entry, the renderer looks up the entry path and
-   * stamps the value into the expanded child's override bucket at the
-   * mapped key. Applied AFTER the naive-stamp fallback so explicit
-   * mappings win — this lets DS-shaped entries (`{title, slug, ...}`) map
-   * `title -> text` without needing the entries to be pre-shaped.
-   * Non-`entry.` values are ignored (reserved for future literals).
-   */
   field_mapping?: Record<string, string>;
-  /**
-   * Marks an `on_click_open_url` child as a DOWNLOAD rather than a
-   * navigation. Adds the `download` attribute, which makes a same-origin
-   * file save instead of opening in a tab — what a row with a download
-   * glyph promises. Cross-origin (the packaged app talking to the site)
-   * the attribute is ignored by design and the platform's own download
-   * handling takes over.
-   */
   download?: boolean;
 };
 
@@ -3260,14 +2217,7 @@ function parseVisibleWhenClause(raw: unknown): VisibleWhenClause | null {
   };
 }
 
-/**
- * The clauses a row cloned from a `children_from_prop` template keeps.
- * Only those about the CARD — `data.` / `state.` / `settings.` — which the
- * card's own evaluation answers the same for every row: the course
- * section's lessons all draw or all hide with the section. An `entry.`
- * clause is about one row and nothing evaluates it yet (fc-space-links
- * carries one), so it is left off rather than failing every row closed.
- */
+/** An `entry.` clause is left off: nothing evaluates it yet, and it would fail every row closed. */
 function cardLevelClauses(vw: VisibleWhen | undefined): VisibleWhen | undefined {
   if (!vw) return undefined;
   const keep = (c: VisibleWhenClause) =>
@@ -3293,9 +2243,7 @@ function readChildren(ss: Superstructure): SSChild[] {
         const clauses = vw
           .map(parseVisibleWhenClause)
           .filter((c): c is VisibleWhenClause => c !== null);
-        // An EMPTY list is not "hide this" — it is a catalog row that
-        // says nothing, and saying nothing has always meant show. Same
-        // reading the placement evaluator gives it.
+        // An empty list says nothing, which has always meant show.
         if (clauses.length > 0) out.visible_when = clauses;
       } else {
         const clause = parseVisibleWhenClause(vw);
@@ -3322,16 +2270,6 @@ function readChildren(ss: Superstructure): SSChild[] {
     .filter((c): c is SSChild => c !== null);
 }
 
-/**
- * Reads the AppZet's default_props array named by `ss.children_from_prop`
- * (typically 'tabs') and, if present + non-empty, expands `ss.children[0]`
- * as a template into one synthetic child per array entry. When the prop
- * is absent or the array is empty, returns `readChildren(ss)` unchanged so
- * static SS definitions keep working.
- *
- * Additionally emits per-entry override buckets ({ text, value, ...rest })
- * so the caller can merge them into the child override map at each index.
- */
 function readExpandedChildren(
   ss: Superstructure,
   appzet: AppZet,
@@ -3348,13 +2286,6 @@ function readExpandedChildren(
     return { children: staticChildren, entryOverrides: {}, templateIndex: 0 };
   }
   const overrides = appzet.default_props_override as Record<string, unknown> | null | undefined;
-  // AppZet-level array first — the strip case (tabs / spaces / topics),
-  // where one AppZet renders the whole strip. When there isn't one, fall
-  // back to the same-named array on the DS row being rendered: the
-  // nested case, a card repeated per row that expands its OWN list (a
-  // document card's files, and any future list-inside-a-card).
-  // The caller decides which mode applies; passing no `item` keeps the
-  // historical AppZet-only behaviour untouched.
   let rawEntries = overrides ? overrides[propName] : undefined;
   if ((!Array.isArray(rawEntries) || rawEntries.length === 0) && isRecord(item)) {
     rawEntries = (item as Record<string, unknown>)[propName];
@@ -3362,13 +2293,6 @@ function readExpandedChildren(
   if (!Array.isArray(rawEntries) || rawEntries.length === 0) {
     return { children: staticChildren, entryOverrides: {}, templateIndex: 0 };
   }
-  // The template child is the shape cloned per entry. Look for a child
-  // with `template: true` first — this lets a variadic SS keep static
-  // children BEFORE the template (used for section headers like "Choose
-  // topic" prepended above the topic chip strip). No `template: true`
-  // marker → children[0] is the template (back-compat).
-  // Children before the template_index render as-is (no field_mapping,
-  // no data stamping).
   const rawChildren = (ss as unknown as { children?: unknown[] }).children ?? [];
   let templateIndex = 0;
   for (let i = 0; i < rawChildren.length; i++) {
@@ -3381,19 +2305,12 @@ function readExpandedChildren(
   const template = staticChildren[templateIndex];
   if (!template) return { children: staticChildren, entryOverrides: {}, templateIndex };
   const staticPrefix = staticChildren.slice(0, templateIndex);
-  // `prepend_all: true` + `all_label: '<label>'` synthesizes an entry at
-  // index 0 representing the un-filtered choice — e.g. the "All" chip on
-  // fc-space-topics that clears the topic filter. Uses value='' so the DS
-  // query_params resolver (which omits empty-string params) drops the
-  // filter cleanly instead of sending `?topic_slug=`.
+  // value='' so the query_params resolver drops the filter rather than sending `?topic_slug=`.
   const prependAll = overrides && overrides['prepend_all'] === true;
   const allLabel =
     overrides && typeof overrides['all_label'] === 'string'
       ? (overrides['all_label'] as string)
       : 'All';
-  // Synthesize the "All" entry using BOTH `label` (naive-stamp path) and
-  // `title` (field_mapping path) so it works whichever convention the
-  // template child uses. `slug` = '' for parity with DS-shaped entries.
   const workingEntries: unknown[] = prependAll
     ? [{ value: '', slug: '', label: allLabel, title: allLabel }, ...rawEntries]
     : rawEntries;
@@ -3403,29 +2320,14 @@ function readExpandedChildren(
   for (let i = 0; i < workingEntries.length; i++) {
     const entry = workingEntries[i];
     if (!isRecord(entry)) continue;
-    // Skip explicit `hidden: true` entries — the customer can hide a tab
-    // from the admin without removing it from the config.
     if (entry.hidden === true) continue;
-    // `requires_permission: '<key>'` — drop the entry unless the resolved
-    // entity says the viewer has that permission. Used by the Space Detail
-    // sub-tabs (MEDIA needs can_view_media) and by the media type strip
-    // (Audios needs can_view_media_audio), both reading the permissions bag
-    // on the fc-space-detail row the AppZet already resolves for
-    // _config_apply — so the gate costs no extra request.
-    //
-    // Fails OPEN on purpose: an absent permissions bag (payload still in
-    // flight, or an endpoint that doesn't publish one) keeps the entry.
-    // A tab that shouldn't be there is a smaller failure than a tab that
-    // vanishes because a fetch was slow.
+    // Fails open while the permissions bag is absent: a slow fetch shouldn't hide a tab.
     if (typeof entry.requires_permission === 'string' && entry.requires_permission !== '') {
       if (permissions && entry.requires_permission in permissions) {
         if (permissions[entry.requires_permission] !== true) continue;
       }
     }
-    // Clone the template shape; per-entry `on_click_action` overrides win.
-    // For `on_click_open_url` starting with `entry.<path>`, resolve at
-    // expansion time so each expanded child carries its own literal URL
-    // (computeChildOpenUrls only understands `data.` bindings + literals).
+    // computeChildOpenUrls only understands `data.` bindings, so `entry.` URLs resolve here.
     let openUrlSpec = template.on_click_open_url;
     if (typeof openUrlSpec === 'string' && openUrlSpec.startsWith('entry.')) {
       const resolved = readDataPath(entry, 'data.' + openUrlSpec.slice('entry.'.length));
@@ -3443,52 +2345,28 @@ function readExpandedChildren(
     const rowGate = cardLevelClauses(template.visible_when);
     if (rowGate) child.visible_when = rowGate;
     children.push(child);
-    // Stamp the entry's leaf values as this child's overrides. `text`
-    // + `value` are the two universal ones; anything else on the entry
-    // (icon, badge_color, ...) rides along by name so future tab knobs
-    // don't need a renderer change.
     const bucket: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(entry)) {
-      // Directive keys, not child props — stamping them would put
-      // requires_permission="can_view_media" on the rendered element.
+      // Directive keys, not child props: stamping them would leak onto the rendered element.
       if (k === 'hidden' || k === 'on_click_action' || k === 'requires_permission') continue;
-      // Renderer convention: `label` in the tabs entry maps to the
-      // primitive's `text` prop, matching how ion-button reads its label.
       if (k === 'label') {
         bucket.text = v;
       } else {
         bucket[k] = v;
       }
     }
-    // Explicit field_mapping wins over the naive-stamp above. Values
-    // must be of the form `entry.<path>` — anything else is ignored.
-    // DS-shaped entries (`{title, slug, cover_photo, ...}`) can then map
-    // `text -> entry.title`, `value -> entry.slug` without pre-shaping.
     if (fieldMapping) {
       for (const [k, spec] of Object.entries(fieldMapping)) {
         if (typeof spec !== 'string') continue;
         if (!spec.startsWith('entry.')) continue;
-        // Simple dot-path walker on the entry object. Reuses the
-        // readDataPath grammar for indexed segments (`entries[0].label`)
-        // but scoped to the entry — hence the `data.` prefix trick to
-        // reuse the shared parser: we prepend `data.` and pass `entry`
-        // as the root so `data.title` resolves to `entry.title`.
+        // readDataPath only walks `data.` paths, hence the prefix.
         const resolved = readDataPath(entry, 'data.' + spec.slice('entry.'.length));
         if (resolved !== undefined && resolved !== null) {
           bucket[k] = resolved;
         }
       }
     }
-    // `prop_map` — pick which AppZet prop supplies a child prop, based on a
-    // value on the entry. The document file row uses it for the leading
-    // glyph: `entry.kind` is 'image' or 'document', and each maps to its own
-    // builder-editable prop, so both glyphs stay right-panel controllable
-    // instead of being frozen into the API payload or the template child.
-    //
-    //   prop_map: { icon: { from: 'entry.kind',
-    //                       props: { image: 'image_icon', document: 'file_icon' } } }
-    // Read off the RAW child: readChildren() normalizes to a known key set
-    // and would drop prop_map, the same way it drops `template`.
+    // Read off the raw child: readChildren() drops unknown keys like prop_map.
     const rawTemplate = rawChildren[templateIndex];
     const propMap = isRecord(rawTemplate) ? rawTemplate.prop_map : undefined;
     if (isRecord(propMap)) {
@@ -3509,11 +2387,6 @@ function readExpandedChildren(
   return { children, entryOverrides, templateIndex };
 }
 
-/**
- * "Aug 21, 2026, 11:50 AM" — how the design prints a scheduled date.
- * The draft stores 'YYYY-MM-DD HH:MM:SS'; anything unparseable is shown
- * verbatim rather than swallowed.
- */
 function formatScheduledAt(value: string): string {
   const parsed = new Date(value.replace(' ', 'T'));
   if (Number.isNaN(parsed.getTime())) return value;
@@ -3526,10 +2399,6 @@ function formatScheduledAt(value: string): string {
   });
 }
 
-/**
- * DC#16 precedence for a single named prop: AppZet `default_props_override`
- * wins, else the SS `properties_schema` default, else undefined.
- */
 function readAppzetProp(ss: Superstructure, appzet: AppZet, name: string): unknown {
   const overrides = appzet.default_props_override as Record<string, unknown> | null | undefined;
   if (overrides && overrides[name] !== undefined && overrides[name] !== '') {
@@ -3543,17 +2412,6 @@ function readAppzetProp(ss: Superstructure, appzet: AppZet, name: string): unkno
   return undefined;
 }
 
-/**
- * Sort spec — { field, dir } — resolved for the current spacesSort
- * value against the AppZet's `default_props.sort_specs` array. Each
- * spec entry: `{ value, field, dir?: 'asc'|'desc' }`. Adding a sort
- * option is a JSON edit on the AppZet, not a code change.
- *
- * Fallback when the AppZet has no sort_specs, or when the picked
- * value doesn't match any entry: `{ field: 'title', dir: 'asc' }`.
- * Keeps the list stable rather than random-order when a stale
- * localStorage sort value survives a catalog edit that removed it.
- */
 type SortSpec = { field: string; dir: 'asc' | 'desc' };
 
 function resolveSortSpec(appzet: AppZet, pickedValue: string): SortSpec {
@@ -3571,13 +2429,6 @@ function resolveSortSpec(appzet: AppZet, pickedValue: string): SortSpec {
   return fallback;
 }
 
-/**
- * Generic field comparator for sort_specs-driven ordering. Numeric
- * fields (members_count, id, ...) compare as numbers; strings use
- * locale-aware compare; nullish sorts to the end regardless of dir
- * so partial data doesn't create phantom top rows. `created_at` +
- * other ISO-8601 strings sort correctly under localeCompare.
- */
 function compareByFieldDir(
   a: Record<string, unknown>,
   b: Record<string, unknown>,
@@ -3603,19 +2454,11 @@ function compareByFieldDir(
   return as.localeCompare(bs) * mul;
 }
 
-/**
- * Resolves `on_click_open_url` bindings per child against the current data
- * item. Values are `data.<path>` strings; returned map is keyed by child
- * index. Empty / non-string / missing values are skipped — SSRenderer only
- * wraps the child in an anchor when a resolved URL exists.
- */
 function computeChildOpenUrls(children: SSChild[], item: unknown): Record<number, string> {
   const out: Record<number, string> = {};
   for (let i = 0; i < children.length; i++) {
     const spec = children[i]?.on_click_open_url;
     if (!spec) continue;
-    // Literal URL — used by variadic expansion which pre-resolves
-    // `entry.*` bindings against each entry at children_from_prop time.
     if (/^https?:\/\//i.test(spec)) {
       out[i] = spec;
       continue;
@@ -3628,20 +2471,7 @@ function computeChildOpenUrls(children: SSChild[], item: unknown): Record<number
   return out;
 }
 
-/**
- * Evaluates per-child `visible_when` clauses against the current data item
- * and returns the union of indices to hide. Runs on TOP of the static
- * `computeHiddenIndices` result (which is bool-prop-based, per DC#17/#18).
- *
- * Grammar v2 — one clause per child, or a LIST that must all hold (AND;
- * no OR nesting). Ops: `==`, `!=`, `exists`, `not_exists`, `in`,
- * `not_in`, and `contains` / `not_contains` when the binding is a list.
- * `value_from: 'data.<path>'` takes the comparison value off the row.
- * Bindings: `data.<path>` (the bound row), `settings.<path>`
- * (the site's FluentCommunity configuration), `state.<path>` (the flat
- * bag below). Unparseable clauses fail-open (child shown) — same
- * silent-no-op posture as the rest of the renderer.
- */
+/** Unparseable clauses fail open (child shown). */
 function computeDataHiddenIndices(children: SSChild[], item: unknown): Set<number> {
   const hidden = new Set<number>();
   for (let i = 0; i < children.length; i++) {
@@ -3655,16 +2485,7 @@ function computeDataHiddenIndices(children: SSChild[], item: unknown): Set<numbe
   return hidden;
 }
 
-/**
- * The `state.*` bag a CHILD clause can read.
- *
- * Only the composer draft so far, and built by the slice's own exported
- * function so this and the screen's placement-level bag cannot describe
- * the same fact differently. Read fresh on every evaluation rather than
- * memoised: the caller already re-runs when the draft changes, and a
- * stale copy here would leave the attach bar showing a glyph the draft
- * has ruled out.
- */
+/** Read fresh on every evaluation: a stale copy would show a glyph the draft has ruled out. */
 function childStateBag(): Record<string, unknown> {
   return {
     ...postDraftStateEntries(getPostDraft()),
@@ -3673,15 +2494,6 @@ function childStateBag(): Record<string, unknown> {
   };
 }
 
-
-/**
- * The label for whichever follow order is current.
- *
- * Read out of the action's own `args.options` rather than hard-coded, so
- * the two orders — FluentCommunity's `id` and `alphabetical` — are named
- * in exactly one place, the catalog. An unknown value falls back to the
- * raw key, which says more than an empty row would.
- */
 function followSortLabel(value: string, action: unknown): string {
   const args = isRecord(action) ? (action as Record<string, unknown>)['args'] : undefined;
   const options = isRecord(args) ? (args as Record<string, unknown>)['options'] : undefined;
@@ -3695,27 +2507,7 @@ function followSortLabel(value: string, action: unknown): string {
 }
 
 function evaluateVisibleWhen(vw: VisibleWhenClause, item: unknown): boolean {
-  // `settings.*` reads the site's FluentCommunity configuration rather
-  // than the bound row. A glyph that exists only where a plugin switch
-  // allows it — the audio one needs FluentPlayer with audio on, the poll
-  // one needs the survey module — is not a property of any data item, and
-  // there is no row under the composer to hang it off. Placement-level
-  // gating cannot reach a CHILD, so the clause grammar grows instead of
-  // the Superstructure splitting into variants.
-  //
-  // `readDataPath` only walks a path that begins `data.`, so the prefix is
-  // swapped rather than stripped. Stripping it returns undefined for every
-  // clause, which fails CLOSED for `== true` — the glyph disappears and
-  // looks like the setting is off.
-  //
-  // `state.*` is the third root, and it reads a FLAT bag rather than
-  // dot-walking: `state.post_draft.has_documents` is one key, the way
-  // placement-level clauses have always been written. It exists because
-  // some gates are facts about the DRAFT rather than about the site or a
-  // row — the paperclip needs a space that takes documents, and the other
-  // four glyphs have to disappear once a document is attached, because
-  // FluentCommunity resolves exactly one content_type and the document
-  // filter runs last.
+  // readDataPath only walks `data.`, so the prefix is swapped, not stripped (stripping fails `== true` closed); `state.*` reads a flat bag.
   const resolved = vw.binding.startsWith('settings.')
     ? readDataPath(getFcRuntimeSettings(), vw.binding.replace(/^settings\./, 'data.'))
     : vw.binding.startsWith('state.')
@@ -3735,7 +2527,6 @@ function evaluateVisibleWhen(vw: VisibleWhenClause, item: unknown): boolean {
       return Array.isArray(expected) && expected.includes(resolved as never);
     case 'not_in':
       return !(Array.isArray(expected) && expected.includes(resolved as never));
-    // The binding is the LIST: "does the open set hold this section".
     case 'contains':
       return Array.isArray(resolved) && resolved.includes(expected as never);
     case 'not_contains':
@@ -3745,16 +2536,6 @@ function evaluateVisibleWhen(vw: VisibleWhenClause, item: unknown): boolean {
   }
 }
 
-/**
- * Builds the per-child-index override map for an AppZet's top-level SS.
- *
- * For each `properties_schema[*]` entry with a `binds_to` of the form
- * `children[<index>].<propName>`, resolves the effective value via DC#16
- * precedence (AppZet `default_props_override[<name>]` → SS schema
- * `default` → skip) and places it at `result[index][propName]`. Out-of-
- * range indices and unparseable paths are silently skipped — catalog
- * edits shouldn't break the renderer.
- */
 function computeChildOverrides(ss: Superstructure, appzet: AppZet): ChildOverrides {
   const schema = (ss.properties_schema ?? null) as PropertiesSchemaEntry[] | null;
   if (!Array.isArray(schema) || schema.length === 0) return {};
@@ -3782,15 +2563,6 @@ function computeChildOverrides(ss: Superstructure, appzet: AppZet): ChildOverrid
   return result;
 }
 
-/**
- * Reads per-primitive LayoutStyle overrides for the AppZet's top-level
- * SS children. Composite key is `<appzet.slug>#children[<idx>]` under
- * scope `appzet_primitive`, column `layout` (DC#20 provisional).
- *
- * v1 is flat-only: only direct children of the top SS get a keyed slot.
- * Any override targeting a nested primitive is silently ignored here
- * and lands as a no-op until nested addressing lands post-v1.
- */
 function computeChildLayoutStyles(
   appzet: AppZet,
   ss: Superstructure,
@@ -3808,28 +2580,7 @@ function computeChildLayoutStyles(
   return result;
 }
 
-/**
- * Substitutes `{state.<slice>.<key>}` tokens inside a catalog prop string.
- *
- * Two designs need a prop to carry live state, and neither can be served by
- * a per-value AppZet:
- *
- *   - the search field's placeholder follows the tab ("Search posts" /
- *     "Search members" / "Search spaces"). Three tab-gated fields would
- *     have worked visually and been wrong: IonInput renders UNCONTROLLED,
- *     so remounting one clears the text the viewer typed, and design 4
- *     shows that text surviving a tab switch.
- *   - the no-match line echoes the query — `No posts matched "wibble"`.
- *
- * Deliberately narrow. Only `state.*` resolves; anything else is left
- * alone, so a literal brace in copy stays a literal brace. An unresolvable
- * binding collapses to an empty string rather than printing its own path,
- * because a user seeing `No posts matched "{state.search_controls.query}"`
- * is worse than seeing an empty pair of quotes.
- *
- * Non-strings pass straight through: most props are booleans, sizes and
- * colours, and the `indexOf` guard means those cost nothing.
- */
+/** Only `state.*` resolves; an unresolvable binding becomes '' rather than printing its path. */
 function interpolateStateTokens(value: unknown): unknown {
   if (typeof value !== 'string' || value.indexOf('{state.') === -1) return value;
   return value.replace(/\{(state\.[a-z0-9_]+(?:\.[a-z0-9_]+)*)\}/gi, (_match, binding: string) => {
@@ -3839,7 +2590,6 @@ function interpolateStateTokens(value: unknown): unknown {
   });
 }
 
-/** Parses `children[<index>].<propName>` → `{index, propName}`. */
 function parseBindsTo(spec: string): { index: number; propName: string } | null {
   const match = /^children\[(\d+)\]\.([a-zA-Z_][\w-]*)$/.exec(spec);
   if (!match || !match[1] || !match[2]) return null;
@@ -3848,7 +2598,6 @@ function parseBindsTo(spec: string): { index: number; propName: string } | null 
   return { index, propName: match[2] };
 }
 
-/** Parses `children[<index>]` → `{index}`. */
 function parseChildIndex(spec: string): { index: number } | null {
   const match = /^children\[(\d+)\]$/.exec(spec);
   if (!match || !match[1]) return null;
@@ -3857,20 +2606,7 @@ function parseChildIndex(spec: string): { index: number } | null {
   return { index };
 }
 
-/**
- * Builds the set of child indices to hide for an AppZet's top-level SS,
- * combining DC#17 (`controls_visibility_of`) + DC#18 (`controls_branch`).
- * Effective bool per entry: AppZet `default_props_override[<name>]` →
- * schema `default` → fallback false (hide / use false-branch).
- *
- * `controls_branch` and `controls_visibility_of` are mutually exclusive
- * on a single entry; if both are set, `controls_branch` wins (no warning
- * — same silent-no-op posture as the rest of the renderer).
- *
- * Hidden indices are SKIPPED during the children walk without
- * renumbering — DC#16 `binds_to` paths still resolve to the original
- * positions on the surviving children.
- */
+/** Hidden indices are skipped without renumbering, so binds_to paths still address original positions. */
 function computeHiddenIndices(ss: Superstructure, appzet: AppZet): HiddenIndices {
   const schema = (ss.properties_schema ?? null) as PropertiesSchemaEntry[] | null;
   if (!Array.isArray(schema) || schema.length === 0) return new Set();
@@ -3898,12 +2634,6 @@ function computeHiddenIndices(ss: Superstructure, appzet: AppZet): HiddenIndices
       continue;
     }
 
-    // One toggle may govern SEVERAL children. The level row is the reason:
-    // its marker is a numbered circle OR a padlock, two children sharing a
-    // grid cell and gated against each other, so "show the marker" cannot
-    // name just one of them. Accepts an array or a comma-separated string,
-    // the same two shapes every other directive key takes (P53); a bare
-    // `children[N]` is the same single-target case as before.
     const targets = parseChildIndexSpec(entry.controls_visibility_of);
     if (targets.size === 0) continue;
 
@@ -3912,11 +2642,6 @@ function computeHiddenIndices(ss: Superstructure, appzet: AppZet): HiddenIndices
   return hidden;
 }
 
-/**
- * Parses a `controls_visibility_of` value into the indices it governs.
- * Accepts `children[2]`, `children[0],children[1]` and
- * `['children[0]', 'children[1]']` alike (P53).
- */
 function parseChildIndexSpec(spec: unknown): Set<number> {
   const out = new Set<number>();
   const list = Array.isArray(spec)
@@ -3932,7 +2657,6 @@ function parseChildIndexSpec(spec: unknown): Set<number> {
   return out;
 }
 
-/** Parses an array of `children[<index>]` specs into a Set of indices. */
 function parseChildIndexList(specs: string[] | undefined): Set<number> {
   const out = new Set<number>();
   if (!Array.isArray(specs)) return out;

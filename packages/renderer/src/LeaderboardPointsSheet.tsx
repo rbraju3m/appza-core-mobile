@@ -2,28 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { childAttrs, appzetAttrs } from './designTimeAttrs';
 import { useBackDismiss } from './backStack';
 
-/**
- * The Leaderboard points explainer, behind the circled i on the viewer's
- * card (designs 5 and 6): how a point is earned, what a level is, then
- * every level with its threshold. Design 6 is the same sheet scrolled —
- * the list runs past the sheet's height and scrolls inside it, so there
- * is no second state to build.
- *
- * Bespoke React, opened by event, like the chat sheets — it fetches its
- * own list and has to sit above the whole screen rather than in a
- * placement slot. It opts back into the builder by hand via
- * childAttrs/appzetAttrs, so the indices below MUST match the `children`
- * array of the fc-leaderboard-points-sheet superstructure.
- *
- * The levels are fetched here rather than passed in, for the same reason
- * the members sheet fetches its own: opened by an action, not mounted by
- * a placement, so there is no useDataSource anywhere in its tree. The
- * shell resolves the DataSource's endpoint out of the catalog and hands
- * it over — no URL is written down in this file (D51).
- *
- * Always at `scope=all`. The levels CARD is the thing that shows three
- * and expands; the explainer has no VIEW ALL and never had one.
- */
+// Opened by event, fetches its own levels; child indices below MUST match the fc-leaderboard-points-sheet `children` array.
 
 export const LEADERBOARD_POINTS_SHEET_APPZET_SLUG = 'fc-leaderboard-points-sheet';
 export const LEADERBOARD_POINTS_SHEET_CHILD_COUNT = 7;
@@ -60,18 +39,13 @@ export type LeaderboardLevel = {
   slug?: string;
   level?: number;
   title?: string;
-  /**
-   * "0 Points" / "2,000 Points" — already worded and thousands-separated
-   * by the plug-in, because the wording is translated and the app must
-   * not be the second place that decides what a number means (P71).
-   */
+  // Worded and translated by the plug-in; the app must not re-format it.
   points_label?: string;
 };
 
 type OpenDetail = {
   appzetSlug?: string;
   presentation: LeaderboardPointsPresentation;
-  /** Resolved from the catalog by the shell; absolute in the app (P60). */
   levelsEndpoint: string;
   authHeader?: string;
   childStyles?: Record<number, CSSProperties>;
@@ -185,9 +159,6 @@ export function LeaderboardPointsSheet() {
       <div className="appza-lb-sheet" style={vars} {...appzetAttrs(slug)}>
         {p.showHandle && <div className="appza-lb-sheet-grabber" />}
 
-        {/* One scroller holding prose AND list. Design 6 scrolls the
-            explainer off the top along with the levels, so a list that
-            scrolled inside a fixed header would be the wrong shape. */}
         <div className="appza-lb-sheet-scroll">
           <div className="appza-lb-sheet-title" style={cs[0]} {...childAttrs(slug, 0, 'ion-text')}>
             {p.title}
@@ -233,9 +204,6 @@ export function LeaderboardPointsSheet() {
                   </span>
                 </div>
               ))}
-              {/* Only once the fetch has settled. Flashing "No levels
-                  configured" under the prose while the list is still in
-                  flight would say something untrue about the site. */}
               {!loading && levels.length === 0 && (
                 <div className="appza-lb-sheet-empty">{p.emptyLabel}</div>
               )}

@@ -17,7 +17,6 @@ export function useBackDismiss(open: boolean, close: () => void): void {
   }, [open]);
 }
 
-/** Closes the topmost open sheet. Returns false when none is open. */
 export function dismissTopOverlay(): boolean {
   const top = stack[stack.length - 1];
   if (!top) return false;

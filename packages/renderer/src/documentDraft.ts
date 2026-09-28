@@ -1,62 +1,31 @@
 import { useEffect, useState } from 'react';
 
-// Add-document draft — the state behind the space-document-add screen.
-//
-// Same event-backed store shape as spacesControls / spaceDetailControls,
-// with one deliberate difference: NOTHING here is persisted. The draft
-// holds File handles, which don't survive JSON, and a half-written upload
-// restored days later would be worse than a clean form. It is reset when
-// the screen is opened.
-//
-// The picked File objects live in a module-level map rather than in the
-// state object, so the state stays a plain serialisable record that React
-// can compare cheaply and the shells can log without dumping binaries.
+// Not persisted: File handles don't survive JSON. Files live in a module map so the state stays serialisable.
 
 export type DraftFileStatus = 'pending' | 'uploading' | 'done' | 'error';
 
 export type DraftFile = {
-  /** Local identity — survives rename, unlike the filename. */
   key: string;
-  /** Display name; editable before upload (the design's pencil). */
   name: string;
-  /** Name the file arrived with, so a rename can be detected. */
   original_name: string;
   type: string;
-  /** 'image' | 'document' — picks the row glyph, same as the list card. */
   kind: string;
   size: number;
   status: DraftFileStatus;
   error?: string;
-  /** Set once the file is committed: the media object the server returned. */
   media?: Record<string, unknown>;
 };
 
 export type DocumentDraft = {
   space_slug: string;
-  /**
-   * Set when the draft is editing an EXISTING post's files rather than
-   * composing a new one. The edit screen's file block renders only when
-   * this is populated, and the submit path patches this feed instead of
-   * creating one.
-   */
   edit_feed_id: number | null;
-  /**
-   * How many files the post had when the edit screen opened.
-   *
-   * This is a safety interlock, not bookkeeping. Sending an empty
-   * `document_ids` to FluentCommunity DELETES every file on the post and
-   * turns it back into a plain text post — so "the user removed them all"
-   * and "we never learned what the files were" must not look the same at
-   * submit time. Zero here means the latter, and the submit path leaves
-   * document_ids out entirely.
-   */
+  /** Safety interlock: an empty document_ids deletes every file on the post, so 0 means unknown and submit omits it. */
   seeded_file_count: number;
   title: string;
   message: string;
   files: DraftFile[];
   topic_ids: number[];
   publish: boolean;
-  /** ISO-ish 'YYYY-MM-DD HH:MM:SS'. Empty = post immediately. */
   scheduled_at: string;
   submitting: boolean;
   error: string;
@@ -80,7 +49,6 @@ const EMPTY: DocumentDraft = {
 
 let current: DocumentDraft = { ...EMPTY };
 
-/** key -> File. Kept out of the state record; see the note above. */
 const fileHandles = new Map<string, File>();
 
 let keySeed = 0;
@@ -104,25 +72,11 @@ export function setDocumentDraft(patch: Partial<DocumentDraft>): void {
   emit({ ...current, ...patch });
 }
 
-/**
- * Start a fresh draft for a space. Called when the add screen mounts —
- * without it, the previous visit's files would still be listed.
- */
 export function resetDocumentDraft(spaceSlug: string): void {
   fileHandles.clear();
   emit({ ...EMPTY, space_slug: spaceSlug });
 }
 
-/**
- * Load an existing post's files into the draft so the edit screen can
- * show, rename and remove them.
- *
- * They arrive already committed — `media` set, status 'done' — so the
- * submit path uploads nothing for them and simply keeps them in the
- * `document_ids` list it sends. Dropping one from the list is what
- * deletes it, which is exactly how FluentCommunity's own feed update
- * works.
- */
 export function seedDraftForEdit(
   feedId: number,
   spaceSlug: string,
@@ -173,16 +127,7 @@ export function addDraftFiles(files: ArrayLike<File>): void {
   emit({ ...current, files: [...current.files, ...added], error: '' });
 }
 
-/**
- * Swap the file behind a row, keeping its position in the list.
- *
- * For a row that was never committed this just exchanges the handle. For
- * one already attached to a post it also drops `media`, which is what
- * makes the replacement work: the submit path sends only what the list
- * carries, and FluentCommunity's feed update detaches any media_key
- * missing from it. So the old file leaves and the new one arrives in a
- * single save, with no delete call.
- */
+/** Dropping `media` makes FC's feed update detach the old file and claim the new one in one save. */
 export function replaceDraftFile(key: string, file: File): void {
   fileHandles.set(key, file);
   emit({
@@ -227,7 +172,6 @@ export function patchDraftFile(key: string, patch: Partial<DraftFile>): void {
   });
 }
 
-/** Chips are multi-select: tapping a selected topic clears it. */
 export function toggleDraftTopic(topicId: number): void {
   const has = current.topic_ids.includes(topicId);
   emit({
@@ -238,10 +182,6 @@ export function toggleDraftTopic(topicId: number): void {
   });
 }
 
-/**
- * Same rule the list card's glyph uses, so a file looks identical before
- * and after it is committed.
- */
 export function kindFor(mime: string, name: string): string {
   if (mime.startsWith('image/')) return 'image';
   const ext = name.includes('.') ? name.slice(name.lastIndexOf('.') + 1).toLowerCase() : '';

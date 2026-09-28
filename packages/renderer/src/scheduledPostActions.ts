@@ -3,33 +3,13 @@ import { sendJson, type StoredAuthLike } from './postMenuHandlers';
 import type { ActionInvocation } from './actionContext';
 import { openMemberRemoveConfirm, closeMemberRemoveConfirm } from './MemberRemoveConfirm';
 
-/**
- * The Scheduled Posts page's three buttons — doc states 67, 68 and 69.
- *
- *   Reschedule  → the composer's own date/time sheet → PUT update
- *   Publish now → "Publish now?"          → PUT publish
- *   trash       → "Delete schedule post?" → POST feeds/delete
- *
- * The two dialogs are the Material alert the profile tabs use (designs 45,
- * 48, 58, 63), so they open MemberRemoveConfirm, as profileTabActions does.
- *
- * The sheet is opened by the SHELL, through `openSchedule`, because its
- * presentation comes from the catalog and the customizations the shell
- * holds — the same reason the composer's own opener lives there.
- *
- * Every write is an fcom-mobile wrapper that answers HTTP 200 and carries
- * the real outcome in `response.status`; sendJson reads that, so
- * FluentCommunity's "at least 30 minutes from now" reaches the toast as
- * FluentCommunity wrote it. Success refreshes, which empties the card out
- * of the list and, back on the profile, the banner's count with it.
- */
+// fcom-mobile answers 200 with the outcome in response.status; sendJson reads it.
 
 export type ScheduledPostActionDeps = {
   auth: StoredAuthLike | null;
   authHeader: (auth: StoredAuthLike) => string;
   onError: (msg: string) => void;
   onInfo: (msg: string) => void;
-  /** Open the schedule sheet on `value`; `onConfirm` gets the new time. */
   openSchedule: (sheetSlug: string, value: string, onConfirm: (value: string) => void) => void;
 };
 
@@ -72,8 +52,6 @@ export function tryHandleScheduledPostAction(
       confirmTone: 'primary',
       item,
       removeActionSlug: str(argRec.remove_action_slug) ?? CONFIRMS[action_slug],
-      // The write's endpoint and paths ride on the confirm's own args, so
-      // an AppZet that overrides them is not silently ignored.
       removeArgs: argRec,
     });
     return true;
@@ -83,8 +61,6 @@ export function tryHandleScheduledPostAction(
   if (!write) return false;
 
   const { auth, authHeader, onError, onInfo } = deps;
-  // Only the two confirmed writes have a dialog to close; closing one
-  // that is not open is a no-op.
   const finish = () => closeMemberRemoveConfirm();
   const endpoint = str(argRec.endpoint);
   if (!endpoint) {

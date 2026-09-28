@@ -5,42 +5,12 @@ import { sendJson, type StoredAuthLike } from './postMenuHandlers';
 import { getProfileControls } from './profileControls';
 import type { ActionInvocation } from './actionContext';
 
-/**
- * The profile header cluster's writes — follow, unfollow, the two halves
- * of the email-notification toggle, and the ⋯ menu's block and unblock.
- *
- * Shared between the Capacitor shell and the WP-admin simulator for the
- * same reason the post menu is: two dispatchers implementing one action
- * drift, and only one of them is ever the one being photographed.
- *
- * All four are the same request: POST an fcom-mobile route with the
- * profile's user id under `member_id`. What differs is the route and the
- * toast, both of which the catalog states.
- *
- * `user.notify_subscribe` and `user.notify_unsubscribe` name the SAME
- * route on purpose. FluentCommunity's notification endpoint is a genuine
- * toggle — it flips level 1 <-> 2 and reads no direction off the request
- * — so the direction is carried by which button was visible, and the
- * catalog gates those two against each other on `is_notifying`. This is
- * the opposite of the comment reaction (P140), whose name says toggle
- * and whose body must state a direction; the lesson is the same one,
- * which is that the name is not the contract.
- *
- * There is no optimistic update here. The cluster has no
- * `data-appza-item-id` wrapper for the feed's DOM-patching path to find
- * (P141), and the refetch is authoritative anyway: the write bumps the
- * viewer's preview-cache generation on the way out, so the refreshed
- * profile carries the new level rather than the cached old one.
- */
+// notify_subscribe and notify_unsubscribe share one route: FC's endpoint is a true toggle, so direction comes from which button the catalog shows.
 
 export type ProfileActionDeps = {
-  /** Currently signed-in user (Basic Auth). Null when no session. */
   auth: StoredAuthLike | null;
-  /** Basic-auth header builder — each shell owns its own to stay isolated. */
   authHeader: (auth: StoredAuthLike) => string;
-  /** Red toast for failures. */
   onError: (msg: string) => void;
-  /** Green/info toast for successful operations. */
   onInfo: (msg: string) => void;
 };
 
@@ -49,21 +19,11 @@ const HANDLED = new Set([
   'user.unfollow',
   'user.notify_subscribe',
   'user.notify_unsubscribe',
-  // The ⋯ menu's two block rows (2026-09-02). Same request in every
-  // respect — POST an fcom-mobile route with the profile's user id under
-  // `member_id` — so they belong here rather than in a branch of their
-  // own. Blocking is level 0 in the SAME followers table a follow writes
-  // to, which is why blocking someone you follow also stops following
-  // them; that is FluentCommunity's behaviour, and the refetch below is
-  // what makes the cluster show it.
+  // Blocking is level 0 in FC's followers table, so it also unfollows; the refetch shows that.
   'profile.block',
   'profile.unblock',
 ]);
 
-/**
- * Returns true when the action_slug is one of the four handled here and
- * has been dispatched. Callers should return early on `true`.
- */
 export function tryHandleProfileAction(
   inv: ActionInvocation,
   deps: ProfileActionDeps,
@@ -112,10 +72,6 @@ export function tryHandleProfileAction(
         onInfo(toast);
         dispatchRefresh();
       } else {
-        // fcom-mobile forwards FluentCommunity's own sentence — "You are
-        // not currently following this user", "You cannot follow/unfollow
-        // a blocked user" — which says more than anything generic here
-        // could.
         onError(result.error);
       }
     },
@@ -123,7 +79,7 @@ export function tryHandleProfileAction(
   return true;
 }
 
-/** fcom-mobile takes an id or a username; a number is what we bind. */
+// fcom-mobile takes an id or a username.
 function resolveMemberId(raw: unknown): number | string | null {
   if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
   if (typeof raw === 'string' && raw.trim() !== '') {
@@ -138,31 +94,12 @@ function dispatchRefresh(): void {
   window.dispatchEvent(new CustomEvent(APPZA_REFRESH_EVENT));
 }
 
-/**
- * The profile edit form's Save button.
- *
- * Shared for the same reason the follow actions are, and kept beside
- * them because it is the other half of one screen.
- *
- * The form's values are read out of the DOM by the shell — each shell
- * owns its own `readFormFieldValue`, so the collector arrives as a
- * dependency rather than being imported. That indirection is the whole
- * contract: `param_map` names `children[N].value` paths into the form's
- * Superstructure, and if those indices ever stop matching the SS the
- * collector returns '' for every field and the save writes empty
- * strings over real data. A contract test in the core pins them.
- *
- * `member_id` comes from the profile_controls slice — the same number
- * the screen's data source used to fetch the row being edited, so the
- * write always addresses the profile the form actually loaded.
- */
+// param_map names children[N].value paths; if they drift from the form, every field saves as ''. A core contract test pins them.
 export type ProfileSaveDeps = ProfileActionDeps & {
-  /** Reads `param_map` paths out of the named AppZet's rendered fields. */
   collect: (
     appzetSlug: string,
     paramMap: Record<string, unknown> | undefined,
   ) => Record<string, unknown>;
-  /** Pop the screen after a successful save. */
   onSaved?: () => void;
 };
 
@@ -216,38 +153,18 @@ export function tryHandleProfileSave(
     ...collect(formSlug, paramMap),
   };
 
-  // The Social Links card is its own placement, sibling to the form this
-  // action names, and its rows are a site setting rather than a fixed
-  // list of children — so its values cannot be reached through
-  // `param_map`, which addresses `children[N]` inside ONE AppZet.
-  //
-  // Every enabled provider is sent, empty ones included. That is what
-  // makes clearing work: updateProfile skips the block entirely when the
-  // object is falsy and array_filters what it gets, so sending only the
-  // filled rows could never remove the last remaining link.
+  // Every enabled provider is sent, empty ones too: updateProfile array_filters the object, so that is how a cleared link is removed.
   if (argRec.collect_social_links === true) {
     const social = collectSocialLinks();
     if (Object.keys(social).length > 0) body.social_links = social;
   }
 
-  // The Additional Information section, for the same reason and one step
-  // further: how many cards, how many fields and what TYPE each is are
-  // all a site setting, so none of it can be children either.
-  //
-  // The typed shape matters. Pro's sanitizeFieldValue returns an empty
-  // array for a multiselect that is not an ARRAY, an empty string for a
-  // number that is not numeric, and an empty string for a date that is
-  // not exactly Y-m-d — so sending the DOM's strings for all of them
-  // would quietly blank half the section on every save.
+  // Typed values matter: FC Pro's sanitizeFieldValue blanks a non-array multiselect, a non-numeric number and a non-Y-m-d date.
   if (argRec.collect_profile_fields === true) {
     const fields = collectProfileFields();
     if (Object.keys(fields).length > 0) body.custom_fields = fields;
   }
 
-  // No client-side required check on first_name. FluentCommunity
-  // validates it and answers "First name is required", and a second copy
-  // of that rule here would be a second thing to keep true — the server
-  // is the one that decides whether the write happened.
   void sendJson(endpoint, method, body, auth, authHeader).then((result) => {
     if (result.ok) {
       onInfo(successMessage);

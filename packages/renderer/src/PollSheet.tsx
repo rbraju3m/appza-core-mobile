@@ -11,43 +11,11 @@ import {
 } from './postDraft';
 import { useBackDismiss } from './backStack';
 
-/**
- * "Create poll" — Noor's designs 24 to 29.
- *
- * The sheet, the collapsed strip it leaves in the composer, and the
- * block the preview draws. Three surfaces of one attachment, in one
- * file for the same reason AppzaDraftVideo lives beside VideoSheet: a
- * poll that looked different in the preview from the composer would
- * defeat the preview.
- *
- * Everything the sheet enforces is FluentCommunity's own rule, checked
- * against the plugin rather than invented here:
- *
- *  - **Two options minimum.** `processFeedContent` drops any option with
- *    an empty label, so a poll that looked like it had three could post
- *    with one. Done stays pale until two survive.
- *  - **An existing option cannot be removed or blanked.**
- *    `getSurveyOptionsUpdateError` refuses the edit outright — votes are
- *    recorded against the slug. Those rows keep no ⨯ and cannot be
- *    emptied.
- *  - **The type cannot change on an existing poll.** The portal hides
- *    its own toggle when editing, because the recorded votes mean one
- *    thing under single choice and another under multiple.
- *  - **An empty end date means "never closes"**, which is what the
- *    portal's "Leave blank for not end" placeholder says and what
- *    FluentCommunity stores.
- *
- * The one place the sheet is stricter than the portal is the calendar:
- * the portal's date picker greys nothing, and design 26 draws every past
- * day muted. A poll that has ended before its post exists is not
- * something an author can mean, so past days are disabled — behind
- * `allow_past_end_date`, so a site that disagrees flips one switch.
- */
+// Rules mirror FC: 2 options min (empty labels are dropped), server-issued options can't be removed or blanked (votes keyed on slug), type fixed once votes exist.
 
 export const POLL_SHEET_APPZET_SLUG = 'fc-post-poll-sheet';
 export const POLL_SHEET_CHILD_COUNT = 9;
 
-/** How many options a poll must have before it is one. */
 const MIN_OPTIONS = 2;
 
 export type PollSheetPresentation = {
@@ -68,7 +36,6 @@ export type PollSheetPresentation = {
   nextIcon: string;
   monthCaretIcon: string;
   weekdays: string[];
-  /** `{d} {mon} at {HH}:{mm}` — how a chosen end date reads. */
   endDateFormat: string;
   hidden: boolean;
   showHandle: boolean;
@@ -76,7 +43,6 @@ export type PollSheetPresentation = {
   showTitle: boolean;
   showEndDate: boolean;
   showRemove: boolean;
-  /** Let the poll close in the past, as FluentCommunity's own picker does. */
   allowPastEndDate: boolean;
   sheetBgColor?: string;
   sheetRadius?: string;
@@ -135,12 +101,7 @@ export type PollSheetPresentation = {
 type OpenDetail = {
   appzetSlug?: string;
   presentation: PollSheetPresentation;
-  /** The poll already on the draft, if the user is coming back to edit. */
   value?: PostDraftPoll | null;
-  /**
-   * True when the post being edited already carries a poll on the
-   * server. Locks the type and protects the options that have slugs.
-   */
   existing?: boolean;
   childStyles?: Record<number, CSSProperties>;
 };
@@ -150,24 +111,11 @@ const CLOSE_EVENT = 'appza:close-poll-sheet';
 const PATCH_EVENT = 'appza:patch-poll-sheet';
 const REQUEST_EVENT = 'appza:request-poll-sheet';
 
-/**
- * Ask whoever knows how to open the sheet to open it — the composer's
- * "Edit" on the collapsed strip.
- *
- * Not a catalog action, deliberately. Opening the sheet needs the
- * AppZet's props, the saved customizations and the resolved endpoints,
- * all of which live in the shell; and Edit is not a new intention, it is
- * the strip re-entering the sheet it came from. Wiring it as a second
- * action would mean a second child on the Superstructure whose only job
- * is to duplicate the poll glyph's own wiring, and the strip is drawn
- * inside a primitive that has no child index of its own to hang it on.
- */
 export function requestPollSheet(): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(REQUEST_EVENT));
 }
 
-/** Shell side of {@link requestPollSheet}. Returns its own unsubscribe. */
 export function onPollSheetRequest(handler: () => void): () => void {
   if (typeof window === 'undefined') return () => {};
   window.addEventListener(REQUEST_EVENT, handler);
@@ -184,7 +132,6 @@ export function closePollSheet(): void {
   window.dispatchEvent(new CustomEvent(CLOSE_EVENT));
 }
 
-/** Live-preview patch from the builder, addressed by AppZet slug. */
 export function patchPollSheet(
   appzetSlug: string,
   patch: { presentation?: PollSheetPresentation; childStyles?: Record<number, CSSProperties> },
@@ -192,8 +139,6 @@ export function patchPollSheet(
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: { appzetSlug, patch } }));
 }
-
-/* ------------------------------ dates ------------------------------ */
 
 function pad(n: number): string {
   return n < 10 ? `0${n}` : String(n);
@@ -228,13 +173,6 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-/**
- * Render a stored end date with the authored template.
- *
- * Exported because the collapsed strip and the preview both say it, and
- * a date that read one way in the sheet and another in the preview is
- * the kind of difference a preview is supposed to remove.
- */
 export function formatPollEndDate(value: string, template: string): string {
   const when = parseEndDate(value);
   if (!when) return '';
@@ -248,8 +186,6 @@ export function formatPollEndDate(value: string, template: string): string {
     .replace('{mm}', pad(when.getMinutes()));
 }
 
-/* ------------------------------ sheet ------------------------------ */
-
 type Row = PostDraftPollOption & { key: string };
 
 function seedRows(poll: PostDraftPoll | null | undefined): Row[] {
@@ -259,9 +195,6 @@ function seedRows(poll: PostDraftPoll | null | undefined): Row[] {
     ...(o.slug ? { slug: o.slug } : {}),
     key: o.slug ? `srv:${o.slug}` : `seed:${i}`,
   }));
-  // The portal seeds two empty rows for a new poll, and the design draws
-  // exactly two placeholders. Anything shorter gets padded rather than
-  // rejected — a one-option poll is not a state worth showing.
   let n = rows.length;
   while (rows.length < MIN_OPTIONS) rows.push({ label: '', key: `seed:${n++}` });
   return rows;
@@ -278,9 +211,7 @@ export function PollSheet() {
   const [selected, setSelected] = useState<Date | null>(null);
   const [time, setTime] = useState('');
   const [monthOpen, setMonthOpen] = useState(false);
-  // A counter, not Date.now(): two options added in the same millisecond
-  // would collide on the key and React would reuse one row's DOM for the
-  // other, moving the caret mid-typing.
+  // A counter, not Date.now(): same-ms keys would collide and React would reuse a row's DOM.
   const [seq, setSeq] = useState(0);
 
   useEffect(() => {
@@ -294,9 +225,6 @@ export function PollSheet() {
       setRows(seedRows(poll));
       setType(poll?.type === 'multi_choice' ? 'multi_choice' : 'single_choice');
       setEndDate(poll?.end_date ?? '');
-      // Re-opening a poll that already ends somewhere shows the calendar
-      // on that date rather than on today — the author is coming back to
-      // change it, not to set it for the first time.
       setCalendarOpen(false);
       setCursor(startOfDay(seeded ?? new Date()));
       setSelected(seeded ? startOfDay(seeded) : null);
@@ -411,9 +339,7 @@ export function PollSheet() {
   const existing = detail.existing === true;
 
   const filled = rows.filter((r) => r.label.trim() !== '').length;
-  // A server-issued option that has been emptied is the one state
-  // FluentCommunity refuses outright, so Done has to refuse it too —
-  // otherwise the round trip answers with a message about slugs.
+  // FC refuses an emptied server-issued option outright.
   const blankedExisting = rows.some((r) => !!r.slug && r.label.trim() === '');
   const canSave = filled >= MIN_OPTIONS && !blankedExisting;
   const canRemoveRows = rows.length > MIN_OPTIONS;
@@ -429,16 +355,12 @@ export function PollSheet() {
 
   const removeRow = (idx: number) => {
     setRows((prev) => {
-      // An option the server already knows about cannot go: its votes
-      // are keyed on the slug. The ⨯ is not drawn for those rows, so
-      // this only guards a caller that got there another way.
       if (prev[idx]?.slug) return prev;
       if (prev.length <= MIN_OPTIONS) return prev;
       return prev.filter((_, i) => i !== idx);
     });
   };
 
-  /** Fold the calendar's date + time into the stored wall-clock string. */
   const commitEndDate = (day: Date | null, hhmm: string) => {
     if (!day) {
       setEndDate('');
@@ -447,9 +369,7 @@ export function PollSheet() {
     const [h = '0', m = '0'] = (hhmm || '00:00').split(':');
     const when = new Date(day);
     when.setHours(Number.parseInt(h, 10) || 0, Number.parseInt(m, 10) || 0, 0, 0);
-    // Local wall-clock, not toISOString(): FluentCommunity runs it
-    // through strtotime() in the site's timezone, so sending UTC would
-    // silently shift when the poll closes.
+    // Local wall-clock, not toISOString(): FC runs it through strtotime() in the site timezone.
     setEndDate(`${ymd(when)} ${pad(when.getHours())}:${pad(when.getMinutes())}:00`);
   };
 
@@ -526,9 +446,6 @@ export function PollSheet() {
                     onChange={(e) => updateRow(idx, e.target.value)}
                     {...(idx === 0 ? childAttrs(slug, 2, 'ion-input') : {})}
                   />
-                  {/* No ⨯ on a server-issued option, and none at all while
-                      the poll is at its two-option floor — removing one
-                      would leave a poll that is not a poll. */}
                   {!locked && canRemoveRows && (
                     <button
                       type="button"
@@ -555,9 +472,6 @@ export function PollSheet() {
             <span>{p.addOptionLabel}</span>
           </button>
 
-          {/* The type is fixed once votes exist: the portal hides its own
-              toggle when editing, because a vote recorded under single
-              choice does not mean the same thing under multiple. */}
           {!existing && (
             <div
               className="appza-poll-sheet-segment"
@@ -707,9 +621,6 @@ export function PollSheet() {
                       }
                       onClick={() => {
                         setSelected(date);
-                        // A date with no time yet closes the poll at
-                        // midnight, which is a real answer — the author
-                        // can move it with the Time field.
                         commitEndDate(date, time);
                       }}
                     >
@@ -762,14 +673,6 @@ export function PollSheet() {
   );
 }
 
-/* --------------------------- composer strip --------------------------- */
-
-/**
- * "Poll . 2 options — Edit ⨯" — design 27.
- *
- * A poll has no thumbnail, so the composer says what it is rather than
- * showing it. Edit re-opens the sheet on the same draft; ⨯ drops it.
- */
 export function AppzaDraftPollStrip({
   poll,
   label,
@@ -783,7 +686,6 @@ export function AppzaDraftPollStrip({
 }: {
   poll: PostDraftPoll;
   label: string;
-  /** '{n} options' — pluralised by the author, not by us. */
   optionsLabel: string;
   separator: string;
   editLabel: string;
@@ -822,17 +724,6 @@ export function AppzaDraftPollStrip({
   );
 }
 
-/* ---------------------------- preview block ---------------------------- */
-
-/**
- * The poll as the post will show it — designs 28 and 29.
- *
- * A radio per option under single choice, a checkbox under multiple,
- * and a percentage on every row. Drawn rather than reused from
- * `appza-poll-block`: that primitive is the FEED's poll, which votes.
- * This one is a picture of a poll that does not exist yet, so nothing
- * here is tappable and every count is zero.
- */
 export function AppzaPollPreview({
   poll,
   percentFormat,
@@ -840,9 +731,7 @@ export function AppzaPollPreview({
   showVotes,
 }: {
   poll: PostDraftPoll;
-  /** '{whole}%.{decimal}' — the design's own odd order, authored. */
   percentFormat: string;
-  /** '{n} Vote'. Always zero here, so the design's singular is right. */
   votesLabel: string;
   showVotes: boolean;
 }) {
@@ -857,9 +746,6 @@ export function AppzaPollPreview({
           <span className="appza-poll-preview-pct">{percent}</span>
         </span>
       ))}
-      {/* Always zero — the post does not exist, so nobody has voted. The
-          design writes "0 Vote", singular, which is why there is one
-          template here and not a plural pair. */}
       {showVotes && (
         <span className="appza-poll-preview-votes">{votesLabel.replace('{n}', '0')}</span>
       )}

@@ -1,37 +1,10 @@
 import { createContext, useContext, type ReactNode } from 'react';
 
-/**
- * Wiring for AppZet on_tap_* actions. The shell (mobile app or plug-in
- * admin) provides an implementation; the renderer stays presentation-only.
- *
- * `dispatch` receives the resolved action wiring from the AppZet
- * (action_slug + args merged from AppZet.actions[event] + any per-item
- * data bindings) plus a reference to the current data item so the shell
- * can resolve `data.<path>` params against it.
- */
 export type ActionInvocation = {
   action_slug: string;
   args?: Record<string, unknown>;
-  /**
-   * When set, the shell's dispatcher should resolve this data path
-   * against `item` and use the result as the effective per-invocation
-   * item root. Powers per-slot bindings like the banner CTAs where
-   * `binding_root: data.ctaButtons[N]` sub-selects one entry from the
-   * banner's ctaButtons array as the arg source for link.open.
-   */
   binding_root?: string;
   item?: unknown;
-  /**
-   * The whole row set this item was rendered from, and where `item` sits
-   * in it. Populated for per-item actions on a list AppZet; absent for
-   * static (no-data-source) ones.
-   *
-   * Exists for actions that operate on the COLLECTION rather than the row
-   * — the media grid's fullscreen viewer needs every photo in order to
-   * page between them and to say "1/6". Resolving that in the shell by
-   * re-reading the data source would race the fetch and duplicate the
-   * filtering the renderer has already done.
-   */
   siblings?: unknown[];
   siblingIndex?: number;
 };

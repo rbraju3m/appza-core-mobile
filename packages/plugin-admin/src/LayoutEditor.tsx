@@ -6,19 +6,7 @@ type Props = {
   onChange: (next: LayoutStyle) => void;
 };
 
-/**
- * Web-devtools-level layout editor for a single Ionic primitive
- * inside an AppZet composition (DC#20 slice 4).
- *
- * All controls are free-form — no cell pickers — because the target
- * audience is people who think in pixels + hex + CSS enums. Every
- * knob is opt-in; unset values fall through to browser / Ionic
- * defaults via the deep-optional LayoutStyle shape.
- *
- * Controlled component: parent owns the LayoutStyle state and receives
- * whole-object updates. Undefined leaves are stripped on write so the
- * shape stays clean (no `padding: {}` after clearing all four sides).
- */
+// Undefined leaves are stripped on write so no `padding: {}` is left after clearing all sides.
 export function LayoutEditor({ value, onChange }: Props) {
   const [q, setQ] = useState('');
   const filter = q.trim().toLowerCase();

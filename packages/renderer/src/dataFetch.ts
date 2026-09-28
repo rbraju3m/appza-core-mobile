@@ -16,77 +16,21 @@ import { getModerationControls } from './moderationControls';
 import { getViewer } from './viewer';
 import { getAuthHeader } from './authHeader';
 
-/**
- * useDataSource(slug, params) — fetch a list payload for an AppZet's
- * declared `data_source`.
- *
- * Endpoint resolution:
- *   - Browser/plugin-admin: same-origin call to
- *     `/wp-json/appza/v1/preview/data?ds=<slug>&params=<jsonparams>`
- *     (the WP plugin's PreviewProxyController routes to the matching
- *     fcom-mobile / appza-builder controller).
- *   - Capacitor:  the same hook is reused; the host (mobile app) sets
- *     `window.appzaCoreConfig.endpoints.previewProxy` to the production
- *     /wp-json/appza/v1/preview/data URL on the customer's WP install.
- *
- * Behaviour:
- *   - Returns { items, loading, error }.
- *   - A DataSource carrying `client_state_binding` never fetches at all:
- *     its rows are an array on a renderer state slice, read directly and
- *     re-read whenever that slice announces a change. Used by the Search
- *     screen's recent-search list, whose four histories are device-local.
- *   - On HTTP error or schema mismatch, falls back to a small fixture
- *     dataset baked into the proxy (so local dev with broken WP plugins
- *     still renders a useful preview).
- *   - Refetches when slug or stringified params change.
- */
-
 type FetchState = {
   items: unknown[];
   loading: boolean;
   error: string | null;
 };
 
-/**
- * What `useDataSource` returns: a FetchState plus whether the items in it
- * were fetched for the params being asked for RIGHT NOW.
- *
- * `loading` alone cannot answer that. The fetch effect sets loading in an
- * effect, so within the commit where params change, every consumer still
- * sees `loading: false` alongside the PREVIOUS answer's items — one
- * render behind. Anything deriving a verdict from `items.length` in that
- * window derives it from the wrong page. On Saved Posts that published
- * "empty" for the 1.7s between clearing a search that had matched
- * nothing and the full list arriving, which tore the search pill and the
- * sort strip off the screen and put them back.
- */
+// `loading` lags a render behind a params change; `stale` says whether items belong to the current params.
 type DataSourceState = FetchState & { stale: boolean };
 
-// `Window['appzaCoreConfig']` is augmented globally by @appza/schemas —
-// import at least one binding from there elsewhere in the graph and
-// this file picks it up. See packages/schemas/src/augmentations.ts.
+// Pulls in the global Window['appzaCoreConfig'] augmentation.
 import '@appza/schemas';
 
-/**
- * Client-side revalidation event. Dispatched by:
- *   - the plug-in-admin's Refresh button (explicit user action)
- *   - the window `focus` handler installed inside useDataSource
- *
- * Every mounted useDataSource instance listens; on hit, it bumps its
- * private tick, which is an effect dep, which re-runs the fetch. The
- * fetch appends `nocache=1` when triggered by a tick > 0, so the proxy
- * bypasses its 5-min transient read and returns fresh upstream data.
- */
+// Listeners refetch with nocache=1 so the proxy skips its transient cache.
 export const APPZA_REFRESH_EVENT = 'appza:refresh-data';
 
-/**
- * Per-screen route params (e.g. { slug: 'appza' } for /space/:slug). The
- * shell (App.tsx) writes into this bag whenever it activates a screen via
- * nav.push — carrying `pass_item_as_context` items' identifying fields
- * (slug, id) so DS query_params with `source: 'route_param'` can read
- * them at fetch time. Kept as a plain window global so the renderer stays
- * free of shell imports.
- */
 export function setRouteParams(next: Record<string, unknown> | null | undefined): void {
   if (typeof window === 'undefined') return;
   const g = window as unknown as { __appzaRouteParams?: Record<string, unknown> };
@@ -99,14 +43,6 @@ export function getRouteParams(): Record<string, unknown> {
   return g.__appzaRouteParams ?? {};
 }
 
-/**
- * Lookup table for state-slice getters. A DS `query_params` entry with
- * `source: 'state'` + `binding: 'state.<slice>.<key>'` reads via the
- * matching getter here. Flat legacy form `state.<key>` (spacesControls'
- * shape) falls through to a scan across all slices — first match wins,
- * ties broken by insertion order below. Adding a new state slice = one
- * entry here + a getter in that slice's controls file.
- */
 const STATE_SLICE_GETTERS: Record<string, () => Record<string, unknown>> = {
   spaces_controls: () => getSpacesControls() as unknown as Record<string, unknown>,
   space_detail_controls: () => getSpaceDetailControls() as unknown as Record<string, unknown>,
@@ -121,30 +57,12 @@ const STATE_SLICE_GETTERS: Record<string, () => Record<string, unknown>> = {
   course_list_controls: () => getCourseListControls() as unknown as Record<string, unknown>,
   course_students_controls: () => getCourseStudentsControls() as unknown as Record<string, unknown>,
   course_lesson_controls: () => getCourseLessonControls() as unknown as Record<string, unknown>,
-  // A lesson's discussion reads the lesson id the lesson row publishes here.
   post_detail_controls: () => getPostDetailControls() as unknown as Record<string, unknown>,
-  // Added 2026-09-16. A child's `visible_when` could already read
-  // `state.viewer.*` — that is how the composer teaser disappears on a
-  // logged-out feed — but a DataSource's query_params could not, and the
-  // mismatch is silent: the binding resolves to undefined, the param
-  // falls back to its default, and the endpoint answers as if it had
-  // never been asked. The blocked-users list bound
-  // `state.viewer.user_id`, got an empty member_id, and fcom-mobile
-  // returned "username or member_id is required" — which reached the
-  // screen as an empty list.
+  // Without this, query_params bound to state.viewer.* silently resolve to undefined.
   viewer: () => getViewer() as unknown as Record<string, unknown>,
 };
 
-/**
- * Which window event announces a change to each slice.
- *
- * Only `client_state_binding` sources need this: they have no fetch to
- * re-run, so re-reading is their only way of noticing a change. Written out
- * per slice rather than derived from the key by string-mangling — the
- * mangling would happen to work for all seven of these, and would fail
- * silently the first time a slice was named something that did not
- * transliterate, which is precisely the bug nobody goes looking for.
- */
+// Only client_state_binding sources need these: they have no fetch to re-run.
 const STATE_SLICE_EVENTS: Record<string, string> = {
   spaces_controls: 'appza:spaces-controls-change',
   space_detail_controls: 'appza:space-detail-controls-change',
@@ -159,13 +77,9 @@ const STATE_SLICE_EVENTS: Record<string, string> = {
   course_students_controls: 'appza:course-students-controls-change',
   course_lesson_controls: 'appza:course-lesson-controls-change',
   post_detail_controls: 'appza:post-detail-controls-change',
-  // The viewer slice already broadcasts this on every sign-in and
-  // sign-out; registering it here is what lets a list bound to
-  // `state.viewer.*` re-read after one.
   viewer: 'appza:viewer-change',
 };
 
-/** Legacy flat-key bindings kept for spacesControls callers pre-arc. */
 const LEGACY_FLAT_STATE_BAG: Record<string, () => unknown> = {
   spaces_tab: () => getSpacesControls().tab,
   spaces_search: () => getSpacesControls().search,
@@ -187,7 +101,6 @@ export function readStateBinding(binding: string): unknown {
     const bag = getter();
     return bag ? bag[key] : undefined;
   }
-  // Flat form: state.<key>. Try legacy bag first, then scan slices.
   const flat = LEGACY_FLAT_STATE_BAG[path];
   if (flat) return flat();
   for (const getter of Object.values(STATE_SLICE_GETTERS)) {
@@ -197,23 +110,7 @@ export function readStateBinding(binding: string): unknown {
   return undefined;
 }
 
-/**
- * Resolves a DataSource.query_params config into a concrete params object
- * for `useDataSource` / `useDataSourcePaged`. Supports two source kinds:
- *
- *   - `source: 'state'`    with `binding: 'state.<slice>.<key>'` (or the
- *     legacy flat `state.<key>` for spacesControls).
- *   - `source: 'route_param'` with `binding: 'route.<param>'`, reading
- *     from `getRouteParams()` (shell writes on nav.push).
- *
- * Empty string / undefined resolutions OMIT the param — sending `?topic_slug=`
- * to FC would filter to a nonexistent topic instead of "All". Entries with
- * an explicit `default` fall back to the default when the resolution is
- * undefined (but empty-string still omits — that's how "All" travels).
- *
- * The config may also be a legacy plain `{ key: value }` map; those pass
- * through unchanged.
- */
+// Empty/undefined params are omitted: an empty topic_slug makes FC filter to a nonexistent topic instead of "All".
 export function resolveQueryParams(
   config: unknown,
 ): Record<string, unknown> {
@@ -227,10 +124,7 @@ export function resolveQueryParams(
       !Array.isArray(raw) &&
       ('source' in raw || 'default' in raw)
     ) {
-      // `'default' in raw` catches the constant-only spec `{ default: 20 }`
-      // (per_page on several DSs). Without it the whole spec OBJECT was sent
-      // as the param value — `?per_page={"default":20}` — which any route
-      // that type-checks its args rejects outright.
+      // Constant-only specs ({ default: 20 }) must resolve, not be sent as the object.
       const spec = raw as Record<string, unknown>;
       const source = typeof spec.source === 'string' ? spec.source : '';
       const binding = typeof spec.binding === 'string' ? spec.binding : '';
@@ -242,12 +136,9 @@ export function resolveQueryParams(
         resolved = routeParams[binding.slice(6)];
       }
       if (resolved === undefined) resolved = fallback;
-      // Empty string OR undefined → omit. Sending an empty topic_slug would
-      // filter to a nonexistent topic instead of the intended "All".
       if (resolved === undefined || resolved === '') continue;
       out[key] = resolved;
     } else if (raw !== undefined) {
-      // Legacy pass-through — plain `{ key: value }` map.
       out[key] = raw;
     }
   }
@@ -278,41 +169,14 @@ function buildProxyUrl(
   return url.toString();
 }
 
-/**
- * One network request per identical question, however many ask it
- * (2026-09-17).
- *
- * A screen asks the same DataSource from many places. Opening a member's
- * profile mounted twenty `fc-member-profile {"member_id":6}` fetches and
- * four identical `fc-profile-feed` ones — the header, the cluster, the
- * level bar, the banner, the app bar, each tab's shared chrome — all
- * within 70ms. The server answers them one after another, so the last
- * landed at 6.3s and the app bar's ⋯ waited for it.
- *
- * A request already in flight for the same URL and the same credentials
- * is joined rather than repeated. Only while it is in flight: once it
- * settles the entry is dropped, so a later mount, a refresh or a
- * `nocache=1` fetch (a different URL) asks the server again exactly as
- * before.
- *
- * What is shared is the response TEXT; each caller parses its own copy.
- * Callers have always owned the rows they were handed, and a shared
- * object would let one consumer's in-place edit show up in another's.
- */
+// Joins identical in-flight requests; each caller parses its own copy so rows are never shared.
 const inFlight = new Map<string, Promise<string>>();
 
 function fetchProxyText(url: string, headers: Record<string, string>): Promise<string> {
   const key = `${headers.Authorization ?? ''}\n${url}`;
   const joined = inFlight.get(key);
   if (joined) return joined;
-  // `omit`, never the default `same-origin`: in the simulator this page
-  // is wp-admin, and a same-origin fetch carries its logged-in cookie.
-  // WP core resolves the cookie BEFORE the application password
-  // (`wp_validate_logged_in_cookie` and `wp_validate_application_password`
-  // share priority 20, the cookie registered first), then
-  // `rest_cookie_check_errors` finds no nonce and drops the request to a
-  // guest. Without cookies, core validates the Authorization header, and
-  // the proxy trusts nothing else (go-live A2).
+  // 'omit': a wp-admin cookie beats the app password in WP core, then fails the nonce check and drops to guest.
   const request = fetch(url, { headers, credentials: 'omit' })
     .then(async (res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -329,18 +193,7 @@ async function fetchProxyJson(url: string, headers: Record<string, string>): Pro
   return JSON.parse(await fetchProxyText(url, headers));
 }
 
-/**
- * Fetch one DataSource once, outside React.
- *
- * The hooks above are the normal path; this exists for the things that
- * are opened rather than mounted — a bottom sheet's rows, warmed before
- * anything is tapped. It goes through the SAME preview proxy for a
- * reason that is easy to get wrong: fcom-mobile authenticates on
- * `is_user_logged_in()`, so a direct browser fetch to it answers 401
- * even from wp-admin (a cookie without a REST nonce is not a session as
- * far as WP REST is concerned). Through the proxy, the same application
- * password the writes use is what signs the read, in both shells.
- */
+// Via the proxy: fcom-mobile answers 401 to a direct browser fetch (cookie without REST nonce).
 export async function fetchDataSourceOnce(
   slug: string,
   params?: Record<string, unknown>,
@@ -353,18 +206,6 @@ export async function fetchDataSourceOnce(
   return fetchProxyJson(buildProxyUrl(slug, params, opts?.bypassCache === true), headers);
 }
 
-/**
- * Read a `client_state_binding` source: the rows are an array sitting on a
- * renderer state slice, so there is nothing to fetch.
- *
- * Subscribes to that slice's change event, because re-reading is the only
- * way such a source learns anything changed — no params move, so the fetch
- * effect below would never re-run.
- *
- * Returns `stale: false` unconditionally: the answer is always for the
- * question being asked right now. That is the whole difference between this
- * and a fetch, and it is why the P99 guard has nothing to do here.
- */
 function useClientStateSource(binding: string): DataSourceState {
   const [items, setItems] = useState<unknown[]>(() => (binding ? readStateArray(binding) : []));
   useEffect(() => {
@@ -372,9 +213,7 @@ function useClientStateSource(binding: string): DataSourceState {
     const slice = binding.startsWith('state.') ? binding.slice(6).split('.')[0] : '';
     const event = slice ? STATE_SLICE_EVENTS[slice] : undefined;
     if (!event) {
-      // A binding naming a slice with no registered event still READS
-      // correctly — it just never updates. Say so, loudly: silence here
-      // looks exactly like "the list is empty".
+      // Loud on purpose: silence here looks exactly like an empty list.
       console.warn(
         `[appza] client_state_binding "${binding}" names a slice with no change event registered; the list will not refresh.`,
       );
@@ -382,8 +221,7 @@ function useClientStateSource(binding: string): DataSourceState {
     }
     const onChange = () => setItems(readStateArray(binding));
     window.addEventListener(event, onChange);
-    // Re-read on subscribe: the slice may have changed between the
-    // useState initialiser and this effect.
+    // The slice may have changed since the useState initialiser.
     onChange();
     return () => window.removeEventListener(event, onChange);
   }, [binding]);
@@ -398,27 +236,16 @@ function readStateArray(binding: string): unknown[] {
 export function useDataSource(
   slug: string | undefined,
   params?: Record<string, unknown>,
-  /**
-   * The DataSource row's `client_state_binding`, when it has one. Passed in
-   * rather than looked up, because this hook never sees the catalog — it
-   * only ever knew a slug.
-   */
   clientStateBinding?: string | null,
 ): DataSourceState {
   const [state, setState] = useState<FetchState>({ items: [], loading: !!slug, error: null });
-  // The (slug, params) the items currently in `state` were fetched for.
-  // A ref rather than state: it is written in the same tick as the
-  // setState that delivers those items, so the render that shows them
-  // already sees it updated, and writing it never causes a render of its
-  // own.
+  // Ref, not state: written in the same tick as the setState that delivers those items.
   const loadedKeyRef = useRef<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
   const paramsKey = params ? JSON.stringify(params) : '';
   const previewMode =
     typeof window !== 'undefined' ? window.appzaCoreConfig?.previewMode : undefined;
 
-  // Subscribe to explicit refresh events + window focus. Both bump the
-  // tick; the tick > 0 branch below sends nocache=1 on the next fetch.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const onRefresh = () => setRefreshTick((t) => t + 1);
@@ -430,36 +257,21 @@ export function useDataSource(
     };
   }, []);
 
-  // Called unconditionally with '' when this is an ordinary HTTP source —
-  // hook order has to stay stable across renders, so the branch is in what
-  // we RETURN, not in whether the hook runs.
+  // Always called: hook order must stay stable.
   const clientState = useClientStateSource(clientStateBinding || '');
 
   useEffect(() => {
-    // A client-state source has nothing to fetch, and must not fall through
-    // to the proxy: its `endpoint` is '' by construction, so a fetch would
-    // hit the proxy with no route and answer with the fixture fallback —
-    // demo rows presented as the viewer's own recent searches.
+    // Must not reach the proxy: an empty endpoint answers with fixture rows.
     if (!slug || clientStateBinding) {
       setState({ items: [], loading: false, error: null });
       return;
     }
     let cancelled = false;
     setState((s) => ({ ...s, loading: true, error: null }));
-    // Forward the current user's Application Password (if logged in) to
-    // the preview proxy. WP core validates it and the proxy answers as
-    // whoever core authenticated — never as a name read from a header.
-    // Header lives on window as a light coupling — App.tsx sets/clears it
-    // on login/logout. Sent as the standard `Authorization`; see
-    // fetchProxyText for why cookies are omitted.
     const authHeader = getAuthHeader();
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (authHeader) headers.Authorization = authHeader;
-    // App-side shell (post.create success handler) sets
-    // __appzaForceRefreshUntil to a future timestamp to signal that any
-    // fetch happening in the next few seconds should bypass the proxy
-    // cache. Covers the case where an AppZet mounts AFTER the refresh
-    // event fired (React commit vs. dispatchEvent race).
+    // Set after post.create so AppZets mounting after the refresh event still bypass the cache.
     const forceRefreshUntil = (typeof window !== 'undefined'
       ? (window as unknown as { __appzaForceRefreshUntil?: number }).__appzaForceRefreshUntil
       : undefined) || 0;
@@ -467,14 +279,7 @@ export function useDataSource(
     fetchProxyJson(buildProxyUrl(slug, params, refreshTick > 0 || forceBypass), headers)
       .then((json) => {
         if (cancelled) return;
-        // Response shape flexibility. Most endpoints return either a bare
-        // array or `{items: [...]}`. Some single-object endpoints
-        // (e.g. fcom-mobile /spaces/by/slug) return `{space: {...}}` — a
-        // one-key wrapper object — after the plugin's preview-proxy
-        // unwraps its outer envelope. Recognize that shape and produce a
-        // single-item array so field_mappings like `data.topics` /
-        // `data.cover_photo` resolve through items[0] the same way list
-        // DSes do. Same for the pre-unwrap `{items: {space: {...}}}` shape.
+        // Single-key wrappers (e.g. {space: {...}}) become one-item arrays so items[0] mappings resolve.
         const unwrapSingleKeyObject = (obj: unknown): unknown | null => {
           if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
           const rec = obj as Record<string, unknown>;
@@ -504,9 +309,7 @@ export function useDataSource(
       })
       .catch((err) => {
         if (cancelled) return;
-        // An error IS an answer about these params — leaving the key
-        // unset would pin `stale` true forever and freeze any verdict
-        // reading it.
+        // An error is an answer too; leaving the key unset would pin `stale` forever.
         loadedKeyRef.current = `${slug}|${paramsKey}`;
         setState({
           items: [],
@@ -526,28 +329,6 @@ export function useDataSource(
   return { ...state, stale };
 }
 
-/**
- * Paginated variant of useDataSource — used by AppZets whose data source
- * is marked as infinite-scroll capable (see PAGINATED_DATA_SOURCES in
- * PlacementRenderer). Fetches page 1 on mount, then `loadMore()` fetches
- * page N+1 and appends its items to the accumulated list.
- *
- * Contract:
- *   - `items`     — accumulated across all fetched pages
- *   - `loading`   — true during ANY fetch (first load OR loadMore)
- *   - `error`     — most recent fetch error, cleared on retry
- *   - `hasMore`   — true until a page returns fewer than `perPage` items
- *                   (upstream lacks an explicit total, so we infer from
- *                   the short-page signal — standard REST pattern)
- *   - `loadMore()` — fetches next page. Idempotent while already loading.
- *   - `refresh()`  — clears items + refetches page 1 (used by the global
- *                   APPZA_REFRESH_EVENT so pull-to-refresh + window focus
- *                   still work).
- *
- * The upstream is expected to accept `page` + `per_page` query params
- * (standard WordPress REST convention). Extra `params` are merged into
- * every page request so filters (space slug, etc.) persist across pages.
- */
 type PagedFetchState = {
   items: unknown[];
   loading: boolean;
@@ -571,13 +352,9 @@ export function useDataSourcePaged(
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [refreshTick, setRefreshTick] = useState(0);
-  // Guard against concurrent loadMore invocations. IonInfiniteScroll can
-  // fire onIonInfinite before React commits the previous page's setPage,
-  // so a plain state check races. loadingRef flips synchronously.
+  // Flips synchronously; IonInfiniteScroll can fire before setPage commits.
   const loadingRef = useRef(false);
 
-  // Subscribe to global refresh events (Refresh button + window focus).
-  // On refresh, drop everything and start over from page 1.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const onRefresh = () => setRefreshTick((t) => t + 1);
@@ -589,9 +366,6 @@ export function useDataSourcePaged(
     };
   }, []);
 
-  // Reset accumulator when slug / params / refresh-tick change. Keeps the
-  // items array from mixing content across different data sources or
-  // param sets.
   useEffect(() => {
     setItems([]);
     setPage(1);
@@ -601,8 +375,6 @@ export function useDataSourcePaged(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, extraKey, refreshTick]);
 
-  // Fetch whichever page is current. Runs on mount + whenever `page`
-  // bumps (via loadMore) + whenever the reset effect above resets to 1.
   useEffect(() => {
     if (!slug) {
       setLoading(false);
@@ -623,8 +395,6 @@ export function useDataSourcePaged(
       page,
       per_page: perPage,
     };
-    // refreshTick > 0 signals a manual refresh — bypass proxy cache so
-    // fresh upstream posts land.
     const url = buildProxyUrl(slug, mergedParams, refreshTick > 0);
 
     fetchProxyJson(url, headers)
@@ -636,8 +406,7 @@ export function useDataSourcePaged(
             ? json.items
             : [];
         setItems((prev) => (page === 1 ? pageItems : [...prev, ...pageItems]));
-        // Upstream doesn't expose total-pages, so we infer end-of-list
-        // from a short page — the standard WP REST convention.
+        // No total-pages upstream; a short page means the end.
         setHasMore(pageItems.length >= perPage);
         setLoading(false);
         loadingRef.current = false;
@@ -664,12 +433,6 @@ export function useDataSourcePaged(
   return { items, loading, error, hasMore, loadMore, refresh };
 }
 
-/**
- * Resolves paths like `data.foo.bar` or `data.foo[3].bar` against an item.
- * Returns undefined for missing branches. Array indexing is 0-based; a
- * segment may combine an object key + one or more `[N]` steps (e.g. the
- * catalog field_mapping `data.ctaButtons[0].label`).
- */
 export function readDataPath(item: unknown, path: string): unknown {
   if (!path.startsWith('data.')) return undefined;
   const segments = path.slice(5).split('.');
@@ -691,11 +454,6 @@ export function readDataPath(item: unknown, path: string): unknown {
   return cursor;
 }
 
-/**
- * Splits one dot-separated segment into an ordered list of key/index steps.
- * `ctaButtons[0]` → `['ctaButtons', 0]`, `foo[1][2]` → `['foo', 1, 2]`,
- * `foo` → `['foo']`. Returns null on malformed input.
- */
 function parsePathSegment(seg: string): Array<string | number> | null {
   if (seg === '') return null;
   const out: Array<string | number> = [];

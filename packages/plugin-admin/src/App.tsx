@@ -207,19 +207,8 @@ import {
 } from '@appza/renderer';
 import { setAuthHeaderProvider } from '@appza/renderer';
 
-// Re-exported so existing local consumers (e.g. TopBar) keep working
-// without churning their import path.
 export type { PreviewMode };
 
-/**
- * Preview UI mode.
- * - 'edit' (default): design-time. Clicks select the primitive/AppZet so
- *   the Properties panel can edit it. Actions do nothing.
- * - 'app': runtime. Same behavior as the real Capacitor mobile app —
- *   clicks fire nav.push / nav.back / link.open. Mutating actions
- *   (post.create etc.) log a warning instead of hitting the server so
- *   admins don't accidentally create real feed posts from the sim.
- */
 export type UiMode = 'edit' | 'app';
 
 import { TopBar } from './TopBar';
@@ -246,17 +235,7 @@ type TemplateOption = {
   source_integration_name: string;
 };
 
-/**
- * Build the bootstrap URL with a template= parameter.
- *
- * In WP admin: `endpoints.bootstrap` is a fully-qualified URL localized by
- * the plug-in (pretty `/wp-json/...` or query-form `/?rest_route=/...`
- * depending on permalinks). We use the URL API to append `template=` so
- * either form works correctly.
- *
- * Standalone dev: fall back to /wp-json/.../bootstrap, which the Vite
- * proxy rewrites to the query form against the local WP install.
- */
+// Uses the URL API so both the /wp-json and ?rest_route= forms work.
 function buildBootstrapUrl(slug: string): string {
   const base = window.appzaCoreConfig?.endpoints?.bootstrap;
   if (base) {
@@ -272,14 +251,9 @@ export function App() {
   const [templateSlug, setTemplateSlug] = useState(
     window.appzaCoreConfig?.defaultTemplate ?? DEFAULT_TEMPLATE,
   );
-  // Onboarding "Select App" modal. Auto-opens once per session if the
-  // site owner hasn't picked any Source Integrations yet.
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [buildAppOpen, setBuildAppOpen] = useState(false);
-  // Template dropdown data — pulled from the plug-in's /templates proxy,
-  // which asks the Core for Templates tied to the currently-activated
-  // Source Integrations. Refetched after the onboarding modal saves.
   const [templateOptions, setTemplateOptions] = useState<TemplateOption[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [selectedScreenId, setSelectedScreenId] = useState<number | null>(null);
@@ -293,34 +267,16 @@ export function App() {
     window.appzaCoreConfig?.previewMode ?? 'auto',
   );
   const [uiMode, setUiMode] = useState<UiMode>('edit');
-  // Track a screen-nav stack so nav.back can pop in App mode. Populated
-  // when nav.push runs; irrelevant in Edit mode (screens are picked from
-  // the top-bar dropdown, no stack).
   const [screenStack, setScreenStack] = useState<number[]>([]);
-  // Screen-mount context: when nav.push carries pass_item_as_context, the
-  // tapped item is stashed here keyed by target screen's slug. Downstream
-  // AppZets on that screen (fc-post-information on edit-post-page) read it
-  // to prefill from — and the post.edit HTTP handler resolves feed_id off
-  // it (the composer form doesn't itself carry the id). Kept as a ref so
-  // writes don't force renders; consumers pull the value inside effects
-  // that already depend on selectedScreenId. Context PERSISTS across
-  // re-renders on the same screen — post.edit needs it at Save time.
+  // A ref so writes don't render; persists on the screen because post.edit reads feed_id from it at Save time.
   const screenContextRef = useRef<Record<string, unknown>>({});
-  // Companion flag ref: which slugs have already been prefilled this
-  // visit. Prevents the prefill effect from re-writing over user edits
-  // when currentScreen's memo re-computes (which produces a new ref
-  // even when the selected id is unchanged). Cleared by nav.push so a
-  // fresh Edit tap re-prefills.
+  // Guards the prefill so a memo re-compute doesn't overwrite user edits; nav.push clears it.
   const screenPrefilledRef = useRef<Record<string, true>>({});
-  // Auth state (real WP Application Password from /fcom-login). Mirrored
-  // into localStorage so a page reload keeps the session. When null,
-  // App-mode forces the login-page screen on first render.
   const [auth, setAuthState] = useState<StoredAuth | null>(() => readStoredAuth());
   const setAuth = useCallback((a: StoredAuth | null) => {
     writeStoredAuth(a);
     setAuthState(a);
-    // The renderer reads the header through setAuthHeaderProvider; user_id stays on
-    // window for enrichItemWithMyReactions.
+    // user_id stays on window for enrichItemWithMyReactions.
     const g = window as unknown as { __appzaCurrentUserId?: number };
     if (a) {
       currentAuthHeader = basicAuthHeader(a);
@@ -331,27 +287,18 @@ export function App() {
       delete g.__appzaCurrentUserId;
     }
   }, []);
-  // Bootstrap the window auth header on mount if we already have a stored
-  // session (auth was hydrated from localStorage before setAuth ran).
   useEffect(() => {
     const g = window as unknown as { __appzaCurrentUserId?: number };
     if (auth) {
       currentAuthHeader = basicAuthHeader(auth);
       if (typeof auth.user_id === 'number') g.__appzaCurrentUserId = auth.user_id;
     }
-    // Also trigger data-source refresh so any in-flight fetches that ran
-    // before the header was set can be re-issued with credentials.
+    // Re-issue fetches that ran before the header was set.
     window.dispatchEvent(new Event('appza:refresh-data'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // Toast-style banner for login / post errors from the HTTP dispatchers.
-  // Auto-clears after 5s. Success paths clear it too via clearAuthMessage.
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const clearAuthMessage = useCallback(() => setAuthMessage(null), []);
-  // Post-menu toast — anchored inside the DeviceFrame viewport so success
-  // + error feedback for the 3-dot menu actions (Copy Link, Pin to top,
-  // Report, etc.) shows inside the phone preview rather than as a full-
-  // width red banner above the WP admin canvas.
   const [menuToast, setMenuToast] = useState<{ message: string; kind: 'info' | 'error' } | null>(null);
   useEffect(() => {
     if (!menuToast) return;
@@ -365,13 +312,6 @@ export function App() {
     const t = window.setTimeout(() => setAuthMessage(null), 5000);
     return () => window.clearTimeout(t);
   }, [authMessage]);
-  // Spaces list is now fetched by the renderer itself via the AppZet's
-  // option_data_sources → fc-spaces-discover binding. Kept no shell-level
-  // state for it — see @appza/renderer PlacementRenderer + the fc-post-
-  // information seeder for the catalog-side wiring.
-  // Live-clock string for the create-post-page's user avatar card. Ticks
-  // every 30s so the date line under the user's name reads as "now".
-  // Injected into effectiveCustomizations for fc-user-avatar → children[2].text.
   const [nowLabel, setNowLabel] = useState<string>(() => formatNowLabel(new Date()));
   useEffect(() => {
     if (uiMode !== 'app') return;
@@ -380,13 +320,6 @@ export function App() {
     const id = window.setInterval(tick, 30000);
     return () => window.clearInterval(id);
   }, [uiMode]);
-  // Images the user has selected + uploaded for the current create-post
-  // draft. Each entry is a URL returned by /feeds/media-upload. Included
-  // as `media_images` on post.create and cleared on success + on logout.
-  // The draft owns the images now — the composer and the preview both
-  // render them, and neither can read a shell useState. Kept as a local
-  // name because post.create / post.edit already build `media_images`
-  // from it, and one source of truth is the point.
   const postDraft = usePostDraft();
   const pendingImages = useMemo(() => postDraft.images.map((i) => i.url), [postDraft.images]);
   const setImagesFromUrls = useCallback(
@@ -394,10 +327,6 @@ export function App() {
     [],
   );
   const [uploadingCount, setUploadingCount] = useState(0);
-  // Video oembed attachment for the current draft. Populated by picker.video
-  // after a successful /feeds/oembed lookup. Sent on post.create as
-  // `media: {type: 'oembed', url}` + `content_type: 'oembed'`. FC's server
-  // re-parses the URL and materializes meta.media_preview from RemoteUrlParser.
   const [pendingVideo, setPendingVideo] = useState<{
     url: string;
     title?: string;
@@ -405,19 +334,7 @@ export function App() {
     provider?: string;
   } | null>(null);
   const [videoLoading, setVideoLoading] = useState(false);
-  // Poll (FC calls it "survey") attachment for the current draft. Built via
-  // the poll modal opened by picker.poll. Sent on post.create as
-  // `survey: {type, options: [{label}]}`. FC flips content_type to 'survey'
-  // + slugs each option server-side. On post.edit the SAME shape ships
-  // back, plus each existing option carries its server-issued `slug` so
-  // FC's FeedsHelper::getSurveyOptionsUpdateError sees every prior slug
-  // present + non-empty (otherwise the update is rejected). Options added
-  // during this edit session have no slug — FC assigns one.
-  // Pending feed delete confirmation. Set by the post.delete dispatcher when
-  // the user taps the overflow menu on a post card; cleared by the modal's
-  // Cancel button OR by a successful delete. Holds everything the modal
-  // needs to fire the request without a re-lookup — the item that owned the
-  // tap has already left the render tree when the modal is shown.
+  // Holds everything the modal needs — the tapped item has left the render tree by then.
   type PendingDelete = {
     feedId: number;
     endpoint: string;
@@ -426,19 +343,8 @@ export function App() {
     title: string;
     message: string;
     cta: string;
-    /**
-     * Names the act in the last-resort failure toast. This dialog is no
-     * longer only about deleting — Remove Preview rides the same path —
-     * and "Delete failed (HTTP 403)" over a preview that is still there
-     * describes the wrong thing.
-     */
     failLabel?: string;
-    /**
-     * Extra keys merged into the request body. A COMMENT is addressed by
-     * both its own id and its post's — every fcom-mobile comment route
-     * wants the pair — and the confirm dialog is otherwise identical to
-     * the post's, so it carries the second id rather than being forked.
-     */
+    /** Every fcom-mobile comment route wants both the comment id and its post id. */
     extraBody?: Record<string, unknown>;
   };
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
@@ -446,10 +352,6 @@ export function App() {
   const [simMenuOpen, setSimMenuOpen] = useState(false);
   const [simRefreshing, setSimRefreshing] = useState(false);
   const [simPullDistance, setSimPullDistance] = useState(0);
-  // In-device comment panel — replaces the earlier window.prompt path.
-  // Owned by App.tsx (not the renderer) so we can mount it in the
-  // DeviceFrame's overlaySlot with the same absolute-inside-viewport
-  // positioning as ConfirmDeleteModal.
   type CommentPanelState = {
     feedId: number;
     endpoint: string;
@@ -460,13 +362,7 @@ export function App() {
     panelTitle: string;
     placeholder: string;
     sendLabel: string;
-    /**
-     * Set by comment.reply — the panel opens with the composer already
-     * aimed at this comment. Mirrors the mobile shell exactly; the two
-     * panels are twins and must not drift.
-     */
     replyTo?: { id: number | string; name: string };
-    /** Set by comment.edit — prefilled draft, PUT /comments/update. */
     edit?: {
       commentId: number | string;
       message: string;
@@ -475,28 +371,13 @@ export function App() {
     };
   };
   const [commentPanel, setCommentPanel] = useState<CommentPanelState | null>(null);
-  // Hidden file input reused across picker.image invocations. Ref lets the
-  // dispatcher trigger `.click()` without React re-render.
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const audioInputRef = useRef<HTMLInputElement | null>(null);
   const audioUploadEndpointRef = useRef<string | null>(null);
   const docInputRef = useRef<HTMLInputElement | null>(null);
-  // The three document endpoints, stashed together when the paperclip is
-  // tapped. Rename and delete fire from the composer's own rows long
-  // after the picker has closed, so they cannot be read off the action's
-  // args at call time — the ref is where they wait.
+  // Rename/delete fire long after the picker closes, so their endpoints wait here.
   const docEndpointsRef = useRef<{ upload: string; rename: string; remove: string } | null>(null);
-  // Endpoint the dispatcher hands over when picker.image / picker.video
-  // fires. Kept in a ref (not state) so the write is synchronous with the
-  // dispatch AND the subsequent uploadImages / attachVideo read sees the
-  // fresh value — a state setter would race the file-input onChange.
-  // Enforces "no hardcoded endpoints" — reset to null on logout so a
-  // stale endpoint from a previous session never gets reused.
-  // `sink` added 2026-09-16 for the profile's two pictures: they do not
-  // go on the post draft, they are written straight to the member. The
-  // mobile shell's picker has taken a sink since the comment composer;
-  // this is the simulator catching up so one action behaves the same on
-  // both surfaces (P86).
+  // A ref, not state: a state setter would race the file input's onChange.
   const uploadEndpointRef = useRef<{
     method: string;
     endpoint: string;
@@ -505,13 +386,8 @@ export function App() {
     onFail?: () => void;
   } | null>(null);
   const oembedEndpointRef = useRef<{ method: string; endpoint: string } | null>(null);
-  // Session-scoped tracker of which (feed_id, react_type) pairs the current
-  // viewer has toggled on. The feed API doesn't surface a per-viewer
-  // "did I react?" flag, so we mirror server state locally: adding on the
-  // first tap, sending `remove=1` on the second. Cleared on logout below.
+  // The feed API has no per-viewer "did I react?" flag, so mirror it locally.
   const reactedRef = useRef<Set<string>>(new Set());
-  // Clear all pending draft attachments (images, video, poll) on logout
-  // so nothing leaks between sessions.
   useEffect(() => {
     if (!auth) {
       setPostDraft({ images: [] });
@@ -525,15 +401,10 @@ export function App() {
       setCommentPanel(null);
     }
   }, [auth]);
-  // Pending panel edits — mirrored into the customizations blob before
-  // it's handed to DeviceFrame so the phone-frame preview reflects the
-  // panel state instantly, before Save persists it.
   const [livePreview, setLivePreview] = useState<{
     slug: string;
     override: Record<string, unknown>;
   } | null>(null);
-  // Same shape as livePreview but for the DC#20 primitive axis.
-  // Overlays under customizations.appzet_primitive[<compositeKey>].layout.
   const [livePrimitivePreview, setLivePrimitivePreview] = useState<{
     compositeKey: string;
     layout: LayoutStyle;
@@ -568,9 +439,6 @@ export function App() {
     loadTemplates();
   }, [loadTemplates]);
 
-  // First-mount check: open the "Select App" wizard if the site owner
-  // hasn't activated any Source Integrations yet. Cheap GET; fails
-  // silently on any error so the app stays usable.
   useEffect(() => {
     const endpoint = window.appzaCoreConfig?.endpoints?.activeSourceIntegrations;
     const nonce = window.appzaCoreConfig?.restNonce;
@@ -631,7 +499,6 @@ export function App() {
         `Synced ${body.template_slug} → v${body.catalog_snapshot_version}`,
       );
       await pull(slug);
-      // Auto-clear the success toast after 4s.
       window.setTimeout(() => setSyncMessage(null), 4000);
     } catch (err) {
       setSyncMessage(err instanceof Error ? err.message : String(err));
@@ -660,9 +527,7 @@ export function App() {
         });
         return;
       }
-      // Surface-gate template_screens once at ingest so every downstream
-      // .find/.map/.filter already sees only rows tagged for this surface
-      // (or 'both'). Screens tagged 'mobile' won't render in the simulator.
+      // Surface-gate once at ingest so everything downstream sees only this surface's screens.
       const gated: BootstrapEnvelope = {
         ...parsed.data,
         catalog: {
@@ -675,7 +540,6 @@ export function App() {
       };
       applyFcRuntimeSettings(gated);
       setState({ kind: 'ok', envelope: gated });
-      // Auto-select first screen on successful load.
       const firstScreen = gated.catalog.template_screens?.[0];
       setSelectedScreenId(firstScreen ? firstScreen.id : null);
     } catch (err) {
@@ -692,10 +556,7 @@ export function App() {
   const appzets = catalog?.appzets ?? [];
   const superstructures = catalog?.superstructures ?? [];
 
-  // Publish the catalog on window so PostOptionsPopover can look up each
-  // menu item's action defaults at click time. See mobile App.tsx for
-  // context — without this the non-copy_link menu items resolve without
-  // their endpoint / patch_key / body_key defaults.
+  // PostOptionsPopover reads each menu item's action defaults from here at click time.
   useEffect(() => {
     setCatalogGlobal(catalog ?? null);
   }, [catalog]);
@@ -706,22 +567,7 @@ export function App() {
   }, [selectedScreenId, screens]);
 
 
-  // The create-post screen arrives empty, and knowing WHO is looking is
-  // part of arriving. The announcement row and the schedule control exist
-  // on a per-viewer verdict that the cached bootstrap cannot answer (it
-  // would be whoever warmed the cache), and Noor's designs show the
-  // composer with that row already decided before a space is chosen — so
-  // the verdict is warmed here rather than waiting for the picker.
-  //
-  // The endpoint is read off the composer's own catalog wiring rather
-  // than written down, so pointing the picker at a different list is a
-  // right-panel edit and cannot leave these two disagreeing.
-  //
-  // Emptying the draft is NOT done here. This effect runs on every
-  // arrival at the screen, and returning from the preview is an arrival —
-  // so a reset here would wipe the draft the user just went to look at.
-  // nav.push owns it instead, which is the one place that can tell
-  // "opened the composer" from "came back to it".
+  // Warm the per-viewer verdict on arrival (the cached bootstrap can't answer it). Don't reset the draft here — returning from the preview is also an arrival; nav.push owns that.
   useEffect(() => {
     if (uiMode !== 'app') return;
     const slug = currentScreen?.app_map_screen_slug;
@@ -734,17 +580,7 @@ export function App() {
     void preparePostComposer(dsSlug);
   }, [uiMode, currentScreen?.app_map_screen_slug, auth]);
 
-  // Prefill composer forms from screen-mount context. Currently only
-  // fc-post-information on edit-post-page uses this — nav.push carried
-  // the tapped feed item into screenContextRef; the shared helper waits
-  // for the composer to mount, then writes title / body / space slug and
-  // hydrates pending image/video/poll state from the item's meta.
-  //
-  // Guarded by screenPrefilledRef so a currentScreen memo re-compute
-  // (React re-render) doesn't retrigger the write and overwrite user
-  // edits. Context itself stays put — post.edit reads it at Save time
-  // to resolve feed_id. nav.push clears the prefilled flag for a fresh
-  // Edit tap.
+  // Guarded by screenPrefilledRef so a re-render doesn't overwrite user edits.
   useEffect(() => {
     if (uiMode !== 'app' || !currentScreen) return;
     const slug = currentScreen.app_map_screen_slug;
@@ -755,14 +591,9 @@ export function App() {
     screenPrefilledRef.current[slug] = true;
     prefillPostInformationFromContext(ctx, {
       setImages: setImagesFromUrls,
-      // The poll goes onto the DRAFT, not into shell state — the strip
-      // in the composer and the block in the preview both read it from
-      // there, so an edit that seeded shell state would open a composer
-      // showing no poll on a post that has one.
+      // On the draft, not shell state — composer and preview both read it there.
       setPoll: (poll) => setPostDraft({ poll }),
-      // The destination is a chip, a topic list, a document permission
-      // and an announcement verdict — all of which live in the picker's
-      // payload, not on the post. Resolve it the same way a tap does.
+      // Resolve the space as a tap does: chip, topics, permissions and verdict live in the picker payload.
       setSpace: (slug, topicIds) => {
         void hydratePostDraftSpace(
           (readAppzetActionsFromCatalog('fc-post-information')?.on_tap_space?.args
@@ -774,26 +605,18 @@ export function App() {
     });
   }, [uiMode, currentScreen]);
 
-  // "Edit" on the composer's collapsed poll strip. The strip is drawn
-  // inside a primitive with no child index of its own, so it asks rather
-  // than dispatching — and the answer is the same function the poll
-  // glyph's action calls, so the two sheets cannot drift.
+  // The strip has no child index, so it signals by event; same function as the poll glyph.
   useEffect(
     () => onPollSheetRequest(() => openPollSheetFromCatalog('fc-post-poll-sheet')),
     [],
   );
 
-  // "Edit" on the schedule strip, same channel and same reason as the
-  // poll strip's.
   useEffect(
     () => onScheduleSheetRequest(() => openScheduleSheetFromCatalog(SCHEDULE_SHEET_APPZET_SLUG)),
     [],
   );
 
-  // Rename / remove on the composer's document rows. Both go to the
-  // SERVER first and only then touch the draft, so a refusal leaves the
-  // row where it was rather than losing the user's file from the list
-  // while it still exists on the site.
+  // Server first, then the draft, so a refusal doesn't drop a file that still exists.
   useEffect(
     () =>
       onDocumentRequests({
@@ -818,10 +641,7 @@ export function App() {
           if (!endpoints) return;
           setDocumentBusy(id);
           void (async () => {
-            // A real delete, not a local drop. Unlike an image or an
-            // audio file, an uploaded-but-unattached document CAN be
-            // removed — FC Pro permits it when the media has no feed_id
-            // and belongs to the asking user — so nothing is left behind.
+            // FC Pro allows deleting unattached media owned by the user.
             const error = await deleteDraftDocument(
               id,
               endpoints.remove,
@@ -836,72 +656,44 @@ export function App() {
     [auth, showMenuError],
   );
 
-  // The Leaderboard's levels card expands one way, so arriving on the
-  // screen has to put it back in its landing state — otherwise a second
-  // visit opens on a nine-level card with no control to collapse it,
-  // because VIEW ALL is already gone. The two verdict strings go back to
-  // 'loading' with it, or a stale one paints the previous visit's answer
-  // over a card that has not fetched yet.
+  // The levels card only expands, so reset it on arrival or a second visit can't collapse it.
   useEffect(() => {
     if (currentScreen?.app_map_screen_slug !== 'leaderboard') return;
     resetLeaderboardControls();
   }, [currentScreen?.app_map_screen_slug]);
 
-  // A search keystroke still waiting out its debounce belongs to the
-  // screen it was typed on. Leaving arms nothing new, but a timer already
-  // armed would fire against a screen nobody is looking at and refetch
-  // it. Dropping every channel on a screen change is cheaper than
-  // reasoning about which one is still live.
+  // Drop pending debounce timers on screen change so they can't refetch a screen nobody is on.
   useEffect(() => {
     cancelDebouncedSearch();
   }, [currentScreen?.app_map_screen_slug]);
 
-  // Saved Posts arrives with a clean search box. Sort and layout are
-  // preferences and survive; a search string is not one — reopening on a
-  // phrase you typed last week would show "No matches" over a list that
-  // is not empty, with the reason off screen in a field you have to
-  // scroll to. The verdict resets with it so a stale 'empty' cannot
-  // paint over a list still loading.
+  // Search resets per visit; sort and layout are preferences and survive.
   useEffect(() => {
     if (currentScreen?.app_map_screen_slug !== 'bookmarks') return;
     resetBookmarkControls();
   }, [currentScreen?.app_map_screen_slug]);
 
-  // All Members opens on the Active tab with an empty search (design 5).
-  // The sort is a preference and survives.
   useEffect(() => {
     if (currentScreen?.app_map_screen_slug !== 'all-members') return;
     resetMemberDirectoryControls();
   }, [currentScreen?.app_map_screen_slug]);
 
-  // Courses opens on All Courses, unfiltered. The sort survives.
   useEffect(() => {
     if (currentScreen?.app_map_screen_slug !== 'courses') return;
     resetCourseListControls();
   }, [currentScreen?.app_map_screen_slug]);
 
-  // A course's Students page opens with no search. The sort survives.
   useEffect(() => {
     if (currentScreen?.app_map_screen_slug !== 'course-students') return;
     resetCourseStudentsControls();
   }, [currentScreen?.app_map_screen_slug]);
 
-  // Moderation opens on Pending (design 7), whichever tab it was left on.
   useEffect(() => {
     if (currentScreen?.app_map_screen_slug !== 'moderation') return;
     resetModerationControls();
   }, [currentScreen?.app_map_screen_slug]);
 
-  // Search arrives on Posts → Content with an empty field, for the same
-  // reason Saved Posts arrives with a clean search box — and here the
-  // stakes are higher, because a restored query would ALSO restore
-  // whichever tab and sub-scope it was typed against.
-  //
-  // The two config values are read off fc-search-field's authored props
-  // rather than hard-coded, so raising the minimum is a right-panel edit.
-  // They are applied AFTER the reset: the reset is per-visit, the config
-  // is not, and doing it the other way round would wipe the values on
-  // every entry to the screen.
+  // Config applied after the reset — the reset is per-visit, the config isn't.
   useEffect(() => {
     if (currentScreen?.app_map_screen_slug !== 'search') return;
     resetSearchControls();
@@ -914,28 +706,15 @@ export function App() {
     });
   }, [currentScreen?.app_map_screen_slug]);
 
-  // Seed a default route.slug when landing on space-detail directly (via
-  // the Screen dropdown) rather than via a nav.push from the Spaces list.
-  // Without this, DS query_params bound to route.slug (fc-space-detail,
-  // fc-space-feeds space_slug) resolve to undefined and the endpoints
-  // return empty — no cover, no topics, generic feed. Only fires when
-  // no route slug is already set (nav.push seeds one via the routeBag).
+  // Seed route.slug when landing directly, or DSs bound to route.slug resolve to undefined.
   useEffect(() => {
     if (!currentScreen) return;
     const slug = currentScreen.app_map_screen_slug;
-    // Same seed-if-empty logic also applies to create-post-page and
-    // edit-post-page: fc-post-information's topic dropdown pulls from
-    // fc-space-detail (needs route.slug). Without a seeded slug the
-    // topic dropdown stays empty even when the current user's default
-    // space has real topics configured.
     if (slug !== 'space-detail' && slug !== 'create-post-page' && slug !== 'edit-post-page') return;
     const existing = (window as unknown as { __appzaRouteParams?: Record<string, unknown> })
       .__appzaRouteParams?.slug;
     if (existing) return;
-    // Fetch the first accessible space via the preview proxy and adopt it.
-    // Signed with the sim's application password, cookies omitted — the
-    // wp-admin cookie carries no REST nonce, so WP would answer as a
-    // guest (see renderer dataFetch fetchProxyText).
+    // App password, no cookies — the wp-admin cookie carries no REST nonce, so WP would answer as a guest.
     fetch('/wp-json/appza/v1/preview/data?ds=fc-spaces-discover&mode=real', {
       credentials: 'omit',
       headers: auth
@@ -961,12 +740,6 @@ export function App() {
       });
   }, [currentScreen, auth]);
 
-  // Overlay pending panel edits onto the persisted customizations shape
-  // ({ scope: { target_key: { column: value } } }). PlacementRenderer
-  // reads through resolveOverridableColumn on this blob, so the preview
-  // picks up the pending edit without a network round-trip. Two axes
-  // overlay independently: appzet-level (Properties/Options) and DC#20
-  // primitive-level (Layout editor).
   const effectiveCustomizations = useMemo(() => {
     const base = envelope?.customizations;
     if (!livePreview && !livePrimitivePreview && uiMode !== 'app') return base;
@@ -1002,13 +775,7 @@ export function App() {
       scopeRecord[key] = targetRecord;
       out = { ...out, appzet_primitive: scopeRecord };
     }
-    // Spaces list is no longer injected here — the renderer's
-    // OptionDataSourceFetcher handles fc-spaces-discover directly via the
-    // fc-post-information AppZet's option_data_sources binding.
-    // Inject live "now" string for the create-post user-avatar card's
-    // date line. field_mappings on the AppZet also binds children[2].text
-    // to data.schedule_date (server stamp fallback); this override runs
-    // AFTER that in PlacementRenderer, so the live clock wins.
+    // Runs after field_mappings in PlacementRenderer, so the live clock wins.
     if (uiMode === 'app') {
       const scopeRecord =
         out['appzet'] && typeof out['appzet'] === 'object'
@@ -1032,21 +799,7 @@ export function App() {
     return out;
   }, [envelope, livePreview, livePrimitivePreview, uiMode, nowLabel]);
 
-  // Mirror the canvas's resolved customizations to the action handler,
-  // then re-author the open modal if the panel is editing one. Composed
-  // AppZets re-render off effectiveCustomizations by themselves; an
-  // overlay was opened imperatively with a snapshot of its props, so it
-  // has to be told. Without this, editing a modal's Options changed
-  // nothing you could see — the panel saved, the card didn't move.
-  //
-  // Patching rather than re-opening keeps modal-local state (active tab,
-  // picked user, half-typed email) intact while you edit. The patch is
-  // addressed by slug and ignored by a modal showing a different AppZet,
-  // so a customer's own variant is handled without naming it here.
-  // Which AppZet the panel is editing. Options edits select the AppZet;
-  // Wrapper edits select one of its children and null the AppZet slug,
-  // so keying on `selectedAppzetSlug` alone would leave every width /
-  // height / gap change unpushed.
+  // Overlays open with a props snapshot, so patch the open modal on edit (keeps modal-local state). Wrapper edits null the AppZet slug, hence the fallback.
   const editedAppzetSlug = selectedAppzetSlug ?? selectedPrimitive?.appzetSlug ?? null;
 
   useEffect(() => {
@@ -1104,18 +857,13 @@ export function App() {
       return;
     }
     uploadEndpointRef.current = target;
-    // The picker is shared, so `accept` has to be set per open — a
-    // profile photo takes images only, a post composer may not.
+    // Shared picker: `accept` is set per open.
     fileInputRef.current.accept = target.accept ?? 'image/*';
     fileInputRef.current.click();
   }, []);
   const openDocumentPicker = useCallback(
     (t: { upload: string; rename: string; remove: string; accept: string }) => {
-      // Same ref-then-click shape as the image and audio pickers: the
-      // input's onChange fires after this returns, so everything it needs
-      // has to be readable synchronously. The rename and delete endpoints
-      // ride along because the composer's rows fire those long after the
-      // picker has closed.
+      // onChange fires after this returns, so everything it needs must be readable synchronously.
       docEndpointsRef.current = { upload: t.upload, rename: t.rename, remove: t.remove };
       if (docInputRef.current) docInputRef.current.accept = t.accept;
       docInputRef.current?.click();
@@ -1123,9 +871,6 @@ export function App() {
     [],
   );
   const openAudioPicker = useCallback((endpoint: string) => {
-    // Same ref-then-click shape as the image picker, and for the same
-    // reason: the input's onChange fires after this returns, so the
-    // endpoint has to be somewhere it can read synchronously.
     audioUploadEndpointRef.current = endpoint;
     audioInputRef.current?.click();
   }, []);
@@ -1138,22 +883,12 @@ export function App() {
     setCommentPanel(next);
   }, []);
 
-  /**
-   * Fetch oembed preview data for a video URL and stash it in pendingVideo
-   * so the composer thumbnail card can render. FC's server also re-parses
-   * the URL at post.create time — this call is purely for the preview UX
-   * + early validation (URL that doesn't resolve to oembed → banner + no
-   * attach). Errors surface via the top-of-app banner.
-   */
   const attachVideo = useCallback(
     async (url: string, target: { endpoint: string; method: string }) => {
       if (!auth) {
         setAuthMessage('Please sign in to attach a video.');
         return;
       }
-      // Stash for consistency with picker.image's ref-based flow — future
-      // helpers reading oembedEndpointRef see the latest. The target param
-      // is authoritative for this call.
       oembedEndpointRef.current = target;
       setVideoLoading(true);
       if (!target || !target.endpoint) {
@@ -1180,8 +915,7 @@ export function App() {
           setAuthMessage(`Video lookup failed (HTTP ${res.status})`);
           return;
         }
-        // Two possible failure envelopes: outer non-200 response wrapper,
-        // or a null items on 200 (no oembed match).
+        // Failure is either a non-200 wrapper or null items on a 200.
         const wrapper = (json && typeof json === 'object') ? (json as Record<string, unknown>) : null;
         const inner = wrapper && wrapper.response && typeof wrapper.response === 'object'
           ? (wrapper.response as Record<string, unknown>)
@@ -1213,18 +947,7 @@ export function App() {
     },
     [auth],
   );
-  /**
-   * The guest write guard — the simulator's copy of the mobile shell's.
-   *
-   * Noor's call: a signed-out viewer who taps like, comment or bookmark
-   * goes to the LOGIN SCREEN rather than getting a toast. The action
-   * strip still draws for them (design 17), so the tap has to lead
-   * somewhere.
-   *
-   * Kept behaviourally identical to `requireAuthOrLogin` in
-   * packages/mobile — the two surfaces sharing a renderer but not a
-   * shell is exactly the seam that hides a whole class of bug (P86).
-   */
+  // Signed-out writes go to the login screen; keep identical to the mobile shell's requireAuthOrLogin.
   const requireAuthOrLogin = useCallback((): boolean => {
     if (auth) return true;
     const login = catalog?.template_screens?.find(
@@ -1313,11 +1036,7 @@ export function App() {
     }
   }, [catalog, setAuth]);
 
-  // Wire the template's native app-bar leading button (☰) to open our
-  // Pages drawer. The renderer stamps data-appza-primitive-path on every
-  // top-level SS child; child[0] is the leading slot on appbar-shell and
-  // its variants, so we match any click landing inside an ion-header on
-  // the children[0] wrapper.
+  // children[0] of the app bar is the leading slot; wire it to the Pages drawer.
   useEffect(() => {
     if (uiMode !== 'app') return;
     const outer = document.querySelector('.appza-device-viewport');
@@ -1330,8 +1049,7 @@ export function App() {
         '[data-appza-primitive-path="children[0]"]',
       ) as HTMLElement | null;
       if (!wrapper) return;
-      // If the leading slot already has an action wired (back button,
-      // custom click), let it run — don't hijack.
+      // A leading slot with its own action wins.
       if (wrapper.getAttribute('data-appza-inline-click') === 'true') return;
       const slug = wrapper.getAttribute('data-appza-appzet-slug') ?? '';
       if (!/appbar|header|topbar/i.test(slug)) return;
@@ -1343,7 +1061,6 @@ export function App() {
     return () => outer.removeEventListener('click', onClick, true);
   }, [uiMode, currentScreen]);
 
-  // Pull-to-refresh: pointer drag from the top of the phone viewport.
   useEffect(() => {
     if (uiMode !== 'app') return;
     const outer = document.querySelector('.appza-device-viewport') as HTMLElement | null;
@@ -1414,21 +1131,7 @@ export function App() {
     };
   }, [uiMode, refreshSim, simMenuOpen, simRefreshing, selectedScreenId]);
 
-  /**
-   * Handle picker.image: called by the hidden file input's onChange after
-   * the user selects one or more images. Uploads each via multipart POST
-   * to fcom-mobile's /feeds/media-upload proxy with Basic Auth, then
-   * appends returned URLs to pendingImages state. Errors surface via the
-   * top-of-app red banner. Uploads run in parallel; count is tracked so
-   * we can show a "Uploading N…" indicator in the thumbnail strip.
-   */
-  /**
-   * Upload the picked audio files and put them on the draft.
-   *
-   * Capped BEFORE uploading for the same reason the images are: uploading
-   * everything and keeping the first N leaves orphaned FluentPlayer media
-   * rows that nothing will attach and no endpoint removes.
-   */
+  // Capped before uploading: extras would be orphaned FluentPlayer media rows no endpoint removes.
   const uploadAudios = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return;
@@ -1465,14 +1168,7 @@ export function App() {
     [auth],
   );
 
-  /**
-   * Upload the picked documents and put them on the draft.
-   *
-   * Sequential, not parallel: FluentCommunity writes a Media row per
-   * call, and one file at a time is the only version of this whose
-   * failure can be attributed to a file. No cap — FluentCommunity applies
-   * none to `document_ids`.
-   */
+  // Sequential so a failure can be attributed to a file; FC applies no cap to document_ids.
   const uploadDocuments = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return;
@@ -1512,15 +1208,7 @@ export function App() {
         );
         return;
       }
-      // Cap BEFORE uploading, not after. Uploading everything and then
-      // keeping the first N leaves the rest on the server as orphaned
-      // inactive Media rows that nothing will ever attach or clean up —
-      // and there is no endpoint to remove them (see removePostDraftImage).
-      // The post composer's cap does not apply to a SINK: it counts images
-      // already on the POST DRAFT, and a profile picture is not on it. A
-      // member with a full draft would otherwise be refused a new avatar,
-      // which is a rule FluentCommunity does not have. Same exemption the
-      // mobile shell already makes.
+      // Cap before uploading — extra uploads become orphaned Media rows with no delete endpoint. A sink (profile picture) isn't on the draft, so no cap.
       const max = target.sink ? 0 : getFcRuntimeSettings().composer.max_media_per_post;
       const room = max > 0 ? Math.max(0, max - getPostDraft().images.length) : files.length;
       const picked = Array.from(files);
@@ -1543,8 +1231,7 @@ export function App() {
             headers: {
               Accept: 'application/json',
               Authorization: basicAuthHeader(auth),
-              // No Content-Type — the browser sets multipart/form-data
-              // with the correct boundary when body is FormData.
+              // No Content-Type: the browser sets the multipart boundary.
             },
             body: form,
           });
@@ -1580,26 +1267,18 @@ export function App() {
         }
       });
       const urls = (await Promise.all(uploads)).filter((u): u is string => !!u);
-      // A sink takes the URLs INSTEAD of the post draft — the profile's
-      // avatar and cover are written straight to the member.
       if (target.sink) {
         if (urls.length > 0) target.sink(urls);
         else target.onFail?.();
         return;
       }
-      // The cap is applied again here, against the draft as it stands
-      // now: two picks can be in flight at once, and the slice above only
-      // knew about the images that existed when IT started.
+      // Re-cap against the current draft: two picks can be in flight.
       if (urls.length > 0) addPostDraftImages(urls.map((url) => ({ url })), max);
     },
     [auth],
   );
 
-  // Publish the viewer into the renderer's state bag. The simulator has
-  // its own auth state (the in-app sign-in inside the device frame), and
-  // it has to reach the same slice the mobile shell writes — otherwise a
-  // `state.viewer.*` gate answers differently on the two surfaces, which
-  // is exactly the seam P86 warns about.
+  // Same state slice the mobile shell writes, so `state.viewer.*` gates agree.
   useEffect(() => {
     startHeadlineCounter();
   }, []);
@@ -1611,18 +1290,7 @@ export function App() {
     });
   }, [auth]);
 
-  // App-mode gate: when the user has no stored auth token, force the
-  // login-page screen so they can't reach the composer / feed writes
-  // before authenticating. Applies only when the App-mode preview is
-  // active (Edit mode is a design-time surface — the auth gate would be
-  // annoying and pointless there). Runs whenever uiMode flips to 'app'
-  // or the catalog is loaded, and gets deferred until screens exist.
-  //
-  // Guest arc: on a site whose access level is `public` there is nothing
-  // to force — a signed-out viewer reads the feed, and the login screen
-  // is somewhere they GO when they try to write. Asking
-  // canBrowseAsGuest() here is safe because applyFcRuntimeSettings runs
-  // with the envelope, before any of this can fire.
+  // Force login in App mode unless the site allows guest browsing (settings are applied with the envelope, before this runs).
   useEffect(() => {
     if (uiMode !== 'app') return;
     if (!catalog) return;
@@ -1645,7 +1313,6 @@ export function App() {
     if (bottomTab === 'themes') {
       return renderThemes(catalog?.template?.tokens, currentScreen?.screen_tokens);
     }
-    // overrides
     const customizationsEndpoint = window.appzaCoreConfig?.endpoints?.customizations;
     const nonce = window.appzaCoreConfig?.restNonce;
     if (!customizationsEndpoint || !nonce) {
@@ -1666,17 +1333,7 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bottomTab, envelope, catalog, currentScreen, templateSlug]);
 
-  // Overlays shared by both modes. They mount inside the DeviceFrame's
-  // overlaySlot — i.e. inside `.appza-device-viewport` — for two
-  // reasons. Visually, they pin to the simulated phone instead of the
-  // browser window. Structurally, that's the element whose click-capture
-  // handler drives design-time selection, so a modal tagged per
-  // designTimeAttrs.ts becomes selectable like anything else on screen.
-  //
-  // They must be mounted in Edit mode too: Edit-mode taps dispatch real
-  // actions (a child's action onClick stops propagation before
-  // AppZet-select runs), so the Add Member button opens its modal here
-  // exactly as it does in App mode.
+  // Mounted in both modes (Edit-mode taps dispatch real actions too); inside the viewport they pin to the phone and are selectable.
   const sharedOverlays = (
     <>
       <ViewModePopover />
@@ -1714,8 +1371,6 @@ export function App() {
         templateSlug={templateSlug}
         onTemplateSlugChange={(slug) => {
           setTemplateSlug(slug);
-          // Re-pull so the screen dropdown + Sidebar appzets reflect the
-          // new template's snapshot immediately.
           pull(slug);
         }}
         templateOptions={templateOptions}
@@ -1734,16 +1389,12 @@ export function App() {
         uiMode={uiMode}
         onUiModeChange={(m) => {
           setUiMode(m);
-          // Clear any active selection when leaving Edit so residual
-          // property/primitive panels don't shadow the App-mode preview.
           if (m === 'app') {
             setSelectedAppzetSlug(null);
             setSelectedPrimitive(null);
             setLivePreview(null);
             setLivePrimitivePreview(null);
           } else {
-            // Leaving App mode — reset nav stack so re-entering doesn't
-            // pop back into a screen the user has since navigated away from.
             setScreenStack([]);
           }
         }}
@@ -1786,16 +1437,13 @@ export function App() {
           onChange={(e) => {
             const files = e.target.files;
             void uploadImages(files);
-            // Reset so selecting the same file again re-fires onChange
+            // Reset so selecting the same file again re-fires onChange.
             e.target.value = '';
           }}
         />
       )}
 
-      {/* Audio gets its OWN hidden input rather than sharing the image
-          one: the accept list differs, and a shared input would need its
-          `accept` swapped before every click — a race the picker would
-          lose exactly when two glyphs are tapped in quick succession. */}
+      {/* Own input: a shared one would race over swapping `accept`. */}
       {uiMode === 'app' && (
         <input
           ref={audioInputRef}
@@ -1811,8 +1459,6 @@ export function App() {
         />
       )}
 
-      {/* Documents get their own input for the same reason audio does —
-          a different accept list, and no race over swapping it. */}
       {uiMode === 'app' && (
         <input
           ref={docInputRef}
@@ -1923,9 +1569,6 @@ export function App() {
         </div>
       )}
 
-      {/* Images have LEFT this strip — the composer draws them now, in
-          the card, where the designs put them. What remains is the
-          upload-in-flight indicator. */}
       {uiMode === 'app' && auth && uploadingCount > 0 && (
         <div
           className="appza-pending-images"
@@ -2049,15 +1692,9 @@ export function App() {
           bottomPanel={bottomPanel}
           selectedAppzetSlug={selectedAppzetSlug}
           onSelectAppzet={(slug) => {
-            // Mirrors the device-preview selection, and is the way in for
-            // an AppZet that no screen places — modals are opened by an
-            // action, so they're only on screen once something opens them.
             setSelectedAppzetSlug(slug);
             setSelectedPrimitive(null);
-            // Put an action-opened AppZet on the simulated screen, so
-            // editing it is visual rather than blind. Close whatever
-            // modal is already up first — two stacked cards would let
-            // the builder edit one while looking at the other.
+            // Close any open modal first so the builder isn't editing one while looking at another.
             const opener = findOpenerAction(slug);
             if (!opener) return;
             closeAddMemberModal();
@@ -2071,12 +1708,7 @@ export function App() {
           onClick={
             uiMode === 'edit'
               ? (e) => {
-                  // Clicking the canvas background deselects. Overlays
-                  // are exempt: selection inside a modal deliberately
-                  // lets the click through (so the modal keeps working
-                  // while you edit it), and without this guard that same
-                  // click would arrive here and immediately undo the
-                  // selection it just made.
+                  // Overlays exempt: a click inside one selects and passes through, and would otherwise undo that selection here.
                   if ((e.target as HTMLElement | null)?.closest('[data-appza-overlay]')) {
                     return;
                   }
@@ -2089,13 +1721,7 @@ export function App() {
           {state.kind === 'loading' ? (
             <div className="appza-loading">Loading…</div>
           ) : (
-            // ActionProvider wraps BOTH modes: in App mode it powers real
-            // on_click_action wiring; in Edit mode it powers state-only
-            // actions like spaces.set_tab / feed.set_sort / spaces.set_search
-            // so segmented controls + toolbars still switch what's rendered
-            // while the builder is in edit-select mode. Clicks that would
-            // trigger network side-effects (post.create, space.join, etc.)
-            // are still filtered by App-mode intercepts inside DeviceFrame.
+            // Wraps both modes: Edit mode still needs state-only actions (tabs, sort, search).
             <ActionProvider dispatch={dispatchAction}>
               {uiMode === 'app' ? (
               <>
@@ -2239,10 +1865,7 @@ export function App() {
                             return;
                           }
                           setPendingDelete(null);
-                          // The review modal stays open across its own
-                          // confirm — that dialog can be cancelled, so
-                          // closing when the CTA was merely TAPPED would be
-                          // a lie. It closes here, on the write landing.
+                          // Closes on the write landing, not the CTA tap — the confirm can be cancelled.
                           announceModerationDone();
                           const g = window as unknown as { __appzaForceRefreshUntil?: number };
                           g.__appzaForceRefreshUntil = Date.now() + 3000;
@@ -2376,9 +1999,6 @@ export function App() {
               selected.superstructure_id != null
                 ? superstructures.find((s) => s.id === selected.superstructure_id) ?? null
                 : null;
-            // Look up the AppZet's data source slug so the panel can
-            // re-use useDataSource and hide slot-groups whose runtime
-            // data isn't there (e.g. CTA 4 when the API returns 3).
             const dataSourceSlug: string | null = (() => {
               const dsId = selected.default_data_source_id;
               if (dsId == null) return null;
@@ -2410,9 +2030,7 @@ export function App() {
           })()}
       </div>
 
-      {/* Small pill in the corner to reopen the "Select App" wizard.
-          Hidden until the first-mount check has run so it doesn't flash
-          before we know whether to auto-open. */}
+      {/* Hidden until the first-mount check so it doesn't flash. */}
       {onboardingChecked && (
         <button
           type="button"
@@ -2428,9 +2046,6 @@ export function App() {
         <OnboardingModal
           onClose={() => setOnboardingOpen(false)}
           onSaved={() => {
-            // Activation set changed → refresh the Template dropdown and
-            // re-pull the bootstrap so any Source-scoped catalog updates
-            // are reflected.
             loadTemplates();
             pull(templateSlug);
           }}
@@ -2487,11 +2102,7 @@ function renderThemes(templateTokens: unknown, screenTokens: unknown) {
   );
 }
 
-// Pipe FluentCommunity portal settings from the bootstrap envelope into
-// the renderer's fcRuntimeSettings store. Mirrors the mobile shell path
-// EXACTLY — the two shells dispatch the same actions and render the same
-// components, so a setting honoured in one and not the other is a bug
-// the simulator cannot show you (P100).
+// Must mirror the mobile shell exactly.
 function applyFcRuntimeSettings(envelope: BootstrapEnvelope): void {
   const cfg = (envelope.runtime_config ?? null) as Record<string, unknown> | null;
   const fc = cfg && isRecord(cfg.fluent_community) ? (cfg.fluent_community as Record<string, unknown>) : null;
@@ -2526,45 +2137,17 @@ function formatValue(v: unknown): string {
   return JSON.stringify(v);
 }
 
-/** Non-empty strings only — blank author fields fall back to defaults. */
 function str(v: unknown): string | undefined {
   return typeof v === 'string' && v !== '' ? v : undefined;
 }
 
-/**
- * A modal AppZet's authored props, read off the snapshot the shell
- * already holds. Lets an action open a modal without duplicating any
- * of its copy into the opener's args (P66).
- */
-/**
- * Customizations as the canvas currently sees them — saved overrides
- * plus any unsaved live-preview edit from the Properties panel.
- *
- * Composed AppZets get this applied for free inside PlacementRenderer.
- * Overlays are opened imperatively from here instead, well outside that
- * render path, so without this mirror they'd render pure catalog
- * defaults: a saved Options edit wouldn't show, and a live edit couldn't.
- * Kept module-level because the action handler is module-level too.
- */
+// Mirror of the canvas customizations for imperatively opened overlays, which render outside PlacementRenderer.
 let currentCustomizations: unknown = null;
 
 function setCustomizationsForActions(customizations: unknown): void {
   currentCustomizations = customizations;
 }
 
-/**
- * An AppZet's props with overrides resolved — the same three layers the
- * renderer applies (catalog default, customer override, live edit).
- */
-/**
- * The `args` an AppZet's action wiring carries, straight off the catalog.
- *
- * Used to read the composer's space-picker endpoint at screen mount,
- * where there is no placement in the tree to resolve it — the same
- * problem readAppzetPropsFromCatalog solves for overlay props. Reading
- * it rather than writing the path down is what keeps the mount-time warm
- * and the picker itself pointed at the same list.
- */
 function readAppzetActionsFromCatalog(
   slug: string,
 ): Record<string, { action_slug?: string; args?: Record<string, unknown> }> | null {
@@ -2600,13 +2183,6 @@ function readAppzetPropsFromCatalog(slug: string): Record<string, unknown> {
   return isRecord(resolved) ? resolved : base;
 }
 
-/**
- * Open the schedule sheet on the composer draft.
- *
- * Module-level for the same reason the poll one is: two callers in
- * different worlds — the `picker.schedule` action and the strip's
- * "Edit" window event — and one implementation so they cannot drift.
- */
 function openScheduleSheetFromCatalog(sheetSlug: string): void {
   openScheduleSheet({
     appzetSlug: sheetSlug,
@@ -2621,15 +2197,7 @@ function openScheduleSheetFromCatalog(sheetSlug: string): void {
   });
 }
 
-/**
- * Open the "Create poll" sheet with the catalog's own copy and colours.
- *
- * Module-level rather than a callback because it has two callers that
- * live in different worlds: the `picker.poll` action, dispatched from a
- * plain function, and the composer strip's "Edit", which arrives as a
- * window event. One implementation means the sheet the glyph opens and
- * the sheet Edit opens cannot drift.
- */
+// Module-level: shared by the picker action and the strip's Edit event so they can't drift.
 function openPollSheetFromCatalog(sheetSlug: string): void {
   const poll = getPostDraft().poll;
   openPollSheet({
@@ -2641,42 +2209,12 @@ function openPollSheetFromCatalog(sheetSlug: string): void {
       currentCustomizations,
     ),
     value: poll,
-    // An option carrying a server-issued slug is one the post already
-    // has votes against, which is what "existing" means here: the type
-    // freezes and those rows stop being removable.
+    // A server-issued slug means the option has votes: its type freezes and the row can't be removed.
     existing: !!poll && poll.options.some((o) => !!o.slug),
   });
 }
 
-/**
- * Finds the action wiring that opens `slug`, so selecting an
- * action-opened AppZet in the sidebar can put it on screen instead of
- * leaving the builder editing something invisible.
- *
- * Read out of the catalog rather than hardcoded: any AppZet wiring that
- * points at a form via a `*_appzet_slug` arg is an opener, so a customer
- * variant (`acme-invite-modal`) works with no shell change. Self-
- * references are skipped — fc-post-information names itself in its own
- * picker wirings, and "opening" it would fire a poll/emoji picker.
- */
-/**
- * Load a post's attached files into the document draft when its edit
- * screen opens.
- *
- * Seeds for EVERY post now, not only document ones. It used to reset the
- * draft for anything else, which left `edit_feed_id` null — and the file
- * block hides itself on an unseeded draft, so a plain text post could
- * never gain its first document. Where the block BELONGS is decided by
- * the placement's `state.post_draft.can_edit_documents` gate instead: the
- * space must take documents, and the post must not already carry images,
- * a video or a poll.
- *
- * A post with no documents seeds `seeded_file_count = 0`, and that is
- * the interlock that keeps this safe: the submit path leaves
- * `document_ids` out entirely unless files were actually added, so "the
- * user removed them all" still cannot be confused with "there were never
- * any".
- */
+// Seeds every post; submit omits document_ids unless files were added, so "removed all" is never confused with "had none".
 function seedEditDraftFromPost(item: unknown): void {
   if (!isRecord(item)) {
     resetDocumentDraft('');
@@ -2691,10 +2229,7 @@ function seedEditDraftFromPost(item: unknown): void {
   const spaceSlug =
     (spaceRec && typeof spaceRec.slug === 'string' && spaceRec.slug) ||
     (typeof item.space_slug === 'string' ? item.space_slug : '');
-  // `files` is added by the preview proxy. `meta.document_lists` is
-  // FluentCommunity's own snapshot and is always on a document post, so
-  // it is the fallback that keeps this from ever seeding empty — an
-  // empty seed would make Save look like "the user removed everything".
+  // meta.document_lists fallback: an empty seed would make Save read as "removed everything".
   let files = Array.isArray(item.files)
     ? (item.files.filter((f) => isRecord(f)) as Array<Record<string, unknown>>)
     : [];
@@ -2726,7 +2261,6 @@ function findOpenerAction(
   return null;
 }
 
-/** Endpoints always come from the catalog, never a literal in the shell. */
 function readDataSourceEndpointFromCatalog(
   catalog: Catalog | null,
   slug: string,
@@ -2735,13 +2269,7 @@ function readDataSourceEndpointFromCatalog(
   return ds && typeof ds.endpoint === 'string' && ds.endpoint ? ds.endpoint : null;
 }
 
-/**
- * The invitation endpoints answer HTTP 200 and carry the real outcome
- * in response.status, so the HTTP status alone would read a 403 as a
- * success. Their message is worth surfacing verbatim — it is what
- * distinguishes "joined the space right away" from "invitation
- * emailed".
- */
+// Invitation endpoints answer 200 with the real outcome in response.status.
 async function readInvitationOutcome(
   res: Response,
 ): Promise<{ ok: boolean; message: string }> {
@@ -2758,11 +2286,7 @@ async function readInvitationOutcome(
   return { ok, message };
 }
 
-/**
- * The async Clipboard API only exists on secure origins, and the WP
- * dev site is plain http — so fall back to the execCommand path there
- * rather than leaving Copy Link silently dead.
- */
+// The async Clipboard API needs a secure origin; the dev site is http.
 async function copyToClipboard(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard && window.isSecureContext) {
@@ -2796,8 +2320,6 @@ type AppModeActionDeps = {
   auth: StoredAuth | null;
   setAuth: (a: StoredAuth | null) => void;
   onLoginError: (message: string) => void;
-  // The guest write guard. Navigates to the login screen and returns
-  // false when nobody is signed in.
   requireAuthOrLogin: () => boolean;
   onLoginSuccess: () => void;
   onMenuInfo: (message: string) => void;
@@ -2830,14 +2352,9 @@ type AppModeActionDeps = {
     title: string;
     message: string;
     cta: string;
-    /** Extra body keys — a comment carries its post's id too. */
     extraBody?: Record<string, unknown>;
-    /** Names the act in the failure toast — see PendingDelete. */
     failLabel?: string;
   }) => void;
-  // Session-scoped tracker of (feed_id, react_type) pairs the viewer has
-  // toggled on. Passed as a mutable Set so the dispatcher can add/delete
-  // without re-render. Cleared on logout.
   reactedSet: Set<string>;
   openCommentPanel: (next: {
     feedId: number;
@@ -2849,13 +2366,7 @@ type AppModeActionDeps = {
     panelTitle: string;
     placeholder: string;
     sendLabel: string;
-    /**
-     * Set by comment.reply — the panel opens with the composer already
-     * aimed at this comment. Mirrors the mobile shell exactly; the two
-     * panels are twins and must not drift.
-     */
     replyTo?: { id: number | string; name: string };
-    /** Set by comment.edit — prefilled draft, PUT /comments/update. */
     edit?: {
       commentId: number | string;
       message: string;
@@ -2863,25 +2374,10 @@ type AppModeActionDeps = {
       toastMessage: string;
     };
   }) => void;
-  // Screen-mount context set by nav.push(pass_item_as_context=true) and
-  // read by post.edit to resolve feed_id from the passed post, since the
-  // composer form itself doesn't carry the id.
   screenContextRef: React.MutableRefObject<Record<string, unknown>>;
-  // Companion "already prefilled" flag ref. Cleared by nav.push so a
-  // fresh Edit tap re-prefills; consumed by the prefill useEffect.
   screenPrefilledRef: React.MutableRefObject<Record<string, true>>;
 };
 
-/**
- * Auth token bag persisted in localStorage. Written by auth.login on
- * successful /fcom-login POST; read by HTTP write actions (post.create,
- * etc.) to construct the Authorization: Basic <base64(username:token)>
- * header. Cleared by auth.logout.
- *
- * WP Application Password model — the token IS the password (opaque to
- * us), Basic-Auth against WP's REST API validates it. Renderer never
- * decodes / mints it; sim just stores + replays.
- */
 const AUTH_STORAGE_KEY = 'appza:auth';
 
 let currentAuthHeader: string | undefined;
@@ -2894,9 +2390,6 @@ type StoredAuth = {
   uuid?: string;
   display_name?: string;
   avatar?: string;
-  // WP user id returned by /fcom-login. Threaded to the renderer via
-  // `window.__appzaCurrentUserId` so per-item reaction enrichment can
-  // decide whether the viewer has liked / bookmarked each feed.
   user_id?: number;
 };
 
@@ -2924,34 +2417,15 @@ function writeStoredAuth(a: StoredAuth | null): void {
   try {
     if (a) window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(a));
     else window.localStorage.removeItem(AUTH_STORAGE_KEY);
-    // Notify any interested subscribers (dataFetch's auth-header injector
-    // reads on every request so no listener needed; App re-render is
-    // driven by the setter that wraps this call).
   } catch {
     /* localStorage unavailable — sim just runs unauthenticated */
   }
 }
 
-/**
- * Build the HTTP Basic Auth header for a stored WP Application Password.
- * Exported so dataFetch can inject it on authenticated read endpoints
- * later; App.tsx uses it directly for post.create writes.
- */
 function basicAuthHeader(auth: StoredAuth): string {
   return 'Basic ' + window.btoa(`${auth.username}:${auth.token}`);
 }
 
-/**
- * Ionicon + Ionic-theme-color pairs for the outline / filled variants of
- * each reaction type. Add a row here when a new react_type ships.
- * `childPath` is the SS path of the reaction button on fc-post-card;
- * `countPath` is the paired count text (null when the card doesn't show
- * one, e.g. bookmark).
- */
-// Reaction visual config — matches the mobile App's REACTION_UI. Now
-// keyed by semantic `on_tap_*` action name so we don't need per-variant
-// child-index tables. Works for timeline (children[10]), card
-// (children[6]) and list (children[5]) uniformly.
 const REACTION_UI: Record<
   string,
   { actionName: string; iconOn: string; iconOff: string; colorOn: string; countPathTimeline: string | null }
@@ -2972,15 +2446,7 @@ const REACTION_UI: Record<
   },
 };
 
-/**
- * Optimistic UI update for like / bookmark. Finds every rendered card
- * matching `feedId` (data-appza-item-id, stamped by PlacementRenderer),
- * flips the reaction button's ion-icon + color, and — for `like` — nudges
- * the paired count text by ±1 so the visible count stays honest. All
- * mutation is DOM-level so we skip a React re-render + avoid the full
- * feed refetch flash. Caller reverts on HTTP failure by calling this
- * again with the opposite `on` flag.
- */
+// DOM-level, so a tap skips a re-render and a feed refetch flash; the caller reverts on failure.
 function applyReactionOptimistic(feedId: number, reactType: string, on: boolean) {
   const cfg = REACTION_UI[reactType];
   if (!cfg) return;
@@ -2988,25 +2454,18 @@ function applyReactionOptimistic(feedId: number, reactType: string, on: boolean)
     `[data-appza-item-id="${CSS.escape(String(feedId))}"]`,
   );
   wrappers.forEach((wrapper) => {
-    // Query by semantic action attribute → variant-independent.
     const btn = wrapper.querySelector<HTMLElement>(
       `[data-appza-action="${cfg.actionName}"]`,
     );
     if (btn) {
       const nextIcon = on ? cfg.iconOn : cfg.iconOff;
       const nextColor = on ? cfg.colorOn : 'medium';
-      // Use resolveIcon() so we pass the imported SVG data via `icon=`,
-      // not a bare kebab `name=`. Ionicons' built-in name registry does
-      // NOT include 'heart' / 'bookmark' unless addIcons() was called,
-      // which we don't do (we ship a static import registry instead).
-      // Fall back to the outline variant, then to the current icon so
-      // we NEVER blank an icon out (that would make the button look
-      // "hidden" after a tap — the user's #1 complaint).
+      // resolveIcon passes SVG data — Ionicons' name registry lacks these without addIcons(). Never blank the icon.
       const resolved =
         resolveIcon(nextIcon) ||
         resolveIcon(cfg.iconOff) ||
         resolveIcon(cfg.iconOn);
-      if (!resolved) return; // no valid icon at all → leave DOM alone
+      if (!resolved) return;
       btn.querySelectorAll<HTMLElement>('ion-icon').forEach((ic) => {
         ic.removeAttribute('name');
         ic.removeAttribute('src');
@@ -3016,14 +2475,7 @@ function applyReactionOptimistic(feedId: number, reactType: string, on: boolean)
         b.setAttribute('color', nextColor);
       });
     }
-    // Locate the count-text wrapper via the explicit primitive-path
-    // declared in REACTION_UI. `countPathTimeline: null` means the
-    // reaction has no visible count (bookmark), so skip entirely —
-    // the previous nextElementSibling fallback wrongly targeted
-    // children[13] "N likes" when tapping bookmark, causing the like
-    // count to shift on every bookmark click (user-reported bug).
-    // For like on the timeline card, `countPathTimeline` is
-    // 'children[13]'; do NOT use sibling (which is the comment button).
+    // A null count path means no visible count (bookmark); a sibling fallback would hit the like count.
     let countWrap: HTMLElement | null = null;
     if (cfg.countPathTimeline) {
       countWrap = wrapper.querySelector<HTMLElement>(
@@ -3039,20 +2491,14 @@ function applyReactionOptimistic(feedId: number, reactType: string, on: boolean)
       const match = text.match(/(\d+)/);
       const cur = match && match[1] ? parseInt(match[1], 10) : 0;
       const next = Math.max(0, cur + (on ? 1 : -1));
-      // Preserve trailing " likes"/"like" if the timeline variant has
-      // it; card + list use raw integers with no suffix.
+      // Timeline keeps a " likes" suffix; card and list are bare numbers.
       const suffix = text.replace(/^\s*\d+/, '').trim();
       target.textContent = suffix ? `${next} ${suffix}` : String(next);
     }
   });
 }
 
-/**
- * Fires the app-side "refetch every mounted data source" signal + sets
- * the proxy-cache bypass window so a re-mounting AppZet's first fetch
- * still bypasses the 5-min transient. Used after write actions
- * (post.create / delete, comment.create) so counts reflect server truth.
- */
+// Also opens the proxy-cache bypass window so a re-mounting AppZet skips the 5-min transient.
 function triggerFeedRefresh() {
   const g = window as unknown as { __appzaForceRefreshUntil?: number };
   g.__appzaForceRefreshUntil = Date.now() + 3000;
@@ -3069,18 +2515,7 @@ function humanizeSlug(slug: string): string {
 }
 
 
-/**
- * Read a value out of a rendered form field by its DOM path attributes.
- * Composer/login forms don't have a formal FormState provider yet — the
- * SS-child wrappers already carry data-appza-appzet-slug +
- * data-appza-primitive-path from SuperstructureRenderer, so we scope the
- * lookup to a specific AppZet's children[i] wrapper and pull the value
- * off whichever Ionic input lives inside.
- *
- * `path` is the same grammar as param_map values in action args —
- * `children[1].value` picks up the text; `children[N].checked` picks up
- * a checkbox; `children[N].selectedValue` picks up a native select.
- */
+// `path` uses param_map grammar: children[i].value / .checked / .selectedValue.
 function readFormFieldValue(
   appzetSlug: string,
   path: string,
@@ -3119,16 +2554,9 @@ function readFormFieldValue(
   return null;
 }
 
-/**
- * Resolve a feed id off a screen-mount context blob (a bound feed post
- * item stashed by nav.push(pass_item_as_context=true)). `feedIdPath` is
- * the same grammar as post.delete/report — `data.<key>` or `<key>`.
- * Returns null when the value can't be coerced to a positive integer.
- */
 function resolveFeedIdFromContext(ctx: unknown, feedIdPath: string): number | null {
   if (!isRecord(ctx)) return null;
   const key = feedIdPath.startsWith('data.') ? feedIdPath.slice(5) : feedIdPath;
-  // Try data.<key> first (envelope shape); fall back to top-level (raw shape).
   const source =
     isRecord((ctx as Record<string, unknown>).data)
       ? ((ctx as Record<string, unknown>).data as Record<string, unknown>)
@@ -3139,28 +2567,7 @@ function resolveFeedIdFromContext(ctx: unknown, feedIdPath: string): number | nu
   return null;
 }
 
-/**
- * Resolve an action's param_map (keys → children[i].value paths) into a
- * flat request body. Missing/empty values pass through as empty strings
- * so the server sees them (and returns its own validation error) rather
- * than us hiding the field entirely.
- */
-/**
- * Read one `param_map` source.
- *
- * Two vocabularies, because the composer has two kinds of field. A
- * `children[i].prop` path reads the rendered DOM, which is right for a
- * form built out of generic primitives. A `draft.<field>` path reads the
- * postDraft slice, which is the only thing that works for the create-post
- * composer: chunk 1 replaced its eleven loose primitives with one bespoke
- * one, so there is no `children[3]` input to read the message out of any
- * more — `readFormFieldValue` finds the audio BUTTON at that index and
- * answers null.
- *
- * That is what had been happening. The param_map still named the old
- * indices, so `message` collected as '' and every Post short-circuited on
- * "Write something to post." with no request made.
- */
+// `draft.<field>` reads the postDraft slice — the composer is one bespoke primitive with no children[i] inputs to read.
 function readParamSource(appzetSlug: string, path: string): unknown {
   if (path.startsWith('draft.')) {
     const draft = getPostDraft() as unknown as Record<string, unknown>;
@@ -3178,25 +2585,13 @@ function collectParams(
   for (const [name, path] of Object.entries(paramMap)) {
     if (typeof path !== 'string') continue;
     const v = readParamSource(appzetSlug, path);
-    // `?? ''` and not `|| ''`: an empty topic list is a real answer and
-    // has to stay an array, or FC receives the string '' where it
-    // expects one and rejects the post.
+    // `??` not `||`: an empty topic list must stay an array or FC rejects the post.
     out[name] = v ?? '';
   }
   return out;
 }
 
-/**
- * Find the AppZet that owns a given action wiring on the current screen.
- * The dispatcher receives the action_slug + args but not the owning
- * AppZet. For auth.login on the login screen only one AppZet declares
- * the login action, so we scan the current screen's placements for the
- * matching action_slug + event.
- *
- * Returns the appzet_slug or null. For screens where multiple AppZets
- * declare the same action_slug, first-match wins — acceptable v1 since
- * mixed-action screens aren't in the FC catalog today.
- */
+// First match wins when several AppZets declare the same action.
 function findAppzetForAction(
   catalog: Catalog | null,
   currentScreenId: number | null,
@@ -3222,8 +2617,7 @@ function findAppzetForAction(
       }
     }
   }
-  // Also check the screen's own appbar_placements — the create-post
-  // appbar's Post button lives outside the main slot.
+  // The create-post appbar's Post button lives outside the main slot.
   const appbar = (screen as unknown as Record<string, unknown>).appbar_placements;
   if (Array.isArray(appbar)) {
     for (const p of appbar) {
@@ -3245,19 +2639,6 @@ function findAppzetForAction(
   return null;
 }
 
-/**
- * App-mode action executor for the plug-in admin sim. Same nav semantics
- * as the Capacitor shell so what admins see matches what customers get:
- *   - nav.push : switch selected screen by args.target_screen_slug,
- *     stash current on a back stack.
- *   - nav.back : pop.
- *   - link.open : window.open new tab.
- *   - post.create + other mutating actions : LOG ONLY. Deliberate — an
- *     admin previewing the composer shouldn't create real feed posts.
- *     Real submission stays confined to the Capacitor build; when
- *     form-state capture ships, we'll add a `dry_run=1` proxy flag so
- *     App mode can safely round-trip through the server too.
- */
 function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
   const {
     catalog,
@@ -3283,10 +2664,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
   } = deps;
   const { action_slug, args, item, binding_root, siblings, siblingIndex } = inv;
   const argRec = (args ?? {}) as Record<string, unknown>;
-  // Per-invocation item root. `binding_root` on the AppZet action wiring
-  // sub-selects a slice of the item — e.g. `data.ctaButtons[0]` picks the
-  // first CTA object so link.open resolves url/newTab against THAT rather
-  // than the whole banner payload.
+  // `binding_root` sub-selects a slice of the item (e.g. one CTA).
   const effectiveItem = binding_root ? readDataPath(item, binding_root) ?? item : item;
   const itemRec = isRecord(effectiveItem) ? (effectiveItem as Record<string, unknown>) : null;
 
@@ -3295,17 +2673,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       const targetSlug =
         typeof argRec.target_screen_slug === 'string' ? argRec.target_screen_slug : null;
       if (!targetSlug || !catalog) return;
-      // A fresh composer starts empty. This is the ONLY place that can
-      // tell "opened the composer" from "came back to it": the preview is
-      // its own screen, so returning from it changes the screen slug
-      // exactly the way arriving does, and a reset keyed on the slug
-      // wipes the draft the user just went to look at.
-      // Both composer screens start clean, and edit-post-page MUST:
-      // nothing else clears the draft between visits, so an abandoned
-      // create-post draft would leak into an edit of an unrelated post,
-      // carrying its images, its poll and its schedule onto someone
-      // else's words. The prefill repopulates from the bound item. Only
-      // nav.push can tell arriving from returning (P111).
+      // Only nav.push can tell arriving from returning; edit-post-page must start clean or an abandoned draft leaks into it.
       if (targetSlug === 'create-post-page' || targetSlug === 'edit-post-page') {
         resetPostDraft();
       }
@@ -3316,35 +2684,17 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         console.warn('[appza-admin/app-mode] nav.push target not found:', targetSlug);
         return;
       }
-      // Carry the tapped item into the target screen's context BEFORE
-      // switching, so the useEffect watching selectedScreenId sees it on
-      // the very first render pass (avoids a one-tick empty-form flash).
-      // Consumed by fc-post-information prefill + post.edit's feed_id
-      // resolution on edit-post-page. Also clear the "already prefilled"
-      // flag for the target so a fresh Edit tap on a different post
-      // re-prefills instead of skipping.
+      // Set context before switching so the first render sees it; clear the prefilled flag so a new Edit re-prefills.
       if (argRec.pass_item_as_context === true && effectiveItem != null) {
         screenContextRef.current[targetSlug] = effectiveItem;
         delete screenPrefilledRef.current[targetSlug];
-        // Editing a document post: seed the file editor from the post the
-        // menu passed us. Any other kind clears the draft, so the block
-        // stays hidden and Save doesn't carry stale document_ids.
         if (targetSlug === 'edit-post-page') {
           seedEditDraftFromPost(effectiveItem);
         }
-        // Populate route params from the passed item so DS query_params
-        // with `source: 'route_param'` (e.g. fc-space-detail.slug,
-        // fc-space-feeds.space_slug) resolve on the destination screen.
-        // Same convention as mobile shell — keeps sim + real app in sync.
         if (isRecord(effectiveItem)) {
           const ctx = effectiveItem as Record<string, unknown>;
           const routeBag: Record<string, unknown> = {};
-          // Nested space slug on a post item wins for route.slug —
-          // edit-post-page's topic dropdown DS is fc-space-detail, which
-          // needs the SPACE slug. Without this, ctx.slug (the post slug)
-          // clobbers route.slug and the topic dropdown's options DS
-          // returns nothing (observed: [appza-prefill] optionValues=[""]
-          // → topic prefill can't match). Carry post slug as post_slug.
+          // The space slug wins for route.slug (the topic dropdown needs it); the post slug goes to post_slug.
           const spaceCtx = isRecord(ctx.space) ? (ctx.space as Record<string, unknown>) : null;
           const nestedSpaceSlug =
             spaceCtx && typeof spaceCtx.slug === 'string' && spaceCtx.slug ? spaceCtx.slug : null;
@@ -3367,10 +2717,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           if (Object.keys(routeBag).length > 0) {
             setRouteParams(routeBag);
             if (typeof routeBag.slug === 'string' && targetSlug === 'space-detail') {
-              // Always land on POSTS + no topic filter when opening a
-              // (possibly different) space. Otherwise stale localStorage
-              // from a prior visit — e.g. user last tapped CHAT — leaves
-              // POSTS content hidden and shows "Coming soon" instead.
+              // Always land on POSTS with no topic, or stale localStorage can leave a hidden tab.
               setSpaceDetailControls({
                 space_slug: routeBag.slug,
                 active_subtab: 'posts',
@@ -3380,11 +2727,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           }
         }
       }
-      // Whose profile is being opened. The header and the POSTS tab both
-      // read `profile_controls.member_id`, so one number decides both —
-      // and the two profile screens differ only in where it comes from:
-      // the bottom-nav one is always the VIEWER, a member card carries
-      // the person it was tapped on.
       if (targetSlug === 'profile') {
         const me = getViewer().user_id;
         if (typeof me === 'number' && me > 0) setProfileControls({ member_id: me, tab: 'posts' });
@@ -3410,11 +2752,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
     case 'link.open': {
-      // Accept the action's canonical `url`/`new_tab` names AND the
-      // fcom-mobile API's `link`/`newTab` names so binding_root against a
-      // raw ctaButtons entry Just Works without a rename in the proxy.
-      // `permalink` joins them for the feed-link chips, which bind their
-      // row straight through and where that is FluentCommunity's word.
+      // Accept both the action's `url`/`new_tab` and FC's `link`/`newTab`/`permalink`.
       const url =
         pickString(argRec, ['url', 'link', 'permalink', 'website']) ??
         pickString(itemRec, ['url', 'link', 'permalink', 'website']);
@@ -3443,13 +2781,9 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         }).catch(() => {});
       }
       setAuth(null);
-      // The picker's payload is one viewer's answer to "where may I
-      // post" — spaces, permissions, moderator verdict. Signing out must
-      // drop it, or the next person to sign in on this device opens the
-      // composer holding the previous one's destinations.
+      // The picker payload is per-viewer; drop it so the next sign-in doesn't inherit it.
       clearPostSpaceCache();
       resetPostDraft();
-      // Force login screen after logout so the user sees the state change.
       const login = catalog?.template_screens?.find(
         (s) => s.app_map_screen_slug === 'login-page',
       );
@@ -3461,10 +2795,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'auth.login': {
-      // Real HTTP login. Reads username/password out of the login form's
-      // ion-inputs via DOM path attributes, POSTs to the endpoint in args,
-      // stores the returned {username, token, display_name, avatar} in
-      // localStorage, and navigates to args.on_success_screen (home).
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
       const paramMap = argRec.param_map && typeof argRec.param_map === 'object'
@@ -3483,8 +2813,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         return;
       }
       const body = collectParams(owningAppzet, paramMap);
-      // Fire-and-forget promise (dispatcher signature is sync). Errors surface
-      // via onLoginError toast; success drives nav + auth state.
       void (async () => {
         try {
           const res = await fetch(endpoint, {
@@ -3545,10 +2873,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'post.create': {
-      // Real HTTP feed create. Reads message/title/space_id from the
-      // create-post form via DOM path attributes, POSTs to args.endpoint
-      // with Basic Auth (from the stored login token), on 200 → nav.back +
-      // fires appza:refresh-data so the feed reloads with the new post.
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
       const paramMap = argRec.param_map && typeof argRec.param_map === 'object'
@@ -3556,8 +2880,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         : undefined;
       const composerAppzet =
         (typeof argRec.form_appzet_slug === 'string' && argRec.form_appzet_slug) ||
-        // Fallback: look for whichever AppZet on the current screen carries
-        // the composer form. fc-post-information is the well-known name.
         'fc-post-information';
       if (!endpoint) {
         console.warn('[appza-admin/app-mode] post.create missing endpoint');
@@ -3568,49 +2890,23 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         return;
       }
       const body = collectParams(composerAppzet, paramMap);
-      // FC's /feeds endpoint refuses empty message with a 422; short-circuit
-      // to a clearer error before hitting the wire.
+      // FC answers an empty message with a 422; fail early with a clearer error.
       if (!body.message || (typeof body.message === 'string' && !body.message.trim())) {
         onLoginError('Write something to post.');
         return;
       }
-      // Attach uploaded images (from picker.image) — FC's sanitizeAndValidateData
-      // reads `media_images: [{url, provider}]` and materializes them into
-      // meta.media_items / meta.media_preview on the created feed. content_type
-      // gets flipped to 'image' so the feed renders as an image post.
       if (pendingImages.length > 0) {
         body.media_images = pendingImages.map((url) => ({ url, provider: 'uploader' }));
         body.content_type = 'image';
       }
-      // Attach video oembed (from picker.video). FC's processFeedMetaData
-      // sees media.type=oembed and re-parses the URL server-side to build
-      // meta.media_preview (thumbnail, title, embed html). Image + video
-      // are mutually exclusive in FC's model — video wins if both present
-      // (content_type is single-valued).
-      // The draft's video, in whichever of the three shapes it came from.
-      // FluentCommunity takes an oEmbed by URL and re-parses it; a pasted
-      // iframe and a FluentPlayer upload go as `html` and `media_id`, the
-      // two shapes its own composer sends.
+      // FC takes an oEmbed by URL; a pasted iframe or FluentPlayer upload goes as `html` / `media_id`.
       const draftVideo = getPostDraft().video;
       if (draftVideo) {
-        // ONE builder for both shells and both verbs. The three shapes
-        // FluentCommunity accepts are not guessable from the field names
-        // — see the note on buildVideoMediaPayload — and a payload
-        // written out four times is a payload that drifts (P100).
-        //
-        // No `content_type` is set: FeedsHelper::sanitizeAndValidateData
-        // rebuilds the payload from scratch and discards the request's,
-        // so 'oembed' was a no-op on create. On EDIT it is worse than a
-        // no-op — a content_type that differs from the post's fires
-        // `updating_content_type_old_<existing>`, and for a document post
-        // that hook DELETES its files.
+        // No content_type: FC discards it on create, and on edit a differing one fires a hook that deletes a document post's files.
         const mediaPayload = buildVideoMediaPayload(draftVideo);
         if (mediaPayload) body.media = mediaPayload;
       }
-      // Audio rides alongside whatever else is attached rather than
-      // replacing it: FluentCommunity stores meta.audio_medias
-      // independently of content_type. The server re-checks ownership and
-      // re-applies the per-post cap, so this only has to name the files.
+      // Audio sits alongside other media: FC stores audio_medias independently of content_type.
       const draftAudios = getPostDraft().audios;
       if (draftAudios.length > 0) {
         body.audio_medias = draftAudios.map((a) => ({
@@ -3622,17 +2918,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           settings: { src: a.url, title: a.title, viewType: 'audio' },
         }));
       }
-      // Attach poll (survey). FC reads survey.options[].label + survey.type,
-      // slugs each option server-side (opt_1, opt_2, …) on create + sets
-      // content_type = 'survey'. Poll overrides video/image if all three
-      // are present — polls are their own post shape in FC's model.
-      // post.create doesn't have existing slugs so we omit them; the
-      // create endpoint doesn't care and would just re-assign anyway.
-      // Documents take the whole post: FluentCommunity's document
-      // filter runs after everything else and sets content_type itself,
-      // so a draft carrying documents plus other media would post as a
-      // document and drop the rest into meta where nothing draws it. The
-      // draft enforces the exclusivity, so by here it is one or neither.
+      // Documents take the whole post: FC's document filter runs last and sets content_type itself.
       const draftDocs = getPostDraft().documents;
       if (draftDocs.length > 0) {
         body.document_ids = draftDocs.map((d) => ({
@@ -3644,11 +2930,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         }));
         body.content_type = 'document';
       }
-      // Design 10's schedule. FluentCommunity Pro takes it on the create
-      // request, requires it to be at least 30 minutes out, and sets
-      // `status = 'scheduled'`. It is ignored SILENTLY for a
-      // non-moderator, which is why the glyph that sets it is gated —
-      // by the time a value is here, the viewer has already been vetted.
+      // FC Pro requires >= 30 min ahead and silently ignores it for non-moderators (the glyph is gated).
       const draftSchedule = getPostDraft().scheduled_at;
       if (draftSchedule !== '') body.scheduled_at = draftSchedule;
 
@@ -3657,9 +2939,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         body.survey = {
           type: draftPoll.type,
           options: draftPoll.options.map((o) => ({ label: o.label })),
-          // '' is meaningful: FluentCommunity stores an empty end_date
-          // as "this poll never closes", which is what the sheet's
-          // untouched "Add end date" row means.
+          // '' means the poll never closes in FC.
           end_date: draftPoll.end_date,
         };
         body.content_type = 'survey';
@@ -3668,12 +2948,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         try {
           const res = await fetch(endpoint, {
             method,
-            // Explicit `omit` — same-origin fetch would send WP admin
-            // cookies alongside our Authorization header. WP's cookie-auth
-            // path fires first for cookie-bearing REST writes and demands
-            // an X-WP-Nonce we don't have, returning 401 before
-            // Application Passwords gets its turn. Omitting cookies forces
-            // WP straight to Basic Auth via the Authorization header.
+            // Omit cookies: WP's cookie auth runs first, demands a nonce and 401s before Application Passwords is tried.
             credentials: 'omit',
             headers: {
               'Content-Type': 'application/json',
@@ -3698,9 +2973,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             onLoginError(msg);
             return;
           }
-          // Success → pop back to feed and force a data refresh so the
-          // new post appears at the top. Also clear pending image + video
-          // attachments so the next draft starts empty.
           clearPendingImages();
           clearPendingVideo();
           setScreenStack((prev) => {
@@ -3709,10 +2981,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             setSelectedScreenId(prev[prev.length - 1] ?? null);
             return rest;
           });
-          // Defer the refresh event until after React commits the nav —
-          // otherwise the feed's useDataSource hasn't mounted yet, misses
-          // the event, and shows a cached (stale) response. Two dispatches
-          // + a global marker cover the race for slow mounts.
+          // Defer the refresh until the nav commits, or the feed's data source misses the event.
           const g = window as unknown as { __appzaForceRefreshUntil?: number };
           g.__appzaForceRefreshUntil = Date.now() + 3000;
           setTimeout(() => {
@@ -3728,30 +2997,13 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // A comment's delete is the post's, with a second id and different
-    // wording. Same confirm dialog on purpose — design 24 shows no
-    // separate one, and two dialogs would drift.
-    //
-    // Remove Preview rides here too (design 22). It is the same shape all
-    // the way down — confirm, POST the id, refetch — and the same stakes:
-    // FluentCommunity nulls meta.media_preview with no undo. Every word
-    // of its dialog comes from the action's param_schema, so the copy
-    // matching FC's own is a catalog fact rather than a branch here.
+    // Remove Preview shares this confirm: FC nulls meta.media_preview with no undo.
     case 'comment.delete':
     case 'post.remove_preview':
     case 'post.delete': {
-      // Overflow-menu → delete. Read feed_id off the tapped item using the
-      // action's `feed_id_path` binding (defaults to `data.id`) and open the
-      // confirm modal; the modal fires the actual DELETE on user confirm.
-      // Requires login (Basic Auth on the write). The endpoint owns
-      // authorization — server 403s a non-owner attempt; we just surface the
-      // error message via the same toast auth.login uses.
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
       const feedIdPath = typeof argRec.feed_id_path === 'string' ? argRec.feed_id_path : 'data.id';
-      // Body-payload key the endpoint expects for the item id (e.g. FC's
-      // /feeds/delete reads `feed_id`; a different Source could expect
-      // `post_id`, `id`, etc.). Defaults to `feed_id` for parity with FC.
       const bodyKey = typeof argRec.body_key === 'string' && argRec.body_key ? argRec.body_key : 'feed_id';
       const title = typeof argRec.confirm_title === 'string' ? argRec.confirm_title : 'Delete post?';
       const message = typeof argRec.confirm_message === 'string'
@@ -3770,9 +3022,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       );
         return;
       }
-      // readDataPath expects a `data.` prefix but the item passed here is the
-      // item root itself (proxy already unwrapped). Resolve either way:
-      // strip the prefix if present and index directly.
+      // The item is already unwrapped, so strip a `data.` prefix.
       const key = feedIdPath.startsWith('data.') ? feedIdPath.slice(5) : feedIdPath;
       const raw = itemRec ? (itemRec as Record<string, unknown>)[key] : undefined;
       const feedId = typeof raw === 'number'
@@ -3788,7 +3038,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         onLoginError('Could not identify which post to delete.');
         return;
       }
-      // The parent id, when the action names one.
       let extraBody: Record<string, unknown> | undefined;
       const parentBodyKey =
         typeof argRec.parent_body_key === 'string' && argRec.parent_body_key
@@ -3819,20 +3068,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // ── Post 3-dot overflow menu ──────────────────────────────────────
-    // Simulator preview only opens the popover; the individual post.*
-    // action cases (copy_link, report, edit, pin_top, pin_sidebar,
-    // disable_comments) are handled fully in the mobile shell. Tapping
-    // an item in the simulator will log a no-op warning — that's fine
-    // for preview UX, and matches what post.delete already does here.
-    // The COMMENT menu (designs 24, 25) — same popover, different list.
-    // The popover is about GATED ROWS, not about posts: every row's
-    // visible_when resolves against whatever item was bound, and the
-    // comment strip binds a comment.
-    // The chevron on a voted poll row (designs 8, 9, 11, 12). Endpoint
-    // comes from the action's args — the action declares no write
-    // metadata, because ActionHttpMethod is writes-only by decision
-    // (DC#12 Q6).
+    // Poll voters: the endpoint comes from args — ActionHttpMethod is writes-only.
     case 'poll.voters': {
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       if (!endpoint) {
@@ -3864,10 +3100,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'comment.options':
-    // The profile ⋯ (2026-09-02). Identical code for the same reason the
-    // comment menu is: this popover is about GATED ROWS, not about posts.
-    // Every row's visible_when resolves against whatever item was bound,
-    // and here that is the profile row.
+    // The popover is about gated rows; each row's visible_when resolves against the bound item.
     case 'profile.options':
     case 'post.options': {
       const rawItems = Array.isArray(argRec.items) ? argRec.items : [];
@@ -3885,11 +3118,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             `[data-appza-item-id="${CSS.escape(itemId)}"] [data-appza-action="on_tap_menu"]`,
           )
         : document.querySelector('[data-appza-action="on_tap_menu"]');
-      // `presentation: 'sheet'` draws the same rows as design 4's bottom
-      // sheet instead of the anchored popover. The catalog decides; the
-      // rows, their per-viewer visibility and their toggle labels are
-      // identical either way, which is the point of doing it here rather
-      // than with a second action.
       const menuSheetSlug =
         argRec.presentation === 'sheet'
           ? typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
@@ -3920,11 +3148,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // Five catalog-driven post-menu actions (copy_link, pin_top,
-    // pin_sidebar, disable_comments, report) share their implementation
-    // with the mobile shell via @appza/renderer's tryHandlePostMenuAction.
-    // Edit is NOT in this set — it now dispatches from the appbar CTA on
-    // edit-post-page (a full form flow), see the post.edit case below.
     case 'comment.copy_link':
     case 'comment.pin':
     case 'comment.like':
@@ -3944,18 +3167,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // The profile header cluster's four follow actions. Real HTTP here,
-    // not a sim log: the simulator signs in the same way and these are
-    // the same fcom-mobile routes the phone calls, so keeping them
-    // shared is what stops the two shells drifting.
-
-    // The profile's two pictures (doc states 2-5). Pick-then-save for a
-    // change, an empty string for a remove, and a confirm in front of the
-    // remove. The PICKER is the shell's — it needs a mounted file input —
-    // so it is handed over; everything else lives in the renderer, where
-    // both shells share it.
-    // The edit form's three account cards (doc state 40) — the username,
-    // the password and the deactivation, each its own endpoint.
+    // The picker needs a mounted file input, so the shell supplies it.
     case 'profile.change_username':
     case 'profile.change_password':
     case 'profile.deactivate_confirm':
@@ -3971,8 +3183,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // Sign out, behind design 33's dialog. auth.logout itself is handled
-    // further down and is untouched; this only asks first.
     case 'auth.logout_confirm': {
       tryHandleLogoutConfirm(inv);
       return;
@@ -3991,19 +3201,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // All Members (2026-09-15) — search, status tabs, the two-part sort
-    // sheet, and the status change behind its confirm. Shared with the
-    // other shell through @appza/renderer.
-    // Moderation (2026-09-17) — the four status tabs, and the two writes
-    // behind the doc's own dialog (the report ⋯ sheet and the review
-    // modal's CTAs). Shared with the other shell through @appza/renderer.
-    // The review modal (designs 9-32) rides here too: from the flagged
-    // banner on a post, or from a report row's ⋯ sheet.
-    // Course details (Courses doc, states 5–7) — the section accordion
-    // and ENROLL THIS COURSE. Shared with the other shell through
-    // @appza/renderer.
-    // A course's Students page (Courses doc, states 8–15) — search, the
-    // sort sheet, Add Student with its confirm, Remove with its confirm.
     case 'course_students.set_search':
     case 'course_students.set_sort':
     case 'course_students.open_add':
@@ -4021,11 +3218,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // The lesson screen (Courses doc, states 16–17) — a lesson row or
-    // START / CONTINUE / REVIEW opens it, < > move within it, and
-    // Complete Lesson marks it done or undone. Shared with the other
-    // shell through @appza/renderer.
-    // A lesson discussion's in-place edit (Courses doc, design 25).
     case 'comment.edit_inline':
     case 'comment.save_inline': {
       tryHandleCommentInlineAction(inv, { auth, authHeader: basicAuthHeader });
@@ -4086,7 +3278,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // The Courses list (Courses doc, states 1–4).
     case 'courses.set_tab':
     case 'courses.set_search':
     case 'courses.set_topic':
@@ -4103,9 +3294,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     case 'user.unfollow':
     case 'user.notify_subscribe':
     case 'user.notify_unsubscribe':
-    // Block and unblock are the same request in every respect — POST an
-    // fcom-mobile route with the profile's user id — so they ride the
-    // shared handler rather than a branch of their own.
     case 'profile.block':
     case 'profile.unblock': {
       tryHandleProfileAction(inv, {
@@ -4117,9 +3305,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // Save on the profile edit form. Kept in step with the phone: same
-    // shared handler, same collector contract, so the form the simulator
-    // shows is the form the device posts.
     case 'profile.save': {
       tryHandleProfileSave(inv, {
         auth,
@@ -4140,13 +3325,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'post.edit': {
-      // Real HTTP feed update, dispatched from fc-edit-post-appbar's Save
-      // button on edit-post-page. Mirrors post.create except (a) body
-      // includes an `id` field resolved from the screen-mount context
-      // (the passed post from the 3-dot menu's nav.push), and (b) POSTs
-      // to /feeds/update instead of /feeds/create. On success it pops
-      // back and dispatches appza:refresh-data so the feed picks up the
-      // edited message + title.
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
       const bodyKey =
@@ -4168,9 +3346,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         onLoginError('Please sign in to edit.');
         return;
       }
-      // Resolve feed id off the screen-mount context (the passed post
-      // from the 3-dot menu's nav.push). The composer form itself has no
-      // id field, so context IS the source of truth here.
+      // The composer has no id field; the screen context is the source of truth.
       const screenSlug =
         catalog?.template_screens?.find((s) => s.id === currentScreenId)?.app_map_screen_slug ?? null;
       const ctx = screenSlug ? screenContextRef.current[screenSlug] : null;
@@ -4185,15 +3361,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         return;
       }
       body[bodyKey] = feedId;
-      // "Move to a different space". FluentCommunity takes the move as
-      // its own two keys and NOT as a change to `space` — which keeps
-      // carrying the post's original slug, exactly as the portal's own
-      // handleUpdatePost sends it.
-      //
-      // `'current'` is the armed-but-unchosen state: the box is ticked
-      // and the chip shows the post's own space. Nothing is sent for it,
-      // so ticking the box and changing your mind leaves the post where
-      // it was rather than posting a move the server would refuse.
+      // FC takes a move as its own keys, not a `space` change; 'current' (armed, unchosen) sends nothing.
       const moveDraft = getPostDraft();
       if (moveDraft.can_move_space) {
         if (moveDraft.move_target === 'space' && moveDraft.move_space_id) {
@@ -4202,41 +3370,17 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           body.move_to_profile = 1;
         }
       }
-      // Attach media the same way post.create does — otherwise Save on a
-      // post that had images / video / poll would drop them because the
-      // update endpoint reads the same shape as create. On edit-post-page
-      // the prefill effect already hydrated pendingImages / pendingVideo
-      // from the item's meta (the poll goes onto the draft), so submitting untouched
-      // round-trips the existing media. Precedence: survey > oembed >
-      // image > text (matches post.create).
+      // Update reads the same shape as create, so resend the (prefilled) media or Save drops it.
       if (pendingImages.length > 0) {
         body.media_images = pendingImages.map((url) => ({ url, provider: 'uploader' }));
         body.content_type = 'image';
       }
-      // The draft's video, in whichever of the three shapes it came from.
-      // FluentCommunity takes an oEmbed by URL and re-parses it; a pasted
-      // iframe and a FluentPlayer upload go as `html` and `media_id`, the
-      // two shapes its own composer sends.
       const draftVideo = getPostDraft().video;
       if (draftVideo) {
-        // ONE builder for both shells and both verbs. The three shapes
-        // FluentCommunity accepts are not guessable from the field names
-        // — see the note on buildVideoMediaPayload — and a payload
-        // written out four times is a payload that drifts (P100).
-        //
-        // No `content_type` is set: FeedsHelper::sanitizeAndValidateData
-        // rebuilds the payload from scratch and discards the request's,
-        // so 'oembed' was a no-op on create. On EDIT it is worse than a
-        // no-op — a content_type that differs from the post's fires
-        // `updating_content_type_old_<existing>`, and for a document post
-        // that hook DELETES its files.
+        // No content_type: a differing one fires a hook that deletes a document post's files.
         const mediaPayload = buildVideoMediaPayload(draftVideo);
         if (mediaPayload) body.media = mediaPayload;
       }
-      // Audio rides alongside whatever else is attached rather than
-      // replacing it: FluentCommunity stores meta.audio_medias
-      // independently of content_type. The server re-checks ownership and
-      // re-applies the per-post cap, so this only has to name the files.
       const draftAudios = getPostDraft().audios;
       if (draftAudios.length > 0) {
         body.audio_medias = draftAudios.map((a) => ({
@@ -4248,24 +3392,10 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           settings: { src: a.url, title: a.title, viewType: 'audio' },
         }));
       }
-      // The composer's documents are deliberately NOT read here.
-      // post.edit already owns documents through the edit screen's own
-      // slice (fc-edit-document-files → documentDraft), which knows what
-      // the post's files WERE and can tell "the user removed them all"
-      // from "we never learned what they were" — a distinction that
-      // matters because an empty document_ids DELETES every file. The
-      // composer draft knows neither, and nav.push does not reset it when
-      // the edit screen opens, so reading it here would let a leftover
-      // create-post draft flip an unrelated post to content_type
-      // 'document' and destroy its real attachments.
+      // Composer documents aren't read here: an empty document_ids deletes every file, and a leftover create draft would destroy real attachments.
       const editPoll = getPostDraft().poll;
       if (editPoll && editPoll.options.length >= 2) {
-        // post.edit MUST forward the server-issued slug on every option
-        // that had one, else FC's FeedsHelper::getSurveyOptionsUpdateError
-        // returns "Existing poll options cannot be removed or left empty."
-        // The sheet will not let those rows be removed or emptied, so by
-        // the time a poll reaches here the slugs are intact. Options
-        // added during this edit carry none; the server assigns them.
+        // Forward each existing option's slug, or FC rejects the edit.
         body.survey = {
           type: editPoll.type,
           options: editPoll.options.map((o) =>
@@ -4277,11 +3407,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       }
       void (async () => {
         try {
-          // Document post: commit the file edits first, then send the
-          // resulting list. FC's feed update detaches any media_key
-          // missing from it, so a removed row needs no call of its own —
-          // but a newly picked file has to be uploaded, and a renamed one
-          // updated, before the list can reference it.
+          // FC detaches any media_key missing from the list; new files must be uploaded and renames saved first.
           const draft = getDocumentDraft();
           if (draft.edit_feed_id === feedId) {
             const uploadEndpoint =
@@ -4297,16 +3423,12 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
               renameEndpoint,
               authHeader: basicAuthHeader(auth),
             });
-            // Only touch document_ids when we actually know what the
-            // post's files were. Sending an empty list DELETES them all —
-            // so if the seed came up empty (nothing to go on) and the user
-            // added nothing, leave the field out and let the documents be.
+            // An empty document_ids deletes every file — only send it when the seed is known.
             if (documents.length > 0) {
               body.document_ids = documents;
               body.content_type = 'document';
             } else if (draft.seeded_file_count > 0) {
-              // Seeded with files, now none: the user removed every one.
-              // That legitimately turns the post back into a text post.
+              // Seeded with files, now none: the user removed them all.
               body.document_ids = [];
               body.content_type = 'text';
             }
@@ -4340,7 +3462,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             onLoginError(msg);
             return;
           }
-          // Success → clear pending media + pop back to feed + force refresh.
           clearPendingImages();
           clearPendingVideo();
           setScreenStack((prev) => {
@@ -4362,14 +3483,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
 
     case 'post.like':
     case 'bookmark.toggle': {
-      // Optimistic-UI reaction flow. The current toggle direction is read
-      // straight off the tapped item's `my_reactions` (server-authored
-      // per-viewer array from the plug-in proxy). We flip icon + color +
-      // like-count text imperatively via data-appza-item-id BEFORE the
-      // POST fires so the tap feels instant; on HTTP failure we revert.
-      // No appza:refresh-data — that would refetch every data source on
-      // screen and flash the whole feed. Server truth is picked up on
-      // the next natural refresh (screen switch, manual reload).
+      // No appza:refresh-data: it would refetch every data source and flash the feed.
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
       const bodyKey = typeof argRec.body_key === 'string' && argRec.body_key ? argRec.body_key : 'feed_id';
@@ -4396,9 +3510,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         onLoginError('Could not identify which post to react to.');
         return;
       }
-      // Toggle direction: prefer the server-authored `my_reactions` array
-      // on the tapped item (survives page loads); fall back to the
-      // session-scoped reactedSet when the item shape doesn't carry it.
       const myReactions =
         itemRec && Array.isArray((itemRec as Record<string, unknown>).my_reactions)
           ? ((itemRec as Record<string, unknown>).my_reactions as unknown[]).filter(
@@ -4406,27 +3517,20 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             )
           : null;
       const reactKey = `${feedId}:${reactType}`;
-      // Debounce rapid taps: if a previous request for the SAME feed +
-      // reaction is still in flight, ignore the new tap. Prevents
-      // double / triple clicks from queuing multiple toggles that all
-      // race the server (each increments count optimistically, giving
-      // counts like 3 / 4 / 5 for a single-user like).
+      // Ignore taps while the same reaction is in flight, or optimistic counts stack up.
       const inflightKey = `react:${reactKey}`;
       const g = window as unknown as { __appzaInflightReactions?: Set<string> };
       if (!g.__appzaInflightReactions) g.__appzaInflightReactions = new Set();
       if (g.__appzaInflightReactions.has(inflightKey)) {
-        return; // ignore extra click while previous is pending
+        return;
       }
       g.__appzaInflightReactions.add(inflightKey);
       const alreadyOn = myReactions
         ? myReactions.includes(reactType)
         : reactedSet.has(reactKey);
       const nextOn = !alreadyOn;
-      // Optimistic UI first — before the network call.
       applyReactionOptimistic(feedId, reactType, nextOn);
-      // Also update the state IMMEDIATELY (not just after the network
-      // returns) so a rapid second tap that slips past the inflight
-      // guard would still read the correct alreadyOn. Reverted on failure.
+      // Update state now so a tap slipping past the inflight guard reads the right direction.
       if (nextOn) reactedSet.add(reactKey);
       else reactedSet.delete(reactKey);
       if (itemRec) {
@@ -4463,7 +3567,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           const httpOk = res.ok;
           const bodyOk = !status || status.status === 200;
           if (!httpOk || !bodyOk) {
-            // Revert both optimistic UI and the pre-updated state.
             applyReactionOptimistic(feedId, reactType, alreadyOn);
             if (alreadyOn) reactedSet.add(reactKey);
             else reactedSet.delete(reactKey);
@@ -4495,13 +3598,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'comment.create': {
-      // Open the in-device comment panel — a proper overlay sheet that
-      // lists existing comments (GET list_endpoint?feed_id=X) and hosts
-      // a composer. The dispatcher's role is only to resolve the target
-      // feed_id + arg names and hand them to the panel; all HTTP happens
-      // inside the panel component so its list state stays in sync with
-      // submits + the panel can refetch after send without touching the
-      // outer feed's data source.
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       const listEndpoint = typeof argRec.list_endpoint === 'string' ? argRec.list_endpoint : null;
       const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
@@ -4548,11 +3644,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // Reply and Edit, the simulator's half. Same shape as the mobile
-    // shell's — both open the comment panel rather than growing a second
-    // editor, and both read their ids from opposite ends (a reply is
-    // created against the POST with the comment as parent; an edit is
-    // addressed to the COMMENT with the post alongside it).
+    // A reply targets the POST with the comment as parent; an edit targets the COMMENT with the post alongside.
     case 'comment.reply':
     case 'comment.edit': {
       const isEdit = action_slug === 'comment.edit';
@@ -4623,12 +3715,10 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         );
         return;
       }
-      // The panel always mounts against the POST — it lists that post's
-      // comments either way.
       const postId = isEdit ? parentId : primaryId;
 
       if (isEdit) {
-        // message, not message_rendered — the rendered copy is HTML.
+        // message_rendered is HTML.
         const msgPath =
           typeof argRec.message_path === 'string' ? argRec.message_path : 'data.message';
         const mk = msgPath.startsWith('data.') ? msgPath.slice(5) : msgPath;
@@ -4654,8 +3744,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         return;
       }
 
-      // The `data.` prefix is not decoration: readDataPath returns
-      // undefined without it and the banner reads "@User" for everyone.
+      // The `data.` prefix is required: readDataPath returns undefined without it.
       const authorPath =
         typeof argRec.author_name_path === 'string'
           ? argRec.author_name_path
@@ -4677,15 +3766,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'poll.vote': {
-      // Poll submit — AppzaPollBlock (SELF_ACTION_PRIMITIVES) grafts the
-      // picked option slugs onto inv.item.vote_indexes before dispatching.
-      // Read them off the item, POST { [body_key]: feed_id, [vote_key]:
-      // [...slugs] } to fcom-mobile /feeds/survey-vote, then patch the
-      // item's meta.survey_config in place with the fresh server-computed
-      // options (vote_counts + percentage + voted) so the block re-renders
-      // as results. No feed refetch — the mutation propagates through the
-      // shared meta reference and the block's local justVoted state keeps
-      // it in results mode for the rest of the session.
+      // Patch meta.survey_config in place with the server's counts — no feed refetch.
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
       const bodyKey = typeof argRec.body_key === 'string' && argRec.body_key ? argRec.body_key : 'feed_id';
@@ -4764,11 +3845,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'picker.emoji': {
-      // Minimum-viable emoji insert: browser prompt so the user can paste
-      // or type an emoji, then append to the composer textarea. Not a
-      // proper picker UI yet — that lands with the full renderer form-
-      // state model. Works end-to-end today because FC stores emoji chars
-      // in the message body verbatim.
       const appzet = typeof argRec.form_appzet_slug === 'string'
         ? argRec.form_appzet_slug : 'fc-post-information';
       const targetPath = typeof argRec.target_path === 'string'
@@ -4779,11 +3855,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'link.attach': {
-      // Prompt for a URL and append to the composer's message body.
-      // FC's message_rendered pass auto-linkifies bare URLs, so we don't
-      // need markdown syntax — the URL itself becomes a clickable link
-      // in the feed. Full oembed preview (thumbnail + title card) lands
-      // in a follow-up pass using /feeds/oembed.
+      // FC's message_rendered auto-linkifies bare URLs.
       const appzet = typeof argRec.form_appzet_slug === 'string'
         ? argRec.form_appzet_slug : 'fc-post-information';
       const targetPath = typeof argRec.target_path === 'string'
@@ -4810,19 +3882,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
           ? argRec.sheet_appzet_slug
           : 'fc-post-space-sheet';
-      // Two questions, one action, one sheet. The composer's "Posted in:"
-      // chip asks where a NEW post goes; the edit screen's move chip
-      // dispatches the SAME wiring with `mode: 'move'` and asks where an
-      // existing post moves to. One action because an action no child
-      // names never reaches the phone's snapshot (P133), and the move
-      // chip lives inside children[0] where it cannot have a child of
-      // its own.
-      //
-      // The lists genuinely differ: the create picker answers with the
-      // spaces the VIEWER may post in, while FluentCommunity refuses a
-      // move into any space the POST'S AUTHOR is not an active member
-      // of. So move mode reads a data source of its own, scoped to the
-      // post.
+      // One action for create and move: an action no child names never reaches the phone's snapshot. Move reads its own DS — FC refuses a move into a space the post's author isn't in.
       const moving = argRec.mode === 'move';
       const moveDsSlug =
         typeof argRec.move_data_source === 'string' && argRec.move_data_source
@@ -4837,11 +3897,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         const payload = moving
           ? await fetchPostSpacePayload(moveDsSlug, { params: { feed_id: movingFeedId } })
           : await fetchPostSpacePayload(dsSlug);
-        // The moderator verdict rides the same payload, so opening the
-        // picker also settles whether the announcement row and the
-        // schedule control belong on this screen. Never from the MOVE
-        // payload: that one is about a post, and the announcement
-        // verdict belongs to the destination the post already has.
+        // Moderator verdict comes only from the create payload; a move's is about the post.
         if (!moving) setPostDraft({ viewer_is_moderator: payload.viewerIsModerator });
         openPostSpaceSheet({
           appzetSlug: sheetSlug,
@@ -4852,19 +3908,12 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             currentCustomizations,
           ),
           groups: payload.groups,
-          // Settings -> General -> Global Post Status. With it off there
-          // is no "On my profile" row, which is Noor's note on design 5.
-          //
-          // For a MOVE the route answers the whole question — the site
-          // setting AND whether the post is in a space at all, since a
-          // post already on a profile has nowhere to move to.
           globalPostsEnabled: moving
             ? payload.canMoveToProfile
             : getFcRuntimeSettings().composer.global_posts_enabled,
           viewerIsModerator: payload.viewerIsModerator,
           mode: moving ? 'move' : 'destination',
-          // FluentCommunity writes "On author's profile" when the viewer
-          // is not the one who wrote the post; only the payload knows.
+          // FC says "On author's profile" when the viewer isn't the author; only the payload knows.
           profileLabel: moving ? payload.profileLabel : undefined,
         });
       })();
@@ -4872,11 +3921,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'picker.image': {
-      // Trigger the hidden file input; onChange handler uploads each
-      // selected file via multipart POST to args.endpoint (Source-scoped,
-      // supplied by the catalog wiring; see fc-post-information's
-      // on_tap_attach_photo). Returned URLs get appended to pendingImages;
-      // post.create reads them + clears on success.
       console.log('[appza/picker.image] dispatched', { hasAuth: !!auth });
       if (!auth) {
         onLoginError('Please sign in to attach images.');
@@ -4911,9 +3955,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           : 'fc-post-video-sheet';
       const player = getFcRuntimeSettings().composer.fluent_player;
       void (async () => {
-        // The upload tab's gate is a question about the VIEWER, so it
-        // comes off the same per-request payload the space picker uses,
-        // not the cached bootstrap. Already warmed at screen mount.
+        // A viewer question: per-request payload, not the cached bootstrap.
         const dsSlug =
           typeof readAppzetActionsFromCatalog('fc-post-information')?.on_tap_space?.args
             ?.data_source === 'string'
@@ -4947,9 +3989,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       }
       const player = getFcRuntimeSettings().composer.fluent_player;
       if (!player.enabled || !player.audio_upload_enabled) {
-        // The glyph is gated on the same two switches, so this only fires
-        // if the catalog was edited to show it anyway. Saying why beats a
-        // silent no-op.
         onLoginError('Audio posts are turned off for this community.');
         return;
       }
@@ -4979,8 +4018,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         onLoginError('Please sign in to attach a file.');
         return;
       }
-      // The glyph is gated on the space allowing documents, so this only
-      // fires without one if the catalog was edited to show it anyway.
       if (!getPostDraft().space_slug) {
         onLoginError('Choose a space before attaching a file.');
         return;
@@ -5003,26 +4040,15 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // ── Feed controls ────────────────────────────────────────────────
-    // Designs 20 and 21 draw both pickers as BOTTOM SHEETS. Which frame
-    // opens is a catalog value rather than a fork here: leaving
-    // `presentation` unset still gives the anchored popover, which is
-    // what keeps this branch safe to point at any screen.
     case 'feed.set_sort':
     case 'feed.set_view_mode': {
       const isSort = inv.action_slug === 'feed.set_sort';
       const catalogRows = readPickerOptions(argRec.options);
-      // Sort rows come from the SITE, wearing the catalog's glyphs:
-      // FluentCommunity owns which sorts exist, because it is the thing
-      // that executes them. Layout rows are ours alone — the three view
-      // modes are renderer variants FC knows nothing about.
+      // Sort rows come from the site (FC executes them); layout rows are ours.
       const options = isSort
         ? resolveFeedSortRows(catalogRows, getViewer().is_logged_in)
         : catalogRows;
-      // Silent return, matching the bookmarks case directly below: this
-      // dispatcher has no error channel — the simulator's message slot
-      // belongs to the login screen, so reporting here would put "no
-      // options wired" under a password field (P127's failure shape).
+      // Silent: the simulator's only message slot belongs to the login screen.
       if (options.length === 0) return;
       const stateKey = isSort ? 'sort' : 'viewMode';
       const current = isSort ? getFeedControls().sort : getFeedControls().viewMode;
@@ -5047,8 +4073,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         });
         return;
       }
-      // Popover fallback — anchored to whichever of the toolbar's two
-      // buttons fired.
       const anchor = document.querySelector(
         `[data-appza-appzet-slug="fc-feed-toolbar"][data-child-index="${isSort ? 0 : 1}"]`,
       );
@@ -5056,10 +4080,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // ── Feed banner ──────────────────────────────────────────────────
-    // Two children write this, not one toggle: View More sends 'yes' and
-    // View Less sends 'no', so a double tap cannot leave the description
-    // clamped while the extra buttons are showing.
+    // Two writers, not a toggle, so a double tap can't desync the clamp and the buttons.
     case 'banner.set_expanded': {
       const value = typeof argRec.value === 'string' ? argRec.value : '';
       if (value !== 'yes' && value !== 'no') return;
@@ -5068,9 +4089,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'banner.dismiss': {
-      // Days come from the catalog so the window is a wiring decision,
-      // not a constant buried here. Default matches FluentCommunity's own
-      // web dismissal.
       const days =
         typeof argRec.dismiss_days === 'number' && Number.isFinite(argRec.dismiss_days)
           ? argRec.dismiss_days
@@ -5079,13 +4097,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // ── Saved Posts controls ─────────────────────────────────────────
-    // The same three shapes the feed carries, against bookmarkControls,
-    // with one difference that comes from the catalog rather than from
-    // here: `presentation`. Noor's designs draw sort and layout as
-    // BOTTOM SHEETS on this screen while the feed keeps its anchored
-    // popover, so the frame is an action arg. Leaving it unset gives the
-    // popover — which is what makes this safe to point at any screen.
     case 'bookmarks.set_sort':
     case 'bookmarks.set_view_mode': {
       const isSort = inv.action_slug === 'bookmarks.set_sort';
@@ -5122,13 +4133,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'bookmarks.set_search': {
-      // Fires on every keystroke, including the ⨯ clear — which sends an
-      // empty string, and must, since clearing the field is how you get
-      // the whole list back. fc-bookmarks binds `search`, so the WRITE is
-      // a refetch rather than a filter over the loaded page, which is
-      // exactly why it goes through debounceSearch: one request when the
-      // typing stops, not one per character. The clear is applied
-      // immediately — see searchDebounce.ts.
+      // Debounced: fc-bookmarks binds `search`, so each write refetches; the ⨯ clear applies immediately.
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
       const itemValue =
         itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
@@ -5138,29 +4143,12 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // ── Search screen (2026-08-23) ─────────────────────────────────────
-    //
-    // Five handlers, and every one of them is a write to searchControls
-    // and nothing else. None calls an endpoint: the three result lists
-    // refetch because their DataSources bind the slice as query params,
-    // and the four recent-search histories never leave the device.
-    //
-    // Nothing here decides which list is showing either. The slice
-    // derives `active_scope` from the tab and the query length, and the
-    // placements gate on that — so a handler that wrote the wrong tab
-    // would show the wrong results, but a handler cannot show results
-    // for a query too short to have any.
-
     case 'search.set_tab': {
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
       const itemValue =
         itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
       const picked = runtimeValue ?? itemValue ?? '';
-      // Validated against the closed set rather than passed through like
-      // spaces.set_tab. These three values are not just catalog labels —
-      // `active_scope` carries whichever one is written straight into the
-      // placement gates, so a typo in the tabs array would mount NO
-      // result card and leave a screen that searches and shows nothing.
+      // Closed set: the value feeds placement gates directly, so a typo would mount no result card.
       if (picked === 'posts' || picked === 'members' || picked === 'spaces') {
         setSearchControls({ tab: picked });
       } else {
@@ -5174,10 +4162,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       const itemValue =
         itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
       const picked = runtimeValue ?? itemValue ?? '';
-      // FluentCommunity's own `search_in` values. Guarded for a different
-      // reason than the tabs above: FC does not reject an unknown one, it
-      // matches NOTHING — so a typo would read as "there are no results"
-      // rather than as a bug.
+      // FC doesn't reject an unknown `search_in`, it just matches nothing.
       if (picked === 'post_content' || picked === 'post_comments') {
         setSearchControls({ post_scope: picked });
       } else {
@@ -5191,35 +4176,16 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       const itemValue =
         itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
       const value = runtimeValue ?? itemValue ?? '';
-      // Two callers, and they want opposite things.
-      //
-      // A RECENT ROW hands over a whole term at once — there is nothing
-      // to wait for, and 300ms of nothing after tapping a row reads as a
-      // dead row. It cancels any keystroke still pending first, or that
-      // keystroke lands afterwards and overwrites the term just picked.
+      // A recent row applies immediately and cancels any pending keystroke, which would otherwise overwrite it.
       if (argRec.immediate === true) {
         cancelDebouncedSearch('search');
         setSearchControls({ query: value });
-        // The field is UNCONTROLLED (Ionic holds the text), so writing the
-        // slice does not put the term in the box. Without this the tapped
-        // search runs and its results — or its "No matches" — appear over
-        // an EMPTY field, with the reason for them nowhere on screen.
+        // The field is uncontrolled, so writing the slice doesn't show the term.
         setPrimitiveInputValue('fc-search-field', 'children[1]', value);
-        // Re-searching something already remembered moves it to the top
-        // rather than duplicating it.
         recordRecentSearch(value);
         return;
       }
-      // The FIELD fires once per character (onIonInput, by design —
-      // onIonChange only fires on blur and search-as-you-type would feel
-      // dead until you tapped away). Three DataSources bind `query`, so
-      // each write is a REFETCH: without the debounce, six letters is six
-      // requests whose answers race (P97). The ⨯ clear sends '' and is
-      // applied immediately — see searchDebounce.ts.
-      //
-      // Remembering the term hangs off the SETTLED write, not the
-      // dispatch. Recording per keystroke would fill the list with every
-      // prefix of every word.
+      // Debounced: three DSs bind `query`, so each keystroke would be a racing refetch. Record on the settled value, not per keystroke.
       debounceSearch('search', value, (query) => {
         setSearchControls({ query });
         recordRecentSearch(query);
@@ -5228,9 +4194,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'search.remove_recent': {
-      // The ⨯ on one row. The term arrives on the bound item — this row
-      // is a Data-Source-backed card, so `item` is the {value,label} row
-      // fc-search-recents served out of the slice.
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
       const itemValue =
         itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
@@ -5244,18 +4207,11 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'search.clear_recents': {
-      // Clears the CURRENT tab + scope only. Designs 1 and 2 show Content
-      // and Comments as two separate lists, so clearing one must leave the
-      // other alone — the slice scopes it by `scope_key`, not here.
       clearRecentSearches();
       return;
     }
 
     case 'spaces.set_tab': {
-      // Tab value comes from the tapped child's `value` prop (stamped by
-      // the wrapper onClick from binds_to 'children[i].value'). Tab set is
-      // catalog-driven now (fc-spaces-tabs.tabs); PlacementRenderer's
-      // data_source_by_state maps the picked value to the DS to fetch.
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
       const itemValue =
         itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
@@ -5272,25 +4228,16 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'spaces.set_search': {
-      // Fires on every keystroke from ion-input. The value is threaded
-      // through inv.item.value payload the PrimitiveRenderer stamps on
-      // input events.
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
       const itemValue =
         itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
       const value = runtimeValue ?? itemValue ?? '';
-      // NOT debounced, unlike bookmarks and documents. The spaces list
-      // filters CLIENT-SIDE — PlacementRenderer matches title/description
-      // against this value over rows already in hand (fc-spaces-all /
-      // fc-spaces-my), and no DataSource binds it. There is no request to
-      // save, so a debounce would only add lag to a local filter.
+      // Not debounced: the spaces list filters client-side.
       setSpacesControls({ search: value });
       return;
     }
 
     case 'spaces.set_sort': {
-      // Same popover pattern as feed.set_sort. Anchored to the toolbar's
-      // sort button (child index 1 on fc-spaces-toolbar).
       const rawOptions = Array.isArray(argRec.options) ? argRec.options : [];
       const options: ViewModeOption[] = rawOptions
         .filter((o): o is Record<string, unknown> => isRecord(o))
@@ -5307,14 +4254,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // The profile's tab strip. Same shape as space_detail.set_subtab:
-    // the variadic child template stamps the entry's value onto
-    // inv.item, with an args fallback for a direct-fire caller.
-    //
-    // The strip's entries come from the profile ROW — FluentCommunity's
-    // own profile_navs — so the values here are whatever that mapped to,
-    // and a tab with no placement answering it simply renders an empty
-    // body rather than breaking.
     case 'profile.set_tab': {
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
       const itemValue =
@@ -5328,18 +4267,13 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // The follow lists (2026-09-02). Three writers into profileControls
-    // and the one that opens the screen.
     case 'profile.set_follow_view': {
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
       const itemValue =
         itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
       const picked = runtimeValue ?? itemValue ?? '';
       if (picked) {
-        // Clearing the search with the strip is deliberate: the two lists
-        // are different people, and a query typed against one of them
-        // silently narrowing the other reads as an empty list rather than
-        // as a filter still being applied.
+        // Switching lists clears the search, or it silently narrows the other list.
         setProfileControls({ follow_view: picked, follow_search: '' });
       } else {
         console.warn('[appza] profile.set_follow_view: no picked value', { argRec, item });
@@ -5348,10 +4282,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'profile.set_follow_search': {
-      // Same contract as documents.set_search — Ionic's ⨯ fires with '',
-      // so one case covers set and clear. Debounced because both follow
-      // DataSources bind this as a query param and every keystroke would
-      // otherwise be a request.
+      // Debounced: both follow DSs bind it; Ionic's ⨯ fires ''.
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
       const itemValue =
         itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
@@ -5363,9 +4294,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
 
     case 'profile.set_follow_sort': {
       const options = readPickerOptions(argRec.options);
-      // Silent return, as every other picker in this dispatcher does:
-      // the simulator has no error channel, and its one message slot
-      // belongs to the login screen (P127).
+      // Silent: the simulator's only message slot belongs to the login screen.
       if (options.length === 0) return;
       const sheetSlug =
         typeof argRec.sheet_appzet_slug === 'string' && argRec.sheet_appzet_slug
@@ -5387,19 +4316,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'profile.open_follows': {
-      // The three header counts open ONE SHEET (doc states 36-39) and
-      // differ only in which tab it lands on — so the count that was
-      // tapped decides the view, and a sheet that always opened on
-      // Following would make two of the three counts lie.
-      //
-      // It used to push the `profile-follows` SCREEN, which D79 built and
-      // Noor replaced with this on 2026-09-16. The third tab is what the
-      // screen could never hold: blocked users had no home, which is why
-      // the header's Blocked count had nowhere to go.
-      //
-      // The sheet reads its rows itself through useDataSource, so only
-      // the SLUGS travel here — no endpoint is written down in either
-      // shell.
+      // The tapped count decides which tab the sheet opens on.
       const view =
         argRec.view === 'followers' || argRec.view === 'blocked'
           ? (argRec.view as FollowView)
@@ -5427,9 +4344,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           followers: dsFor('followers_data_source', 'fc-member-followers'),
           blocked: dsFor('blocked_data_source', 'fc-blocked-users'),
         },
-        // Tapping a row leaves the sheet for that member's profile. The
-        // push is delegated rather than restated: it carries route params
-        // and screen context, and a second copy of that would drift.
+        // Delegated to the nav push, which carries route params and screen context.
         onOpenProfile: (row) => {
           closeFollowSheet();
           handleAppModeAction(
@@ -5465,8 +4380,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'space_detail.set_subtab': {
-      // fc-space-subtabs children_from_prop strip. Same shape as
-      // spaces.set_tab above — value flows through inv.item.value.
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
       const itemValue =
         itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
@@ -5483,8 +4396,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'space_detail.set_topic': {
-      // fc-space-topics chip. topic_slug='' = "All"; refetch of
-      // fc-space-feeds is automatic via query_params state binding.
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
       const itemValue =
         itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
@@ -5494,9 +4405,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'space_detail.set_sort': {
-      // Sort popover on fc-space-post-toolbar. Same shape as
-      // spaces.set_sort: no runtime value = open the picker; runtime
-      // value present = commit the picked sort.
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
       if (runtimeValue) {
         setSpaceDetailControls({ sort: runtimeValue });
@@ -5519,11 +4427,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'documents.set_search': {
-      // fc-documents-search ion-input. onIonInput grafts the current text
-      // onto action.item.value, including when Ionic's ⨯ clears the field
-      // (it fires with ''), so one case covers set + clear. The refetch is
-      // automatic: fc-space-documents binds `search` to this state key —
-      // hence the debounce, and hence the clear landing immediately.
+      // Debounced: fc-space-documents binds `search`; Ionic's ⨯ fires ''.
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
       const itemValue =
         itemRec && typeof itemRec.value === 'string' ? (itemRec.value as string) : null;
@@ -5534,9 +4438,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'documents.set_draft': {
-      // One writer for every plain draft field; `field` names which.
-      // The switch reports a boolean and the text inputs a string, so
-      // both shapes are accepted rather than coerced to one.
       const field = typeof argRec.field === 'string' ? argRec.field : '';
       if (!field) {
         console.warn('[appza-admin/app-mode] documents.set_draft: no field');
@@ -5554,8 +4455,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'documents.toggle_topic': {
-      // Chip value comes from the expanded child's `value` override,
-      // which field_mapping filled from entry.id.
       const raw = argRec.value !== undefined ? argRec.value : itemRec?.value;
       const id = Number.parseInt(String(raw ?? ''), 10);
       if (Number.isFinite(id)) toggleDraftTopic(id);
@@ -5578,10 +4477,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         onLoginError('Please sign in to schedule a post.');
         return;
       }
-      // The glyph is gated on the moderator verdict, so this only fires
-      // without one if the catalog was edited to show it anyway. Saying
-      // why beats a sheet whose result FluentCommunity would discard in
-      // silence.
+      // FC would silently discard a schedule from a non-moderator.
       const d = getPostDraft();
       if (!d.viewer_is_moderator && !d.space_can_announce) {
         onLoginError('Only moderators can schedule a post.');
@@ -5614,15 +4510,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // === MEDIA sub-tab (2026-08-17) ===
-    // Mirrors the mobile shell case for case, except media.download —
-    // see the note there.
-
-    // ---- Leaderboard (2026-08-19) -------------------------------
-    //
-    // Both setters write a key that a DataSource binds as a query
-    // param, so the refetch is the fetch — nothing here filters or
-    // slices anything client-side.
     case 'leaderboard.set_range': {
       const runtimeValue = typeof argRec.value === 'string' ? argRec.value : null;
       const itemValue =
@@ -5637,8 +4524,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'leaderboard.expand_levels': {
-      // A fixed value, not a toggle: VIEW ALL is one-way by design and
-      // the button's placement disappears once the card is expanded.
+      // Fixed value: VIEW ALL is one-way.
       const value = typeof argRec.value === 'string' && argRec.value !== '' ? argRec.value : 'all';
       setLeaderboardControls({ levels_scope: value });
       return;
@@ -5653,9 +4539,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         typeof argRec.levels_data_source === 'string'
           ? argRec.levels_data_source
           : 'fc-leaderboard-levels';
-      // Resolved from the catalog, never written down here — the sheet
-      // is opened by an action rather than mounted by a placement, so
-      // there is no useDataSource in its tree to do it (D51).
+      // Opened by an action, so there's no useDataSource to resolve the endpoint.
       const levelsEndpoint = readDataSourceEndpointFromCatalog(catalog, dsSlug);
       if (!levelsEndpoint) {
         onLoginError(`No endpoint for the ${dsSlug} data source.`);
@@ -5738,15 +4622,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // === The conversation 3-dot menu and its three destructive
-    // confirms (2026-08-18) ===
-    //
-    // ONE slug opens both surfaces, because the thread's `type` is what
-    // decides which: a space or group conversation opens a member sheet
-    // from the bottom, a one-to-one opens a profile card in the middle.
-    // Splitting it into two actions would put that branch in the
-    // catalog, where a customer editing the appbar would have to know
-    // which kind of conversation their app opens.
+    // One slug: the thread `type` decides sheet vs card, so the catalog needn't know.
     case 'chat.thread_menu': {
       const thread = isRecord(effectiveItem) ? effectiveItem : {};
       const type = typeof thread.type === 'string' ? thread.type : 'user';
@@ -5768,9 +4644,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           ),
           onBlock: (t) => handleAppModeAction({
               action_slug: 'chat.block_confirm',
-              // The confirm's copy lives on ITS action, not on the menu's —
-              // re-entering with the menu's args would hand the alert an
-              // empty bag and fall back to the hardcoded wording.
+              // The confirm's copy lives on its own action; the menu's args would give an empty bag.
               args: readActionDefaultsFromCatalog('chat.block_confirm') ?? undefined,
               item: t,
             }, deps),
@@ -5798,9 +4672,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         typeof argRec.members_data_source === 'string'
           ? argRec.members_data_source
           : 'fc-chat-members';
-      // Resolved from the catalog, never written down here — the sheet
-      // is opened by an action rather than mounted by a placement, so
-      // there is no useDataSource in its tree to do it.
+      // Opened by an action, so there's no useDataSource to resolve the endpoint.
       const membersEndpoint = readDataSourceEndpointFromCatalog(catalog, dsSlug);
       if (!membersEndpoint) {
         onLoginError(`No endpoint for the ${dsSlug} data source.`);
@@ -5849,9 +4721,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         return;
       }
       closeChatMembersSheet();
-      // The space-detail data sources bind route.slug, and its own
-      // controls slice drives which sub-tab opens — both have to agree
-      // or the screen re-seeds itself onto a different space.
+      // Route slug and controls slice must agree, or the screen re-seeds onto another space.
       setSpaceDetailControls({ space_slug: spaceSlug, active_subtab: 'posts' });
       setRouteParams({ ...getRouteParams(), slug: spaceSlug });
       if (currentScreenId != null) {
@@ -5861,10 +4731,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // All three confirms are the shared row-layout alert — Cancel beside
-    // a destructive verb — which is the shape designs 4, 8 and 9 all
-    // draw. Only the copy and the action they dispatch differ, and both
-    // come off the catalog.
     case 'chat.leave_confirm':
     case 'chat.block_confirm':
     case 'chat.delete_conversation_confirm': {
@@ -5897,8 +4763,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           next: 'chat.delete_conversation',
         },
       };
-      // The switch above guarantees one of the three keys, but the
-      // index signature does not know that.
       const d = defaults[inv.action_slug] ?? leaveDefaults;
       const nextSlugKey =
         inv.action_slug === 'chat.leave_confirm'
@@ -5912,9 +4776,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         cancelLabel: typeof argRec.cancel_label === 'string' ? argRec.cancel_label : 'Cancel',
         confirmLabel: typeof argRec.confirm_label === 'string' ? argRec.confirm_label : d.confirm,
         busyLabel: typeof argRec.busy_label === 'string' ? argRec.busy_label : d.busy,
-        // Cancel beside the verb, not stacked — the member-removal flow
-        // stacks because "Remove from space" is too long to sit next to
-        // Cancel; these three verbs are one word each.
         actionsLayout: 'row',
         item: thread,
         removeActionSlug:
@@ -5929,9 +4790,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       const thread = isRecord(effectiveItem) ? effectiveItem : {};
       const threadId = Number(thread.id ?? 0);
       const isBlocked = thread.is_blocked === true;
-      // Blocking and unblocking are one action on two endpoints: FC
-      // flips both the thread status and the blocker's own membership
-      // row, so the same pair undoes it.
+      // FC flips the thread status and the blocker's membership, so the same pair undoes it.
       const endpoint =
         inv.action_slug === 'chat.block' && isBlocked
           ? (typeof argRec.unblock_endpoint === 'string' ? argRec.unblock_endpoint : null)
@@ -5950,8 +4809,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         closeMemberRemoveConfirm();
         return;
       }
-      // Leaving or deleting takes the screen with it, so the alert, the
-      // sheet and the card all come down before the pop.
       const leavesScreen =
         inv.action_slug === 'chat.leave' || inv.action_slug === 'chat.delete_conversation';
       void (async () => {
@@ -5995,9 +4852,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             }),
           );
           if (leavesScreen) {
-            // Design 9 says delete returns to the chat list. There is no
-            // list screen yet (Noor's call), so this pops back to
-            // whatever pushed the conversation.
+            // No chat list screen yet, so pop back to whatever pushed the conversation.
             setScreenStack((prev) => {
               const next = [...prev];
               const back = next.pop();
@@ -6014,13 +4869,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // === Chat writes (2026-08-18) ===
-    //
-    // The four of them share one shape: everything the write needs is in
-    // the chat state slice, and the endpoint comes off the action args.
-    // The sequences themselves live in the renderer's chatSend module so
-    // this shell and the simulator cannot drift — the same call
-    // documentSubmit makes, for the same reason (P69).
     case 'chat.send': {
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       if (!endpoint) {
@@ -6037,10 +4885,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           typeof argRec.create_thread_endpoint === 'string' && argRec.create_thread_endpoint
             ? argRec.create_thread_endpoint
             : '/wp-json/fcom-mobile/api/v1/chat/threads/create',
-        // The thread now exists. Adopt its id — into the slice AND the
-        // route bag, because the message list reads the route and the
-        // composer reads the slice — and drop the intent, so the next
-        // send is an ordinary message rather than a second create.
+        // Adopt the new thread id into the slice and the route bag, and drop the intent so the next send isn't a second create.
         onThreadCreated: (threadId: number) => {
           setRouteParams({ thread_id: threadId });
           setChatControls({ thread_id: String(threadId), intent_user_id: '', can_send: 'yes' });
@@ -6088,9 +4933,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       const url = itemRec ? readDataPath(itemRec, 'data.url') : undefined;
       if (!endpoint || typeof url !== 'string' || url === '') {
-        // Still drop the thumbnail — the user tapped ×, and a missing
-        // endpoint is not their problem. The scheduled sweep takes the
-        // file.
         setChatControls({
           attachments: getChatControls().attachments.filter((u) => u !== url),
         });
@@ -6121,12 +4963,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // The bubble has already written the slice by the time this fires —
-    // a swipe is not a click, so it cannot wait for a dispatch round
-    // trip. The case exists so the gesture is still repointable from the
-    // right panel, and so a caller that fires it WITHOUT having written
-    // the slice (a customer wiring reply to something of their own) gets
-    // the same result.
+    // A swipe writes the slice itself; this case keeps the gesture repointable.
     case 'chat.reply_start': {
       if (!itemRec) return;
       const id = readDataPath(itemRec, 'data.id');
@@ -6148,16 +4985,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'chat.open': {
-      // The CHAT sub-tab entry carries this as a per-entry
-      // on_click_action override instead of the usual set_subtab: every
-      // chat design Noor supplied is a screen of its own — its own
-      // appbar with the conversation's avatar, no switcher strip — so
-      // the tap is a push, not a tab switch.
-      //
-      // thread_id and space_slug are ALTERNATIVES, not a pair. The CHAT
-      // tab knows a space slug and nothing else; a conversation opened
-      // by id knows only the id. Both data sources bind both and the
-      // endpoint falls through, so whichever we have is enough.
+      // thread_id and space_slug are alternatives; both DSs bind both.
       const targetSlug =
         typeof argRec.target_screen_slug === 'string'
           ? argRec.target_screen_slug
@@ -6181,16 +5009,8 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         typeof rawThread === 'number' || (typeof rawThread === 'string' && rawThread !== '')
           ? String(rawThread)
           : '';
-      // The sub-tab entry is only {value, label} — it cannot carry the
-      // space it belongs to. The space being viewed is already in the
-      // space-detail slice, which is where the other member actions read
-      // it from too.
       let spaceSlug = typeof rawSlug === 'string' ? rawSlug : '';
-      // Falling back to the space-detail slice is the DEFAULT, not an
-      // opt-in. A per-entry on_click_action override carries a slug and
-      // nothing else — the shells receive `args` verbatim and never look
-      // the action's param_schema up — so requiring the arg meant the
-      // CHAT tab dispatched with an empty bag and bailed out silently.
+      // Slice fallback is the default: shells get `args` verbatim, so a per-entry override carries only a slug.
       const slugSource =
         typeof argRec.space_slug_source === 'string'
           ? argRec.space_slug_source
@@ -6203,11 +5023,8 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         return;
       }
 
-      // Resets the per-visit keys (reply target, selection, draft) when
-      // the conversation changes — see the switch guard in the slice.
       setChatControls({ thread_id: threadId, space_slug: spaceSlug });
-      // MERGE, don't replace (P85): space-detail's own `slug` has to
-      // survive, or coming back re-seeds it and resets the sub-tab.
+      // Merge: space-detail's own `slug` must survive, or returning re-seeds it.
       setRouteParams({
         ...getRouteParams(),
         thread_id: threadId,
@@ -6222,19 +5039,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'chat.open_dm': {
-      // A conversation that may not exist yet (2026-09-02).
-      //
-      // FluentCommunity cannot open an empty one-to-one thread — its
-      // create endpoint validates `message` as required and makes the
-      // thread WITH the first message — so this carries an INTENT and
-      // nothing else. The portal's own Message button does the same,
-      // linking to /portal/chat?user_id=N.
-      //
-      // The proxy answers the thread source for an intent with a
-      // synthesised row: the member's name and face, id 0, can_send true.
-      // So the screen draws the person, the composer exists, and the
-      // send handler creates the thread on the first message — after
-      // which this is an ordinary conversation.
+      // FC can't create an empty one-to-one thread, so this carries an intent; the send handler creates it with the first message.
       const targetSlug =
         typeof argRec.target_screen_slug === 'string'
           ? argRec.target_screen_slug
@@ -6258,9 +5063,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         return;
       }
 
-      // Clearing thread_id and space_slug is what makes this an intent
-      // rather than a stale conversation wearing a new name — the slice's
-      // switch guard then resets the draft and the reply target too.
+      // Clearing thread_id/space_slug makes this an intent, not a stale conversation.
       setChatControls({ thread_id: '', space_slug: '', intent_user_id: memberId });
       setRouteParams({
         ...getRouteParams(),
@@ -6276,8 +5079,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // The profile tabs' two confirms and their writes (doc states 57,
-    // 58, 62, 63). Shared with the other shell; see profileTabActions.
     case 'profile.remove_from_space_confirm':
     case 'profile.remove_from_space':
     case 'profile.delete_comment_confirm':
@@ -6291,9 +5092,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // The Scheduled Posts page (doc states 67-69). Shared with the other
-    // shell; see scheduledPostActions. The sheet is the composer's own,
-    // opened here because its presentation is the catalog's.
     case 'scheduled.reschedule':
     case 'scheduled.publish_confirm':
     case 'scheduled.publish':
@@ -6321,8 +5119,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'chat.compose_dm': {
-      // Doc states 51 and 52 — the New Message modal. Replaced
-      // chat.open_dm on the profile; see profileNewMessage.
       openProfileNewMessage(argRec, effectiveItem, {
         auth,
         authHeader: basicAuthHeader,
@@ -6338,8 +5134,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'profile.add_to_space': {
-      // Doc states 49 and 50 — the grouped list, then a role for a space.
-      // Shared with the other shell; see profileAddToSpace.
       openProfileAddToSpace(argRec, effectiveItem, {
         auth,
         authHeader: basicAuthHeader,
@@ -6371,12 +5165,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       const routeBag: Record<string, unknown> = {};
       if (typeof postSlug === 'string' && postSlug) routeBag.post_slug = postSlug;
       if (typeof postId === 'number' || typeof postId === 'string') routeBag.id = postId;
-      // MERGE, don't replace: setRouteParams() overwrites the whole bag.
-      // Dropping the space `slug` here cost the return trip — space-detail
-      // seeds its own route slug when none is set, and that seeding also
-      // resets active_subtab to 'posts', so coming back from a post landed
-      // on POSTS instead of the MEDIA tab the user left from. A media row
-      // never leaves its space, so the existing slug is still correct.
+      // Merge: dropping the space `slug` makes space-detail re-seed and reset the sub-tab on return.
       setRouteParams({ ...getRouteParams(), ...routeBag });
       screenContextRef.current[targetSlug] = {
         ...(isRecord(item) ? item : {}),
@@ -6401,11 +5190,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         return;
       }
       const name = itemRec ? readDataPath(itemRec, `data.${namePath}`) : undefined;
-      // The simulator runs in a real browser, so an anchor with the
-      // download attribute works here and saves under the DISPLAY name
-      // rather than FluentCommunity's storage name (P80). The mobile
-      // shell can't do this — a WebView ignores the attribute — so it
-      // hands off to the system browser instead.
+      // A real browser honours `download`, so save under the display name (a WebView ignores it).
       const a = document.createElement('a');
       a.href = url;
       a.download = typeof name === 'string' && name !== '' ? name : '';
@@ -6443,10 +5228,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             setSelectedScreenId(prev[prev.length - 1] ?? null);
             return rest;
           });
-          // Same deferred double-dispatch as post.create: the documents
-          // list hasn't remounted yet when the nav commits, so a single
-          // immediate event would be missed and the new card wouldn't
-          // appear until the next visit.
+          // Deferred double-dispatch: the documents list hasn't remounted when the nav commits.
           const g = window as unknown as { __appzaForceRefreshUntil?: number };
           g.__appzaForceRefreshUntil = Date.now() + 3000;
           setTimeout(() => window.dispatchEvent(new Event('appza:refresh-data')), 150);
@@ -6457,8 +5239,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'documents.open_add': {
-      // FAB on the documents tab. The add-document screen ships in chunk 2;
-      // until it's seeded this warns instead of blanking the canvas.
       const targetSlug =
         typeof argRec.target_screen_slug === 'string'
           ? argRec.target_screen_slug
@@ -6477,8 +5257,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         screenContextRef.current[targetSlug] = { slug: spaceSlug };
         delete screenPrefilledRef.current[targetSlug];
       }
-      // Fresh form every time the screen is opened — the draft holds File
-      // handles and is deliberately not persisted.
+      // Not persisted: the draft holds File handles.
       resetDocumentDraft(spaceSlug);
       if (currentScreenId != null) {
         setScreenStack((prev) => [...prev, currentScreenId]);
@@ -6488,10 +5267,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'space.compose_open': {
-      // Nav.push variant to create-post-page. Carries the current
-      // space context so fc-post-information can prefill its space
-      // picker. When effectiveItem is null (composer teaser has no
-      // per-item context) we synthesize one from the route params.
       const target = catalog?.template_screens?.find(
         (s) => s.app_map_screen_slug === 'create-post-page',
       );
@@ -6518,9 +5293,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'post.open': {
-      // Nav.push to post-detail carrying the tapped post. Distinct
-      // action slug from a plain nav.push so analytics can filter
-      // "View more comments" taps separately later.
       const target = catalog?.template_screens?.find(
         (s) => s.app_map_screen_slug === 'post-detail',
       );
@@ -6549,10 +5321,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'space.join': {
-      // Sim shortcut — real endpoint fires in mobile shell. Stamp a
-      // synthetic space_pivot onto the tapped item so the CTA swaps to
-      // View Space immediately; the real endpoint call the mobile shell
-      // makes returns the same shape after cache TTL.
+      // Simulated: stamps a space_pivot so the CTA swaps to View Space.
       if (isRecord(effectiveItem)) {
         (effectiveItem as Record<string, unknown>).space_pivot = { status: 'active' };
       }
@@ -6570,11 +5339,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // ── Member 3-dot overflow flow ────────────────────────────────────
-    // Mirrors the mobile shell. The UI-opening actions really do open
-    // their sheets/dialogs so admins can preview the flow; the two
-    // write actions (member.set_role, member.remove) are simulated —
-    // no real HTTP fires from the plugin-admin simulator.
     case 'member.options': {
       const rawItems = Array.isArray(argRec.items) ? argRec.items : [];
       const items = rawItems
@@ -6610,11 +5374,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     case 'member.set_role': {
-      // Real HTTP against the fcom-mobile add-member endpoint (doubles as
-      // role updater when the target user is already a member). Uses the
-      // WP admin's Basic auth like every other write — plugin-admin runs
-      // at the WP origin, so relative endpoints from the catalog resolve
-      // fine here without absolutization.
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
       const userIdPath =
@@ -6676,19 +5435,12 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // member.add is dual-mode on the same slug (mirrors the two-phase
-    // add-member flow):
-    //   - opener: fires from fc-space-members-actions Add Member button.
-    //     No user_id + role in args → open the AddMemberModal.
-    //   - submit: fires from inside the modal after a user + role are
-    //     picked. user_id + role present in args → real HTTP POST.
+    // Dual-mode: no user_id/role opens the modal; with them it submits.
     case 'member.add': {
       const hasUser = argRec.user_id !== undefined && argRec.user_id !== null;
       const hasRole = typeof argRec.role === 'string' && argRec.role !== '';
 
       if (!hasUser || !hasRole) {
-        // Open path — pull labels + role_options off the referenced modal
-        // AppZet's resolved props so builder edits flow through.
         const formSlug =
           typeof argRec.form_appzet_slug === 'string'
             ? argRec.form_appzet_slug
@@ -6712,9 +5464,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           restNonce: window.appzaCoreConfig?.restNonce,
           submitActionSlug: 'member.add',
           submitArgs: {
-            // Carry any wire-time overrides through to the submit
-            // invocation so the shell POST uses the same endpoint /
-            // method the opener resolved.
             endpoint: typeof argRec.endpoint === 'string' ? argRec.endpoint : undefined,
             method: typeof argRec.method === 'string' ? argRec.method : undefined,
           },
@@ -6722,8 +5471,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         return;
       }
 
-      // Submit path — real HTTP POST /wp-json/fcom-mobile/api/v1/spaces/add-member
-      // with {space_slug, user_id, role}. Same shape as member.set_role.
       const endpoint =
         typeof argRec.endpoint === 'string'
           ? argRec.endpoint
@@ -6784,12 +5531,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // Blocking someone confirms first, and reuses the member-removal
-    // alert: it is a generic "are you sure, then dispatch this action"
-    // dialog, and blocking is not undone from where it was done.
-    // Kept in step with the mobile shell's copy of this case. The two had
-    // already drifted in structure before 2026-09-16; they now answer the
-    // same three slugs with the same defaults.
+    // Blocking confirms first; kept in step with the mobile shell's copy.
     case 'profile.block_confirm':
     case 'profile.unblock_confirm':
     case 'member.remove_confirm': {
@@ -6806,8 +5548,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       const subject = typeof rawSubject === 'string' && rawSubject ? rawSubject : 'Member';
       openMemberRemoveConfirm({
         subject,
-        // Designs 45 and 48's own sentences. Design 45 reads "Blocking this
-        // will hide…" with the noun missing; shipped with "user" restored.
         message:
           typeof argRec.message === 'string'
             ? argRec.message
@@ -6894,12 +5634,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       return;
     }
 
-    // member.invite is dual-mode on the same slug, exactly like
-    // member.add:
-    //   - opener: fires from fc-space-members-actions Invite User. No
-    //     email in args → open the InviteUserModal.
-    //   - submit: fires from inside the modal once an email and role
-    //     are filled in → real HTTP POST.
+    // Dual-mode like member.add: no email opens the modal; with one it submits.
     case 'member.invite': {
       const email = typeof argRec.email === 'string' ? argRec.email.trim() : '';
 
@@ -6910,8 +5645,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             : 'fc-invite-user-modal';
         const props = readAppzetPropsFromCatalog(formSlug);
 
-        // Endpoint comes from the catalog's DataSource row, never a
-        // literal in the shell.
         const dsSlug =
           typeof argRec.list_data_source === 'string'
             ? argRec.list_data_source
@@ -6980,9 +5713,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             onMenuError(outcome.message);
             return;
           }
-          // The endpoint's own message distinguishes "joined the space
-          // right away" from "invitation emailed", so prefer it over
-          // the action's generic toast_message.
+          // Prefer the endpoint's message: it tells "joined" from "invitation emailed".
           onMenuInfo(
             outcome.message ||
               (typeof argRec.toast_message === 'string'
@@ -7008,8 +5739,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         cancelLabel: typeof argRec.cancel_label === 'string' ? argRec.cancel_label : 'Cancel',
         confirmLabel: typeof argRec.confirm_label === 'string' ? argRec.confirm_label : 'Delete',
         busyLabel: 'Deleting…',
-        // Cancel | Delete sit side by side in this dialog, unlike the
-        // member-removal one whose confirm label is far longer.
         actionsLayout: 'row',
         item: effectiveItem,
         removeActionSlug:
@@ -7071,7 +5800,6 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
                   ? 'Invitation deleted'
                   : 'Invitation resent'),
           );
-          // The modal's list listens for this and repopulates itself.
           window.dispatchEvent(new CustomEvent('appza:refresh-data'));
         } catch (err) {
           onMenuError(err instanceof Error ? err.message : String(err));
@@ -7105,9 +5833,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     }
 
     default:
-      // Mutating actions we haven't wired yet (cart.add, profile.save, etc.)
-      // still fall through to log-only so admins can see them fire during
-      // preview without accidentally hitting real endpoints.
+      // Unwired mutating actions only log.
       console.info(
         '[appza-admin/app-mode] action fired (not executed in sim):',
         action_slug,
@@ -7117,13 +5843,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
   }
 }
 
-/**
- * Append text to an ion-textarea located by DOM path attributes. Fires
- * an input event afterward so ion-textarea's internal state syncs — this
- * matters because Ionic tracks value via listeners, not just DOM prop
- * reads. Also focuses the element + moves the cursor to the end for a
- * natural "keep typing" feel.
- */
+// Fires an input event so Ionic's internal value syncs.
 function appendToTextarea(appzetSlug: string, primitivePath: string, text: string): void {
   const wrapper = document.querySelector(
     `[data-appza-appzet-slug="${CSS.escape(appzetSlug)}"][data-appza-primitive-path="${CSS.escape(primitivePath)}"]`,
@@ -7141,20 +5861,12 @@ function appendToTextarea(appzetSlug: string, primitivePath: string, text: strin
   }
   const current = typeof el.value === 'string' ? el.value : '';
   el.value = current + text;
-  // Fire an input event so Ionic + any listening controlled components
-  // pick up the new value. Ionic's ion-textarea/ion-input dispatches its
-  // own ionInput event on `value` mutation via property setter, but firing
-  // a native `input` event is a belt-and-braces sync signal.
   el.dispatchEvent(new Event('input', { bubbles: true }));
   if (typeof el.setFocus === 'function') {
     void el.setFocus();
   }
 }
 
-/**
- * Format a Date for the composer's user-avatar card date line.
- * Style matches FC portal's "Jul 15, 2026 · 4:37 pm" pattern.
- */
 function formatNowLabel(d: Date): string {
   const dateStr = d.toLocaleDateString(undefined, {
     year: 'numeric',
@@ -7181,12 +5893,6 @@ function pickString(
   return null;
 }
 
-/**
- * Confirm-delete modal for the post.delete action. Kept intentionally
- * lean. Cancel + confirm buttons; confirm is a red "Delete" CTA
- * that disables while the request is in flight so a double-tap can't
- * fire two DELETEs.
- */
 function ConfirmDeleteModal({
   title,
   message,
@@ -7208,10 +5914,7 @@ function ConfirmDeleteModal({
       aria-modal="true"
       aria-label={title}
       style={{
-        // Absolute — the parent (.appza-device-viewport) is
-        // position:relative in the simulator, so this fills only the phone
-        // screen. On the real Capacitor build there's no bezel, so an
-        // absolute overlay against IonPage still covers the whole viewport.
+        // Absolute: fills only the phone screen inside the simulator's position:relative viewport.
         position: 'absolute',
         inset: 0,
         background: 'rgba(15,23,42,0.55)',
@@ -7277,19 +5980,6 @@ function ConfirmDeleteModal({
   );
 }
 
-/**
- * In-device comment panel opened by the comment.create action. Owns:
- *  - GET list_endpoint?feed_id=<id> on mount + after each successful
- *    send, populates a scrollable list of existing comments (avatar +
- *    display name + created_at + message).
- *  - Text input + Send button that POSTs to endpoint with Basic Auth,
- *    body { [body_key]: feed_id, [message_key]: text }.
- *  - Backdrop click / X button dismisses.
- *
- * Same absolute-inside-viewport positioning as ConfirmDeleteModal so it
- * lives inside the DeviceFrame's phone bezel on the simulator and full-
- * viewport on the real Capacitor build.
- */
 type PanelComment = {
   id?: number | string;
   parent_id?: number | string | null;
@@ -7303,9 +5993,7 @@ type PanelComment = {
   children?: PanelComment[];
 };
 
-// FCOM /feeds/comments returns a flat list — nest by parent_id here.
-// Keys normalized to string because the API returns id as number but
-// parent_id as string.
+// FC returns a flat list; id is a number but parent_id a string.
 function buildCommentTree(flat: PanelComment[]): PanelComment[] {
   const byId = new Map<string, PanelComment>();
   for (const c of flat) {
@@ -7389,10 +6077,8 @@ function CommentPanel({
 }) {
   const [comments, setComments] = useState<PanelComment[]>([]);
   const [loading, setLoading] = useState(true);
-  // Opened by comment.edit → the composer starts holding the comment.
   const [draft, setDraft] = useState(edit?.message ?? '');
   const [sending, setSending] = useState(false);
-  // Opened by comment.reply → already aimed, banner and all.
   const [replyingTo, setReplyingTo] = useState<{ id: number | string; name: string } | null>(
     initialReplyTo ?? null,
   );
@@ -7434,8 +6120,7 @@ function CommentPanel({
     if (!trimmed || sending) return;
     setSending(true);
     try {
-      // Editing addresses the COMMENT and names the post alongside it;
-      // creating addresses the POST. /comments/update 400s without both.
+      // /comments/update 400s without both the comment id and the post id.
       const body: Record<string, unknown> = edit
         ? {
             [bodyKey]: edit.commentId,
@@ -7472,7 +6157,6 @@ function CommentPanel({
       }
       setDraft('');
       setReplyingTo(null);
-      // An edit is done when it lands — the panel was opened FOR it.
       if (edit) {
         await load();
         triggerFeedRefresh();
@@ -7480,10 +6164,8 @@ function CommentPanel({
         return;
       }
       await load();
-      // Also refresh the outer feed so the post's comments_summary
-      // ("N comments") updates on the card behind the panel.
+      // Refresh the feed so the card's comment count updates.
       triggerFeedRefresh();
-      // Scroll to bottom so the fresh comment is visible.
       requestAnimationFrame(() => {
         const el = listRef.current;
         if (el) el.scrollTop = el.scrollHeight;

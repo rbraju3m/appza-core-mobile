@@ -1,24 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 
-/**
- * "Build App" modal — opens from the TopBar's Build App button.
- *
- * Two-phase UI. Phase A (collect):
- *   1. Which app to build (radio over the site's activated Source
- *      Integrations). If only one is active, it's pre-selected.
- *   2. Template dropdown, filtered to templates within the selected SI.
- *      Pre-selects the top-bar's current template when it matches.
- *   3. Base URL — "Current site URL" (read-only, auto-filled from
- *      `appzaCoreConfig.siteUrl`) or "Custom URL" (user input, validated).
- *
- * Submit → POST `/wp-json/appza/v1/build-requests`. Phase B (result):
- *   render the persisted request id + the exact CLI command Raju runs in
- *   a terminal to produce the actual Vite bundle. Copy-to-clipboard on
- *   the command so it's one paste from a terminal to a real build. See
- *   the App-entity spec (memory/Plans & Analysis/appza-app-entity-spec.md)
- *   for why server-side shell-exec is deliberately deferred.
- */
-
 type SourceIntegration = {
   slug: string;
   name: string;
@@ -124,9 +105,6 @@ export function BuildAppModal({ onClose, templateOptions, defaultTemplateSlug }:
     };
   }, [sourceEndpoint, activeEndpoint, nonce]);
 
-  // Templates for the currently-selected Source Integration. Pre-select
-  // the top-bar's current template if it belongs to this SI, otherwise
-  // fall back to the first template in the SI's group.
   const templatesForSi = useMemo(
     () => templateOptions.filter((t) => t.source_integration_slug === selectedSlug),
     [templateOptions, selectedSlug],
@@ -213,7 +191,6 @@ export function BuildAppModal({ onClose, templateOptions, defaultTemplateSlug }:
     }
   }
 
-  // Phase B — result view. Persisted build request + the exact CLI to run.
   if (result) {
     return (
       <div className="appza-onboard-overlay" role="dialog" aria-modal="true" aria-label="Build queued">
@@ -259,7 +236,6 @@ export function BuildAppModal({ onClose, templateOptions, defaultTemplateSlug }:
     );
   }
 
-  // Phase A — collect.
   return (
     <div className="appza-onboard-overlay" role="dialog" aria-modal="true" aria-label="Build App">
       <div className="appza-onboard-card">

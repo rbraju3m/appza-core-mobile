@@ -1,45 +1,20 @@
 import { useEffect, useState } from 'react';
 
-// FluentCommunity runtime settings surfaced by the WP portal's own
-// settings screens. The bootstrap controller reads FluentCommunity's
-// `customization_settings`, `fluent_community_settings` and
-// `_fluent_player_settings` stores and ships the fields we honor as
-// `runtime_config.fluent_community`. The mobile shell (App.tsx)
-// hydrates this store once the envelope lands; PlacementRenderer
-// subscribes so fc-member-card can flip between grid and list layouts
-// and the create-post composer can branch the way the portal does.
-//
-// Values mirror FluentCommunity's own strings verbatim — `classic`
-// is the list layout in FC vocabulary; `grid` is the tile grid.
-//
-// ⚠ Everything here is a property of the SITE. Whether a particular
-// VIEWER may schedule a post, send the announcement email or upload a
-// video is answered per request on the space-picker payload (the
-// plug-in's FluentCommunityComposerEnricher), because bootstrap is
-// public-read and cached per template — a per-viewer answer baked in
-// here would be whoever warmed the cache.
+// Site-level only: bootstrap is public-read and cached, so per-viewer answers come per request.
 
 export type FcMemberListLayout = 'classic' | 'grid';
 
-/** Settings → Customization → Post Title. */
 export type FcPostTitlePref = 'disabled' | 'optional' | 'required';
 
-/** Settings → Customization → Rich Media Post Layout. */
 export type FcRichPostLayout = 'classic' | 'modern';
 
-/** FluentPlayer's `video_upload_role`, verbatim. */
 export type FcVideoUploadRole = 'admin' | 'admin_moderator' | 'everyone';
 
 export type FcFluentPlayerSettings = {
-  /** 'active' | 'installed' | 'not_installed' */
   status: string;
-  /** The "Enable FluentPlayer" switch. */
   enabled: boolean;
-  /** Whether the Upload Video tab exists at all. */
   video_upload_enabled: boolean;
-  /** Raw — resolved against the viewer where the auth state is known. */
   video_upload_role: FcVideoUploadRole;
-  /** Whether the audio glyph exists at all. */
   audio_upload_enabled: boolean;
   max_audios_per_post: number;
   play_embedded_videos: boolean;
@@ -47,7 +22,6 @@ export type FcFluentPlayerSettings = {
 
 export type FcComposerSettings = {
   post_title_pref: FcPostTitlePref;
-  /** Settings → General → Global Post Status — the "On my profile" row. */
   global_posts_enabled: boolean;
   rich_post_layout: FcRichPostLayout;
   max_media_per_post: number;
@@ -60,45 +34,27 @@ export type FcComposerSettings = {
   fluent_player: FcFluentPlayerSettings;
 };
 
-/** Settings → Customization → Default Feed Layout. */
 export type FcFeedLayout = 'timeline' | 'list' | 'card';
 
 export type FcFeedSortOption = { value: string; label: string };
 
 export type FcFeedSettings = {
-  /** The layout a viewer who has never chosen one starts on. */
   default_layout: FcFeedLayout;
-  /** "Disable Layout Style Change" — the picker is not offered at all. */
   layout_change_disabled: boolean;
-  /**
-   * The sort a viewer starts on. EMPTY STRING is a real answer meaning
-   * "the admin expressed no preference"; the shells fall back to
-   * `latest` the way the portal does, but the two are not the same
-   * stored value and must not be collapsed here.
-   */
+  // '' means "no preference" and must not be collapsed to 'latest'.
   default_sort_by: string;
-  /** "Disable Feed Sort By Options" — the picker is not offered at all. */
   sort_change_disabled: boolean;
-  /**
-   * The site's sort rows, in FluentCommunity's own order. Does NOT
-   * include `following`: that row is per-viewer (Pro appends it only for
-   * a signed-in user) and is composed at render from
-   * `followers_module_enabled` + the auth state.
-   */
+  // Excludes `following`: that row is per-viewer.
   sort_options: FcFeedSortOption[];
   followers_module_enabled: boolean;
-  /** Features → Content Moderation. Gates the whole In-Review surface. */
   content_moderation_enabled: boolean;
-  /** Topics → "Show topics on post card" — the # pill. */
   show_topic_on_post_card: boolean;
 };
 
-/** FluentCommunity's `access.acess_level` — their spelling, their key. */
 export type FcAccessLevel = 'public' | 'logged_in' | 'role_based';
 
 export type FcAccessSettings = {
   access_level: FcAccessLevel;
-  /** Raw per-surface privacy answers; resolved against the viewer. */
   privacy: {
     members_page_status: string;
     profile_page_visibility: string;
@@ -109,13 +65,6 @@ export type FcAccessSettings = {
 
 export type FcRuntimeSettings = {
   member_list_layout: FcMemberListLayout;
-  /**
-   * Features → "Leaderboards Module", with Pro installed. Read by the
-   * profile level bar's PLACEMENT gate, `settings.leaderboard_enabled`.
-   * Kept at the root because that is where bootstrap sends it; it was
-   * dropped here until 2026-09-17, so the gate read undefined and the bar
-   * never drew on either profile screen.
-   */
   leaderboard_enabled: boolean;
   composer: FcComposerSettings;
   feed: FcFeedSettings;
@@ -124,10 +73,7 @@ export type FcRuntimeSettings = {
 
 const EVENT = 'appza:fc-runtime-settings-change';
 
-// Defaults are FluentCommunity's own defaults, so a site that has never
-// opened its settings behaves in the app the way it behaves in the
-// portal. FluentPlayer defaults to absent: its switches are meaningless
-// without the plug-in, and the composer hides both tabs when it is.
+// FC's own defaults, so an unconfigured site behaves as it does in the portal.
 const PLAYER_DEFAULTS: FcFluentPlayerSettings = {
   status: 'not_installed',
   enabled: false,
@@ -152,9 +98,6 @@ const COMPOSER_DEFAULTS: FcComposerSettings = {
   fluent_player: PLAYER_DEFAULTS,
 };
 
-// FluentCommunity's own defaults, from Utility::getCustomizationSetting's
-// $defaults array — a site that has never opened the Customization screen
-// behaves in the app the way it behaves in the portal.
 const FEED_DEFAULTS: FcFeedSettings = {
   default_layout: 'timeline',
   layout_change_disabled: false,
@@ -166,12 +109,7 @@ const FEED_DEFAULTS: FcFeedSettings = {
   show_topic_on_post_card: true,
 };
 
-// Defaults to PUBLIC because that is FluentCommunity's default, and
-// because the failure modes are asymmetric: defaulting to locked would
-// bounce every guest to a login screen on a site that never asked for
-// one, on nothing more than a slow or partial envelope. The API is the
-// real gate — a guest who reaches a screen they may not read gets an
-// empty payload, not someone else's data.
+// Public by default: a locked default would bounce guests to login on a slow envelope; the API is the real gate.
 const ACCESS_DEFAULTS: FcAccessSettings = {
   access_level: 'public',
   privacy: {
@@ -184,8 +122,7 @@ const ACCESS_DEFAULTS: FcAccessSettings = {
 
 const DEFAULTS: FcRuntimeSettings = {
   member_list_layout: 'classic',
-  // Off until bootstrap says otherwise: with the module off `level` is 0
-  // and its title empty, and a bar reading "Level 0" is worse than none.
+  // Off by default: with the module off the bar would read "Level 0".
   leaderboard_enabled: false,
   composer: COMPOSER_DEFAULTS,
   feed: FEED_DEFAULTS,
@@ -198,12 +135,10 @@ export function getFcRuntimeSettings(): FcRuntimeSettings {
   return current;
 }
 
-/** Convenience for the many composer call sites. */
 export function getFcComposerSettings(): FcComposerSettings {
   return current.composer;
 }
 
-/** Convenience for the feed toolbar + post card. */
 export function getFcFeedSettings(): FcFeedSettings {
   return current.feed;
 }
@@ -212,16 +147,7 @@ export function getFcAccessSettings(): FcAccessSettings {
   return current.access;
 }
 
-/**
- * The sort rows to actually draw, which is a question about the SITE and
- * the VIEWER at once — the split P105 describes, composed at the one
- * point where both halves are known.
- *
- * FluentCommunity Pro's FollowHandler appends `Following` to the portal's
- * own list when the followers module is on AND someone is signed in. It
- * cannot be pre-resolved into bootstrap (cached, public-read), so it is
- * added here instead, in the same last position the filter puts it.
- */
+// Pro appends `Following` only for a signed-in viewer, so it can't live in cached bootstrap.
 export function resolveFeedSortOptions(isLoggedIn: boolean): FcFeedSortOption[] {
   const base = current.feed.sort_options;
   if (!current.feed.followers_module_enabled || !isLoggedIn) return base;
@@ -229,33 +155,9 @@ export function resolveFeedSortOptions(isLoggedIn: boolean): FcFeedSortOption[] 
   return [...base, { value: 'following', label: 'Following' }];
 }
 
-/** A sort row as a picker draws it — the site's answer, wearing a glyph. */
 export type FcFeedSortRow = { value: string; label: string; icon?: string };
 
-/**
- * The rows the sort sheet actually draws.
- *
- * Two sources, and neither is right alone. **FluentCommunity owns which
- * sorts exist** — it is the thing that has to execute them, its admin
- * can edit the list, and a value the site does not offer would come
- * back from `/feeds` as whatever FC falls back to. **The catalog owns
- * the glyphs**, because that is a design decision with a builder
- * control behind it, and bootstrap carries no icons.
- *
- * So: the site's rows, in the site's order, wearing the catalog's icon
- * for each value. A site row the catalog has no glyph for still draws —
- * a missing icon is a blemish, a missing row is a feature the admin
- * turned on and cannot reach.
- *
- * `following` never comes from either list directly. The catalog holds
- * an entry for it ONLY as a glyph, since it is the one row whose
- * presence depends on the viewer rather than the site; it is stripped
- * from both inputs and re-appended by `resolveFeedSortOptions`, which
- * knows both halves of that question.
- *
- * Falls back to the catalog rows whole when bootstrap has not landed —
- * an empty sheet is worse than a briefly stale one.
- */
+// FC owns which sorts exist; the catalog only supplies glyphs. Catalog rows are the fallback before bootstrap lands.
 export function resolveFeedSortRows(
   catalogRows: readonly FcFeedSortRow[],
   isLoggedIn: boolean,
@@ -268,9 +170,7 @@ export function resolveFeedSortRows(
       : catalogRows
           .filter((r) => r.value !== 'following')
           .map((r) => ({ ...r }));
-  // The catalog fallback has not been through resolveFeedSortOptions, so
-  // its `following` glyph row would appear for a viewer who may not have
-  // it. Stripped above; re-added here on the same terms as the live path.
+  // The fallback bypassed resolveFeedSortOptions; re-add `following` on the same terms.
   if (
     siteRows.length === 0 &&
     isLoggedIn &&
@@ -292,9 +192,7 @@ function pickBool(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;
 }
 
-// A count that arrives as 0, a negative, or something unparseable all
-// mean "the site did not really say" — fall back rather than let a
-// picker cap itself at nothing.
+// 0, negative or unparseable means the site didn't really say.
 function pickCount(value: unknown, fallback: number): number {
   const n = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
@@ -324,10 +222,7 @@ function normalizePlayer(raw: unknown, base: FcFluentPlayerSettings): FcFluentPl
 function normalizeFeed(raw: unknown, base: FcFeedSettings): FcFeedSettings {
   if (!isRecord(raw)) return base;
 
-  // A malformed or absent list keeps the current one. An EMPTY list is
-  // kept too rather than treated as absent: a site whose sort options
-  // were all filtered away has genuinely no rows, and substituting the
-  // previous list there would offer sorts the API will not honour.
+  // An empty list is a real answer; only a malformed/absent one keeps the current list.
   const options = Array.isArray(raw.sort_options)
     ? raw.sort_options
         .filter(isRecord)
@@ -342,8 +237,7 @@ function normalizeFeed(raw: unknown, base: FcFeedSettings): FcFeedSettings {
       base.default_layout,
     ),
     layout_change_disabled: pickBool(raw.layout_change_disabled, base.layout_change_disabled),
-    // Not run through pickString against the option list — '' is the
-    // "no preference" answer and has to survive.
+    // '' (no preference) must survive, so no pickString here.
     default_sort_by: typeof raw.default_sort_by === 'string' ? raw.default_sort_by : base.default_sort_by,
     sort_change_disabled: pickBool(raw.sort_change_disabled, base.sort_change_disabled),
     sort_options: options,
@@ -404,15 +298,7 @@ function normalizeComposer(raw: unknown, base: FcComposerSettings): FcComposerSe
   };
 }
 
-/**
- * Hydrate from the bootstrap envelope's `runtime_config.fluent_community`
- * (or any subset of it). Unknown / malformed fields keep their CURRENT
- * value rather than resetting to the default — a partial envelope must
- * not silently undo a good one.
- *
- * No-ops when nothing actually changed, so a pull-to-refresh returning
- * identical settings does not re-render every subscriber.
- */
+// Malformed fields keep their CURRENT value so a partial envelope can't undo a good one.
 export function setFcRuntimeSettings(patch: Record<string, unknown>): void {
   const next: FcRuntimeSettings = {
     member_list_layout: pickString(

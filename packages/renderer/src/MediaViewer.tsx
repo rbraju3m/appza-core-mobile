@@ -5,21 +5,10 @@ import { resolveIcon } from './PrimitiveRenderer';
 import { useInsideDeviceViewport } from './insideDeviceViewport';
 import { useBackDismiss } from './backStack';
 
-// Fullscreen photo viewer for the MEDIA sub-tab.
-//
-// Bespoke React, opened by event, like the schedule sheet and the modals —
-// it owns paging state and keyboard/swipe handling, and it has to sit
-// above the whole screen rather than in a placement slot. It opts back
-// into the builder by hand via childAttrs/appzetAttrs, so the indices
-// below MUST match the `children` array of the fc-media-viewer
-// superstructure in the catalog.
-//
-// Photos only. A video tap goes straight to its post (Noor's spec), so
-// this never has to host a player.
+// Child indices below must match the fc-media-viewer superstructure's `children` in the catalog.
 
 export const MEDIA_VIEWER_APPZET_SLUG = 'fc-media-viewer';
 
-/** One photo the viewer can page to. */
 export type MediaViewerItem = {
   url: string;
   title?: string;
@@ -39,7 +28,6 @@ export type MediaViewerPresentation = {
   showClose: boolean;
   showDownload: boolean;
   showViewPost: boolean;
-  // style knobs — all optional, all fall back to the stock design
   backdropColor?: string;
   counterColor?: string;
   counterSize?: string;
@@ -54,12 +42,9 @@ export type MediaViewerPresentation = {
 type OpenDetail = {
   appzetSlug?: string;
   items: MediaViewerItem[];
-  /** Which item the grid tap landed on. */
   index?: number;
   presentation: MediaViewerPresentation;
-  /** Save the given item to the device. Each shell does this its own way. */
   onDownload?: (item: MediaViewerItem) => void;
-  /** Navigate to the post the item was shared in. */
   onViewPost?: (item: MediaViewerItem) => void;
   childStyles?: Record<number, CSSProperties>;
 };
@@ -68,7 +53,6 @@ const OPEN_EVENT = 'appza:open-media-viewer';
 const CLOSE_EVENT = 'appza:close-media-viewer';
 const PATCH_EVENT = 'appza:patch-media-viewer';
 
-/** Distance a horizontal drag must cover before it counts as a page turn. */
 const SWIPE_THRESHOLD_PX = 50;
 
 export function openMediaViewer(detail: OpenDetail): void {
@@ -81,7 +65,6 @@ export function closeMediaViewer(): void {
   window.dispatchEvent(new CustomEvent(CLOSE_EVENT));
 }
 
-/** Live-preview patch from the builder, addressed by AppZet slug. */
 export function patchMediaViewer(
   appzetSlug: string,
   patch: {
@@ -92,8 +75,6 @@ export function patchMediaViewer(
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: { appzetSlug, patch } }));
 }
-
-/* ---------------------------------------------------------------- */
 
 export function MediaViewer() {
   const [open, setOpen] = useState(false);
@@ -153,8 +134,7 @@ export function MediaViewer() {
     [total],
   );
 
-  // Escape closes, arrows page. Bound only while open so the viewer never
-  // eats keys belonging to the screen underneath.
+  // Bound only while open so the viewer never eats the screen's keys.
   useEffect(() => {
     if (!open || typeof window === 'undefined') return;
     const onKey = (e: KeyboardEvent) => {
@@ -269,9 +249,7 @@ export function MediaViewer() {
             className="appza-media-viewer-action"
             style={childStyle(4)}
             onClick={() => {
-              // Close first: the viewer is a sibling of the screen tree,
-              // and leaving it mounted over the pushed post-detail screen
-              // would cover the thing the user just asked to see.
+              // Close first, or the viewer would stay mounted over the pushed post screen.
               setOpen(false);
               detail.onViewPost?.(item);
             }}

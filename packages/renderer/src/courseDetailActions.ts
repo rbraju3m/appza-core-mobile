@@ -3,14 +3,6 @@ import { readDataPath, APPZA_REFRESH_EVENT } from './dataFetch';
 import { toggleCourseSection } from './courseDetailControls';
 import { sendJson, type StoredAuthLike } from './postMenuHandlers';
 
-/**
- * Course details (Courses doc, states 5–7) — the section accordion and the
- * ENROLL THIS COURSE button.
- *
- * Shared between the Capacitor shell and the WP-admin simulator, like
- * every handler in this package.
- */
-
 export type CourseDetailActionDeps = {
   auth: StoredAuthLike | null;
   authHeader: (auth: StoredAuthLike) => string;
@@ -29,7 +21,6 @@ function num(v: unknown): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-/** Returns true when the action was one of these and has been handled. */
 export function tryHandleCourseDetailAction(inv: ActionInvocation, deps: CourseDetailActionDeps): boolean {
   const { action_slug, args, item, binding_root } = inv;
   if (!HANDLED.has(action_slug)) return false;
@@ -39,7 +30,6 @@ export function tryHandleCourseDetailAction(inv: ActionInvocation, deps: CourseD
 
   switch (action_slug) {
     case 'course_detail.toggle_section': {
-      // The section card's own row — its id is the section's.
       const id = num(readDataPath(effectiveItem, str(argRec.id_path) ?? 'data.id'));
       if (id !== null) toggleCourseSection(id);
       return true;
@@ -52,9 +42,7 @@ export function tryHandleCourseDetailAction(inv: ActionInvocation, deps: CourseD
         deps.onError('Could not identify which course to enroll in.');
         return true;
       }
-      // A guest is offered the button too; fcom-mobile turns them away
-      // with a generic 401 before FluentCommunity is asked, so the doc's
-      // sentence — FC's own — is the catalog's to say (state 5).
+      // fcom-mobile turns guests away with a generic 401 before FC is asked, so the catalog words it.
       if (!deps.auth) {
         deps.onError(str(argRec.guest_message) ?? 'You need to login to enroll in this course.');
         return true;
@@ -64,14 +52,11 @@ export function tryHandleCourseDetailAction(inv: ActionInvocation, deps: CourseD
           deps.onError(result.error);
           return;
         }
-        // FC's own sentence — "You have been enrolled in this course." —
-        // or the catalog's when the body carries none.
         const body = result.body as Record<string, unknown> | null;
         const response = body && typeof body.response === 'object' ? (body.response as Record<string, unknown>) : null;
         const serverMsg = response ? str(response.message) : undefined;
         deps.onInfo(serverMsg && serverMsg !== 'Success' ? serverMsg : str(argRec.toast_message) ?? 'You have been enrolled in this course.');
-        // The button becomes START COURSE: the details refetch, past the
-        // preview cache, and so does the list behind them.
+        // Refetch past the preview cache, the list behind included.
         if (typeof window !== 'undefined') {
           const g = window as unknown as { __appzaForceRefreshUntil?: number };
           g.__appzaForceRefreshUntil = Date.now() + 3000;

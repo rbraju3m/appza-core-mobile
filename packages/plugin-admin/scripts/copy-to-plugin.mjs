@@ -1,13 +1,5 @@
 #!/usr/bin/env node
-/**
- * Copies the Vite build output from `dist/` into the appza-core-2.0 WP
- * plug-in's `assets/admin/` folder. Driven by the `build:plugin` script
- * after `vite build`.
- *
- * Destination is configurable via APPZA_PLUGIN_DIR; defaults to the
- * canonical location on this Linux dev server. Other developers point
- * the env var at their own WP install.
- */
+// Destination overridable via APPZA_PLUGIN_DIR.
 import { existsSync, mkdirSync, rmSync, cpSync } from 'node:fs';
 import { resolve } from 'node:path';
 

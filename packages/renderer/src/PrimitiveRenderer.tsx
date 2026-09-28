@@ -112,22 +112,14 @@ import {
   linkOutline,
   pencilOutline,
   pinOutline,
-  // Saved Posts: the sort sheet's New Activity and Alphabetical glyphs,
-  // and Pin-to-sidebar's stacked layers — which on a screen full of
-  // bookmark buttons is the glyph that reads where a bookmark misleads.
   ellipseOutline,
   helpCircleOutline,
   layersOutline,
   library,
   libraryOutline,
-  // The sign-out glyph. Missing until 2026-09-16, so the own-profile
-  // menu's Logout row drew its label with no icon beside three rows that
-  // had one — the mixed menu the icons rule exists to prevent.
   logOut,
   logOutOutline,
-  // Provider logos for the profile's read-only Social Link card
-  // (2026-09-16). Names rather than FluentCommunity's raw SVG, which could
-  // only be drawn by injecting HTML.
+  // Names rather than FluentCommunity's raw SVG, which could only be drawn by injecting HTML.
   logoInstagram,
   logoTwitter,
   logoYoutube,
@@ -137,7 +129,6 @@ import {
   logoPinterest,
   logoReddit,
   logoSnapchat,
-  // Design 47's Unblock row, and designs 42's muted bell.
   lockOpenOutline,
   notificationsOffOutline,
   location,
@@ -233,22 +224,6 @@ import { useBannerControls, setBannerControls } from './bannerControls';
 import { attach, attachOutline, cloudUploadOutline } from 'ionicons/icons';
 import { openExternal } from './externalLink';
 
-/**
- * Explicit icon registry. Using `import * as icons from 'ionicons/icons'`
- * + dynamic `icons[name]` access causes Vite/Rollup to tree-shake the
- * icon SVG strings to nothing (no static reference). Each icon used by
- * the catalog must appear here so the bundler keeps it.
- *
- * Grouped by lens (utility / status / social / comm / media / time-place
- * / e-commerce / LMS) for maintainability. Groups are cosmetic — the
- * `iconNames` export flattens + sorts, so downstream consumers (the
- * plug-in-admin icon picker) see one alphabetical list regardless.
- * Add new icons to the closest lens; open a new group when a Source
- * Integration onboards its own set.
- */
-// Multi-color Google "G" — not shipped in Ionicons; used by
-// fc-signin-info's Continue-with-Google button. Kept as a data URI so
-// it flows through the same resolveIcon() path as everything else.
 const GOOGLE_LOGO_SVG =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
@@ -261,23 +236,18 @@ const GOOGLE_LOGO_SVG =
   );
 
 const ICON_REGISTRY: Record<string, string> = {
-  // General / utility
+  // Explicit on purpose: a dynamic `icons[name]` lookup gets tree-shaken to nothing, so every catalog icon must be listed.
   add,
   'add-circle': addCircle,
   'add-circle-outline': addCircleOutline,
   apps,
   'arrow-back': arrowBack,
   'arrow-forward': arrowForward,
-  // The reply glyph. Missing until now, so the chat bubble's reply
-  // arrow and the composer's reply strip both drew an empty box —
-  // resolveIcon returns nothing for a name the registry lacks, and
-  // nothing downstream complains. Same shape as the copy-outline gap.
   'arrow-undo': arrowUndo,
   'arrow-undo-outline': arrowUndoOutline,
   book,
   'chevron-back': chevronBack,
   'chevron-down': chevronDown,
-  // The Courses sort row's filled triangle (design 1).
   'caret-down': caretDown,
   'chevron-forward': chevronForward,
   'chevron-up': chevronUp,
@@ -306,17 +276,12 @@ const ICON_REGISTRY: Record<string, string> = {
   trash,
   'trash-outline': trashOutline,
 
-  // Status / alerts
   'alert-circle': alertCircle,
   'alert-circle-outline': alertCircleOutline,
   checkmark,
   'checkmark-circle': checkmarkCircle,
   'checkmark-circle-outline': checkmarkCircleOutline,
   close,
-  // The ⨯ on a Search screen recent row. Registered because the registry
-  // is EXPLICIT — a dynamic ionicons lookup gets tree-shaken away, so an
-  // unregistered name renders as nothing at all (P100). The renderer warns
-  // when it happens; this one was caught by that warning.
   'close-outline': closeOutline,
   'close-circle': closeCircle,
   copy,
@@ -327,7 +292,6 @@ const ICON_REGISTRY: Record<string, string> = {
   warning,
   'warning-outline': warningOutline,
 
-  // Social / community
   bookmark,
   'bookmark-outline': bookmarkOutline,
   chatbubble,
@@ -345,24 +309,16 @@ const ICON_REGISTRY: Record<string, string> = {
   'link-outline': linkOutline,
   'chatbubble-ellipses-outline': chatbubbleEllipsesOutline,
   'flag-outline': flagOutline,
-  // Design 7's clapperboard under a reported post that has media.
   'film-outline': filmOutline,
   globe,
   'globe-outline': globeOutline,
   'lock-closed': lockClosed,
   'lock-closed-outline': lockClosedOutline,
-  // Leaderboard: the medal on the first three ranks, the glyph in the
-  // viewer card's points cell, and the empty state's outline variant.
   trophy,
   'trophy-outline': trophyOutline,
-  // The droplet beside "Newest first" in design 18's sort sheet. The
-  // registry is EXPLICIT — a dynamic ionicons lookup gets tree-shaken
-  // away, so an unregistered name draws nothing at all (P100), which is
-  // exactly how this row shipped iconless the first time.
   'water-outline': waterOutline,
   'pencil-outline': pencilOutline,
   'pin-outline': pinOutline,
-  // Saved Posts sort sheet + 3-dot sheet (designs 4 and 5).
   'ellipse-outline': ellipseOutline,
   'help-circle-outline': helpCircleOutline,
   'layers-outline': layersOutline,
@@ -385,9 +341,6 @@ const ICON_REGISTRY: Record<string, string> = {
   'notifications-outline': notificationsOutline,
   people,
   'people-outline': peopleOutline,
-  // The follow lists' empty state (2026-09-02). An icon the catalog
-  // names but the renderer does not know draws NOTHING and logs a
-  // warning nobody reads — P142, the two registries are different sets.
   'person-add-outline': personAddOutline,
   person,
   'person-outline': personOutline,
@@ -403,17 +356,13 @@ const ICON_REGISTRY: Record<string, string> = {
   'thumbs-up': thumbsUp,
   'thumbs-up-outline': thumbsUpOutline,
 
-  // Communication
   call,
   'call-outline': callOutline,
   mail,
   'mail-outline': mailOutline,
 
-  // Media
   camera,
   'camera-outline': cameraOutline,
-  // Files — the documents tab's row glyphs + download affordance,
-  // and the add-document dropzone's paperclip.
   attach,
   'attach-outline': attachOutline,
   'cloud-upload-outline': cloudUploadOutline,
@@ -432,11 +381,6 @@ const ICON_REGISTRY: Record<string, string> = {
   'pause-circle-outline': pauseCircleOutline,
   'play-circle': playCircle,
   'play-circle-outline': playCircleOutline,
-  // Transport glyphs for the MEDIA sub-tab (2026-08-17): the grid's play
-  // badge and the audio row's play / pause / ±10s / mute controls. The
-  // registry is an allowlist, so an icon that isn't here resolves to
-  // undefined and the control renders EMPTY rather than erroring — which
-  // is exactly how the play badge went missing on first run.
   play,
   'play-outline': playOutline,
   pause,
@@ -454,7 +398,6 @@ const ICON_REGISTRY: Record<string, string> = {
   videocam,
   'videocam-outline': videocamOutline,
 
-  // Time / place
   calendar,
   'calendar-outline': calendarOutline,
   location,
@@ -462,7 +405,6 @@ const ICON_REGISTRY: Record<string, string> = {
   time,
   'time-outline': timeOutline,
 
-  // E-commerce (WooCommerce lens)
   bag,
   'bag-outline': bagOutline,
   card,
@@ -480,7 +422,6 @@ const ICON_REGISTRY: Record<string, string> = {
   wallet,
   'wallet-outline': walletOutline,
 
-  // LMS (TutorLMS lens)
   library,
   'library-outline': libraryOutline,
   ribbon,
@@ -488,12 +429,9 @@ const ICON_REGISTRY: Record<string, string> = {
   school,
   'school-outline': schoolOutline,
 
-  // Third-party / brand
   google: GOOGLE_LOGO_SVG,
 };
 
-/** Public list of known icon names — consumed by the plug-in admin's
- *  Options tab autocomplete. Keep in lockstep with ICON_REGISTRY. */
 export const iconNames: string[] = Object.keys(ICON_REGISTRY).sort();
 
 type PrimitiveOverrides = Record<string, unknown>;
@@ -501,34 +439,10 @@ type PrimitiveOverrides = Record<string, unknown>;
 type Props = {
   primitive: PrimitiveRow;
   overrides?: PrimitiveOverrides;
-  /**
-   * Wiring for primitives whose native event isn't `click` (currently just
-   * ion-select's change event). When set, the primitive fires
-   * dispatch(action) with the selected value grafted onto action.item. The
-   * SSRenderer wrapper skips its usual click-dispatch for these primitives
-   * (see SELF_ACTION_PRIMITIVES below).
-   */
   action?: ActionInvocation;
 };
 
-/**
- * Primitives that handle their own action dispatch (via a native event
- * other than click). The SSRenderer wrapper skips its onClick handler for
- * these — otherwise the wrapper-click would fire dispatch when the user
- * just opens the select, before a value is chosen.
- */
-/**
- * ion-toggle seeded ONCE, then left alone.
- *
- * Passing `checked` as a React prop makes the switch permanently
- * unflippable: Ionic sets the property on the custom element, the user's
- * tap flips it, the next render (which the tap itself causes, via the
- * store it writes) sets the same prop back, and the switch snaps to its
- * old position. It reads as "the toggle does nothing".
- *
- * So the catalog's value is written to the element once, on mount, and
- * after that the switch owns its own position and only reports changes.
- */
+/** Seeded once: a `checked` prop re-applied on render snaps the switch back after every tap. */
 function SeededIonToggle({
   initialChecked,
   disabled,
@@ -548,23 +462,7 @@ function SeededIonToggle({
   return <IonToggle ref={ref} disabled={disabled} onIonChange={onToggle} />;
 }
 
-/**
- * An input that starts with a value and then belongs to the DOM.
- *
- * `IonInput` read no value at all before 2026-09-01 — placeholder, fill,
- * type and clear_input, nothing else — so no field mapping could fill a
- * form, and the profile edit screen drew the word "Input" five times
- * (the placeholder falling back to the primitive's own label).
- *
- * Seeded once through a ref rather than passed as a `value` prop, which
- * is the SeededIonToggle pattern and matters for two reasons. A value
- * prop re-applied on every render fights the person typing — any refetch
- * would snap the field back. And the save reads these fields out of the
- * DOM (`readFormFieldValue`), so the DOM has to be where the current
- * value actually lives: a controlled field that answered from React
- * state would be read as whatever it was seeded with (P: a controlled
- * field cannot be read from the DOM).
- */
+/** Seeded once via ref, not a `value` prop: a re-applied value fights typing, and the save reads the field from the DOM. */
 function SeededIonInput({
   initialValue,
   type,
@@ -581,12 +479,7 @@ function SeededIonInput({
   fill?: 'solid' | 'outline';
   clearInput?: boolean;
   readonly?: boolean;
-  /**
-   * Passed through to the inner <input>. Added 2026-09-16 for the edit
-   * form's headline, where FluentCommunity refuses anything over 60
-   * characters and the design draws a live "59/60" beside it — without
-   * this the counter could count past a limit the server would reject.
-   */
+  /** FluentCommunity rejects a headline over 60 characters. */
   maxlength?: number;
   onInput?: (e: CustomEvent) => void;
 }) {
@@ -611,7 +504,6 @@ function SeededIonInput({
   );
 }
 
-/** The textarea half of the same contract. */
 function SeededIonTextarea({
   initialValue,
   placeholder,
@@ -651,48 +543,22 @@ function SeededIonTextarea({
 
 export const SELF_ACTION_PRIMITIVES: ReadonlySet<string> = new Set([
   'ion-select',
-  // SUBMIT QUIZ sits under the radios; a wrapper click would submit on
-  // every pick. The quiz dispatches with the picks on item.answers.
+  // A wrapper click would submit the quiz on every pick.
   'appza-course-quiz',
   'appza-poll-block',
   'appza-post-schedule',
   'ion-input',
-  // Both dispatch from their own value-change event, same as ion-input:
-  // a wrapper click carries no value and fires before the user has typed
-  // or flipped anything.
+  // A wrapper click carries no value and fires before the user has typed or flipped anything.
   'ion-textarea',
   'ion-toggle',
-  // The attach button sits INSIDE the input pill, so a wrapper click
-  // would fire the picker whenever anyone tapped the field to type.
   'appza-chat-composer',
-  // Same reason: the space chip sits inside a card the user types in, so
-  // a wrapper click would open the space picker on every tap of the body.
   'appza-post-composer',
-  // Every row carries Reply, a heart and a ⋮ of its own, so a wrapper
-  // click would open the menu whenever anyone tapped a comment's text.
   'appza-comment-list',
-  // Same, over a whole thread rather than two rows of it.
   'appza-comment-thread',
-  // The attach glyph and the send glyph both sit inside the bar, so a
-  // wrapper click would post the comment whenever anyone tapped the
-  // field to type in it.
   'appza-comment-composer',
 ]);
 
-/**
- * Maps a Primitive row's `ionic_component` value to the corresponding
- * Ionic React component. Renders with placeholder content (slug as label)
- * when no overrides are provided; when DC#16 prop binding routes overrides
- * here, the rendered widget picks up the bound props instead.
- *
- * Per-component allowed-prop list is intentionally narrow at v1: text-ish
- * content, color, fill, src. New props get added as catalog use cases
- * surface them — denying unknown overrides keeps the renderer from
- * forwarding arbitrary JSON to Ionic, which catches typos at the seam.
- *
- * Unknown Ionic components fall through to a labeled placeholder so
- * additions to appza_primitives don't crash the renderer.
- */
+// Unknown overrides are denied so arbitrary JSON never reaches Ionic.
 export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
   const label = readString(overrides, 'text') ?? primitive.name ?? primitive.slug;
   const dispatch = useActionDispatch();
@@ -701,33 +567,22 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
     case 'IonButton': {
       const iconName = readString(overrides, 'icon');
       const iconEndName = readString(overrides, 'icon_end');
-      // A STRING, empty included: an empty tag still holds the row's far
-      // end, which is what left-aligns a label Ionic would centre.
+      // An empty tag still holds the row's far end, which left-aligns a label Ionic would centre.
       const endText =
         overrides && typeof overrides['end_text'] === 'string' ? (overrides['end_text'] as string) : undefined;
       const rawText = overrides ? overrides['text'] : undefined;
       const textExplicitlyEmpty = rawText === '';
       const iconOnly = !!iconName && (textExplicitlyEmpty || readString(overrides, 'text') === undefined);
       const buttonLabel = textExplicitlyEmpty ? '' : label;
-      // icon_slot override — accepts 'start' | 'end'. Default 'start' to
-      // preserve prior behavior; catalog opts in via override (e.g. the
-      // fc-feed-toolbar sort button uses 'end' so the chevron sits after
-      // the label).
       const iconSlotOverride = readString(overrides, 'icon_slot');
       const iconSlot = iconOnly
         ? 'icon-only'
         : iconSlotOverride === 'end'
           ? 'end'
           : 'start';
-      // 'top' stacks the glyph over the label — the bottom nav's labelled
-      // tabs (Courses designs). Ionic's button has no such slot and its
-      // inner row is out of CSS reach, so the stack is ours.
+      // Ionic's button has no top slot and its inner row is out of CSS reach, so the stack is ours.
       const iconTop = !iconOnly && iconSlotOverride === 'top' && !!iconName && !!resolveIcon(iconName);
-      // Ionic's `color=` prop applies a class that sets `--background`,
-      // `--color`, `--border-color`, etc. via `:host`, which can shadow
-      // our inline overrides. `ThemedIonButton` uses a ref + setProperty
-      // with 'important' so schema-driven `background` / `text_color` /
-      // `border_color` always win regardless of the API's theme color.
+      // Ionic's `color=` shadows inline overrides via :host; ThemedIonButton applies them with !important.
       return (
         <ThemedIonButton
           size="small"
@@ -748,15 +603,9 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
           {iconName && resolveIcon(iconName) && iconSlot === 'end' && (
             <IonIcon icon={resolveIcon(iconName)} slot="end" />
           )}
-          {/* icon_end — a SECOND glyph pinned after the label, independent of
-              icon_slot. The document file row needs a leading file-type glyph
-              AND a trailing download glyph on one tappable row; icon_slot can
-              only place the single `icon`. */}
           {iconEndName && resolveIcon(iconEndName) && iconSlot !== 'end' && (
             <IonIcon icon={resolveIcon(iconEndName)} slot="end" className="appza-icon-end" />
           )}
-          {/* end_text — a short word pinned to the row's far end: the
-              course lesson row's "Quiz" tag (Courses design 6). */}
           {endText !== undefined && (
             <span slot="end" className="appza-btn-end-text">
               {endText}
@@ -767,9 +616,6 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
     }
 
     case 'IonProgressBar': {
-      // `value` is a PERCENT (0–100), as every route of ours sends one — a
-      // course student's progress (Courses state 8). Clamped, so a bad row
-      // draws an empty or a full bar rather than overflowing.
       const raw = overrides ? overrides['value'] : undefined;
       const pct = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : 0;
       const safe = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0;
@@ -780,18 +626,8 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
       const src = readString(overrides, 'src');
       const initials = readString(overrides, 'initials');
       const alt = readString(overrides, 'alt') ?? '';
-      // No photo AND no initials means there is no person here — a
-      // conversation that never resolved, a row still loading. Drawing a
-      // hardcoded letter invents one: the chat appbar showed a confident
-      // teal "A" for a thread that did not exist. An empty circle is the
-      // honest shape, and it stays visible and selectable in the builder.
+      // No photo and no initials: an empty circle rather than an invented letter.
       const fallbackText = initials ?? '';
-      // Size and the initials palette are overridable because the chat
-      // appbar needs a smaller circle than a profile row, and its fill
-      // comes off the thread (teal behind a space, grey behind a person)
-      // rather than being one value for the whole template. Absent
-      // overrides keep the previous fixed 40px + stylesheet colours, so
-      // every existing avatar renders unchanged.
       const size = readString(overrides, 'size');
       const bgColor = readString(overrides, 'bg_color');
       const textColor = readString(overrides, 'text_color');
@@ -864,22 +700,13 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
 
     case 'IonInput': {
       const fillProp = readString(overrides, 'fill');
-      // `type` covers text / password / email / tel / number / search / url.
-      // Everything outside that set falls back to text so a typo can't
-      // break the input entirely.
       const rawType = readString(overrides, 'type');
       const allowedTypes = new Set([
         'text', 'password', 'email', 'tel', 'number', 'search', 'url',
       ]);
       const inputType = (rawType && allowedTypes.has(rawType) ? rawType : 'text') as
         'text' | 'password' | 'email' | 'tel' | 'number' | 'search' | 'url';
-      // When an action is wired to the input (e.g. fc-spaces-toolbar search
-      // → spaces.set_search), dispatch on every keystroke with item.value
-      // set to the current text. Mirrors ion-select's pattern of grafting
-      // the picked value onto action.item so the shell's dispatcher can
-      // read the current value uniformly. onIonInput fires for every
-      // character (including clears); onIonChange only fires on blur, so
-      // it would feel laggy for search-as-you-type.
+      // onIonInput, not onIonChange: the latter fires only on blur.
       const handleInput = action
         ? (e: CustomEvent) => {
             const target = e.target as { value?: unknown } | null;
@@ -897,32 +724,16 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
         <SeededIonInput
           initialValue={readString(overrides, 'value')}
           type={inputType}
-          // An EMPTY placeholder is a real answer, not a missing one:
-          // readString() treats '' as absent, so falling back on it put
-          // the primitive's label — the literal word "Input" — into the
-          // three password fields, which have no label of their own.
-          // The property being PRESENT is what decides.
+          // An empty placeholder is an answer: readString() treats '' as absent and would show the label "Input".
           placeholder={
             overrides && 'placeholder' in overrides
               ? String(overrides.placeholder ?? '')
               : label
           }
           fill={(fillProp as 'solid' | 'outline' | undefined) ?? 'outline'}
-          // Ionic's own clear affordance — shows the ⨯ only while the field
-          // has a value, which is exactly the documents-search design. It
-          // fires onIonInput with '' when tapped, so the wired action clears
-          // the state slice without a second child + action.
           clearInput={readBoolean(overrides, 'clear_input')}
-          // The profile form's email field: FluentCommunity only lets an
-          // address change for edit_users, or for the owner on a site
-          // whose can_change_email is yes. The proxy publishes that
-          // verdict; an editable field that silently discards the edit
-          // would be worse than a locked one.
+          // FluentCommunity only lets the email change for edit_users or when can_change_email is on.
           readonly={readBoolean(overrides, 'readonly')}
-          // The headline's 60-character ceiling, which FluentCommunity
-          // enforces on the write and the design counts down to. Read as
-          // a NUMBER from a property the catalog carries as a string, so
-          // a site that raises FC's own filter can raise this with it.
           maxlength={(() => {
             const raw = readString(overrides, 'maxlength');
             const n = raw === undefined ? NaN : Number(raw);
@@ -937,8 +748,6 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
       const rowsStr = readString(overrides, 'rows');
       const rowsNum = rowsStr ? Number.parseInt(rowsStr, 10) : NaN;
       const fillProp = readString(overrides, 'fill');
-      // Same contract as IonInput: dispatch on every keystroke with the
-      // current text grafted onto action.item.value.
       const handleInput = action
         ? (e: CustomEvent) => {
             const target = e.target as { value?: unknown } | null;
@@ -955,11 +764,7 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
       return (
         <SeededIonTextarea
           initialValue={readString(overrides, 'value')}
-          // An EMPTY placeholder is a real answer, not a missing one:
-          // readString() treats '' as absent, so falling back on it put
-          // the primitive's label — the literal word "Input" — into the
-          // three password fields, which have no label of their own.
-          // The property being PRESENT is what decides.
+          // An empty placeholder is an answer: readString() treats '' as absent and would show the label "Input".
           placeholder={
             overrides && 'placeholder' in overrides
               ? String(overrides.placeholder ?? '')
@@ -1008,7 +813,6 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
       return <AppzaProfileFields overrides={overrides} />;
     case 'AppzaDetailCards':
       return <AppzaDetailCards overrides={overrides} />;
-    // The quiz under a quiz lesson (Courses doc, states 18–21).
     case 'AppzaCourseQuiz':
       return <CourseQuiz overrides={overrides} action={action} dispatch={dispatch} />;
 
@@ -1059,11 +863,7 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
       const size = readString(overrides, 'size');
       const weight = readString(overrides, 'weight');
       const align = readString(overrides, 'align');
-      // Explicit empty string means "field is missing at runtime, hide me"
-      // — used by field_mappings that resolve to '' when the upstream
-      // value is null (e.g. fc-member-card sets username='' when
-      // xprofile.username is null). Without this bail-out the primitive
-      // falls back to its name ("Text") and paints a placeholder.
+      // '' means the field is missing at runtime: hide rather than fall back to the primitive's name.
       const rawText = overrides ? overrides['text'] : undefined;
       if (rawText === '') return null;
       const themeColor = color && isIonicThemeColor(color) ? color : undefined;
@@ -1082,24 +882,10 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
     }
 
     case 'IonSelect': {
-      // Options come from `overrides.options` as an array of `{value,label}`
-      // pairs. The App-mode shell populates this for dynamic pickers (e.g.
-      // the composer's space picker mirrors the spaces DS in here).
-      //
-      // Rendered as a native `<select>` (not IonSelect) because IonSelect's
-      // popover interface + shadow-DOM option handoff misbehaves when the
-      // options array is injected via customizations after mount — the
-      // native select is DOM-inspectable, immediately reactive to prop
-      // changes, and works with readFormFieldValue's `.value` query. Ionic's
-      // form-element theming still cascades into the native select via the
-      // surrounding CSS custom properties from tokensToCssVars.
+      // Native <select>, not IonSelect: IonSelect misbehaves when options arrive after mount, and readFormFieldValue reads `.value`.
       const placeholder = readString(overrides, 'placeholder') ?? label;
       const options = readSelectOptions(overrides, 'options');
       const initialValue = readString(overrides, 'value') ?? '';
-      // The wrapper's onClick is bypassed for ion-select (see SELF_ACTION_
-      // PRIMITIVES); dispatch fires here with the chosen value grafted onto
-      // action.item so App-side dispatchers can read
-      // ({value}) via inv.item.value or effectiveItem.value.
       const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         if (!action) return;
         const value = e.target.value;
@@ -1108,21 +894,7 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
           item: { ...(action.item as Record<string, unknown> | null | undefined ?? {}), value },
         });
       };
-      // Two modes:
-      //   1. Action wired (e.g. fc-feed-toolbar sort) — controlled select.
-      //      `value` follows the prop so updating overrides.value (via
-      //      setFeedControls) reflects in the visible selection; onChange
-      //      dispatches the pick.
-      //   2. No action (e.g. fc-post-information space picker) — uncontrolled
-      //      select via `defaultValue`. Value lives in the DOM; the form's
-      //      dispatcher reads it via readFormFieldValue on submit. Marking
-      //      it controlled without an onChange source would snap the pick
-      //      back to defaultValue immediately.
-      //
-      // If overrides.label is set (e.g. fc-feed-toolbar's sort_label
-      // = "Sort by:"), render it as a leading span since the native
-      // <select> has no label slot. Wrapper is inline-flex so the label
-      // + select sit on one line.
+      // Controlled only when an action is wired; without an onChange source a controlled select snaps back to defaultValue.
       const leadingLabel = readString(overrides, 'label');
       const selectEl = action ? (
         <select
@@ -1197,10 +969,6 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
     }
 
     case 'IonCheckbox': {
-      // Render with an inline label when `text` is set — matches the
-      // FC composer's "Send announcement email to space member" pattern
-      // where the checkbox and its label sit on one line. Blank text
-      // falls back to a bare checkbox (used for standalone toggle spots).
       const checkboxText = readString(overrides, 'text');
       if (!checkboxText) return <IonCheckbox aria-label={label} />;
       return (
@@ -1212,12 +980,7 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
     }
 
     case 'IonChip': {
-      // `color` is either an Ionic palette name or a real CSS colour, as on
-      // IonText. A hex passed straight to Ionic's `color` becomes the class
-      // `ion-color-#e8452c`, which styles nothing — so a badge chip whose
-      // colours come from FluentCommunity's definition drew uncoloured
-      // until 2026-09-17. `bg_color` had no reader at all. Both go on the
-      // chip's own variables, which is what Ionic's shadow CSS paints from.
+      // A hex passed to Ionic's `color` becomes a class that styles nothing, so colours go on the chip's own variables.
       const color = readString(overrides, 'color');
       const bgColor = readString(overrides, 'bg_color');
       const themeColor = color && isIonicThemeColor(color) ? color : undefined;
@@ -1242,10 +1005,6 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
     }
 
     case 'IonIcon': {
-      // Standalone icon glyph. Reads `icon` (slug) + `color` from overrides.
-      // Ionicons imports are lazy — resolveIcon returns undefined for unknown
-      // slugs and we render nothing rather than a broken chip so a stale
-      // catalog can't break the row visually.
       const iconSlug = readString(overrides, 'icon');
       const resolved = iconSlug ? resolveIcon(iconSlug) : undefined;
       if (!resolved) return null;
@@ -1254,9 +1013,6 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
     }
 
     case 'IonList':
-      // Renderer never actually nests Ionic list items at v1; this is a
-      // visual no-op placeholder so list-row layouts don't render an
-      // "unknown" chip when the SS happens to include ion-list.
       return <IonList lines="none" style={{ background: 'transparent', width: '100%' }} />;
 
     default:
@@ -1287,25 +1043,15 @@ function isAllowedVideoHost(src: string): boolean {
   }
 }
 
-/** Extensions a browser can decode natively in <video> / <audio>. */
 const DIRECT_VIDEO_EXT = ['mp4', 'webm', 'ogv', 'mov', 'm4v'];
 const DIRECT_AUDIO_EXT = ['mp3', 'wav', 'ogg', 'oga', 'm4a', 'aac', 'flac'];
 
-/**
- * Is `src` a media FILE rather than an embed page?
- *
- * FluentPlayer uploads arrive as a plain uploads URL ending in .mp4/.mp3,
- * which is not an embeddable page and is not on the iframe allowlist —
- * so before this it fell through to window.open and left the app.
- * Decided on the path's extension, ignoring the query string, because
- * that is what actually tells us a native element can decode it.
- */
+/** Decided on the path's extension: a FluentPlayer upload is a file, not an embeddable page. */
 function directMediaKind(src: string): 'video' | 'audio' | null {
   let path = src;
   try {
     path = new URL(src, 'https://x.invalid').pathname;
   } catch {
-    // Relative or malformed — fall back to the raw string, minus any query.
     path = src.split('?')[0] ?? src;
   }
   const ext = (path.split('.').pop() ?? '').toLowerCase();
@@ -1314,36 +1060,10 @@ function directMediaKind(src: string): 'video' | 'audio' | null {
   return null;
 }
 
-/**
- * Poster thumbnail with a play badge. If `src` host is on the allowlist
- * (YouTube / Vimeo), clicking swaps to an inline iframe in the same card
- * slot — no modal. If host is NOT allowed, the play badge acts as an
- * anchor opening `src` in a new tab (renderer refuses to embed arbitrary
- * third-party iframes).
- *
- * The play badge carries `data-appza-inline-click` so DeviceFrame's DC#20
- * click-capture skips it (otherwise the plug-in-admin's primitive-select
- * would intercept the play click). The surrounding poster area is still
- * a normal primitive click target, so users CAN select the video-embed
- * for editing by clicking outside the badge.
- */
-// Cached across mounts so a parent re-render that unmounts the video-embed
-// (e.g. list refetch, primitive-select state change) doesn't reset the
-// user's "I hit play" decision. Keyed by src because a different video is
-// a legitimate reason to reset.
+// Kept across mounts so a list refetch doesn't reset the user's play decision.
 const videoEmbedPlayingCache = new Map<string, boolean>();
 
-/**
- * Rich-text body with a "Show More" / "Show Less" toggle.
- *
- * On mount + on html change, measures whether the content's natural
- * height exceeds the collapsed clamp (via scrollHeight vs clientHeight).
- * When it does, renders a small text button below the paragraph that
- * flips a class controlling `-webkit-line-clamp`. Short posts skip the
- * button entirely so we don't clutter one-line feeds. HTML sink is the
- * same wp_kses-sanitized payload from PreviewProxyController — safe to
- * dangerouslySetInnerHTML.
- */
+/** HTML is the wp_kses-sanitized proxy payload, so dangerouslySetInnerHTML is safe. */
 function AppzaRichText({
   html,
   moreLabel,
@@ -1351,20 +1071,9 @@ function AppzaRichText({
   collapsedStateKey,
 }: {
   html: string;
-  /** Builder-controlled; Noor's designs 14 and 15 say "Show More". */
   moreLabel?: string;
   lessLabel?: string;
-  /**
-   * Hands the clamp to a state slice instead of this component's own
-   * `expanded`, and suppresses the inline toggle.
-   *
-   * The feed banner needs ONE control governing both the paragraph and
-   * the CTA slots below it, drawn as a full-width row under the buttons
-   * (designs 14, 15) — not a link trailing the text. Only
-   * `feed_banner.expanded` is understood; anything else falls back to the
-   * self-managed behaviour rather than freezing the text clamped, because
-   * a typo in the catalog must not cost the reader the rest of the post.
-   */
+  /** Only `feed_banner.expanded` is understood; anything else falls back to self-managed, so a typo can't freeze the text clamped. */
   collapsedStateKey?: string;
 }) {
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -1376,24 +1085,14 @@ function AppzaRichText({
   useEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
-    // Measure ONLY while clamped. Expanded, clientHeight has grown to meet
-    // scrollHeight, so the same check reads "not overflowing" — which
-    // would retract the View Less row and strand the reader open with no
-    // way back. The verdict taken while collapsed is the true one and it
-    // stands until the html changes.
+    // Measure only while clamped: expanded, clientHeight meets scrollHeight and would hide the toggle.
     if (effectiveExpanded) return;
-    // Read the clamped height first. If content exceeds it, show the toggle.
-    // Re-measure on html change so a proxy-refreshed post with a longer
-    // body re-evaluates.
     const isOverflow = el.scrollHeight - el.clientHeight > 2;
     setOverflowing(isOverflow);
     if (external) {
-      // Half of the banner's `collapsible` verdict. The other half — more
-      // than two CTA buttons — is published by PlacementRenderer, and the
-      // OR is joined in bannerStateEntries.
+      // The other half of the banner's `collapsible` verdict comes from PlacementRenderer, joined in bannerStateEntries.
       setBannerControls({ descriptionOverflows: isOverflow });
     }
-    // If html shrank, reset expanded so long → short transitions are clean.
     if (!isOverflow) setExpanded(false);
   }, [html, effectiveExpanded, external]);
   return (
@@ -1439,13 +1138,7 @@ function AppzaVideoEmbed({
   const canEmbed = src ? isAllowedVideoHost(src) : false;
   const direct = src ? directMediaKind(src) : null;
 
-  // A file we serve ourselves plays in a native element. This is NOT the
-  // allowlist being relaxed: the allowlist governs IFRAMES, where the
-  // third party gets script execution in our origin's frame tree. A
-  // <video>/<audio> element decodes bytes and can do nothing else, so a
-  // FluentPlayer upload is safe to play in place — and handing it to
-  // window.open instead (the old fallback) threw the user out of the app
-  // to a browser tab, which is what "video not play" looked like.
+  // A <video>/<audio> element only decodes bytes, so this doesn't relax the iframe allowlist.
   if (direct && src) {
     return direct === 'audio' ? (
       <audio className="appza-video-embed-native" src={src} controls preload="metadata" />
@@ -1517,10 +1210,6 @@ function AppzaVideoEmbed({
   );
 }
 
-/**
- * Boolean prop read. Accepts a real boolean (schema type `boolean` round-trips
- * as one) or the string forms the right-panel text inputs produce.
- */
 function readBoolean(overrides: PrimitiveOverrides | undefined, key: string): boolean {
   if (!overrides) return false;
   const v = overrides[key];
@@ -1536,14 +1225,6 @@ function readString(overrides: PrimitiveOverrides | undefined, key: string): str
   return undefined;
 }
 
-/**
- * Maps IonButton style overrides (from properties_schema `binds_to`) onto
- * the Ionic CSS custom properties IonButton reads at runtime. Names match
- * schema convention (border_width, border_color, border_style,
- * border_radius, background, text_color, padding_x, padding_y) so
- * catalog authors can wire them without knowing Ionic's `--*` names.
- * Returns an empty map if nothing is set so callers can skip the effect.
- */
 function buildIonButtonStyleOverrides(
   overrides: PrimitiveOverrides | undefined,
 ): Record<string, string> {
@@ -1563,7 +1244,6 @@ function buildIonButtonStyleOverrides(
     const v = readString(overrides, key);
     if (v !== undefined) out[cssVar] = v;
   }
-  // padding_x → --padding-end mirror; padding_y → --padding-bottom mirror.
   const px = readString(overrides, 'padding_x');
   if (px !== undefined) out['--padding-end'] = px;
   const py = readString(overrides, 'padding_y');
@@ -1571,21 +1251,7 @@ function buildIonButtonStyleOverrides(
   return out;
 }
 
-/**
- * IonButton wrapper that beats Ionic's theme cascade by styling the
- * shadow part `::part(native)` directly. Ionic's `color=` prop applies
- * `:host` rules for `--background`, `--color`, `--border-color`, etc.,
- * and inline custom properties on the host don't always win — the
- * theme's `!important` variants in some cascades take over. Targeting
- * the shadow part from OUTSIDE the shadow root, with `!important`,
- * always wins because Ionic never gates its own shadow rules with
- * `!important` at that layer.
- *
- * Each button gets a unique class (`appza-cta-<id>`) and an inline
- * `<style>` sibling emits scoped rules keyed off that class. Cleared
- * props render as empty styleOverrides → empty rules → Ionic defaults
- * come back automatically.
- */
+/** Styles `::part(native)` from outside with !important, the only thing that beats Ionic's `color=` theme cascade. */
 type ThemedIonButtonProps = ComponentProps<typeof IonButton> & {
   styleOverrides: Record<string, string>;
 };
@@ -1605,11 +1271,7 @@ function ThemedIonButton({
   }
   const cssId = idRef.current;
 
-  // Map schema-driven CSS custom properties back to native CSS
-  // properties on `::part(native)` — that's where Ionic actually
-  // paints the button surface / label / border. Padding stays on the
-  // host as `--padding-*` (Ionic reads those internally on ion-button
-  // even when `part(native)` is styled externally).
+  // Padding stays on the host as --padding-*: Ionic reads those internally.
   const partRules: string[] = [];
   const hostRules: string[] = [];
   const partMap: Array<[string, string]> = [
@@ -1633,11 +1295,7 @@ function ThemedIonButton({
     const v = styleOverrides[hostKey];
     if (v !== undefined) hostRules.push(`${hostKey}: ${v} !important;`);
   }
-  // Border-width has to be explicit on ::part(native) for outline to
-  // paint, but Ionic's solid/clear fills also inherit border: 0. When
-  // the author sets a color WITHOUT a width, assume they want the
-  // color visible → default to 1px solid so the color has something to
-  // paint on.
+  // A colour without a width needs an explicit border: Ionic's fills inherit border: 0.
   if (styleOverrides['--border-color'] && !styleOverrides['--border-width']) {
     partRules.push('border-width: 1px !important;');
     if (!styleOverrides['--border-style']) {
@@ -1678,12 +1336,7 @@ const IONIC_THEME_COLORS = new Set([
   'dark',
 ]);
 
-/**
- * True when the string is an Ionic theme color name (safe to pass to
- * `color=`). Everything else (hex, rgb(), hsl(), CSS named colors) has
- * to flow through inline style since Ionic silently drops non-theme
- * values from the color prop.
- */
+/** Ionic silently drops non-theme values from `color=`. */
 function isIonicThemeColor(v: string): boolean {
   return IONIC_THEME_COLORS.has(v);
 }
@@ -1716,19 +1369,7 @@ function readImages(overrides: PrimitiveOverrides | undefined, key: string): Gal
   return out;
 }
 
-/**
- * Instagram-style collage. Layout switches on image count via the
- * `data-count` attribute — CSS grid definitions per count in styles.css:
- *   1 → single tile        2 → two equal columns
- *   3 → 1 large + 2 stacked (matches user reference)
- *   4 → 2×2 grid          5+ → 2×2 grid, 4th tile shows "+N more" overlay
- * No scroll, no swipe. Grid, not flex. All visible up to the count-4 cap
- * plus the "+N" affordance.
- *
- * Tap on any tile → opens `AppzaImageLightbox` at that index (indexed into
- * the FULL images array, not the visible slice — so tapping the "+N" tile
- * opens the 4th image and lets the user navigate to the hidden ones).
- */
+/** Tile indices address the FULL images array, so the "+N" tile opens the 4th image. */
 function AppzaImageGallery({ images }: { images: GalleryImage[] }) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   if (images.length === 0) return null;
@@ -1769,16 +1410,7 @@ function AppzaImageGallery({ images }: { images: GalleryImage[] }) {
   );
 }
 
-/**
- * <img> replacement that fetches cross-origin URLs via fetch() first, then
- * uses the resulting blob as the src. Same-origin URLs render as a plain
- * native <img> (no extra roundtrip; matches pre-existing behavior on the
- * plugin-admin sim). Cross-origin path exists so the Capacitor Android
- * shell can pick up window.fetch's header overrides (e.g. dev-tunnel
- * bypass headers) on <img> loads, which native image loaders never send.
- * Blob URLs are cached module-wide keyed by original src so repeated
- * renders + multiple cards on the same image don't refetch.
- */
+/** Cross-origin images go through fetch() so the Capacitor shell's header overrides apply; native image loaders never send them. */
 const BLOB_IMG_CACHE = new Map<string, string>();
 function BlobImage({ src, alt }: { src: string; alt: string }) {
   const isCrossOrigin =
@@ -1827,21 +1459,11 @@ function BlobImage({ src, alt }: { src: string; alt: string }) {
     };
   }, [src, isCrossOrigin]);
   if (!resolvedSrc) {
-    // Reserve the slot while the blob resolves so the collage layout
-    // doesn't collapse. Same background as .appza-image-gallery-slide.
     return <div style={{ width: '100%', height: '100%', background: '#0f172a' }} />;
   }
   return <img src={resolvedSrc} alt={alt} loading="lazy" />;
 }
 
-/**
- * Fullscreen lightbox — dark backdrop + centered image (`object-fit: contain`)
- * + close button + prev/next arrows (hidden when only 1 image). Backdrop
- * click closes; keyboard (Esc / ← / →) navigates or closes on desktop.
- *
- * All interactive elements carry `data-appza-inline-click` so DC#20's
- * plug-in-admin click-capture doesn't intercept the taps.
- */
 function AppzaImageLightbox({
   images,
   activeIndex,
@@ -1878,7 +1500,6 @@ function AppzaImageLightbox({
       data-appza-inline-click="true"
       onClick={(e) => {
         e.stopPropagation();
-        // Only close on backdrop taps, not on the image / buttons.
         if (e.target === e.currentTarget) onClose();
       }}
     >
@@ -1936,11 +1557,6 @@ function AppzaImageLightbox({
 
 type SelectOption = { value: string; label: string };
 
-/**
- * Read a select options bag off an overrides record. Accepts `{value,label}`
- * pairs; coerces value + label to string. Silently drops entries missing
- * either field so the renderer never emits an empty `<ion-select-option>`.
- */
 function readSelectOptions(
   overrides: PrimitiveOverrides | undefined,
   key: string,
@@ -1996,26 +1612,7 @@ function readOptions(overrides: PrimitiveOverrides | undefined, key: string): Po
   return out;
 }
 
-/**
- * Interactive poll — mirrors the FluentCommunity web portal UX. Each row
- * is always tappable (radio for `single_choice`, checkbox for `multi_
- * choice`) with a progress bar overlay showing the current percentage.
- * There is no separate "Vote" button + no locked results view: every
- * tap flips the option's local `voted` state and immediately dispatches
- * `on_tap_poll_vote` with the current set of voted slugs (portal calls
- * this `syncVotes`). The server treats it as an idempotent set-vote
- * operation — add new, remove missing — so the user can change or clear
- * their pick at any time.
- *
- * Local `optionState` mirrors props.options so the tap→toggle is
- * responsive even before the server response lands. When the parent
- * pushes fresh options (dispatcher patches item.meta.survey_config after
- * the vote succeeds), the deep-equals sync in useEffect re-seeds.
- *
- * Registered in SELF_ACTION_PRIMITIVES so the SS wrapper skips onClick.
- * `data-appza-inline-click` also keeps DC#20 primitive-select from
- * capturing the tap in Edit mode.
- */
+/** Each tap syncs the full voted set; the server treats it as an idempotent set-vote. */
 function AppzaPollBlock({
   type,
   options,
@@ -2029,19 +1626,13 @@ function AppzaPollBlock({
   options: PollOption[];
   action?: ActionInvocation;
   dispatch: (inv: ActionInvocation) => void;
-  /** "Vote" — the word after the count. Builder-controlled. */
   totalLabel: string;
-  /** Action fired by a row's chevron; empty disables the chevron. */
   votersSlug: string;
-  /** The bound POST's id, so the voters call can name its feed_id. */
   postId?: number | string;
 }) {
   const isMulti = type === 'multi_choice';
   const [optionState, setOptionState] = useState<PollOption[]>(options);
-  // Re-seed local state whenever the incoming options[] shape changes
-  // (server response replaces survey_config; on-network mount reload).
-  // Deep-compare via JSON so we don't reset the user's mid-flight click
-  // just because a shallow reference changed.
+  // Deep-compared via JSON so a new reference doesn't reset a mid-flight click.
   const optionsKey = JSON.stringify(options);
   useEffect(() => {
     setOptionState(options);
@@ -2068,12 +1659,7 @@ function AppzaPollBlock({
 
   const toggle = (slug: string) => {
     setOptionState((prev) => {
-      // Optimistic vote_counts adjustment so percentages reflect the
-      // change immediately. The dispatcher's server response mutates
-      // item.meta.survey_config in place, but React state may not
-      // re-render the parent — the local sync keeps the UI in step
-      // between the tap and the next natural re-render, when the
-      // useEffect on optionsKey re-seeds from authoritative props.
+      // Optimistic: the dispatcher mutates survey_config in place, which may not re-render the parent.
       const next = prev.map((o) => {
         if (isMulti) {
           if (o.slug !== slug) return o;
@@ -2081,8 +1667,6 @@ function AppzaPollBlock({
           const cur = o.vote_counts ?? 0;
           return { ...o, voted: nowVoted, vote_counts: Math.max(0, cur + (nowVoted ? 1 : -1)) };
         }
-        // single_choice: the tapped option flips; any previously voted
-        // option loses its vote (counts drops by 1).
         if (o.slug === slug) {
           const nowVoted = !o.voted;
           const cur = o.vote_counts ?? 0;
@@ -2094,8 +1678,6 @@ function AppzaPollBlock({
         }
         return o;
       });
-      // Recompute percentage locally against the new totals so the
-      // progress bars widen/shrink alongside the vote change.
       const newTotal = next.reduce((sum, o) => sum + (o.vote_counts ?? 0), 0);
       const withPct = next.map((o) => ({
         ...o,
@@ -2106,22 +1688,7 @@ function AppzaPollBlock({
     });
   };
 
-  // Designs 7 to 12. Six pictures, three variables:
-  //
-  //   the BAR      width is the option's share of the vote. 0% draws
-  //                nothing, which is why designs 7 and 10 are plain rows.
-  //   the CONTROL  filled only for options THIS viewer picked. That is
-  //                the whole difference between designs 8 and 9 (and 11
-  //                and 12) — both draw the same bar, and only the
-  //                viewer's own vote fills the circle or the box.
-  //   the TALLY    "{pct}% · {count}" plus a chevron into the voter list,
-  //                and the chevron only where somebody actually voted.
-  //
-  // A multi-choice poll nobody has voted on shows NO tally at all
-  // (design 10), where the single-choice equivalent shows "0% · 0"
-  // (design 7). That asymmetry is in the designs; it also matches a
-  // multi poll being a form you fill in before submitting, where a
-  // column of 0% is noise.
+  // Multi-choice with no votes shows no tally (single-choice shows "0% · 0"); the control fills only for the viewer's own picks.
   const showTally = !isMulti || totalVotes > 0;
 
   const rows = optionState.map((opt) => {
@@ -2139,9 +1706,7 @@ function AppzaPollBlock({
         key={opt.slug}
         className={`appza-poll-row${checked ? ' appza-poll-row-voted' : ''}`}
         onClick={(e) => {
-          // Own the toggle from the label — the IonCheckbox/IonRadio
-          // inside gets a controlled `checked` prop and no onIonChange,
-          // so it stays purely visual and never double-fires the sync.
+          // The label owns the toggle; the inner control is visual-only so the sync never double-fires.
           e.preventDefault();
           toggle(opt.slug);
         }}
@@ -2165,20 +1730,13 @@ function AppzaPollBlock({
                   className="appza-poll-voters"
                   aria-label={`Who voted for ${opt.label ?? 'this option'}`}
                   onClick={(e) => {
-                    // Stop the label's toggle: opening the voter list is
-                    // not a vote, and on a single-choice poll it would
-                    // otherwise move the viewer's pick.
+                    // Opening the voter list is not a vote.
                     e.preventDefault();
                     e.stopPropagation();
                     dispatch({
                       action_slug: votersSlug,
                       args: readActionDefaultsFromCatalog(votersSlug) ?? undefined,
-                      // `id` is the POST's id, bound as a scalar. A
-                      // field_mapping of bare `data` resolves to nothing
-                      // — mappings walk a PATH under the row — so the
-                      // whole-object binding this first used arrived
-                      // undefined and the dispatcher had no feed to ask
-                      // about.
+                      // Bound as a scalar: a field_mapping of bare `data` resolves to undefined.
                       item: { id: postId, option_slug: opt.slug, option_label: opt.label },
                     });
                   }}
@@ -2193,9 +1751,7 @@ function AppzaPollBlock({
     );
   });
 
-  // "N Vote" under the options, then the hairline the action strip sits
-  // below. Counts VOTES, not voters — a multi-choice poll lets one
-  // person cast several, and design 11 reads 3 for two people's picks.
+  // Counts votes, not voters: a multi-choice poll lets one person cast several.
   const tally = (
     <div className="appza-poll-total">
       {totalVotes} {totalLabel}
@@ -2211,9 +1767,6 @@ function AppzaPollBlock({
     );
   }
 
-  // single_choice — wrap in IonRadioGroup so the picked slug is the
-  // group's `value`. Ionic uses that to render the checked ring on the
-  // right IonRadio without us managing per-radio checked state.
   const pickedSlug = optionState.find((o) => o.voted)?.slug ?? '';
   return (
     <div className="appza-poll-block" data-appza-inline-click="true">
@@ -2233,41 +1786,10 @@ function normalizeIonButtonFill(raw: string | undefined): IonButtonFill {
   return 'clear';
 }
 
-/**
- * Resolves an ionicons icon name (kebab-case) to the imported SVG ref
- * via the static registry above. Tries the bare name first, then the
- * `-outline` variant for the same family.
- *
- * Exported so the plug-in-admin's icon picker can render live glyphs
- * next to each name. Renderer callers should keep using it locally.
- */
-/**
- * Names the registry has already been asked for and could not answer.
- * Keyed so the warning fires ONCE per name — this runs on every render
- * of every icon, and an unknown one in a long list would otherwise fill
- * the console with the same line.
- */
+// Warns once per name: this runs on every render of every icon.
 const unknownIconNames = new Set<string>();
 
-/**
- * Catalog icon name → the Ionicons SVG string, or undefined.
- *
- * Returning undefined silently is what makes a missing registry entry so
- * expensive to find: the control still renders, laid out and styled and
- * clickable, with a hole where the glyph should be. `copy-outline` sat
- * blank on the profile card, and `arrow-undo-outline` on both the chat
- * bubble's reply arrow and the composer's reply strip — each authored
- * correctly in the catalog, each drawing nothing, none of them
- * complaining. Every consumer treats undefined as "no icon wanted",
- * which is indistinguishable from "icon wanted, name unknown".
- *
- * So say so. Once per name, naming the fix — the registry is explicit
- * on purpose (see the note above it: a dynamic lookup gets tree-shaken
- * to nothing), so a new icon always means a new line there.
- *
- * An empty name is not a mistake — most callers pass a prop that is
- * legitimately unset, meaning "draw no icon" — so it never warns.
- */
+/** Undefined is indistinguishable from "no icon wanted" downstream, so an unknown name warns. */
 export function resolveIcon(name: string): string | undefined {
   if (ICON_REGISTRY[name]) return ICON_REGISTRY[name];
   if (ICON_REGISTRY[name + '-outline']) return ICON_REGISTRY[name + '-outline'];
@@ -2284,12 +1806,7 @@ export function resolveIcon(name: string): string | undefined {
   return undefined;
 }
 
-/**
- * Every icon name asked for that the registry could not answer, in the
- * order they were first seen. Exposed so a check can assert the set is
- * empty after exercising a screen, rather than relying on someone
- * noticing a console line.
- */
+/** Exposed so a check can assert no unknown icons after exercising a screen. */
 export function unknownIcons(): string[] {
   return Array.from(unknownIconNames);
 }

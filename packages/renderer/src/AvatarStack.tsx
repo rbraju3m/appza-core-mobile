@@ -1,13 +1,3 @@
-/**
- * Overlapping faces beside the like / comment counts (designs 14, 19, 26).
- *
- * Reads `avatars` — the capped, de-duplicated list the preview proxy
- * derives from the post's `reactions[]`. Deriving it there rather than
- * binding the raw array keeps a whole xprofile per reaction out of the
- * card, and keeps one rule about WHO counts (likers, not bookmarkers) in
- * one place.
- */
-
 export type AvatarStackEntry = {
   user_id?: number;
   avatar?: string;

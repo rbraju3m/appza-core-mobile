@@ -15,37 +15,14 @@ type DeviceFrameProps = {
   templateName?: string;
   selectedAppzetSlug?: string | null;
   onSelectAppzet?: (slug: string | null) => void;
-  /** The simulator's screen-stack depth, for ScreenRenderer's scroll memory. */
   navDepth?: number;
   selectedPrimitive?: SelectedPrimitive | null;
   onSelectPrimitive?: (sel: SelectedPrimitive | null) => void;
-  /**
-   * In-device overlay slot — rendered as an absolutely positioned layer
-   * inside `.appza-device-viewport`, so modals/action-sheets align with the
-   * simulated phone screen instead of the browser viewport. On the real
-   * Capacitor app, modals stay position:fixed against the actual device.
-   */
+  /** Positioned inside the device viewport so modals align with the simulated screen, not the browser. */
   overlaySlot?: ReactNode;
 };
 
-/**
- * Outer phone bezel for the WP-admin preview. The Ionic app shell
- * (IonApp > IonPage > IonHeader/IonContent/IonFooter) lives inside
- * the renderer itself, so this component renders only the bezel +
- * a viewport. Capacitor uses the renderer without any bezel.
- *
- * Design-time primitive selection (DC#20): captures clicks on any
- * DOM element carrying `data-appza-primitive-path` (emitted by the
- * renderer at depth 0 SS-child level), walks up for the AppZet slug,
- * and fires onSelectPrimitive with the composed key. Runs at capture
- * phase + stops propagation so the AppZet-level onClick doesn't also
- * grab focus.
- *
- * Selection outline is painted via a useLayoutEffect that toggles the
- * `.is-selected-primitive` class on the matching ss-child DOM node.
- * Kept out of the renderer to avoid teaching the shared renderer about
- * designer state.
- */
+// Selection outline is toggled here, not in the renderer, so the shared renderer stays unaware of designer state.
 export function DeviceFrame({
   screen,
   catalog,
@@ -77,14 +54,9 @@ export function DeviceFrame({
     if (!onSelectPrimitive && !onSelectAppzet) return;
     const target = e.target as HTMLElement | null;
     if (!target) return;
-    // Interactive inner elements (video-embed play badge, future in-card
-    // controls) opt out of DC#20 primitive-select by carrying this attr.
-    // We yield the click back to the target's own onClick handler.
+    // Inline controls (e.g. video play badge) opt out of primitive-select via this attr.
     if (target.closest('[data-appza-inline-click]')) return;
-    // Inside a live overlay (modal/sheet) the click must reach the
-    // control it landed on as well as select it — see appzetAttrs().
-    // Everywhere else, selecting consumes the click so a design-time tap
-    // can't fire a real action.
+    // Inside a live overlay the click must reach its control as well as select it; elsewhere selecting consumes it so no real action fires.
     const inOverlay = Boolean(target.closest('[data-appza-overlay]'));
     const primitiveEl = target.closest('[data-appza-primitive-path]') as HTMLElement | null;
     if (primitiveEl && onSelectPrimitive) {
@@ -98,13 +70,7 @@ export function DeviceFrame({
       }
     }
     if (!onSelectAppzet) return;
-    // Fallback for hand-written overlays (modals, sheets) that tag their
-    // root card with `data-appza-appzet-slug` — see designTimeAttrs.ts.
-    // They aren't composed by PlacementRenderer, so they don't get its
-    // AppZet-level onClick; without this, clicking the card's padding
-    // reaches <main> and clears the selection instead of making one.
-    // Composed AppZets never fall through to here: their tagged nodes
-    // all carry a primitive path and are handled above.
+    // Hand-written overlays aren't composed by PlacementRenderer, so without this a click on their padding clears the selection.
     const appzetEl = target.closest('[data-appza-appzet-slug]') as HTMLElement | null;
     const slug = appzetEl?.getAttribute('data-appza-appzet-slug');
     if (!slug) return;

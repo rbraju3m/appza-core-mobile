@@ -13,17 +13,8 @@ type SidebarProps = {
   bottomTab: BottomTab;
   onSelectBottomTab: (tab: BottomTab) => void;
   bottomPanel: React.ReactNode;
-  /**
-   * Currently selected AppZet, so the list can mark it.
-   */
   selectedAppzetSlug?: string | null;
-  /**
-   * Selecting from the list is the ONLY way to reach an AppZet that is
-   * never placed on a screen — every modal (add-member, invite-user)
-   * is opened imperatively by an action, so it can never be clicked in
-   * the device preview and would otherwise have no reachable
-   * Properties panel at all.
-   */
+  /** The only way to reach an AppZet that is never placed (modals opened by actions). */
   onSelectAppzet?: (slug: string) => void;
 };
 
@@ -39,15 +30,7 @@ export function Sidebar({
   selectedAppzetSlug,
   onSelectAppzet,
 }: SidebarProps) {
-  // Screen Components lists what a screen actually uses — which is more
-  // than what it places. A modal is opened by an action wiring
-  // (`form_appzet_slug`) and is never placed anywhere, so a
-  // placements-only list leaves it off the screen where its own button
-  // lives, and Global Components becomes the only way to find it.
-  //
-  // Same walk BootstrapSnapshotService does server-side to decide what
-  // ships in the bundle (P67): follow any depth of action args for keys
-  // ending in `appzet_slug`.
+  // Include modals reached via action args (`*appzet_slug`), not just placements — same walk the server does for the bundle.
   const screenAppZetSlugs = useMemo<Set<string>>(() => {
     if (!currentScreen) return new Set();
 
@@ -69,8 +52,7 @@ export function Sidebar({
       .map((p) => (typeof p['appzet_slug'] === 'string' ? p['appzet_slug'] : ''))
       .filter(Boolean);
 
-    // Cheap cycle guard: two AppZets referencing each other would
-    // otherwise spin here.
+    // Cycle guard: two AppZets may reference each other.
     let guard = 0;
     while (queue.length > 0 && guard < 500) {
       guard += 1;

@@ -30,8 +30,6 @@ body {
   background: var(--appza-bg);
 }
 
-/* ------- shell ------- */
-
 .appza-shell {
   display: grid;
   grid-template-rows: var(--appza-topbar-height) 1fr;
@@ -47,8 +45,6 @@ body {
 .appza-body:has(.appza-props-panel) {
   grid-template-columns: var(--appza-sidebar-width) 1fr 360px;
 }
-
-/* ------- top bar ------- */
 
 .appza-topbar {
   display: flex;
@@ -245,8 +241,6 @@ body {
   cursor: not-allowed;
 }
 
-/* ------- sidebar ------- */
-
 .appza-sidebar {
   border-right: 1px solid var(--appza-border);
   display: grid;
@@ -335,8 +329,6 @@ body {
   display: block;
 }
 
-/* Selecting a row opens its Properties panel — the only route to an
- * AppZet that is never placed on a screen (i.e. every modal). */
 .appza-section-item[data-selected='true'] {
   background: var(--appza-accent-soft, #fff1e6);
   box-shadow: inset 2px 0 0 var(--appza-accent, #f97316);
@@ -393,8 +385,6 @@ body {
   line-height: 1.2;
 }
 
-/* ------- bottom tabs ------- */
-
 .appza-bottom-tabs {
   display: flex;
   border-top: 1px solid var(--appza-border);
@@ -419,8 +409,6 @@ body {
   color: var(--appza-text);
   background: var(--appza-bg-alt);
 }
-
-/* ------- center / device frame ------- */
 
 .appza-center {
   display: flex;
@@ -484,8 +472,6 @@ body {
   flex: 1;
   min-height: 0;
 }
-
-/* ------- In-device chrome (menu + refresh) for App-mode simulator ------- */
 
 .appza-sim-chrome-bar {
   position: absolute;
@@ -585,8 +571,6 @@ body {
 }
 
 .appza-sim-menu-item {
-  /* Twin of .appza-menu-item — icons are all-or-none, so with none the
-     gap collapses and the row reads exactly as it did. */
   display: flex;
   align-items: center;
   gap: 10px;
@@ -665,8 +649,6 @@ body {
   animation: appza-sim-spin 0.6s linear infinite;
 }
 
-/* ------- settings / themes (bottom panel) ------- */
-
 .appza-bottom-panel {
   position: absolute;
   bottom: var(--appza-bottom-tabs-height);
@@ -703,8 +685,6 @@ body {
   font-family: monospace;
   word-break: break-all;
 }
-
-/* ------- overrides panel ------- */
 
 .appza-overrides {
   display: flex;
@@ -851,8 +831,6 @@ body {
   resize: vertical;
 }
 
-/* ------- status / error ------- */
-
 .appza-status {
   padding: 12px 16px;
   background: #fef2f2;
@@ -864,8 +842,6 @@ body {
   padding: 24px;
   color: var(--appza-text-muted);
 }
-
-/* ------- right properties panel ------- */
 
 .appza-props-panel {
   border-left: 1px solid var(--appza-border);
@@ -1114,7 +1090,6 @@ body {
   background: white;
 }
 
-/* Color option row: fixed-width swatch + text field for hex/rgba edits. */
 .appza-props-panel-color-group {
   display: grid;
   grid-template-columns: 36px 1fr;
@@ -1128,8 +1103,6 @@ body {
   height: 28px;
 }
 
-/* Size preset chips + custom-value fallback. Chip row inherits the
-   Wrapper-tab cell styling so the two panels feel like one system. */
 .appza-props-panel-size {
   display: flex;
   flex-direction: column;
@@ -1161,8 +1134,6 @@ body {
 .appza-props-panel-empty-state p {
   margin: 0;
 }
-
-/* ------- action tab ------- */
 
 .appza-props-panel-actions {
   list-style: none;
@@ -1233,8 +1204,6 @@ body {
   border-radius: 999px;
 }
 
-/* ------- error + footer ------- */
-
 .appza-props-panel-error {
   background: #fef2f2;
   color: #b91c1c;
@@ -1276,8 +1245,6 @@ body {
   border-color: var(--appza-border);
   background: transparent;
 }
-
-/* ------- options tab ------- */
 
 .appza-props-panel-options {
   display: flex;
@@ -1368,8 +1335,6 @@ body {
   color: var(--appza-text);
 }
 
-/* ------- iOS-style switch ------- */
-
 .appza-props-panel-switch {
   display: flex;
   align-items: center;
@@ -1426,8 +1391,6 @@ body {
   min-width: 22px;
 }
 
-/* ------- options search + input status ------- */
-
 .appza-props-panel-search {
   margin-bottom: 10px;
 }
@@ -1473,15 +1436,7 @@ body {
   background: #f59e0b;
 }
 
-/* ------- overlays inside the simulated phone -------
-   Modals, sheets and confirms are position:fixed in the renderer, which
-   is right on Capacitor where the window IS the device screen. Here the
-   phone is a 375px slice of a desktop window, so a fixed overlay covers
-   the whole admin page and centres its card beside the frame. They now
-   mount inside .appza-device-viewport (which is also what makes them
-   selectable), so absolute pins them to the phone instead. Renderer CSS
-   stays untouched — the mobile build has no .appza-device-viewport
-   ancestor and keeps the fixed behaviour. */
+/* Renderer overlays are position:fixed (right on device); in the simulator they mount in the viewport, so absolute pins them to the phone. */
 
 .appza-device-viewport .appza-add-member-backdrop,
 .appza-device-viewport .appza-invite-user-backdrop,
@@ -1492,19 +1447,10 @@ body {
   position: absolute;
 }
 
-/* A disabled control fires no click event at all, so a design-time tap
-   on one reaches nothing and the child can't be selected. Making it
-   transparent to pointer events lets the click land on the tagged
-   wrapper above it instead. Disabled controls are inert either way, so
-   this costs nothing at runtime. */
+/* A disabled control fires no click, so let the tap reach the tagged wrapper to select it. */
 .appza-device-viewport [data-appza-primitive-path] :disabled {
   pointer-events: none;
 }
-
-/* ------- design-time primitive selection (DC#20) -------
-   Painted on the SS-child wrapper the renderer emits at depth 0 with
-   data-appza-primitive-path. Blue to distinguish from the AppZet-level
-   selection outline (orange, defined in @appza/renderer's styles). */
 
 .appza-device-viewport [data-appza-primitive-path] {
   cursor: pointer;
@@ -1522,10 +1468,6 @@ body {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
 }
 
-/* App mode: hide all design-time selection affordances (outlines, hover
-   glow, AppZet-level orange border) so the phone frame looks and feels
-   like the real Capacitor app. Cursor also flips to default so hovering
-   over inert regions doesn't misread as clickable. */
 .appza-center-app-mode .appza-device-viewport [data-appza-primitive-path] {
   cursor: default;
   outline-color: transparent !important;
@@ -1537,10 +1479,6 @@ body {
 .appza-center-app-mode .appza-renderer-appzet-clickable {
   outline: none !important;
 }
-/* Spaces screen: sim-side suppression of design-time primitive outlines
- * so the rendered output matches the production Capacitor app 1:1 even
- * in Edit mode. Selection still works via Sidebar → Primitive picker.
- * Scoped to the screen slug so other screens keep their edit affordances. */
 .appza-device-viewport .appza-renderer-app[data-screen-slug="spaces"] [data-appza-primitive-path],
 .appza-device-viewport .appza-renderer-app[data-screen-slug="spaces"] [data-appza-primitive-path]:hover,
 .appza-device-viewport .appza-renderer-app[data-screen-slug="spaces"] [data-appza-primitive-path].is-selected-primitive {
@@ -1553,14 +1491,10 @@ body {
 .appza-device-viewport .appza-renderer-app[data-screen-slug="spaces"] .appza-renderer-appzet-clickable.is-selected {
   outline: none !important;
 }
-/* Clickable elements (buttons, actionable SS children) get a pointer
-   cursor so App mode reads as interactive where interactions actually fire. */
 .appza-center-app-mode .appza-renderer-ss-child-actionable,
 .appza-center-app-mode .appza-renderer-ss-child-actionable * {
   cursor: pointer;
 }
-
-/* ------- LayoutEditor (DC#20 slice 4) ------- */
 
 .appza-layout-editor {
   display: flex;
@@ -1664,8 +1598,6 @@ body {
   color: #6b7280;
   flex: 1;
 }
-
-/* ------- IconPicker (PropertiesPanel Options tab) ------- */
 
 .appza-icon-picker {
   position: relative;
@@ -1819,8 +1751,6 @@ body {
   grid-column: 1 / -1;
   font-size: 0.8rem;
 }
-
-/* ------- onboarding "Select App" wizard ------- */
 
 .appza-onboard-overlay {
   position: fixed;
@@ -2102,7 +2032,6 @@ body {
   margin-top: 6px;
 }
 
-/* ------- array_of_objects editor (props panel) ------- */
 .appza-props-panel-aoo {
   width: 100%;
   display: flex;
@@ -2200,77 +2129,27 @@ body {
   font-style: italic;
 }
 
-/* The FABs used to be overridden to position:absolute here, on the
-   assumption that the renderer's position:fixed would escape the device
-   frame and pin to the browser window. It does not, and the override was
-   the bug: `.ion-page` carries `contain: layout`, which makes it the
-   containing block for fixed descendants, so a fixed FAB already pins to
-   the PHONE PAGE BOX on both surfaces.
+/* FABs stay fixed: `.ion-page` has `contain: layout`, so fixed already pins to the phone page; absolute made them scroll away. Only nodes mounted outside `.ion-page` need absolute. */
 
-   What absolute actually did was resolve against `ion-content` — inside
-   the scroller — so the FAB scrolled away with the list. Measured
-   2026-08-20 in the simulator: the Saved Posts home button sat 60px too
-   high at rest and left the screen entirely at y=-776 after a 1500px
-   scroll, and the documents FAB tracked the scroll 1:1.
-
-   The modal backdrops above still need their absolute override, and the
-   difference is exactly the containing block: those are mounted at the
-   APP root, outside `.ion-page`, so nothing scopes their `fixed` and it
-   really would resolve against the browser window. Anything rendered as
-   a PLACEMENT is inside `.ion-page` and must keep `fixed`.
-
-   Before adding an override here, check which side of `.ion-page` the
-   element is mounted on. */
-
-/* The schedule sheet is fixed in the renderer so it covers the phone
-   viewport in the real app; in the simulator the phone is a box on a
-   page, so absolute keeps it inside the frame. Same split as the modal
-   backdrops above. */
+/* Fixed in the renderer; absolute keeps it inside the simulator frame (mounted outside `.ion-page`). */
 .appza-device-viewport .appza-schedule-backdrop {
   position: absolute;
 }
 
-/* ------- wp-admin style leak into the phone preview -------
-   `.wp-core-ui .button { border: 1px solid var(--wp-admin-theme-color) }`
-   (wp-admin colors.css) matches every ion-button in the simulator:
-   Ionic puts a `button` class on the HOST element, which is light DOM,
-   and the whole admin page is `.wp-core-ui`. The result is a WordPress
-   blue box around every button, tab and nav icon — visible only here,
-   never in the real app, and enough to make the preview disagree with
-   the design it is being checked against.
-
-   Reset at the same weight as WP's rule (0,2,0) so it wins on load
-   order, and so a component that genuinely wants a border — the space
-   links chips, at (0,2,1) — still keeps it. */
+/* wp-admin's `.wp-core-ui .button` border hits ion-button's light-DOM host; same specificity (0,2,0) so a component's own border still wins. */
 .appza-device-viewport .button {
   border: 0;
   border-radius: 0;
 }
 
-/* Same leak, the :focus half of it — and it survived the border reset
-   above because WP paints this one with box-shadow, not border:
-
-     .wp-core-ui .button:focus { box-shadow: 0 0 0 1px #fff, 0 0 0 3px ... }
-
-   A tapped tab keeps focus, so the LAST control touched wears a
-   WordPress-blue ring. Found while checking the media strip against
-   Noor's design, where it read as a border around MEDIA — but it has
-   always applied to every button in the simulator, and it makes any
-   screenshot taken right after a click disagree with the design for a
-   reason that has nothing to do with the design.
-
-   Only the WP ring is dropped. `:focus-visible` is left alone, so
-   keyboard users still get the focus ring the browser draws. */
+/* wp-admin's focus ring is a box-shadow the border reset misses; `:focus-visible` is left alone for keyboard users. */
 .appza-device-viewport .button:focus,
 .appza-device-viewport .button:focus:active {
   box-shadow: none;
   outline: none;
 }
 
-/* wp-admin restyles links on hover/focus (`a:hover { color: #183ad6 }`),
-   which turned an attached filename WordPress-blue as soon as the cursor
-   crossed it — another light-DOM leak, same family as the button border
-   above. Pin the colours the renderer already chose. */
+/* wp-admin recolours links on hover — another light-DOM leak. */
 .appza-device-viewport a.appza-file-list-link:hover,
 .appza-device-viewport a.appza-file-list-link:focus,
 .appza-device-viewport a.appza-file-list-link:visited {
@@ -2282,9 +2161,7 @@ body {
   color: var(--appza-download-icon-color, #4b5563);
 }
 
-/* The inline rename field is a bare <input>, so wp-admin's forms.css
-   repaints it with a border, background and its own font (P79). Pin it
-   inside the phone frame. */
+/* wp-admin's forms.css restyles bare inputs. */
 .appza-device-viewport input.appza-file-picker-rename {
   border: 0;
   border-bottom: 1px solid var(--appza-file-action-color, #6b7280);

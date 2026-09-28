@@ -1,37 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 
-/**
- * Where a screen is scrolled to, across navigation (2026-09-17).
- *
- * Every screen renders into ONE IonContent — ScreenRenderer is not keyed
- * by screen — so its scroll offset used to outlive the screen that set it.
- * Tapping an author from deep in the feed opened their profile already
- * scrolled past the header, and coming back landed wherever the profile
- * had been. The same was true of every push; the author tap made it
- * obvious.
- *
- * The shells already keep a stack of screen ids, so its LENGTH says which
- * way navigation went:
- *
- *   deeper   (a push)        save the leaving screen's offset, open at the top
- *   shallower (back)         restore the offset saved at that depth — but only
- *                            if it was saved for THIS screen; a tab switch
- *                            empties the stack onto a different root
- *   same depth (replace)     open at the top
- *
- * The offset is read in a LAYOUT effect, from a value the scroll listener
- * keeps current: once the new screen is committed the browser clamps the
- * old offset to the new content, and that clamp would otherwise be what
- * gets saved.
- *
- * A screen you come back to refetches, so its height arrives over the next
- * frames — and the feed reloads its FIRST page, so an offset six pages deep
- * is only reachable as infinite scroll loads the rest behind the restore.
- * Measured 2026-09-17: 8972px came back exactly in ~4.5s, walking down
- * through 755 → 3962 → 7249 → 8972. Hence a 10s window. It gives up the
- * moment the reader touches or wheels the page — it must never fight a
- * scroll — and on the next navigation.
- */
+// All screens share one IonContent, so offsets are saved/restored by stack depth; restore retries ~10s while infinite scroll loads and yields to any touch/wheel.
 
 type Saved = { key: string | number; top: number };
 
@@ -75,7 +44,6 @@ export function useScreenScrollMemory(
   }, [contentRef]);
 
   useLayoutEffect(() => {
-    // A shell that does not pass a depth keeps the old behaviour.
     if (navDepth === undefined) return;
     const before = previous.current;
     previous.current = { key: screenKey, depth: navDepth };

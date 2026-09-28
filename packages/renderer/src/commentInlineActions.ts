@@ -4,17 +4,7 @@ import { getPostDetailControls, setPostDetailControls } from './postDetailContro
 import { COMMENT_INLINE_REVERT_EVENT } from './CommentThread';
 import { sendJson, type StoredAuthLike } from './postMenuHandlers';
 
-/**
- * Editing a comment IN PLACE — a lesson's discussion, design 25.
- *
- * `comment.edit_inline` (the ⋮ sheet's Edit comment) opens the box in the
- * row; `comment.save_inline` (its Save) writes FluentCommunity's comment
- * update. The doc's rules: the new text shows straight away, no message on
- * success, and a failure puts the old text back WITHOUT an error message —
- * so the thread shows the text optimistically and this reverts it.
- *
- * Post detail keeps its own edit, which re-targets the footer composer.
- */
+// A failed save reverts the optimistic text silently, by design.
 
 export type CommentInlineActionDeps = {
   auth: StoredAuthLike | null;
@@ -44,7 +34,6 @@ export function tryHandleCommentInlineAction(inv: ActionInvocation, deps: Commen
     return true;
   }
 
-  // comment.save_inline
   const revert = () => {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(COMMENT_INLINE_REVERT_EVENT, { detail: { id: commentId } }));

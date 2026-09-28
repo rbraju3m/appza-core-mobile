@@ -3,19 +3,7 @@ import { sendJson, type StoredAuthLike } from './postMenuHandlers';
 import { openNewMessageModal } from './NewMessageModal';
 import { newMessagePresentation } from './modalPresentation';
 
-/**
- * The profile's Message button — doc states 51 and 52. Opens the New
- * Message modal and performs its one write.
- *
- * FluentCommunity makes a one-to-one thread WITH its first message, and
- * finds the existing thread instead when the two have spoken before
- * (`createIntendedThread`), so the send is the same call either way: the
- * one the conversation screen already makes for an intent (see
- * chatSend). Its body is its own shape — `message`, not `text`.
- *
- * Shared by both shells, so the simulator and the phone cannot disagree
- * about what SEND does.
- */
+// FC finds an existing thread or creates one with its first message, so SEND is one call; its body key is `message`, not `text`.
 
 export type ProfileNewMessageDeps = {
   auth: StoredAuthLike | null;
@@ -78,8 +66,7 @@ export function openProfileNewMessage(
         deps.authHeader,
       );
       if (!result.ok) {
-        // FluentCommunity's own sentence — messaging off, a private
-        // profile, a block — says more than a generic one could.
+        // FluentCommunity's own error (messaging off, private profile, block) beats a generic one.
         deps.onError(result.error);
         return false;
       }

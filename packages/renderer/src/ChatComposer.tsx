@@ -5,33 +5,10 @@ import { clearChatReply, setChatControls, useChatControls } from './chatControls
 import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
 import type { ActionInvocation, ActionDispatch } from './actionContext';
 
-/**
- * The message composer: the pending-reply strip, the input pill with its
- * attach button, and the pending-attachment thumbnails.
- *
- * Bespoke rather than composed for two reasons. The field is CONTROLLED
- * against the chatControls slice, because other things write it — a send
- * clears it, cancelling a reply leaves it alone, and an uncontrolled
- * field cannot be written to from outside. And the reply strip is folded
- * in here rather than being a placement of its own: it is visually part
- * of the same white bar, and splitting it would mean a second AppZet
- * whose only content is three values that live in state, which no
- * field_mapping can reach.
- *
- * The send BUTTON is a sibling child, not part of this — the design puts
- * it outside the pill, and as a plain ion-button it keeps the ordinary
- * catalog action wiring (on_tap_send). Its enabled look comes from a
- * data attribute the PlacementRenderer stamps on the wrapper, the same
- * mechanism the add-document appbar's Upload button uses.
- *
- * Attach is this component's own action, because the tap target sits
- * inside the pill: the primitive is registered as self-dispatching so a
- * click anywhere in the field does not fire it.
- */
+// Controlled against chatControls because other actions write the draft.
 
 export type ChatComposerProps = {
   overrides?: Record<string, unknown>;
-  /** The `on_tap_attach` wiring resolved from the AppZet. */
   action?: ActionInvocation;
   dispatch: ActionDispatch;
 };
@@ -63,8 +40,6 @@ export function AppzaChatComposer({ overrides, action, dispatch }: ChatComposerP
   const discardActionSlug = str(overrides, 'discard_action_slug') || 'chat.discard_attachment';
   const maxRows = Number.parseInt(str(overrides, 'max_rows'), 10);
 
-  // Grow with the text, up to a cap, then scroll. A textarea has no
-  // intrinsic auto-size, so this is measured on every change.
   useEffect(() => {
     const el = fieldRef.current;
     if (!el) return;
@@ -74,12 +49,7 @@ export function AppzaChatComposer({ overrides, action, dispatch }: ChatComposerP
     el.style.height = `${Math.min(el.scrollHeight, lineHeight * cap + 16)}px`;
   }, [chat.draft, maxRows]);
 
-  // Publish the footer's height so the floating home button can sit
-  // ABOVE the composer rather than at a fixed distance from the viewport
-  // — the bar grows when a reply is pending or an image is attached, and
-  // a constant offset puts the button behind it exactly when there is
-  // most to read. The FAB is fixed-positioned and a sibling of this
-  // subtree, so a CSS variable on the root is the only thing they share.
+  // The FAB is a fixed sibling, so a root CSS var is how it sits above the growing footer.
   const rootRef = useRef<HTMLSpanElement | null>(null);
   useEffect(() => {
     const el = rootRef.current;
@@ -130,10 +100,7 @@ export function AppzaChatComposer({ overrides, action, dispatch }: ChatComposerP
               <button
                 type="button"
                 aria-label="Remove attachment"
-                // Not just a local removal: FluentCommunity created the
-                // Media row when the file was uploaded, so dropping the
-                // thumbnail without telling the server strands a file.
-                // The handler clears the list itself.
+                // FC created the Media row on upload, so a local-only removal strands a file.
                 onClick={() =>
                   dispatch({
                     action_slug: discardActionSlug,

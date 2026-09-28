@@ -2,32 +2,7 @@ import { IonIcon } from '@ionic/react';
 import { resolveIcon } from './PrimitiveRenderer';
 import { openExternal } from './externalLink';
 
-/**
- * Read-only cards of rows — the profile's Additional information and
- * Social Link sections, designs 1 and 41.
- *
- * ---------------------------------------------------------------------
- * One component for two sections
- * ---------------------------------------------------------------------
- *
- * Both are "a heading, then rows". A custom-field row is a grey label
- * over a value; a social row is a glyph beside a handle; either may be a
- * link. The difference is entirely in the DATA — which keys a row
- * carries — so one component draws both and each section is only an
- * AppZet binding a different list.
- *
- * Everything that varies per site is shaped server-side: how many cards,
- * which fields a viewer may see, how a date or a multiselect reads, and
- * which ionicon stands for which provider. This file only draws.
- *
- * ---------------------------------------------------------------------
- * Why not children
- * ---------------------------------------------------------------------
- *
- * The number of cards and of rows in each is a site setting, and a
- * Superstructure's children are a fixed list addressed by index — the
- * reason the edit form's two sections are bespoke too.
- */
+// Drawn as bespoke rows, not children: card and row counts are site settings, and children are a fixed indexed list.
 
 type DetailRow = {
   label: string;
@@ -60,18 +35,11 @@ function readCards(o: Record<string, unknown> | undefined): DetailCard[] {
     .filter((c) => c.rows.length > 0);
 }
 
-
 export function AppzaDetailCards({ overrides }: { overrides?: Record<string, unknown> }) {
   const cards = readCards(overrides);
-  // An empty list draws nothing — not a heading over no rows. That is the
-  // doc's condition for both sections: they come only when the site has
-  // the feature on AND the member has filled something in.
   if (cards.length === 0) return null;
 
-  // One heading override for single-card sections. The Social Link card's
-  // title is the app's word, not a field group's name, so the right panel
-  // owns it; a multi-card section's headings are its group names and are
-  // left alone.
+  // Only a single-card section takes the heading override; multi-card headings are field-group names.
   const headingOverride = typeof overrides?.heading === 'string' ? overrides.heading : '';
 
   return (

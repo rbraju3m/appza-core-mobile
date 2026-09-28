@@ -10,19 +10,6 @@ import {
 } from './documentDraft';
 import { resolveIcon } from './PrimitiveRenderer';
 
-/**
- * The add-document dropzone and its list of picked files.
- *
- * Bespoke rather than composed from primitives because picking a file is
- * imperative: it needs a hidden <input type="file">, drag-and-drop
- * handlers, and per-row rename/delete against local state. Same reasoning
- * as the other `appza-*` primitives (video embed, poll block).
- *
- * Every label, glyph and colour is a prop, so the whole thing stays
- * editable from the builder's Properties panel — nothing here is
- * hardcoded that the design lets an author change.
- */
-
 export type FilePickerProps = {
   dropzone_label?: string;
   dropzone_icon?: string;
@@ -31,7 +18,6 @@ export type FilePickerProps = {
   rename_icon?: string;
   delete_icon?: string;
   accept?: string;
-  /** Empty/absent = no limit. */
   max_files?: number;
   rename_prompt?: string;
 };
@@ -44,12 +30,7 @@ function readString(o: Record<string, unknown> | undefined, k: string): string |
   return undefined;
 }
 
-/**
- * True in the builder's Edit mode — inside the device frame, but not in
- * the App-mode canvas. Design time has no post under edit, so a block
- * gated on one would render nothing and be unselectable, which is how a
- * control becomes invisible to the person meant to style it (P73).
- */
+// Design time has no post under edit; without this a gated block would be invisible and unselectable.
 function useDesignTime(): boolean {
   const [designTime, setDesignTime] = useState(false);
   useEffect(() => {
@@ -60,13 +41,7 @@ function useDesignTime(): boolean {
       setDesignTime(inFrame && !inApp);
     };
     read();
-    // Re-read when the mode changes. Sampling once on mount looks
-    // equivalent and is not: App mode is a class toggled on an ancestor,
-    // so a picker that happened to mount first stays on the design-time
-    // branch for the rest of the session — which reads as "the real data
-    // never arrived" rather than "this is the design-time view" (P110).
-    // It had not bitten here only because this screen is reached after
-    // the mode is set; the composer had the same code and it did.
+    // Re-read on mode change: App mode is an ancestor class toggle, so sampling once on mount can stick on the design-time branch.
     const observer = new MutationObserver(read);
     observer.observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
     return () => observer.disconnect();
@@ -77,15 +52,10 @@ function useDesignTime(): boolean {
 export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unknown> }) {
   const draft = useDocumentDraft();
   const inputRef = useRef<HTMLInputElement | null>(null);
-  // A second input for per-row replacement, plus which row asked for it.
-  // Separate from the add input so a replacement never appends.
   const replaceRef = useRef<HTMLInputElement | null>(null);
   const replaceKeyRef = useRef<string | null>(null);
   const [dragging, setDragging] = useState(false);
-  // Which row is being renamed, and the text so far. Inline rather than
-  // window.prompt(): a WebView routes prompts through the host app and
-  // Capacitor does not surface them, so on a device the pencil silently
-  // did nothing. An inline field also matches the portal.
+  // Inline rather than window.prompt(): Capacitor doesn't surface WebView prompts.
   const [renamingKey, setRenamingKey] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const designTime = useDesignTime();
@@ -100,24 +70,11 @@ export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unkn
   const deleteIcon = readString(overrides, 'delete_icon') ?? 'trash-outline';
   const accept = readString(overrides, 'accept');
   const renamePrompt = readString(overrides, 'rename_prompt') ?? 'File name';
-  // Edit-post use: the block belongs on the screen only when the post
-  // being edited is a document. Gating in the component rather than at
-  // placement level because placements can read state but not the item
-  // under edit.
+  // Gated here because placements can't read the item under edit.
   const requiresEditContext =
     overrides?.require_edit_context === true ||
     readString(overrides, 'require_edit_context') === 'true';
-  // The dropzone, separately from the list.
-  //
-  // A post can carry files in a space whose Document Library switch has
-  // since been turned off, and those files must still be listed — but
-  // FluentCommunity Pro's own upload guards on exactly that switch
-  // (`$space->verifyUserPermisson($user, 'can_upload_documents')`), so a
-  // dropzone there is a control the server will refuse. Rename and
-  // removal are not guarded that way and stay available.
-  //
-  // Defaults TRUE, so the add-document screen — where the picker IS the
-  // upload — is untouched.
+  // FC Pro refuses uploads when the space's Document Library is off; existing files keep rename/remove.
   const showDropzone = !(
     overrides?.show_dropzone === false || readString(overrides, 'show_dropzone') === 'false'
   );
@@ -139,8 +96,7 @@ export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unkn
   };
 
   const openReplacePicker = (key: string) => {
-    // Leave rename state BEFORE the chooser opens. Otherwise the field's
-    // blur commits its stale text over the name the replacement brings.
+    // Leave rename state first, or the field's blur commits stale text over the replacement's name.
     setRenamingKey(null);
     setRenameValue('');
     replaceKeyRef.current = key;
@@ -163,8 +119,7 @@ export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unkn
         multiple
         accept={accept}
         className="appza-file-picker-input"
-        // Clipped rather than display:none — a WebView will refuse to open
-        // its file chooser for an input that isn't laid out.
+        // Clipped, not display:none — a WebView won't open a chooser for an input that isn't laid out.
         onChange={(e) => {
           accept_files(e.target.files);
           // Reset so re-picking the same file fires change again.
@@ -276,8 +231,7 @@ export function AppzaFilePicker({ overrides }: { overrides?: Record<string, unkn
                     aria-label={`${replaceLabel}: ${file.name}`}
                     title={replaceLabel}
                     disabled={file.status === 'uploading'}
-                    // Keep focus on the rename field: a blur would unmount
-                    // this button before its click could land.
+                    // Keep focus: a blur would unmount this button before its click lands.
                     onPointerDown={(e) => e.preventDefault()}
                     onClick={(e) => {
                       e.stopPropagation();

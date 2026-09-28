@@ -1,20 +1,5 @@
 import { useEffect, useState } from 'react';
 
-/**
- * "Select App" onboarding step — the plug-in equivalent of the legacy
- * appza-builder wizard shown at wp-admin/admin.php?page=appza-builder.
- *
- * Auto-opens on first mount when the site owner hasn't picked any Source
- * Integrations yet. Reads the merged list from the plug-in's REST proxy
- * (`endpoints.sourceIntegrations`) — which itself pulls from the Core
- * catalog and stamps each row with `is_installed` based on whether the
- * matching APPZA add-on plug-in is active locally.
- *
- * "Save" writes the picked slugs to WP option
- * `appza_core_active_source_integrations` via the CREATABLE endpoint.
- * "Skip" closes without persisting — user can reopen from the sidebar.
- */
-
 type SourceIntegration = {
   slug: string;
   name: string;

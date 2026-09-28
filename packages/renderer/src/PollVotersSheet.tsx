@@ -1,20 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useBackDismiss } from './backStack';
 
-/**
- * Who voted for one poll option — behind the chevron on a voted row
- * (Noor's designs 8, 9, 11, 12).
- *
- * Per OPTION, not per poll, because that is how fcom-mobile answers:
- * `/feeds/survey-voters?feed_id=&option_slug=`. Which is also why the
- * chevron lives on the row rather than under the poll.
- *
- * Opened by event and fetches its own list, like the other sheets that
- * an ACTION opens rather than a placement mounts — there is no
- * useDataSource anywhere in its tree. No URL is written down here: the
- * endpoint arrives from the catalog action's args (D51).
- */
-
 export type PollVotersOpenDetail = {
   endpoint: string;
   feedId: number | string;
@@ -73,8 +59,7 @@ export function PollVotersSheet() {
       `&option_slug=${encodeURIComponent(open.optionSlug)}`;
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (open.authHeader) headers.Authorization = open.authHeader;
-    // `omit`: a wp-admin cookie would shadow the application password
-    // and WP core would answer as a guest (see dataFetch fetchProxyText).
+    // `omit`: a wp-admin cookie would shadow the app password and WP would answer as a guest.
     void fetch(url, { headers, credentials: 'omit' })
       .then((r) => r.json())
       .then((j) => {

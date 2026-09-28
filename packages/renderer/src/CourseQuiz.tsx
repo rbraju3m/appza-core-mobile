@@ -3,34 +3,7 @@ import { IonIcon } from '@ionic/react';
 import type { ActionInvocation } from './actionContext';
 import { resolveIcon } from './PrimitiveRenderer';
 
-/**
- * The quiz under a quiz lesson (Courses doc, states 18–21; designs 18–21).
- *
- * ---------------------------------------------------------------------
- * Why a component and not children
- * ---------------------------------------------------------------------
- *
- * The number of questions and of options in each is the course author's,
- * and the picks are the viewer's until SUBMIT — local state no
- * Superstructure child can hold. What stays in the catalog: every word
- * (the AppZet's props), the write (the wired action, named where the
- * snapshot walker looks), and the data (fc-course-lesson's quiz_* fields).
- *
- * ---------------------------------------------------------------------
- * The two modes
- * ---------------------------------------------------------------------
- *
- * ANSWERING (18, 19): one card of questions, then the hint and SUBMIT QUIZ,
- * disabled until every question has an answer. A viewer who is not
- * enrolled gets FC's portal line instead and no submit.
- *
- * RESULT (20, 21), when FC has a saved result and the viewer has not hit
- * Retake: the verdict ("You failed the quiz. Try again!"), Score, Correct
- * answer, Attempts, Retake Quiz, then the questions with the viewer's
- * answers and a Correct / Incorrect bar each — or, with Hide result ON,
- * only "Your quiz has been submitted." Retake clears the picks locally;
- * FC bumps the attempt count on the next submit.
- */
+// A component, not children: question/option counts and the unsubmitted picks are local state no child can hold.
 
 type QuizOption = { label: string };
 type QuizQuestion = {
@@ -103,7 +76,6 @@ function readResult(v: unknown): QuizResult | null {
   };
 }
 
-/** A saved answer, as the picks the inputs draw from. */
 function picksFromResult(result: QuizResult): Picks {
   const picks: Picks = {};
   for (const [slug, a] of Object.entries(result.answers)) {
@@ -136,8 +108,6 @@ export function CourseQuiz({
   const [picks, setPicks] = useState<Picks>({});
   const [submitting, setSubmitting] = useState(false);
 
-  // A new result (FC answered a submit, or another lesson loaded) ends a
-  // retake and clears the picks.
   const resultKey = result ? `${result.attempts}:${result.score}:${result.status}` : '';
   const questionsKey = questions.map((q) => q.slug).join('|');
   useEffect(() => {
@@ -172,8 +142,7 @@ export function CourseQuiz({
         answers: picks,
       },
     });
-    // The refetch brings the result; if the write fails the button comes
-    // back rather than staying greyed forever.
+    // On failure the button comes back rather than staying greyed forever.
     window.setTimeout(() => setSubmitting(false), 8000);
   };
 
@@ -253,9 +222,7 @@ export function CourseQuiz({
                         type={q.multiple ? 'checkbox' : 'radio'}
                         name={`appza-quiz-${q.slug}`}
                         checked={checked}
-                        // Inert rather than disabled once answered: the
-                        // designs draw a result's picks in full blue, and
-                        // `disabled` greys them out.
+                        // Inert, not disabled: `disabled` greys out the result's picks.
                         readOnly={showResult || !canSubmit}
                         tabIndex={showResult || !canSubmit ? -1 : undefined}
                         onChange={() => pick(q, o.label)}

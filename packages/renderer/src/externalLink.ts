@@ -1,5 +1,4 @@
-// Opens a URL outside the app. The shell may supply a native opener (Custom Tabs on the phone,
-// where window.open('_blank') is a silent no-op); the default suits browsers and the simulator.
+// Native opener override: on the phone window.open(_blank) is a silent no-op.
 let opener: (url: string) => void = (url) => {
   window.open(url, '_blank', 'noopener,noreferrer');
 };

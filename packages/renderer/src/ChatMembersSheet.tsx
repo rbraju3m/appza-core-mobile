@@ -2,25 +2,8 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { childAttrs, appzetAttrs } from './designTimeAttrs';
 import { useBackDismiss } from './backStack';
 
-/**
- * The members sheet behind the 3-dot menu on a space or group
- * conversation (design 3): a count line, the conversation's title, every
- * member with their role, then VIEW COMMUNITY and Leave group.
- *
- * Bespoke React, opened by event, like the other sheets — it fetches its
- * own list and has to sit above the whole screen rather than in a
- * placement slot. It opts back into the builder by hand via
- * childAttrs/appzetAttrs, so the indices below MUST match the `children`
- * array of the fc-chat-members-sheet superstructure.
- *
- * The member list is fetched here rather than passed in, for the reason
- * the invitations tab is: the sheet is opened by an action, not mounted
- * by a placement, so there is no useDataSource in its tree. The shell
- * resolves the DataSource's endpoint out of the catalog and hands it
- * over — no URL is written down in this file.
- */
-
 export const CHAT_MEMBERS_SHEET_APPZET_SLUG = 'fc-chat-members-sheet';
+// Indices must match the fc-chat-members-sheet superstructure's `children` array.
 export const CHAT_MEMBERS_SHEET_CHILD_COUNT = 8;
 
 export type ChatMembersPresentation = {
@@ -29,9 +12,7 @@ export type ChatMembersPresentation = {
   leaveLabel: string;
   emptyLabel: string;
   usernamePrefix: string;
-  /** role slug → the pill's label. Anything unlisted shows no pill. */
   roleLabels: Record<string, string>;
-  /** role slug → [background, text] for its pill. */
   roleColors: Record<string, [string, string]>;
   showViewCommunity: boolean;
   showLeave: boolean;
@@ -63,10 +44,8 @@ export type ChatMember = {
 
 type OpenDetail = {
   appzetSlug?: string;
-  /** The thread row — title, member_count, space_slug, permissions. */
   thread: Record<string, unknown>;
   presentation: ChatMembersPresentation;
-  /** Resolved from the catalog by the shell; absolute in the app (P60). */
   listEndpoint: string;
   authHeader?: string;
   onViewCommunity?: (thread: Record<string, unknown>) => void;
@@ -156,9 +135,7 @@ export function ChatMembersSheet() {
   const slug = detail.appzetSlug ?? CHAT_MEMBERS_SHEET_APPZET_SLUG;
   const cs = detail.childStyles ?? {};
   const title = typeof detail.thread.title === 'string' ? detail.thread.title : '';
-  // The count on the sheet is the list it is showing, falling back to the
-  // thread's own tally while the fetch is still in flight — so the header
-  // never reads "0 MEMBERS" over a list that is about to arrive.
+  // Falls back to the thread's tally so the header never reads "0 MEMBERS" mid-fetch.
   const count = members.length > 0
     ? members.length
     : Number(detail.thread.member_count ?? 0) || 0;
@@ -206,9 +183,7 @@ export function ChatMembersSheet() {
             const handle = typeof m.username === 'string' && m.username !== ''
               ? p.usernamePrefix + m.username
               : '';
-            // A group thread reports `is_group_admin` instead of a space
-            // role, so the two are folded into one lookup here rather
-            // than branching the row.
+            // Group threads report is_group_admin instead of a space role.
             const role = m.is_group_admin ? 'admin' : (typeof m.role === 'string' ? m.role : '');
             const roleLabel = p.roleLabels[role];
             const roleColor = p.roleColors[role];

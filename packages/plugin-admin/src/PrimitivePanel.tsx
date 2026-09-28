@@ -13,23 +13,6 @@ type Props = {
   onChanged: () => void;
 };
 
-/**
- * Right-side editor shown when a single Ionic primitive inside an
- * AppZet composition is selected in the DeviceFrame (DC#20 slice 5).
- *
- * Persists to wp_appza_customizations at
- *   scope=appzet_primitive, target_slug=<appzet.slug>,
- *   target_slug_composite=<appzet.slug>#children[<i>],
- *   target_column='layout', override_value=<LayoutStyle>
- * via POST /wp-json/appza/v1/customizations. The bootstrap fold then
- * round-trips the row back into customizations.appzet_primitive[<key>]
- * .layout, which the renderer reads via readOverride.
- *
- * Pending edits mirror up to App.tsx as onLivePreview so the DeviceFrame
- * paints the pending LayoutStyle before Save. Save clears pending state
- * and triggers a bootstrap refresh; Remove deletes the row by id (or
- * clears local state if no persisted row exists yet).
- */
 export function PrimitivePanel({
   selection,
   initialLayout,
@@ -46,16 +29,13 @@ export function PrimitivePanel({
 
   const compositeKey = `${selection.appzetSlug}#${selection.primitivePath}`;
 
-  // Reset local state whenever the selection changes (user clicks a
-  // different primitive) — otherwise the panel would keep the prior
-  // primitive's pending edit on top of the new selection.
+  // Reset on selection change, or the prior primitive's pending edit sticks to the new one.
   useEffect(() => {
     setLayout(initialLayout);
     setError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selection.appzetSlug, selection.primitivePath]);
 
-  // Find existing row for this primitive so Remove can DELETE by id.
   useEffect(() => {
     fetch(customizationsEndpoint, {
       headers: { Accept: 'application/json', 'X-WP-Nonce': restNonce },
@@ -83,7 +63,7 @@ export function PrimitivePanel({
         },
       )
       .catch(() => {
-        // Not critical — Save will create a new row anyway.
+        // Not critical — Save creates a new row anyway.
       });
   }, [selection.appzetSlug, selection.primitivePath, compositeKey, customizationsEndpoint, restNonce]);
 
@@ -92,13 +72,11 @@ export function PrimitivePanel({
     [layout, initialLayout],
   );
 
-  // Emit the live-preview override upward on every change.
   useEffect(() => {
     onLivePreview(dirty ? layout : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout, dirty]);
 
-  // Ensure we don't leave a stale live-preview behind after unmount.
   useEffect(() => {
     return () => onLivePreview(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps

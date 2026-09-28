@@ -3,27 +3,10 @@ import type { AppZet, PropertiesSchemaEntry, Superstructure } from '@appza/schem
 import { readDataPath, resolveOverridableColumn, useDataSource } from '@appza/renderer';
 import { IconPicker } from './IconPicker';
 
-/**
- * Right-side properties editor that matches the legacy plug-in's panel.
- *
- * Opens when an AppZet placement is clicked in the preview. Edits the
- * AppZet's `default_props_override.spacing` sub-object through cell
- * selectors (0 / 4 / 8 / 16 / 24) for margin + padding, plus border
- * width / color / radius. Save writes a customization row at scope
- * `appzet` so the next bootstrap surface the edit; Remove deletes it.
- */
-
 type Props = {
   appzet: AppZet;
   superstructure: Superstructure | null;
-  /**
-   * Slug of the AppZet's default data source. When provided, the panel
-   * re-uses `useDataSource` to peek at the current preview payload so
-   * it can hide slot-groups whose runtime data isn't populated (e.g.
-   * CTA 4/5 in fc-feed-banner when the API returns only 3 buttons).
-   * Undefined for AppZets with no data source — panel then falls back
-   * to showing every author-declared slot.
-   */
+  /** Lets the panel hide slot groups whose runtime data is empty (e.g. CTA 4/5 when the API returns 3). */
   dataSourceSlug?: string | null;
   customizations: unknown;
   customizationsEndpoint: string;
@@ -33,12 +16,6 @@ type Props = {
   onLivePreview: (mergedOverride: Record<string, unknown> | null) => void;
 };
 
-// OptionValue widened from the original {bool|number|string} scalar set
-// to include array_of_objects rows (`Array<Record<string, unknown>>`) so
-// list-shaped props like fc-space-subtabs.tabs / sort_specs can round
-// trip through the panel. Downstream consumers still coerce to their
-// specific expected shape; anything unsupported by the editor is caught
-// at read time by isOptionValue.
 type OptionValue = boolean | number | string | Array<Record<string, unknown>>;
 type OptionValues = Record<string, OptionValue>;
 
@@ -68,9 +45,6 @@ export function PropertiesPanel({
   onChanged,
   onLivePreview,
 }: Props) {
-  // Same fetch the preview uses — dedup'd by slug, so this doesn't
-  // trigger a second round-trip. Empty items when no ds slug is passed
-  // (or the data source isn't wired yet).
   const dataState = useDataSource(dataSourceSlug ?? undefined);
   const previewItem = dataState.items[0];
   const [activeTab, setActiveTab] = useState<TabKey>('wrapper');
@@ -85,9 +59,7 @@ export function PropertiesPanel({
   const toggleCollapsed = (key: string) =>
     setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  // Merged catalog + persisted customization view — the source of truth
-  // for what the panel should PRE-FILL with. Matches the same resolver
-  // the renderer uses so panel + preview stay in sync across refreshes.
+  // Same resolver as the renderer, so panel and preview agree after a refresh.
   const overridesBlob = useMemo<Record<string, unknown>>(() => {
     const catalogBlob =
       (appzet.default_props_override as Record<string, unknown> | null | undefined) ?? {};
@@ -136,7 +108,6 @@ export function PropertiesPanel({
   useEffect(() => {
     setSpacing({ ...initialSpacing });
     setOptions({ ...initialOptions });
-    // Find existing customization row id for this AppZet.
     fetch(customizationsEndpoint, {
       headers: { Accept: 'application/json', 'X-WP-Nonce': restNonce },
       credentials: 'same-origin',
@@ -149,7 +120,7 @@ export function PropertiesPanel({
         setExistingRowId(match ? match.id : null);
       })
       .catch(() => {
-        // Not critical — Save will create a new row anyway.
+        // Not critical — Save creates a new row anyway.
       });
   }, [appzet.slug, initialSpacing, initialOptions, customizationsEndpoint, restNonce]);
 
@@ -163,10 +134,7 @@ export function PropertiesPanel({
   );
   const dirty = spacingDirty || optionsDirty;
 
-  // Compose the effective override_value for both live preview + save.
-  // Starts from the persisted merged view so keys the current panel
-  // doesn't manage (e.g. non-exposed PropMeta from an older customization)
-  // survive unchanged; then applies the session's spacing + options state.
+  // Starts from the persisted view so keys this panel doesn't manage survive the save.
   function composeOverrideValue(
     spacingState: Spacing,
     optionsState: OptionValues,
@@ -180,9 +148,6 @@ export function PropertiesPanel({
     return out;
   }
 
-  // Emit live preview whenever the panel's state changes. Passing this
-  // blob up to App.tsx lets DeviceFrame render with the pending override
-  // BEFORE Save, so the phone-frame preview reflects edits instantly.
   useEffect(() => {
     if (JSON.stringify(spacing) === JSON.stringify(initialSpacing) &&
         JSON.stringify(options) === JSON.stringify(initialOptions)) {
@@ -462,13 +427,6 @@ export function PropertiesPanel({
 const CANONICAL_ORDER = ['Visibility', 'Icons', 'Labels'];
 const OTHER_GROUP = 'Other';
 
-/**
- * Author-declared `p.group` wins when set (case-sensitive; any string).
- * Unauthored props fall through the name-pattern heuristic which returns
- * one of the 4 canonical section names. Emit order: canonical
- * (Visibility → Icons → Labels) → custom author sections in
- * first-appearance order → Other. Empty sections dropped.
- */
 function groupOptions(
   props: PropertiesSchemaEntry[],
 ): Array<[string, PropertiesSchemaEntry[]]> {
@@ -655,14 +613,7 @@ function OptionRow({
             </span>
           </label>
         ) : type === 'color' ? (
-          // Native <input type="color"> is the OS-provided palette on
-          // every browser; a bare hex text field sits alongside so
-          // authors can paste values or use rgba/hsla. Both drive the
-          // same override. `onInput` fires continuously while the user
-          // drags in the picker so the phone-frame preview repaints
-          // live — some browsers (notably Firefox) only fire `onChange`
-          // when the picker CLOSES, which reads to the author as "not
-          // working".
+          // onInput repaints while dragging; Firefox fires onChange only when the picker closes.
           <div className="appza-props-panel-color-group">
             <input
               type="color"
@@ -754,19 +705,6 @@ function OptionRow({
   );
 }
 
-/**
- * Inline table editor for `array_of_objects`-typed props (tabs,
- * sort_specs, header_links, ...). Row schema is inferred from the FIRST
- * row of the current value (or of the default when no override yet) —
- * one input per key. Types inferred per-column from the sample value:
- *   boolean → checkbox
- *   number  → number input
- *   else    → text input
- *
- * Add/remove rows in-place; reorder via up/down buttons. All edits pipe
- * through `onChange(nextArray)` — clearing every row emits an empty
- * array (still a valid override; the outer × button clears entirely).
- */
 function ArrayOfObjectsEditor({
   value,
   defaultRows,
@@ -776,15 +714,9 @@ function ArrayOfObjectsEditor({
   defaultRows: Array<Record<string, unknown>> | undefined;
   onChange: (v: Array<Record<string, unknown>> | undefined) => void;
 }) {
-  // Effective rows: user override first, then default, then a single
-  // empty row shaped by the default's keys (so the user can start
-  // editing a brand-new list from a familiar template).
   const rows = value ?? defaultRows ?? [];
   const isDirty = value !== undefined;
 
-  // Column keys = union of every row's keys. Preserves default-row key
-  // order via first-appearance ordering; new columns from the default's
-  // second+ rows still land in the header.
   const columns: string[] = (() => {
     const seen = new Set<string>();
     const ordered: string[] = [];
@@ -822,8 +754,6 @@ function ArrayOfObjectsEditor({
   }
 
   function addRow() {
-    // New row: seed each existing column with an empty value of the
-    // inferred type so the input renders as-expected.
     const seed: Record<string, unknown> = {};
     for (const c of columns) {
       const t = inferColType(c);
@@ -937,43 +867,23 @@ function inferOptionType(
   if (declared === 'boolean' || declared === 'bool') return 'boolean';
   if (declared === 'number' || declared === 'int' || declared === 'integer') return 'number';
   if (declared === 'color') return 'color';
-  // Catalog uses `array_of_objects` for list-shaped exposed props
-  // (tabs, sort_specs, header_links). Renderer picks up the inline
-  // table editor below.
   if (declared === 'array_of_objects' || declared === 'array' || declared === 'list') {
     return 'array_of_objects';
   }
   if (declared === 'select' || declared === 'enum') return 'select';
   if (declared === 'size' || declared === 'length') return 'size';
-  // Any prop with a preset ramp on the schema is a size regardless of
-  // the declared string type — saves catalog authors having to change
-  // both `type` and add `presets`.
   const hasPresets = Array.isArray((prop as { presets?: unknown }).presets);
   if (hasPresets) return 'size';
   if (declared === 'string' || declared === 'text') {
-    // Name/binding heuristic: `*_color` binds to color pickers even when
-    // the author left type='string' (legacy entries).
     if (/(^|_)color$|Color$/.test(prop.name)) return 'color';
     return 'string';
   }
-  // Fall back to inferring from the default value.
   if (typeof prop.default === 'boolean') return 'boolean';
   if (typeof prop.default === 'number') return 'number';
   return 'string';
 }
 
-/**
- * True when a properties_schema entry should be shown for the current
- * preview item. Reads the entry's `binds_to` / `controls_visibility_of`
- * to find the target child, then evaluates that child's `visible_when`
- * clause against the item. Entries whose target child is filtered out
- * by data (e.g. CTA 4 when the API returns only 3 buttons) drop out of
- * the panel — no reason to expose knobs for a slot the runtime hides.
- *
- * Fail-open: unresolvable references (missing child, no clause, no
- * preview item yet) show the entry — the panel would rather over-show
- * than swallow controls the author might need.
- */
+// Fail-open: an unresolvable reference shows the entry rather than hiding a control.
 function isPropertyVisibleForItem(
   prop: PropertiesSchemaEntry,
   previewItem: unknown,
@@ -1072,12 +982,6 @@ function readSelectOptions(
   return out;
 }
 
-/**
- * Normalises common CSS color forms to the `#rrggbb` that
- * `<input type="color">` accepts. Non-hex strings (rgb/hsl/named) fall
- * back to `undefined` so the native picker shows its own default until
- * the author picks a value.
- */
 function normalizeHex(v: OptionValue | undefined): string | undefined {
   if (typeof v !== 'string') return undefined;
   const trimmed = v.trim();
@@ -1106,21 +1010,12 @@ function formatDefault(v: unknown): string | null {
 
 function isOptionValue(v: unknown): v is OptionValue {
   if (typeof v === 'boolean' || typeof v === 'number' || typeof v === 'string') return true;
-  // array_of_objects — every entry is a plain object. Empty array counts
-  // (user cleared the list); non-object entries fall through and disable
-  // the editor for that prop.
   if (Array.isArray(v)) {
     return v.every((row) => row !== null && typeof row === 'object' && !Array.isArray(row));
   }
   return false;
 }
 
-/**
- * Preset chip row for CSS-length props (border width/radius, padding).
- * A trailing text input covers non-preset values (`50%`, `1.5rem`,
- * `calc(...)`). Picking a chip toggles: click the active chip again to
- * clear the override. Empty text also clears.
- */
 function SizeControl({
   value,
   presets,

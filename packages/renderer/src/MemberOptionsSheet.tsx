@@ -5,17 +5,6 @@ import { resolveIcon } from './PrimitiveRenderer';
 import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
 import { useBackDismiss } from './backStack';
 
-// Bottom-sheet "Member actions" list opened by tapping the 3-dot menu on
-// a member card (fc-member-card.on_tap_menu → member.options). Shape is
-// catalog-driven — args.items is an ordered list of {action_slug, label,
-// icon, destructive, args?} entries. Each row dispatches its action_slug
-// through the shared ActionDispatch context so the actual work
-// (opening a role picker, showing a confirm dialog, hitting the API)
-// stays in App.tsx alongside every other action handler.
-//
-// Matches the design mock: uppercase subject name as small header,
-// bold "Member actions" title, icon + label rows.
-
 export type MemberMenuItem = {
   action_slug: string;
   label: string;
@@ -71,11 +60,7 @@ export function MemberOptionsSheet() {
 
   const handlePick = (menuItem: MemberMenuItem) => {
     setOpen(false);
-    // Merge the picked action's own param_schema defaults with the
-    // per-row args override so the dispatcher receives a fully-populated
-    // args bag — mirrors PostOptionsPopover.handlePick. Without this the
-    // dispatcher case would see undefined args for actions like
-    // member.remove_confirm whose config lives entirely in defaults.
+    // Merge the action's param_schema defaults under the row args; some actions' config lives entirely in defaults.
     const defaults = readActionDefaultsFromCatalog(menuItem.action_slug);
     const merged =
       defaults || menuItem.args

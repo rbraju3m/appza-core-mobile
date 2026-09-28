@@ -2,43 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { IonIcon } from '@ionic/react';
 import { resolveIcon } from './PrimitiveRenderer';
 
-/**
- * One row on the MEDIA sub-tab's Audios tab: a filename and an inline
- * transport — play/pause, skip back/forward, mute, playback speed,
- * elapsed/total time and a scrubber.
- *
- * Bespoke for the same reason the schedule sheet is: transport control is
- * imperative and stateful, and none of it composes out of Ionic
- * primitives. A bare <audio controls> was the alternative and looks
- * nothing like the design — it is also styled differently by every
- * browser and WebView, which is precisely what a design-matched app
- * cannot have.
- *
- * INTERACTION SPLIT (confirmed with Noor): the CONTROLS play, the
- * FILENAME opens the post. The AppZet wraps this whole row in the
- * on_tap_title action, so every control stops propagation — otherwise
- * pressing play would also navigate away. `data-appza-inline-click` keeps
- * the plug-in-admin's primitive-select off them too, so the controls stay
- * usable in the simulator (P81: verify the way a person performs it).
- */
-
-/**
- * Every audio attached to one feed post.
- *
- * FluentPlayer allows several audios per post (`max_audios_per_post`),
- * and they arrive as `meta.audio_medias[]`.
- *
- * Takes the whole array as ONE prop rather than repeating a child, which
- * is the same call `appza-file-list` makes and for the same reason:
- * fc-post-card is a CSS grid with named areas, so a variadic child would
- * have no area to land in — and the card's child indices are addressed by
- * field_mappings AND by saved customizations, so a repeat that renumbers
- * siblings would break both.
- *
- * Each row is the same player the MEDIA tab's Audios list uses, so an
- * audio file looks the same wherever it appears. Every style and glyph
- * prop on the wrapper rides through to each row.
- */
+// One prop, not a repeated child: fc-post-card's grid areas and child indices must stay fixed.
 export function AppzaAudioList({ overrides }: { overrides?: Record<string, unknown> }) {
   const raw = overrides?.audios;
   const audios = Array.isArray(raw)
@@ -92,7 +56,6 @@ function bool(
   return typeof v === 'boolean' ? v : fallback;
 }
 
-/** "0:03", "1:04:22" — hours only appear when there are some. */
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
   const total = Math.floor(seconds);
@@ -104,7 +67,6 @@ function formatTime(seconds: number): string {
   return `${m}:${ss}`;
 }
 
-/** Parses "1,1.5,2" into playable rates, discarding anything unusable. */
 function parseSpeeds(raw: string): number[] {
   const parsed = raw
     .split(',')
@@ -113,7 +75,6 @@ function parseSpeeds(raw: string): number[] {
   return parsed.length > 0 ? parsed : [1];
 }
 
-/** Trims trailing zeros so 1.5 reads "1.5×" and 1 reads "1×". */
 function formatSpeed(rate: number): string {
   return `${Number(rate.toFixed(2))}×`;
 }
@@ -147,21 +108,17 @@ export function AppzaAudioPlayer({ overrides }: { overrides?: Record<string, unk
   const [elapsed, setElapsed] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  // Every control lives inside the row wrapper that carries the AppZet's
-  // "open the post" action. Without this, play would navigate.
+  // The row wrapper carries the open-post action; without this, play would navigate.
   const swallow = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
   }, []);
 
-  // Playback rate is a property, not an attribute — React cannot set it
-  // declaratively, and it resets whenever the element reloads a new src.
+  // playbackRate is a property React can't set, and it resets on each new src.
   useEffect(() => {
     const el = audioRef.current;
     if (el) el.playbackRate = speeds[speedIndex] ?? 1;
   }, [speedIndex, speeds, url]);
 
-  // A changed src is a different file: drop the transport state rather
-  // than showing the previous track's position against the new one.
   useEffect(() => {
     setPlaying(false);
     setElapsed(0);
@@ -174,8 +131,7 @@ export function AppzaAudioPlayer({ overrides }: { overrides?: Record<string, unk
       const el = audioRef.current;
       if (!el) return;
       if (el.paused) {
-        // play() rejects on autoplay policy and on a failed load. Either
-        // way the button must not stay stuck in the "playing" state.
+        // play() rejects on autoplay policy or a failed load; don't stay stuck in 'playing'.
         void el.play().catch(() => setPlaying(false));
       } else {
         el.pause();
@@ -321,8 +277,6 @@ export function AppzaAudioPlayer({ overrides }: { overrides?: Record<string, unk
       <audio
         ref={audioRef}
         src={url}
-        // The row shows a duration before the user ever presses play, so
-        // metadata has to load up front. The audio itself does not.
         preload="metadata"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
@@ -330,8 +284,7 @@ export function AppzaAudioPlayer({ overrides }: { overrides?: Record<string, unk
         onTimeUpdate={(e) => setElapsed(e.currentTarget.currentTime)}
         onLoadedMetadata={(e) => {
           const d = e.currentTarget.duration;
-          // A stream of unknown length reports Infinity; showing "Infinity"
-          // is worse than showing 0:00.
+          // Streams report Infinity.
           setDuration(Number.isFinite(d) ? d : 0);
         }}
       />
@@ -339,17 +292,6 @@ export function AppzaAudioPlayer({ overrides }: { overrides?: Record<string, unk
   );
 }
 
-/**
- * The audio attached to a DRAFT — designs 22 and 23.
- *
- * Reuses `AppzaAudioPlayer`, which is the same row the feed and the MEDIA
- * tab draw, so a file looks the same in the composer, in the preview and
- * in the post. A second player written for the composer would be a
- * preview that lies about the thing it is previewing.
- *
- * The only difference is the discard badge, which the composer passes and
- * the preview does not.
- */
 export function AppzaDraftAudioList({
   audios,
   overrides,

@@ -11,44 +11,13 @@ import { moderationReviewPresentation } from './modalPresentation';
 import { readActionDefaultsFromCatalog } from './PostOptionsPopover';
 import { sendJson, type StoredAuthLike } from './postMenuHandlers';
 
-/**
- * The Moderation screen's actions (doc states 7–32).
- *
- * Shared between the Capacitor shell and the WP-admin simulator, as every
- * handler in this package is: two dispatchers implementing one action
- * drift, and only one of them is ever the one photographed.
- *
- * ---------------------------------------------------------------------
- * The two writes ask first, in the doc's dialog
- * ---------------------------------------------------------------------
- *
- * `moderation.set_status` and `moderation.delete_report` arrive twice. The
- * first time — from a report's ⋯ sheet or the review modal's CTAs — they
- * open the alert every moderation design draws (10, 13, 14, 21, 22, 23): a
- * bold title, one sentence, CANCEL and the verb in blue. Its second button
- * dispatches the same action again with `confirmed`, and that one writes.
- * Every word is on the invocation, so the copy is catalog text.
- *
- * They used to ride the shells' post-delete confirm, whose red button no
- * moderation design draws.
- *
- * ---------------------------------------------------------------------
- * The review modal opens from a post OR from a report
- * ---------------------------------------------------------------------
- *
- * `moderation.review` with `row_kind: 'report'` (the Moderation screen's ⋯
- * sheet) reads the enricher's flat content fields and its `review_can_*`
- * verdicts, and acts on that report. Without it (the flagged banner) the
- * bound item IS the post, and the modal offers Dismiss and Unpublish.
- */
+// set_status and delete_report arrive twice: first they open the confirm, which re-dispatches with `confirmed` to write.
 
 export type ModerationActionDeps = {
   auth: StoredAuthLike | null;
   authHeader: (auth: StoredAuthLike) => string;
   onError: (msg: string) => void;
-  /** The shell's catalog lookup for an overlay AppZet's authored props. */
   readAppzetProps: (slug: string) => Record<string, unknown>;
-  /** Re-enters the shell's dispatcher — the review modal's CTAs use it. */
   dispatch: (next: ActionInvocation) => void;
 };
 
@@ -72,10 +41,7 @@ function openReview(
   const fromReport = argRec.row_kind === 'report';
   const endpoint = str(argRec.endpoint) ?? '/wp-json/fcom-mobile/api/v1/moderation/reports';
 
-  // A report row names its content by the enricher's flat fields; FC Pro
-  // filters a POST's reports by post_id and a COMMENT's by parent_id, and
-  // answers the wrong one with every report on the site, so it is never
-  // guessed.
+  // FC Pro filters a post's reports by post_id and a comment's by parent_id, and answers a wrong key with every report on the site.
   const contentType = fromReport
     ? str(rec.content_type) ?? 'post'
     : str(argRec.content_type) ?? 'post';
@@ -129,7 +95,6 @@ function openReview(
     content,
     presentation,
     authHeader: deps.auth ? deps.authHeader(deps.auth) : undefined,
-    // The enricher's per-status verdicts (designs 9, 17, 26, 31).
     buttons: fromReport
       ? {
           dismiss: rec.review_can_dismiss === true,
@@ -147,8 +112,7 @@ function openReview(
         publish: [presentation.publishConfirmTitle, presentation.publishConfirmMessage, presentation.publishConfirmCta],
         delete: [presentation.deleteConfirmTitle, presentation.deleteConfirmMessage, presentation.deleteConfirmCta],
       }[act];
-      // Publish sends `ignored` like Dismiss — the doc's "same work as
-      // approved" (D96).
+      // Publish sends `ignored`, same as Dismiss.
       const status = act === 'unpublish' ? 'unpublished' : act === 'delete' ? undefined : 'ignored';
       deps.dispatch({
         action_slug: slug,
@@ -159,7 +123,7 @@ function openReview(
           confirm_message: copy[1],
           confirm_cta: copy[2],
         },
-        // The write resolves `data.id`, and the id it needs is the REPORT's.
+        // The write resolves `data.id`, and the id it needs is the report's.
         item: { id },
       });
     },
@@ -170,7 +134,6 @@ function str(v: unknown): string | undefined {
   return typeof v === 'string' && v !== '' ? v : undefined;
 }
 
-/** Returns true when the action was one of these and has been handled. */
 export function tryHandleModerationAction(
   inv: ActionInvocation,
   deps?: ModerationActionDeps,
@@ -182,15 +145,13 @@ export function tryHandleModerationAction(
   const itemRec = item && typeof item === 'object' ? (item as Record<string, unknown>) : null;
 
   if (action_slug === 'moderation.set_tab') {
-    // The tapped tab's value arrives on the args from some primitives and
-    // on the item from others.
+    // The tapped value arrives on args from some primitives and on the item from others.
     const runtimeValue =
       typeof argRec.value === 'string'
         ? argRec.value
         : itemRec && typeof itemRec.value === 'string'
           ? itemRec.value
           : null;
-    // A closed set: this value is sent to FluentCommunity as `status`.
     if (isModerationStatus(runtimeValue)) setModerationControls({ status: runtimeValue });
     return true;
   }
@@ -226,8 +187,7 @@ export function tryHandleModerationAction(
     return true;
   }
 
-  // The id is the REPORT's. A report row binds it as `data.id`, and the
-  // review modal passes `{ id: reportId }` for the same path.
+  // The id is the report's, bound as `data.id` on a row and passed as `{ id }` by the review modal.
   const rawId = readDataPath(item, str(argRec.feed_id_path) ?? 'data.id');
   const reportId =
     typeof rawId === 'number'
@@ -258,11 +218,8 @@ export function tryHandleModerationAction(
         deps.onError(result.error);
         return;
       }
-      // The review modal closes on the write landing, not on the tap; and
-      // the list refetches, so the report leaves the tab it was on.
       announceModerationDone();
-      // Forced past the preview cache, as the shells' own confirm did: the
-      // proxy may still hold this tab's pre-write page.
+      // Forced past the preview cache: the proxy may still hold this tab's pre-write page.
       if (typeof window !== 'undefined') {
         const g = window as unknown as { __appzaForceRefreshUntil?: number };
         g.__appzaForceRefreshUntil = Date.now() + 3000;

@@ -5,27 +5,7 @@ import { resolveIcon } from './PrimitiveRenderer';
 import { applyControlPick, type PopoverStateKey, type ViewModeOption } from './ViewModePopover';
 import { useBackDismiss } from './backStack';
 
-/**
- * A bottom sheet of pickable options with the current one marked —
- * Noor's design 5 ("Sort saved posts") and design 3 ("Layout").
- *
- * The same choice the feed draws as an anchored popover, in the frame
- * the Saved Posts designs ask for. Which frame opens is a catalog value
- * (`presentation` on the action), not a fork in this file or in the
- * dispatcher, and the PICK ITSELF is shared: both call
- * applyControlPick, so the two frames can never disagree about what
- * choosing "Latest" means.
- *
- * One component for both sheets. They differ in a title and a row list,
- * and the row list already travels on the action that opens them — so
- * the catalog carries two AppZets on one Superstructure and this file
- * does not know which of them it is drawing.
- *
- * Bespoke React opened by event, like the chat and points sheets: there
- * is no placement to mount it from, so it opts back into the builder by
- * hand via childAttrs/appzetAttrs. The indices below MUST match the
- * `children` array of the fc-options-sheet superstructure.
- */
+// Child indices below must match the fc-options-sheet superstructure's `children`.
 
 export const OPTIONS_SHEET_APPZET_SLUG = 'fc-options-sheet';
 export const OPTIONS_SHEET_CHILD_COUNT = 4;
@@ -60,10 +40,8 @@ export type OptionsSheetPresentation = {
   checkColor?: string;
   checkSize?: string;
   dividerColor?: string;
-  /** Section headings, in a sectioned sheet only. */
   sectionTitleColor?: string;
   sectionTitleSize?: string;
-  /** The small line above the title, when the opener supplies one. */
   eyebrowColor?: string;
   eyebrowSize?: string;
 };
@@ -72,51 +50,21 @@ type OpenDetail = {
   appzetSlug?: string;
   presentation: OptionsSheetPresentation;
   options: ViewModeOption[];
-  /** Which control slice the pick is written into. */
   stateKey: PopoverStateKey;
-  /** The value currently in that slice — the row that wears the check. */
   currentValue: string;
-  /**
-   * When present, the pick is handed here INSTEAD of being written into a
-   * control slice.
-   *
-   * The space picker behind "Add To Space/Course" is a pick that performs
-   * an HTTP write, and `applyControlPick` is state-only by design — it is
-   * the one place both frames of a choice agree about what a pick MEANS,
-   * and teaching it to make requests would end that. So the sheet stays
-   * presentation and the shell keeps the effect.
-   */
+  // Handed the pick instead of writing a slice: applyControlPick is state-only by design.
   onPick?: (value: string, label: string) => void;
-  /**
-   * Several questions in one sheet, each with its own heading, its own
-   * slice key and its own check — the members sort sheet asks "Sort by"
-   * and "Order" together (All Members design 2).
-   *
-   * When present, `options` / `stateKey` / `currentValue` are ignored and
-   * a pick does NOT close the sheet: answering the first question is not
-   * a reason to lose the second. The backdrop closes it, as always.
-   */
+  // When present, options/stateKey/currentValue are ignored and a pick does not close the sheet.
   sections?: OptionsSheetSection[];
   childStyles?: Record<number, CSSProperties>;
-  /**
-   * A line above the title — whose sheet this is. "Add to Space or
-   * Course" and "Membership Role" (profile designs 49 and 50) carry the
-   * member's name there. Runtime data, so the opener supplies it.
-   */
   eyebrow?: string;
 };
 
 export type OptionsSheetSection = {
   title?: string;
   options: ViewModeOption[];
-  /** Ignored when `onPick` is present. */
   stateKey?: PopoverStateKey;
   currentValue: string;
-  /**
-   * The section is a list of ACTS rather than a setting — "add to this
-   * space" — so a pick is handed here and the sheet closes, as the flat
-   * `onPick` does. No row wears the check.
-   */
   onPick?: (value: string, label: string) => void;
 };
 
@@ -135,8 +83,7 @@ export function closeOptionsSheet(): void {
 
 export function OptionsSheet() {
   const [detail, setDetail] = useState<OpenDetail | null>(null);
-  // A sectioned sheet stays open across picks, so the check has to move
-  // on screen without the opener re-sending the current values.
+  // A sectioned sheet stays open across picks, so the check moves locally.
   const [sectionPicks, setSectionPicks] = useState<Record<number, string>>({});
 
   useEffect(() => {
@@ -200,8 +147,7 @@ export function OptionsSheet() {
   const handleSectionPick = (sectionIndex: number, section: OptionsSheetSection, value: string) => {
     if (section.onPick) {
       const picked = section.options.find((o) => o.value === value);
-      // Close FIRST: the pick may open the next sheet (a space opens the
-      // role step), and a close dispatched after it would shut that one.
+      // Close first: the pick may open the next sheet, which a later close would shut.
       closeOptionsSheet();
       section.onPick(value, picked?.label ?? value);
       return;
@@ -212,7 +158,6 @@ export function OptionsSheet() {
   };
 
   const handlePick = (value: string) => {
-    // Closed before the pick runs, for the reason handleSectionPick gives.
     closeOptionsSheet();
     if (detail.onPick) {
       const picked = detail.options.find((o) => o.value === value);
@@ -223,10 +168,7 @@ export function OptionsSheet() {
   };
 
   const check = resolveIcon(p.checkIcon);
-  // The FIRST selected row carries the design-time attrs for the check
-  // and the row template. Stamping every row would give the right panel
-  // several elements claiming to be children[2] (P73 / P90) — and the
-  // check exists on at most one row anyway.
+  // Design-time attrs on one row only: the builder panel needs one element per child index.
   const selectedIndex = detail.options.findIndex((o) => o.value === detail.currentValue);
 
   return (
@@ -258,9 +200,6 @@ export function OptionsSheet() {
           {detail.sections &&
             detail.sections.map((section, si) => {
               const current = sectionPicks[si] ?? section.currentValue;
-              // A glyph column only for a section that has glyphs — the
-              // design's "Sort by" rows sit flush left, its "Order" rows
-              // carry a chevron.
               const hasGlyphs = p.showRowIcons && section.options.some((o) => !!o.icon);
               return (
                 <div className="appza-options-sheet-section" key={`section-${si}`}>
@@ -270,9 +209,6 @@ export function OptionsSheet() {
                   {section.options.map((opt, i) => {
                     const selected = !section.onPick && opt.value === current;
                     const glyph = opt.icon ? resolveIcon(opt.icon) : undefined;
-                    // Template attrs on the first section's first row only,
-                    // and the check's on the first section's selected row
-                    // — one element per child index for the right panel.
                     const isTemplateRow = si === 0 && i === 0;
                     return (
                       <button
@@ -318,9 +254,6 @@ export function OptionsSheet() {
           {!detail.sections && detail.options.map((opt, i) => {
             const selected = opt.value === detail.currentValue;
             const glyph = opt.icon ? resolveIcon(opt.icon) : undefined;
-            // Row zero owns the glyph + label template attrs; the
-            // selected row owns the check's. When nothing is selected the
-            // check is simply not on screen to address, which is correct.
             const isTemplateRow = i === 0;
             return (
               <button

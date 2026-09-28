@@ -4,51 +4,11 @@ import { useDataSource } from './dataFetch';
 import { getProfileControls, setProfileControls } from './profileControls';
 import { useBackDismiss } from './backStack';
 
-/**
- * Following / Followers / Blocked, as ONE bottom sheet — doc states 36
- * to 39.
- *
- * ---------------------------------------------------------------------
- * This replaces a screen, and that is a reversal
- * ---------------------------------------------------------------------
- *
- * D79 made these lists a full screen, `profile-follows`, with a search
- * field, a sort row and two tabs. The doc draws a sheet with three tabs
- * and neither control, and Noor chose the doc on 2026-09-16. The third
- * tab is the difference that matters: blocked users had no home at all
- * under D79, which is why the header's Blocked count had nowhere to go.
- *
- * ---------------------------------------------------------------------
- * It fetches through the PROXY, not the endpoint
- * ---------------------------------------------------------------------
- *
- * ChatMembersSheet is handed a resolved endpoint because it predates
- * this; calling `useDataSource` with a slug instead means the rows arrive
- * ENRICHED — `display_name`, `username_at` and the avatar flattened off
- * the pivot FluentCommunity actually returns, which is a Follow row with
- * the person one level down. Fetching the raw endpoint here would give
- * three lists of pivots and a fourth copy of the flattening.
- *
- * Hooks stay unconditional: the hook is always called, and the SLUG is
- * what changes with the tab.
- *
- * ---------------------------------------------------------------------
- * The active tab lives in profileControls
- * ---------------------------------------------------------------------
- *
- * `follow_view` already existed for the screen this replaces, and the
- * header's two counts already set it before opening — tapping Followers
- * has to land on Followers, not on whichever tab was last used. Keeping
- * it there rather than in local state is also what lets the count that
- * opened the sheet decide the tab.
- */
+// Fetches by DataSource slug so rows arrive enriched (FC returns a Follow pivot with the person one level down).
 
 export const FOLLOW_SHEET_APPZET_SLUG = 'fc-follow-sheet';
 
-/**
- * Children the builder can select, in the order the markup stamps them.
- * MUST match the `children` array of the fc-follow-sheet superstructure.
- */
+// Must match the `children` array of the fc-follow-sheet superstructure.
 export const FOLLOW_SHEET_CHILD_COUNT = 8;
 
 export type FollowView = 'followings' | 'followers' | 'blocked';
@@ -58,7 +18,6 @@ export type FollowSheetPresentation = {
   followersLabel: string;
   blockedLabel: string;
   unblockLabel: string;
-  /** One empty sentence per tab — an empty Blocked list is good news. */
   emptyFollowings: string;
   emptyFollowers: string;
   emptyBlocked: string;
@@ -88,11 +47,8 @@ type OpenDetail = {
   appzetSlug?: string;
   presentation: FollowSheetPresentation;
   childStyles?: Record<number, CSSProperties>;
-  /** Whose lists these are. */
   memberId: number | null;
-  /** Which tab to land on — the count that was tapped decides. */
   view: FollowView;
-  /** Catalog slugs, one per tab. No URL is written down in this file. */
   dataSources: Record<FollowView, string>;
   onOpenProfile?: (item: Record<string, unknown>) => void;
   onUnblock?: (item: Record<string, unknown>) => void;
@@ -135,8 +91,6 @@ export function FollowSheet() {
       if (!ce.detail) return;
       setDetail(ce.detail);
       setView(ce.detail.view);
-      // Keep the shared slice in step, so anything else reading
-      // `follow_view` agrees with what is on screen.
       setProfileControls({ follow_view: ce.detail.view });
     };
     const onClose = () => setDetail(null);
@@ -148,9 +102,7 @@ export function FollowSheet() {
     };
   }, []);
 
-  // Unconditional, as every hook here must be: the sheet is mounted for
-  // the life of the app and only RENDERS conditionally. An undefined slug
-  // is the closed state and fetches nothing.
+  // Hooks stay unconditional: an undefined slug is the closed state and fetches nothing.
   const slug = detail ? detail.dataSources[view] : undefined;
   const memberId = detail?.memberId ?? getProfileControls().member_id ?? null;
   const state = useDataSource(
@@ -244,9 +196,7 @@ export function FollowSheet() {
           ) : (
             rows.map((row, i) => {
               const name = str(row.display_name);
-              // `username_at` is composed by the proxy for all three
-              // lists; the prefix is only a fallback for a payload that
-              // predates it.
+              // The prefix is only a fallback for a payload without `username_at`.
               const handle = str(row.username_at)
                 || (str(row.username) ? p.usernamePrefix + str(row.username) : '');
               const avatar = str(row.avatar);

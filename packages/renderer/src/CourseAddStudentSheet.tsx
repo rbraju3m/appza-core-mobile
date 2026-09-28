@@ -5,25 +5,11 @@ import { resolveIcon } from './PrimitiveRenderer';
 import { fetchDataSourceOnce } from './dataFetch';
 import { useBackDismiss } from './backStack';
 
-/**
- * "Add Student" — Courses doc, states 13 and 14.
- *
- * A bottom sheet: whose course it is, the title, a search field, and the
- * site users who are NOT in the course yet (FluentCommunity's own
- * `users/search`, up to 100, which already leaves the course's members
- * out — so a student cannot be added twice). The email shows only when
- * the admin's WordPress role may list users; FC leaves it off otherwise,
- * and the row simply has no second line.
- *
- * Presentation only. The rows come through the preview proxy under the
- * catalog's DataSource (where this app's auth lives, as for every opened
- * sheet), and a tap is handed to `onPick` — the confirm and the write are
- * the action handler's.
- */
+// FC's users/search already leaves the course's members out, so a student cannot be added twice.
 
 export const COURSE_ADD_STUDENT_SHEET_APPZET_SLUG = 'fc-course-add-student-sheet';
 
-/** MUST match the children of the fc-course-add-student-sheet superstructure. */
+// MUST match the children of the fc-course-add-student-sheet superstructure.
 export const COURSE_ADD_STUDENT_SHEET_CHILD_COUNT = 5;
 
 export type CourseAddStudentPresentation = {
@@ -127,8 +113,7 @@ export function CourseAddStudentSheet() {
     };
   }, []);
 
-  // One request when the typing stops; a late answer to an older query
-  // never overwrites a newer one.
+  // A late answer to an older query never overwrites a newer one.
   useEffect(() => {
     if (!detail) return;
     const mine = ++seq.current;
@@ -209,7 +194,6 @@ export function CourseAddStudentSheet() {
               className="appza-add-student-row"
               data-user-id={u.user_id}
               onClick={() => {
-                // Closed first: the pick opens the confirm.
                 closeCourseAddStudentSheet();
                 detail.onPick(u);
               }}

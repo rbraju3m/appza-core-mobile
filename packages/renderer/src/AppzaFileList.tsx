@@ -1,20 +1,6 @@
 import { IonIcon } from '@ionic/react';
 import { resolveIcon } from './PrimitiveRenderer';
 
-/**
- * Read-only list of attached files with a download affordance.
- *
- * Used by the feed card for a document post ("Publish as a post" on),
- * where the files are one field on the item rather than a repeated row —
- * fc-post-card is a CSS grid with named areas, so a variadic child would
- * have no area to land in. Taking the array as a single prop keeps the
- * card's child indices stable too, which every field_mapping and saved
- * customization on it depends on.
- *
- * Same row language as the DOCUMENTS tab's card on purpose: a file should
- * look like a file wherever it appears.
- */
-
 export type FileListEntry = {
   id?: number;
   title?: string;

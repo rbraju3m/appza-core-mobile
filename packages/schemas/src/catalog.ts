@@ -1,34 +1,8 @@
 import { z } from 'zod';
 
-/**
- * Typed shapes for the inner `catalog` object of the bootstrap envelope.
- *
- * Each row schema declares only the columns the renderer + simulator
- * actually read at v1, with `.passthrough()` letting Core add columns
- * without breaking older clients (DC#15 Q3 A1 — additive MINOR contracts
- * bumps are forward-compatible by construction).
- *
- * The empty-catalog branch (returned by the WP plug-in when no snapshot
- * has been pulled yet) is structurally a subset of the populated branch,
- * so every list field is optional and defaults to [].
- */
-
-/**
- * Defensive shape for "object-shaped JSON leaf bags" (DC#09 / DC#10 tokens
- * + screen_tokens + similar). The wire contract says these are objects,
- * but PHP empty-array-vs-JSON-object semantics mean older snapshots in
- * the wild may carry `[]` for "empty". Accepting either form keeps the
- * renderer working across mixed snapshot generations; source-side
- * normalization (in Core's BootstrapSnapshotService + the plug-in's
- * BootstrapController) heals the data going forward.
- */
+// Older snapshots may carry `[]` for an empty object (PHP empty-array semantics).
 const TokenBagSchema = z.union([z.record(z.unknown()), z.array(z.unknown())]);
 
-/**
- * One placement on the chrome lists (Template.appbar_placements etc.).
- * Same shape as TemplateScreen.placements[] entries; kept loose so future
- * fields (icon, badge_count, sort_order) don't require a schema bump.
- */
 const ChromePlacementSchema = z
   .object({
     appzet_slug: z.string(),
@@ -46,8 +20,6 @@ const TemplateRowSchema = z
     source_integration_id: z.number().int().optional(),
     app_map_id: z.number().int().optional(),
     tokens: TokenBagSchema.optional(),
-    // DC#19 chrome placements — render in IonHeader / IonFooter / IonMenu.
-    // Null/missing = the renderer falls back to its empty-shell defaults.
     appbar_placements: z.array(ChromePlacementSchema).nullable().optional(),
     nav_placements: z.array(ChromePlacementSchema).nullable().optional(),
     drawer_placements: z.array(ChromePlacementSchema).nullable().optional(),
@@ -66,27 +38,15 @@ const TemplateScreenRowSchema = z
     template_id: z.number().int().optional(),
     app_map_screen_slug: z.string(),
     position: z.number().int().optional(),
-    // Author-tagged surface availability. 'both' = ship everywhere.
-    // Default keeps older snapshots without the column working.
     surface: AppSurfaceSchema.default('both'),
     placements: z.array(z.record(z.unknown())).default([]),
     screen_tokens: TokenBagSchema.nullable().optional(),
-    // Per-screen appbar override. Renderer prefers this over the template's
-    // default chrome; null/missing → fall back to template.appbar_placements.
     appbar_placements: z.array(ChromePlacementSchema).nullable().optional(),
-    // Side-menu membership + presentation, decided in core.
-    //
-    // Deliberately NOT `surface`: a screen hidden from the menu stays in the
-    // catalog and stays reachable by nav.push. Defaults keep an older
-    // snapshot (and any row core has not spoken about) in the menu, which is
-    // how the menu behaved before these existed.
+    // Not `surface`: a screen hidden from the menu stays reachable by nav.push.
     show_in_drawer: z.boolean().default(true),
-    // Falls back to the App Map screen's name, then to the humanised slug.
     drawer_label: z.string().nullable().optional(),
-    // Ionicon name. Unresolvable names cost the WHOLE menu its icons —
-    // see buildDrawerMenu, and the all-or-none rule it enforces.
+    // One unresolvable icon drops the whole menu's icons (all-or-none).
     drawer_icon: z.string().nullable().optional(),
-    // Menu order. Falls back to `position` (the template's screen order).
     drawer_position: z.number().int().nullable().optional(),
   })
   .passthrough();
@@ -101,14 +61,7 @@ const AppZetRowSchema = z
     superstructure_id: z.number().int().nullable().optional(),
     default_data_source_id: z.number().int().nullable().optional(),
     default_props_override: z.record(z.unknown()).nullable().optional(),
-    // Map of prop_name → data_source_slug for single-shot lookups the
-    // renderer injects as {value,label} pairs into the named prop.
-    // Distinct from default_data_source_id (per-item repeat rendering).
     option_data_sources: z.record(z.string()).nullable().optional(),
-    // State-scoped data source resolution. When set, the renderer reads
-    // `state_binding` (e.g. 'state.spaces_tab') at render time and looks
-    // up the matching entry in `ds_by_value` to pick the active DataSource.
-    // Falls back to `default_data_source_id` if the state value is unmapped.
     data_source_by_state: z
       .object({
         state_binding: z.string(),
@@ -120,22 +73,7 @@ const AppZetRowSchema = z
   })
   .passthrough();
 
-/**
- * One `properties_schema` entry on a Superstructure.
- *
- * - `binds_to` (DC#16, provisional): routes the matching AppZet
- *   `default_props_override` value to a specific child primitive's prop.
- *   Grammar v1: `children[<index>].<propName>`.
- * - `controls_visibility_of` (DC#17, provisional): when the bool value
- *   resolves true → the named child renders; false → the child is skipped
- *   without renumbering surviving siblings. Grammar v1:
- *   `children[<index>]`.
- * - `controls_branch` (DC#18, provisional): bool selects which subset of
- *   children render. Children listed only in the OPPOSITE branch from
- *   the current value are hidden; children listed in both branches or
- *   neither are always shown. Mutually exclusive with
- *   `controls_visibility_of` on a single entry.
- */
+// `controls_branch`: children listed only in the opposite branch are hidden; exclusive with `controls_visibility_of`.
 const PropertiesSchemaEntrySchema = z
   .object({
     name: z.string(),
@@ -150,21 +88,12 @@ const PropertiesSchemaEntrySchema = z
         false: z.array(z.string()).optional(),
       })
       .optional(),
-    // Author-declared section label for the plug-in Options tab. When unset,
-    // plug-in falls back to a name-pattern heuristic.
     group: z.string().optional(),
-    // Enum for `type: 'select'`: the values the dropdown offers. Each
-    // entry is either a raw string (label == value) or a {label, value}
-    // pair. Ignored for non-select types.
     options: z
       .array(z.union([z.string(), z.object({ label: z.string(), value: z.string() })]))
       .optional(),
-    // `type: 'size'` — preset ramp for CSS length values. The panel
-    // renders a chip row for each entry in `presets`; the stored value
-    // is `${preset}${unit}` (e.g. `4px`). Ignored for other types.
     presets: z.array(z.number()).optional(),
     unit: z.string().optional(),
-    // Optional hint shown below the control (placeholder in inputs).
     hint: z.string().optional(),
   })
   .passthrough();
@@ -175,10 +104,6 @@ const SuperstructureRowSchema = z
     slug: z.string(),
     name: z.string(),
     parent_superstructure_id: z.number().int().nullable().optional(),
-    // When set, names an AppZet default_props array (typically 'tabs')
-    // whose entries expand into N synthetic children — one per array
-    // item. `children[0]` acts as the template for the generated
-    // children's primitive slug + on_click_action wiring.
     children_from_prop: z.string().nullable().optional(),
     properties_schema: z.array(PropertiesSchemaEntrySchema).nullable().optional(),
     is_active: z.boolean().optional(),

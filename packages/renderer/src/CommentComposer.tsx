@@ -9,35 +9,10 @@ import {
 } from './postDetailControls';
 import type { ActionInvocation, ActionDispatch } from './actionContext';
 
-/**
- * The "Write a comment" footer on post detail — the bar every signed-in
- * design draws at the bottom of the screen.
- *
- * Its own component rather than the chat composer's, though they look
- * alike. This one has to say WHO is being answered and offer a way to
- * stop (Reply on a comment re-targets it), and it has to know the
- * difference between writing a comment and editing one — the 3-dot
- * menu's "Edit comment" puts the same bar into a mode where sending
- * replaces a comment instead of creating one. The chat composer has
- * neither concept, and folding both into it would make every read of it
- * harder to be sure about.
- *
- * The field is CONTROLLED against postDetailControls, because other
- * things write it: a send clears it, an edit prefills it, cancelling an
- * edit empties it again. An uncontrolled field cannot be written to from
- * outside — P139, and the reason it is worth the extra state.
- *
- * SEND is this component's own affordance rather than a sibling child,
- * unlike chat's. The designs draw no send button at all in the resting
- * state: the bar is an attach glyph and a field, and something to send
- * with only makes sense once there is something to send. A sibling
- * ion-button would have to exist and be hidden, which is a child whose
- * whole job is to not be there.
- */
+// Controlled against postDetailControls: send, edit prefill and cancel all write the field from outside.
 
 export type CommentComposerProps = {
   overrides?: Record<string, unknown>;
-  /** The `on_tap_send` wiring resolved from the AppZet. */
   action?: ActionInvocation;
   dispatch: ActionDispatch;
 };
@@ -73,8 +48,7 @@ export function AppzaCommentComposer({ overrides, action, dispatch }: CommentCom
   const discardSlug = str(overrides, 'discard_action_slug') || 'comment.discard_attachment';
   const maxRows = Number.parseInt(str(overrides, 'max_rows'), 10);
 
-  // Grow with the text up to a cap, then scroll. A textarea has no
-  // intrinsic auto-size, so it is measured on every change.
+  // A textarea doesn't auto-size, so measure on every change.
   useEffect(() => {
     const el = fieldRef.current;
     if (!el) return;
@@ -84,19 +58,12 @@ export function AppzaCommentComposer({ overrides, action, dispatch }: CommentCom
     el.style.height = `${Math.min(el.scrollHeight, lineHeight * cap + 16)}px`;
   }, [controls.draft, maxRows]);
 
-  // Tapping Reply has to put the cursor in the field, or the reader is
-  // shown who they are answering and left to tap again to answer them.
   useEffect(() => {
     if (controls.reply_to_id === '' && controls.editing_id === '') return;
     fieldRef.current?.focus();
   }, [controls.reply_to_id, controls.editing_id]);
 
-  // Publish the footer's height so the floating home button sits ABOVE
-  // the bar rather than at a fixed distance from the viewport — the bar
-  // grows when a reply is pending or an image is attached, and a constant
-  // offset would put the button behind it exactly when there is most to
-  // read. Same variable the chat footer publishes, because the FAB is the
-  // same component reading one place.
+  // Publish the footer height so the FAB sits above the bar as it grows.
   useEffect(() => {
     const el = rootRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -138,12 +105,7 @@ export function AppzaCommentComposer({ overrides, action, dispatch }: CommentCom
             className="appza-cc-target-close"
             aria-label={editing ? 'Cancel edit' : 'Cancel reply'}
             onClick={() => {
-              // Cancelling an EDIT discards the prefilled body — it is
-              // the comment's current text, and leaving it in the field
-              // would turn "never mind" into a duplicate comment on the
-              // next send. Cancelling a REPLY keeps what was typed,
-              // because it is the reader's own words and still posts
-              // fine as a top-level comment.
+              // Cancelling an edit clears the prefill, or the next send duplicates the comment.
               if (editing) setPostDetailControls({ draft: '' });
               clearCommentReply();
             }}
@@ -161,9 +123,7 @@ export function AppzaCommentComposer({ overrides, action, dispatch }: CommentCom
               <button
                 type="button"
                 aria-label="Remove attachment"
-                // Not just a local removal: FluentCommunity created the
-                // Media row when the file was uploaded, so dropping the
-                // thumbnail without telling the server strands a file.
+                // FC created the Media row on upload, so tell the server or the file is stranded.
                 onClick={() =>
                   dispatch({
                     action_slug: discardSlug,
@@ -206,9 +166,6 @@ export function AppzaCommentComposer({ overrides, action, dispatch }: CommentCom
             value={controls.draft}
             onChange={(e) => setPostDetailControls({ draft: e.target.value })}
             onKeyDown={(e) => {
-              // Enter sends, Shift+Enter breaks the line. A comment is
-              // usually one line, which is why the plain key is the send
-              // and not the other way round.
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 send();
