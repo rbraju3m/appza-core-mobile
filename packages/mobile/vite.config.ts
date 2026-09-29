@@ -8,12 +8,15 @@ export default defineConfig(({ command, mode }) => {
       throw new Error(`VITE_APPZA_SITE_URL must be an https URL for a build (got "${url}"); APPZA_ALLOW_HTTP=1 allows http for local testing.`);
     }
   }
+  // APPZA_RELEASE=1 (scripts/android-release.sh): maps kept out of the bundle, log noise stripped.
+  const release = process.env.APPZA_RELEASE === '1';
   return {
     plugins: [react()],
     build: {
       outDir: 'dist',
-      sourcemap: true,
+      sourcemap: release ? 'hidden' : true,
     },
+    esbuild: release ? { drop: ['debugger'], pure: ['console.log', 'console.debug', 'console.info'] } : {},
     server: {
       port: 5175,
       host: '127.0.0.1',

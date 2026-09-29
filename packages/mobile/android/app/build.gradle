@@ -7,13 +7,26 @@ android {
         applicationId "net.appza.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode((project.findProperty('appzaVersionCode') ?: '1') as Integer)
+        versionName((project.findProperty('appzaVersionName') ?: '1.0') as String)
+        resValue "string", "app_name", "APPZA"
+        resValue "string", "title_activity_main", "APPZA"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    // From the environment only (scripts/android-release.sh); never a keystore in the repo.
+    signingConfigs {
+        if (System.getenv('APPZA_KEYSTORE')) {
+            appza {
+                storeFile file(System.getenv('APPZA_KEYSTORE'))
+                storePassword System.getenv('APPZA_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('APPZA_KEY_ALIAS')
+                keyPassword System.getenv('APPZA_KEY_PASSWORD')
+            }
         }
     }
     buildTypes {
@@ -24,6 +37,18 @@ android {
             manifestPlaceholders = [usesCleartextTraffic: "false"]
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+        // Installs beside any other APPZA app.
+        qa {
+            initWith release
+            applicationIdSuffix ".qa"
+            versionNameSuffix "-qa"
+            resValue "string", "app_name", "Appza QA"
+            resValue "string", "title_activity_main", "Appza QA"
+            matchingFallbacks = ['release']
+            if (signingConfigs.findByName('appza')) {
+                signingConfig signingConfigs.appza
+            }
         }
     }
 }

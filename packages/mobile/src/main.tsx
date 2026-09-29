@@ -14,6 +14,8 @@ import { App, loadStoredAuth } from './App';
 // Catalog endpoints are root-relative; on Android the origin is https://localhost, so /wp-json would hit Capacitor's static server and get index.html.
 const SITE_URL =
   (import.meta.env.VITE_APPZA_SITE_URL as string | undefined) ?? (import.meta.env.DEV ? 'http://tutor-lms-mobile.local' : '');
+// Tunnel workarounds (loca.lt header, img→blob, sw.js): dev, or a build with VITE_APPZA_TUNNEL_SHIMS=1.
+const TUNNEL_SHIMS = import.meta.env.DEV || (import.meta.env.VITE_APPZA_TUNNEL_SHIMS as string | undefined) === '1';
 {
   const originalFetch = window.fetch.bind(window);
   window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
@@ -34,7 +36,7 @@ const SITE_URL =
       targetHref = input.url;
     }
     // loca.lt only: elsewhere the extra header triggers a CORS preflight that breaks static image loads.
-    if (/(^|\.)loca\.lt(:|\/|$)/i.test(targetHref)) {
+    if (TUNNEL_SHIMS && /(^|\.)loca\.lt(:|\/|$)/i.test(targetHref)) {
       const headers = new Headers(
         init?.headers ?? (input instanceof Request ? input.headers : undefined),
       );
@@ -156,9 +158,6 @@ function rewriteImgToBlob(img: HTMLImageElement) {
       img.dataset.appzaBlobified = '';
     });
 }
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('img').forEach(rewriteImgToBlob);
-});
 const imgObserver = new MutationObserver((records) => {
   for (const r of records) {
     if (r.type === 'childList') {
@@ -178,15 +177,20 @@ const imgObserver = new MutationObserver((records) => {
     }
   }
 });
-imgObserver.observe(document.documentElement, {
-  childList: true,
-  subtree: true,
-  attributes: true,
-  attributeFilter: ['src'],
-});
+if (TUNNEL_SHIMS) {
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('img').forEach(rewriteImgToBlob);
+  });
+  imgObserver.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['src'],
+  });
+}
 
 // The SW only matters for loca.lt; on https://localhost the WebView often can't fetch /sw.js.
-if ('serviceWorker' in navigator && /(^|\.)loca\.lt(:|\/|$)/i.test(SITE_URL)) {
+if (TUNNEL_SHIMS && 'serviceWorker' in navigator && /(^|\.)loca\.lt(:|\/|$)/i.test(SITE_URL)) {
   navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((err) => {
     console.warn('[appza-mobile] SW registration failed:', err);
   });

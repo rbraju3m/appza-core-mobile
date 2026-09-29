@@ -25,3 +25,4 @@ pnpm-debug.log*
 # The Android platform is TRACKED (go-live A1): it carries hand-written
 # native code (AppzaDownloadPlugin, manifest edits) that `cap add android`
 # cannot regenerate. Build outputs are ignored by packages/mobile/android/.gitignore.
+/out/
