@@ -1545,6 +1545,15 @@ export function App() {
   if (state.kind === 'error') {
     return <div className="appza-mobile-error">{state.message}</div>;
   }
+  // A template the site never synced comes back as an empty catalog.
+  if (catalog && !catalog.template_screens?.length) {
+    return (
+      <div className="appza-mobile-error">
+        This site has no app screens for template “{TEMPLATE}”. In wp-admin, open APPZA Core → Sync and sync that
+        template, then reopen the app.
+      </div>
+    );
+  }
   if (!screen || !catalog) {
     return <div className="appza-mobile-error">No screen to render.</div>;
   }
