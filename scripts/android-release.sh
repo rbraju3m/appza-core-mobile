@@ -7,6 +7,12 @@
 # Last line of stdout on success: the APK path.
 set -euo pipefail
 
+# Queue workers started by Supervisor (Forge daemons) have no HOME; npm and Gradle need one too.
+if [ -z "${HOME:-}" ]; then
+	HOME=$(getent passwd "$(id -un)" | cut -d: -f6)
+	export HOME
+fi
+
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 MOBILE=$ROOT/packages/mobile
 SITE=''
