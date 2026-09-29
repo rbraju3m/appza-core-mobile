@@ -21,12 +21,40 @@ type FetchState =
 
 type BaseUrlMode = 'current' | 'custom';
 
+type BuildStatus = 'queued' | 'building' | 'uploading' | 'done' | 'failed';
+
 type BuildResult = {
-  id: number | string;
-  cli_command: string;
-  resolved_base_url: string;
-  requested_at: string;
+  id: string;
+  status: BuildStatus;
+  site_url: string;
+  template_slug: string;
+  version_code: number | null;
+  version_name: string | null;
+  apk_size: number | null;
+  apk_sha256: string | null;
+  download_url: string | null;
+  error: string | null;
+  started_at: string | null;
 };
+
+const STATUS_TEXT: Record<BuildStatus, string> = {
+  queued: 'Waiting for the build server…',
+  building: 'Building the APK…',
+  uploading: 'Uploading…',
+  done: 'Ready',
+  failed: 'Build failed',
+};
+
+async function errorMessage(res: Response): Promise<string> {
+  const text = await res.text();
+  try {
+    const body = JSON.parse(text) as { message?: unknown };
+    if (typeof body.message === 'string' && body.message) return body.message;
+  } catch {
+    /* not JSON */
+  }
+  return `HTTP ${res.status}: ${text.slice(0, 300)}`;
+}
 
 export type BuildRequest = {
   sourceIntegrationSlug: string;
@@ -50,7 +78,7 @@ export function BuildAppModal({ onClose, templateOptions, defaultTemplateSlug }:
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [result, setResult] = useState<BuildResult | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [pollError, setPollError] = useState<string | null>(null);
 
   const sourceEndpoint = window.appzaCoreConfig?.endpoints?.sourceIntegrations;
   const activeEndpoint = window.appzaCoreConfig?.endpoints?.activeSourceIntegrations;
@@ -132,13 +160,7 @@ export function BuildAppModal({ onClose, templateOptions, defaultTemplateSlug }:
     if (!selectedSlug) return false;
     if (!selectedTemplate) return false;
     if (!resolvedBaseUrl) return false;
-    if (baseUrlMode === 'custom') {
-      try {
-        new URL(resolvedBaseUrl);
-      } catch {
-        return false;
-      }
-    }
+    if (!/^https:\/\/[A-Za-z0-9.-]+(:[0-9]+)?\/?$/.test(resolvedBaseUrl)) return false;
     return true;
   }, [state, selectedSlug, selectedTemplate, resolvedBaseUrl, baseUrlMode]);
 
@@ -167,12 +189,8 @@ export function BuildAppModal({ onClose, templateOptions, defaultTemplateSlug }:
         credentials: 'same-origin',
         body: JSON.stringify(body),
       });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`);
-      }
-      const persisted = (await res.json()) as BuildResult;
-      setResult(persisted);
+      if (!res.ok) throw new Error(await errorMessage(res));
+      setResult((await res.json()) as BuildResult);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -180,55 +198,70 @@ export function BuildAppModal({ onClose, templateOptions, defaultTemplateSlug }:
     }
   }
 
-  async function copyCommand() {
-    if (!result) return;
-    try {
-      await navigator.clipboard.writeText(result.cli_command);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* noop — clipboard perms not granted */
-    }
-  }
+  const resultId = result?.id;
+  const finished = result?.status === 'done' || result?.status === 'failed';
+  useEffect(() => {
+    if (!resultId || finished || !buildEndpoint || !nonce) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const res = await fetch(`${buildEndpoint}/${resultId}`, {
+          headers: { Accept: 'application/json', 'X-WP-Nonce': nonce },
+          credentials: 'same-origin',
+        });
+        if (!res.ok) throw new Error(await errorMessage(res));
+        setResult((await res.json()) as BuildResult);
+        setPollError(null);
+      } catch (err) {
+        setPollError(err instanceof Error ? err.message : String(err));
+      }
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [resultId, finished, buildEndpoint, nonce]);
 
   if (result) {
     return (
-      <div className="appza-onboard-overlay" role="dialog" aria-modal="true" aria-label="Build queued">
+      <div className="appza-onboard-overlay" role="dialog" aria-modal="true" aria-label="Build status">
         <div className="appza-onboard-card">
           <div className="appza-onboard-header">
-            <h2 className="appza-onboard-title">Build queued — request #{result.id}</h2>
+            <h2 className="appza-onboard-title">{STATUS_TEXT[result.status]}</h2>
             <p className="appza-onboard-subtitle">
-              Your request is logged. To produce the actual bundle on this dev server, run the command
-              below in a terminal as <code>rbs-02</code> (it needs the NVM node/pnpm on PATH — the WP
-              process can't shell out to those directly).
+              A signed “Appza QA” APK of <code>{result.site_url}</code> ({result.template_slug}). A build takes a
+              minute or two; you can close this and find it later on the Core admin's QA Builds page.
             </p>
           </div>
           <div className="appza-onboard-body">
-            <div className="appza-build-section">
-              <div className="appza-build-section-label">Base URL baked into the bundle</div>
-              <input className="appza-build-input" value={result.resolved_base_url} readOnly />
-            </div>
-            <div className="appza-build-section">
-              <div className="appza-build-section-label">Build command</div>
-              <textarea
-                className="appza-build-cmd"
-                value={result.cli_command}
-                readOnly
-                rows={3}
-                onFocus={(e) => e.currentTarget.select()}
-              />
-              <button
-                type="button"
-                className="appza-onboard-btn appza-onboard-btn-ghost appza-build-copy-btn"
-                onClick={copyCommand}
-              >
-                {copied ? 'Copied ✓' : 'Copy command'}
-              </button>
-            </div>
+            {!finished && <div className="appza-onboard-status">{STATUS_TEXT[result.status]}</div>}
+            {result.status === 'failed' && (
+              <div className="appza-onboard-status appza-onboard-error">{result.error ?? 'The build failed.'}</div>
+            )}
+            {result.status === 'done' && result.download_url && (
+              <div className="appza-build-section">
+                <div className="appza-build-section-label">
+                  Version {result.version_name} ({result.version_code})
+                  {result.apk_size ? ` · ${(result.apk_size / 1024 / 1024).toFixed(1)} MB` : ''}
+                </div>
+                <a
+                  className="appza-onboard-btn appza-onboard-btn-primary"
+                  href={result.download_url}
+                  style={{ display: 'inline-block', textDecoration: 'none', marginBottom: 8 }}
+                >
+                  Download APK
+                </a>
+                <input
+                  className="appza-build-input"
+                  value={result.download_url}
+                  readOnly
+                  onFocus={(e) => e.currentTarget.select()}
+                  aria-label="Download link"
+                />
+                <div className="appza-build-section-hint">The link works for 7 days. Open it on the phone to install.</div>
+              </div>
+            )}
+            {pollError && <div className="appza-onboard-status appza-onboard-error">{pollError}</div>}
           </div>
           <div className="appza-onboard-footer">
             <button type="button" className="appza-onboard-btn appza-onboard-btn-primary" onClick={onClose}>
-              Done
+              {finished ? 'Done' : 'Close'}
             </button>
           </div>
         </div>
@@ -242,8 +275,8 @@ export function BuildAppModal({ onClose, templateOptions, defaultTemplateSlug }:
         <div className="appza-onboard-header">
           <h2 className="appza-onboard-title">Build App</h2>
           <p className="appza-onboard-subtitle">
-            Pick which activated app + template to build, and the base URL the built app should call for
-            real data.
+            Builds a signed “Appza QA” APK for this app and template. The site must be https, have the
+            APPZA Core plug-in active, and have synced the template.
           </p>
         </div>
 
@@ -349,6 +382,11 @@ export function BuildAppModal({ onClose, templateOptions, defaultTemplateSlug }:
                   readOnly
                   onFocus={() => setBaseUrlMode('current')}
                 />
+                {baseUrlMode === 'current' && !currentSiteUrl.startsWith('https://') && (
+                  <div className="appza-build-section-hint">
+                    This site isn't https, so a phone can't use it. Pick a custom https URL for this site.
+                  </div>
+                )}
                 <label className="appza-build-radio">
                   <input
                     type="radio"
