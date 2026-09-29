@@ -226,7 +226,7 @@ export function BuildAppModal({ onClose, templateOptions, defaultTemplateSlug }:
             <h2 className="appza-onboard-title">{STATUS_TEXT[result.status]}</h2>
             <p className="appza-onboard-subtitle">
               A signed “Appza QA” APK of <code>{result.site_url}</code> ({result.template_slug}). A build takes a
-              minute or two; you can close this and find it later on the Core admin's QA Builds page.
+              minute or two; you can close this and find it later on the Core admin's Builds page.
             </p>
           </div>
           <div className="appza-onboard-body">
