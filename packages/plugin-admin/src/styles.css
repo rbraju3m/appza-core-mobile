@@ -32,8 +32,9 @@ body {
 
 .appza-shell {
   display: grid;
-  grid-template-rows: var(--appza-topbar-height) 1fr;
-  height: 100vh;
+  grid-template-rows: auto 1fr;
+  grid-template-columns: minmax(0, 1fr);
+  height: 100%;
 }
 
 .appza-body {
@@ -48,8 +49,12 @@ body {
 
 .appza-topbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  padding: 0 16px;
+  gap: 8px;
+  min-height: var(--appza-topbar-height);
+  padding: 8px 16px;
+  container-type: inline-size;
   border-bottom: 1px solid var(--appza-border);
   background: var(--appza-bg);
 }
@@ -57,7 +62,6 @@ body {
 .appza-topbar-logo {
   display: inline-flex;
   align-items: center;
-  height: 100%;
 }
 
 .appza-topbar-logo-img {
@@ -78,7 +82,15 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: 32px;
+  flex: 1 1 160px;
+  min-width: 0;
+  max-width: 380px;
+  margin-left: 16px;
+}
+
+.appza-topbar-screen .appza-select {
+  min-width: 0;
+  width: 100%;
 }
 
 .appza-topbar-screen-label {
@@ -99,6 +111,7 @@ body {
 .appza-topbar-actions {
   margin-left: auto;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }
@@ -186,6 +199,24 @@ body {
   cursor: not-allowed;
   color: var(--appza-text-muted);
   background: var(--appza-bg-alt);
+}
+
+/* Narrow screens: drop the labels, then let the bar wrap. */
+@container (max-width: 1500px) {
+  .appza-topbar-screen-label,
+  .appza-topbar-mode-label,
+  .appza-topbar-template > span {
+    display: none;
+  }
+
+  .appza-topbar-mode,
+  .appza-topbar-template {
+    margin-right: 4px;
+  }
+
+  .appza-topbar-template select {
+    width: 215px;
+  }
 }
 
 .appza-topbar-sync-message {
@@ -413,7 +444,9 @@ body {
 .appza-center {
   display: flex;
   align-items: center;
+  align-items: safe center;
   justify-content: center;
+  justify-content: safe center;
   background: var(--appza-bg-canvas);
   overflow: auto;
   padding: 32px;
