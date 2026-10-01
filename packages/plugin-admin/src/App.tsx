@@ -205,15 +205,23 @@ import {
   type PostMenuItem,
   type ViewModeOption,
 } from '@appza/renderer';
+import { drawerMenuItems, screenAppbarPlacements, screenPlacements } from '@appza/renderer';
 import { setAuthHeaderProvider } from '@appza/renderer';
 
 export type { PreviewMode };
 
-export type UiMode = 'edit' | 'app';
+export type UiMode = 'edit' | 'drag' | 'app';
 
 import { TopBar } from './TopBar';
 import { Sidebar, type BottomTab, type SidebarTab } from './Sidebar';
 import { DeviceFrame, type SelectedPrimitive } from './DeviceFrame';
+import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { indexCatalog } from '@appza/renderer';
+import { BuilderPanel } from './BuilderPanel';
+import { DragCanvas } from './DragCanvas';
+import { useLayoutBuilder } from './useLayoutBuilder';
+import { mainKeys, rowsOf } from './layoutApi';
 import { OverridesPanel } from './OverridesPanel';
 import { PropertiesPanel } from './PropertiesPanel';
 import { PrimitivePanel } from './PrimitivePanel';
@@ -740,9 +748,24 @@ export function App() {
       });
   }, [currentScreen, auth]);
 
+  const appzetBySlug = useMemo(() => new Map(appzets.map((a) => [a.slug, a])), [appzets]);
+  const builder = useLayoutBuilder({
+    active: uiMode === 'drag',
+    template: catalog?.template?.slug ?? templateSlug,
+    screen: currentScreen?.app_map_screen_slug ?? null,
+    appzetBySlug,
+    onSaved: () => pull(templateSlug),
+  });
+  const dndSensors = useSensors(
+    // A small travel threshold keeps Add buttons and row clicks working.
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const catalogIndex = useMemo(() => (catalog ? indexCatalog(catalog) : null), [catalog]);
+
   const effectiveCustomizations = useMemo(() => {
     const base = envelope?.customizations;
-    if (!livePreview && !livePrimitivePreview && uiMode !== 'app') return base;
+    if (!livePreview && !livePrimitivePreview && uiMode !== 'app') return builder.overlay(base);
     const baseRecord =
       base && typeof base === 'object' && !Array.isArray(base)
         ? (base as Record<string, unknown>)
@@ -796,8 +819,24 @@ export function App() {
       scopeRecord['fc-user-avatar'] = targetRecord;
       out = { ...out, appzet: scopeRecord };
     }
-    return out;
-  }, [envelope, livePreview, livePrimitivePreview, uiMode, nowLabel]);
+    return builder.overlay(out);
+  }, [envelope, livePreview, livePrimitivePreview, uiMode, nowLabel, builder.overlay]);
+
+  useEffect(() => {
+    if (uiMode !== 'drag' || !builder.selectedKey) return;
+    const el = document.querySelector(
+      `.appza-center .appza-renderer-content [data-appza-placement-key="${CSS.escape(builder.selectedKey)}"]`,
+    );
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [uiMode, builder.selectedKey]);
+
+  const placedSlugs = useMemo(
+    () =>
+      catalog && currentScreen
+        ? screenPlacements(currentScreen, catalog, effectiveCustomizations).map((p) => p.appzet_slug)
+        : [],
+    [catalog, currentScreen, effectiveCustomizations],
+  );
 
   // Overlays open with a props snapshot, so patch the open modal on edit (keeps modal-local state). Wrapper edits null the AppZet slug, hence the fallback.
   const editedAppzetSlug = selectedAppzetSlug ?? selectedPrimitive?.appzetSlug ?? null;
@@ -1387,9 +1426,19 @@ export function App() {
         onPreviewModeChange={setPreviewMode}
         onBuildApp={() => setBuildAppOpen(true)}
         uiMode={uiMode}
+        dirtyCount={builder.dirtyCount}
+        saving={builder.saving}
+        onSaveLayout={() => void builder.save()}
+        onDiscardLayout={builder.discard}
         onUiModeChange={(m) => {
           setUiMode(m);
-          if (m === 'app') {
+          if (m === 'drag') {
+            setSelectedAppzetSlug(null);
+            setSelectedPrimitive(null);
+            setLivePreview(null);
+            setLivePrimitivePreview(null);
+            setScreenStack([]);
+          } else if (m === 'app') {
             setSelectedAppzetSlug(null);
             setSelectedPrimitive(null);
             setLivePreview(null);
@@ -1680,13 +1729,41 @@ export function App() {
         </div>
       )}
 
+      <DndContext
+        sensors={dndSensors}
+        // The sidebar may scroll itself; the device scrolls through Ionic (useLayoutBuilder), the page never.
+        autoScroll={{ canScroll: (el) => !!el.closest('.appza-sidebar') }}
+        {...builder.dnd}
+      >
       <div className="appza-body">
         <Sidebar
+          builderPanel={
+            uiMode === 'drag' && catalog && catalogIndex ? (
+              <BuilderPanel
+                draft={builder.draft}
+                loading={builder.loading}
+                loadError={builder.loadError}
+                saveError={builder.saveError}
+                catalog={catalog}
+                catalogIndex={catalogIndex}
+                customizations={effectiveCustomizations}
+                selectedKey={builder.selectedKey}
+                onSelectKey={builder.setSelectedKey}
+                presentKeys={builder.presentKeys}
+                onChangeItems={builder.setItems}
+                onAdd={(slug) => builder.add(slug)}
+                onKeepMine={() => void builder.keepMine()}
+                onAddNew={builder.addNew}
+                onReset={() => void builder.reset()}
+              />
+            ) : undefined
+          }
           sidebarTab={sidebarTab}
           onSelectTab={setSidebarTab}
           appzets={appzets}
           superstructures={superstructures}
           currentScreen={currentScreen}
+          placedSlugs={placedSlugs}
           bottomTab={bottomTab}
           onSelectBottomTab={setBottomTab}
           bottomPanel={bottomPanel}
@@ -1789,6 +1866,7 @@ export function App() {
                             {buildDrawerMenu(
                               catalog?.template_screens ?? [],
                               catalog?.app_map,
+                              catalog ? drawerMenuItems(catalog, effectiveCustomizations) : undefined,
                             ).map((row) => (
                               <li key={row.id}>
                                 <button
@@ -1934,6 +2012,31 @@ export function App() {
                 }
               />
               </>
+              ) : uiMode === 'drag' ? (
+                <DeviceFrame
+                  key={`preview-${previewMode}-drag`}
+                  navDepth={screenStack.length}
+                  screen={currentScreen}
+                  catalog={catalog ?? null}
+                  customizations={effectiveCustomizations}
+                  templateName={catalog?.template?.name}
+                  onSelectPlacement={builder.setSelectedKey}
+                  overlaySlot={
+                    builder.draft ? (
+                      <DragCanvas
+                        keys={rowsOf(builder.draft).map((r) => r.key)}
+                        mainKeys={mainKeys(builder.draft)}
+                        names={Object.fromEntries(
+                          rowsOf(builder.draft).map((r) => [r.key, appzetBySlug.get(r.appzet_slug)?.name ?? r.appzet_slug]),
+                        )}
+                        selectedKey={builder.selectedKey}
+                        dropIndex={builder.dropIndex}
+                        onRemove={builder.remove}
+                        onPresentKeys={builder.setPresentKeys}
+                      />
+                    ) : null
+                  }
+                />
               ) : (
                 <DeviceFrame
                   key={`preview-${previewMode}-edit`}
@@ -2029,6 +2132,10 @@ export function App() {
             );
           })()}
       </div>
+      <DragOverlay dropAnimation={null}>
+        {builder.dragLabel ? <div className="appza-drag-ghost">{builder.dragLabel}</div> : null}
+      </DragOverlay>
+      </DndContext>
 
       {/* Hidden until the first-mount check so it doesn't flash. */}
       {onboardingChecked && (
@@ -2596,43 +2703,23 @@ function findAppzetForAction(
   catalog: Catalog | null,
   currentScreenId: number | null,
   action_slug: string,
+  customizations: unknown,
 ): string | null {
   if (!catalog || currentScreenId == null) return null;
   const screen = catalog.template_screens?.find((s) => s.id === currentScreenId);
   if (!screen) return null;
-  const placements = (screen as unknown as Record<string, unknown>).placements;
-  if (!Array.isArray(placements)) return null;
+  // The appbar counts too: the create-post appbar's Post button lives outside the main slot.
+  const placements = [
+    ...screenPlacements(screen, catalog, customizations),
+    ...screenAppbarPlacements(screen, catalog, customizations),
+  ];
   for (const p of placements) {
-    if (!p || typeof p !== 'object') continue;
-    const slug = (p as Record<string, unknown>).appzet_slug;
-    if (typeof slug !== 'string') continue;
-    const appzet = catalog.appzets?.find((a) => a.slug === slug);
-    if (!appzet) continue;
-    const actions = (appzet.actions ?? null) as Record<string, unknown> | null;
+    const appzet = catalog.appzets?.find((a) => a.slug === p.appzet_slug);
+    const actions = (appzet?.actions ?? null) as Record<string, unknown> | null;
     if (!actions) continue;
     for (const wiring of Object.values(actions)) {
       if (wiring && typeof wiring === 'object' && !Array.isArray(wiring)) {
-        const rec = wiring as Record<string, unknown>;
-        if (rec.action_slug === action_slug) return slug;
-      }
-    }
-  }
-  // The create-post appbar's Post button lives outside the main slot.
-  const appbar = (screen as unknown as Record<string, unknown>).appbar_placements;
-  if (Array.isArray(appbar)) {
-    for (const p of appbar) {
-      if (!p || typeof p !== 'object') continue;
-      const slug = (p as Record<string, unknown>).appzet_slug;
-      if (typeof slug !== 'string') continue;
-      const appzet = catalog.appzets?.find((a) => a.slug === slug);
-      if (!appzet) continue;
-      const actions = (appzet.actions ?? null) as Record<string, unknown> | null;
-      if (!actions) continue;
-      for (const wiring of Object.values(actions)) {
-        if (wiring && typeof wiring === 'object' && !Array.isArray(wiring)) {
-          const rec = wiring as Record<string, unknown>;
-          if (rec.action_slug === action_slug) return slug;
-        }
+        if ((wiring as Record<string, unknown>).action_slug === action_slug) return p.appzet_slug;
       }
     }
   }
@@ -2807,7 +2894,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         console.warn('[appza-admin/app-mode] auth.login missing endpoint');
         return;
       }
-      const owningAppzet = findAppzetForAction(catalog, currentScreenId, 'auth.login');
+      const owningAppzet = findAppzetForAction(catalog, currentScreenId, 'auth.login', currentCustomizations);
       if (!owningAppzet) {
         console.warn('[appza-admin/app-mode] auth.login: no owning appzet found on current screen');
         return;

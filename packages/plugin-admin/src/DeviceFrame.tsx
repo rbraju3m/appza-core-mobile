@@ -20,6 +20,8 @@ type DeviceFrameProps = {
   onSelectPrimitive?: (sel: SelectedPrimitive | null) => void;
   /** Positioned inside the device viewport so modals align with the simulated screen, not the browser. */
   overlaySlot?: ReactNode;
+  /** Drag mode (D110): nothing on the screen fires; a click selects a placement. */
+  onSelectPlacement?: (key: string | null) => void;
 };
 
 // Selection outline is toggled here, not in the renderer, so the shared renderer stays unaware of designer state.
@@ -34,6 +36,7 @@ export function DeviceFrame({
   selectedPrimitive,
   onSelectPrimitive,
   overlaySlot,
+  onSelectPlacement,
 }: DeviceFrameProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
 
@@ -51,6 +54,15 @@ export function DeviceFrame({
   });
 
   function handleClickCapture(e: React.MouseEvent) {
+    if (onSelectPlacement) {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('.appza-drag-toolbar')) return;
+      e.stopPropagation();
+      e.preventDefault();
+      const el = target?.closest('.appza-renderer-content [data-appza-placement-key]');
+      onSelectPlacement(el?.getAttribute('data-appza-placement-key') ?? null);
+      return;
+    }
     if (!onSelectPrimitive && !onSelectAppzet) return;
     const target = e.target as HTMLElement | null;
     if (!target) return;
@@ -85,6 +97,13 @@ export function DeviceFrame({
         className="appza-device-viewport"
         ref={viewportRef}
         onClickCapture={handleClickCapture}
+        onPointerDownCapture={
+          onSelectPlacement
+            ? (e) => {
+                if (!(e.target as HTMLElement | null)?.closest('.appza-drag-toolbar')) e.stopPropagation();
+              }
+            : undefined
+        }
         style={{ position: 'relative' }}
       >
         {!screen || !catalog ? (

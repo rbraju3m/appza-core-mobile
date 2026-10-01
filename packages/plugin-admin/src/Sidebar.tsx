@@ -10,12 +10,16 @@ type SidebarProps = {
   appzets: AppZet[];
   superstructures: Superstructure[];
   currentScreen: TemplateScreen | null;
+  /** The screen's AppZets after the site's layout. */
+  placedSlugs: string[];
   bottomTab: BottomTab;
   onSelectBottomTab: (tab: BottomTab) => void;
   bottomPanel: React.ReactNode;
   selectedAppzetSlug?: string | null;
   /** The only way to reach an AppZet that is never placed (modals opened by actions). */
   onSelectAppzet?: (slug: string) => void;
+  /** Drag mode's builder (D110) replaces the component list. */
+  builderPanel?: React.ReactNode;
 };
 
 export function Sidebar({
@@ -24,11 +28,13 @@ export function Sidebar({
   appzets,
   superstructures,
   currentScreen,
+  placedSlugs,
   bottomTab,
   onSelectBottomTab,
   bottomPanel,
   selectedAppzetSlug,
   onSelectAppzet,
+  builderPanel,
 }: SidebarProps) {
   // Include modals reached via action args (`*appzet_slug`), not just placements — same walk the server does for the bundle.
   const screenAppZetSlugs = useMemo<Set<string>>(() => {
@@ -48,9 +54,7 @@ export function Sidebar({
     };
 
     const seen = new Set<string>();
-    const queue = (currentScreen.placements ?? [])
-      .map((p) => (typeof p['appzet_slug'] === 'string' ? p['appzet_slug'] : ''))
-      .filter(Boolean);
+    const queue = [...placedSlugs];
 
     // Cycle guard: two AppZets may reference each other.
     let guard = 0;
@@ -69,7 +73,7 @@ export function Sidebar({
       });
     }
     return seen;
-  }, [currentScreen, appzets]);
+  }, [currentScreen, placedSlugs, appzets]);
 
   const visibleAppZets = useMemo<AppZet[]>(() => {
     if (sidebarTab === 'global') return appzets;
@@ -83,6 +87,17 @@ export function Sidebar({
 
   return (
     <aside className="appza-sidebar" style={{ position: 'relative' }}>
+      {builderPanel ? (
+        <>
+          <div className="appza-sidebar-tabs">
+            <button className="appza-sidebar-tab" data-active="true" type="button">
+              Screen
+            </button>
+          </div>
+          <div className="appza-sidebar-content">{builderPanel}</div>
+        </>
+      ) : (
+      <>
       <div className="appza-sidebar-tabs">
         <button
           className="appza-sidebar-tab"
@@ -157,6 +172,9 @@ export function Sidebar({
           ))
         )}
       </div>
+
+      </>
+      )}
 
       {bottomPanel && <div className="appza-bottom-panel">{bottomPanel}</div>}
 

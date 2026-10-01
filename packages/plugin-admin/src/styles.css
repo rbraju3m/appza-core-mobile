@@ -2206,3 +2206,333 @@ body {
   margin: 0;
   color: var(--appza-file-text-color, #1f2937);
 }
+
+/* Drag mode (D110): builder panel, canvas overlay, unsaved bar */
+.appza-topbar-layout {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.appza-topbar-unsaved {
+  color: var(--appza-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.appza-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.appza-builder-section {
+  padding: 4px 0 8px;
+}
+.appza-builder-heading {
+  margin: 6px 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--appza-text-muted);
+}
+.appza-builder-subheading {
+  margin: 8px 12px 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--appza-text-muted);
+}
+.appza-builder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.appza-builder-row {
+  border: 1px solid var(--appza-border-strong);
+  border-radius: 6px;
+  background: var(--appza-bg);
+}
+.appza-builder-row[data-selected="true"] {
+  border-color: var(--appza-primary);
+  box-shadow: 0 0 0 1px var(--appza-primary);
+}
+.appza-builder-row[data-dragging="true"] {
+  opacity: 0.5;
+}
+.appza-builder-row[data-absent="true"] .appza-builder-row-name > span:first-child {
+  color: var(--appza-text-muted);
+}
+.appza-builder-row-main {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+}
+.appza-builder-handle {
+  border: 0;
+  background: none;
+  cursor: grab;
+  color: var(--appza-text-muted);
+  font-size: 1rem;
+  padding: 2px 4px;
+  touch-action: none;
+}
+.appza-builder-handle.is-fixed {
+  cursor: default;
+  opacity: 0.35;
+}
+.appza-builder-row-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: none;
+  text-align: left;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 2px;
+}
+.appza-builder-chip {
+  font-size: 0.68rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--appza-bg-alt);
+  color: var(--appza-text-muted);
+  white-space: nowrap;
+}
+.appza-builder-chip.is-gate {
+  background: #eef2ff;
+  color: #4338ca;
+}
+.appza-builder-chip.is-hidden {
+  background: #fef3c7;
+  color: #92400e;
+}
+.appza-builder-icon-btn {
+  border: 0;
+  background: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--appza-text-muted);
+}
+.appza-builder-icon-btn:hover:not(:disabled) {
+  background: var(--appza-bg-alt);
+  color: var(--appza-text);
+}
+.appza-builder-icon-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.appza-builder-icon-btn.is-danger:hover {
+  color: #b91c1c;
+}
+.appza-builder-row-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 8px 34px;
+  font-size: 0.8rem;
+  color: var(--appza-text-muted);
+}
+.appza-builder-row-detail select {
+  flex: 1;
+  font-size: 0.8rem;
+}
+.appza-builder-search {
+  box-sizing: border-box;
+  width: calc(100% - 20px);
+  margin: 0 10px 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--appza-border-strong);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.85rem;
+}
+.appza-builder-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 8px 0 4px;
+}
+.appza-builder-card {
+  position: relative;
+  border-radius: 6px;
+  background: var(--appza-bg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+.appza-builder-card[data-dragging="true"] {
+  opacity: 0.4;
+}
+.appza-builder-card-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 6px 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.appza-builder-thumb {
+  height: 84px;
+  overflow: hidden;
+  background: var(--appza-bg-canvas);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+.appza-builder-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.appza-builder-thumb-live {
+  width: 360px;
+  flex-shrink: 0;
+  transform: scale(0.38);
+  transform-origin: top center;
+  pointer-events: none;
+}
+.appza-builder-thumb-fallback {
+  align-self: center;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--appza-border-strong);
+}
+.appza-builder-card-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.82);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.appza-builder-card:hover .appza-builder-card-overlay,
+.appza-builder-card:focus-within .appza-builder-card-overlay {
+  opacity: 1;
+}
+.appza-builder-card[data-blocked="true"] {
+  cursor: not-allowed;
+}
+.appza-builder-card-overlay em {
+  font-size: 0.75rem;
+  color: var(--appza-text-muted);
+}
+.appza-builder-drift,
+.appza-builder-error {
+  margin: 6px 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  white-space: pre-line;
+}
+.appza-builder-drift {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+}
+.appza-builder-drift-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.appza-builder-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+.appza-builder-reset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 12px;
+  font-size: 0.8rem;
+}
+
+.appza-drag-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+.appza-drag-canvas[data-over="true"] {
+  box-shadow: inset 0 0 0 2px rgba(249, 115, 22, 0.35);
+  border-radius: 32px;
+}
+.appza-drag-outline {
+  position: absolute;
+  outline: 2px dashed rgba(249, 115, 22, 0.7);
+  outline-offset: -2px;
+}
+.appza-drag-outline[data-selected="true"] {
+  outline: 3px solid var(--appza-primary);
+}
+.appza-drag-toolbar {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  background: var(--appza-primary);
+  color: #fff;
+  font-size: 0.72rem;
+  pointer-events: auto;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+.appza-drag-toolbar button {
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 0.85rem;
+}
+.appza-drag-handle {
+  cursor: grab;
+  touch-action: none;
+}
+.appza-drag-name {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-drag-line {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--appza-primary);
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25);
+}
+.appza-drag-ghost {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--appza-primary);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+  cursor: grabbing;
+}

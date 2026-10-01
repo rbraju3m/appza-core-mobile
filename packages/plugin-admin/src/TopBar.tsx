@@ -28,10 +28,15 @@ type TopBarProps = {
   uiMode: UiMode;
   onUiModeChange: (mode: UiMode) => void;
   onBuildApp: () => void;
+  dirtyCount: number;
+  saving: boolean;
+  onSaveLayout: () => void;
+  onDiscardLayout: () => void;
 };
 
 const UI_MODES: Array<{ value: UiMode; label: string; title: string }> = [
   { value: 'edit', label: 'Edit', title: 'Design mode — click any element to select it and edit its properties on the right.' },
+  { value: 'drag', label: 'Drag', title: 'Layout mode — add, remove and reorder components on this screen. Nothing on the screen fires.' },
   { value: 'app', label: 'App', title: 'Runtime mode — clicks fire real actions (navigate, open links). Same behavior as the mobile app.' },
 ];
 
@@ -61,6 +66,10 @@ export function TopBar({
   uiMode,
   onUiModeChange,
   onBuildApp,
+  dirtyCount,
+  saving,
+  onSaveLayout,
+  onDiscardLayout,
 }: TopBarProps) {
   const nameBySlug = new Map<string, string>();
   if (appMap && Array.isArray(appMap.screens)) {
@@ -126,6 +135,20 @@ export function TopBar({
             ))}
           </div>
         </div>
+
+        {(dirtyCount > 0 || saving) && (
+          <div className="appza-topbar-layout" role="group" aria-label="Unsaved layout">
+            <span className="appza-topbar-unsaved">
+              ● {dirtyCount} unsaved {dirtyCount === 1 ? 'screen' : 'screens'}
+            </span>
+            <button type="button" className="appza-btn" onClick={onDiscardLayout} disabled={saving}>
+              Discard
+            </button>
+            <button type="button" className="appza-btn appza-btn-primary" onClick={onSaveLayout} disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        )}
 
         <div className="appza-topbar-mode" role="group" aria-label="Preview data mode">
           <span className="appza-topbar-mode-label">Data</span>
