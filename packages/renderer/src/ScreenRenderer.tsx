@@ -33,6 +33,14 @@ import { useCourseListControls, courseListStateEntries } from './courseListContr
 import { useListVerdicts } from './listVerdicts';
 import { getFcRuntimeSettings } from './fcRuntimeSettings';
 import { readDataPath } from './dataFetch';
+import {
+  corePlacements,
+  SITE_KEY_PREFIX,
+  screenAppbarPlacements,
+  screenPlacements,
+  templateChromePlacements,
+  type EffectivePlacement,
+} from './effectivePlacements';
 
 type ScreenRendererProps = {
   screen: TemplateScreen;
@@ -215,27 +223,16 @@ export function ScreenRenderer({
     ],
   );
 
-  const placements = screen.placements ?? [];
-  type PlacementEntry = {
-    appzet_slug: string;
-    props_override: Record<string, unknown> | null;
-    key: string;
-  };
-  const bySlot = new Map<SlotKey, PlacementEntry[]>();
-  for (const [placementIndex, p] of placements.entries()) {
-    const rawSlot = typeof p['slot'] === 'string' ? (p['slot'] as string) : 'other';
-    const slot = normalizeSlot(rawSlot);
-    const appzet_slug = typeof p['appzet_slug'] === 'string' ? (p['appzet_slug'] as string) : '';
-    if (!appzet_slug) continue;
+  const placements = screenPlacements(screen, catalog, customizations);
+  const bySlot = new Map<SlotKey, EffectivePlacement[]>();
+  for (const p of placements) {
     // Fails open on unparseable shapes so a stale catalog doesn't silently drop placements.
-    if (!evaluatePlacementVisibleWhen(p as Record<string, unknown>, stateBag)) continue;
-    const rawPropsOverride = p['props_override'];
-    const props_override =
-      rawPropsOverride && typeof rawPropsOverride === 'object' && !Array.isArray(rawPropsOverride)
-        ? (rawPropsOverride as Record<string, unknown>)
-        : null;
+    if (!evaluatePlacementVisibleWhen(p as unknown as Record<string, unknown>, stateBag)) continue;
+    // A site row whose AppZet stopped shipping is dropped; a Core one keeps its missing-node marker.
+    if (p.key.startsWith(SITE_KEY_PREFIX) && !catalogIndex.appzetBySlug.has(p.appzet_slug)) continue;
+    const slot = normalizeSlot(p.slot);
     const list = bySlot.get(slot) ?? [];
-    list.push({ appzet_slug, props_override, key: `${appzet_slug}:${placementIndex}` });
+    list.push(p);
     bySlot.set(slot, list);
   }
 
@@ -245,12 +242,29 @@ export function ScreenRenderer({
   const footerList = bySlot.get('footer') ?? [];
   const otherList = bySlot.get('other') ?? [];
 
-  const templateChrome = readTemplateChrome(catalog);
-  const screenAppbar = readScreenAppbar(screen);
-  const appbarPlacements = screenAppbar.length > 0 ? screenAppbar : templateChrome.appbar;
+  const screenAppbar = screenAppbarPlacements(screen, catalog, customizations);
+  const appbarPlacements =
+    screenAppbar.length > 0 ? screenAppbar : templateChromePlacements(catalog, customizations, 'appbar_placements');
   // null inherits the template's nav; [] means this screen has none.
-  const screenNav = readScreenNav(screen);
-  const navPlacements = screenNav ?? templateChrome.nav;
+  const screenNav = (screen as unknown as Record<string, unknown>)['nav_placements'];
+  const navPlacements = Array.isArray(screenNav)
+    ? corePlacements(screenNav)
+    : templateChromePlacements(catalog, customizations, 'nav_placements');
+
+  const renderPlacement = (prefix: string, p: EffectivePlacement) => (
+    <PlacementRenderer
+      key={`${prefix}:${p.key}`}
+      appzetSlug={p.appzet_slug}
+      catalogIndex={catalogIndex}
+      customizations={customizations}
+      selectedAppzetSlug={selectedAppzetSlug}
+      onSelectAppzet={onSelectAppzet}
+      propsOverride={p.core_props}
+      sitePropsOverride={p.site_props}
+      layout={p.layout}
+      placementKey={p.key}
+    />
+  );
 
   const screenTitle = readScreenTitle(screen);
 
@@ -266,27 +280,9 @@ export function ScreenRenderer({
         <IonHeader className="appza-renderer-header">
           <IonToolbar>
             {appbarPlacements.length > 0 ? (
-              appbarPlacements.map((p, idx) => (
-                <PlacementRenderer
-                  key={`appbar:${p.appzet_slug}:${idx}`}
-                  appzetSlug={p.appzet_slug}
-                  catalogIndex={catalogIndex}
-                  customizations={customizations}
-                  selectedAppzetSlug={selectedAppzetSlug}
-                  onSelectAppzet={onSelectAppzet}
-                />
-              ))
+              appbarPlacements.map((p) => renderPlacement('appbar', p))
             ) : headerList.length > 0 ? (
-              headerList.map((p) => (
-                <PlacementRenderer
-                  key={`hdr:${p.key}`}
-                  appzetSlug={p.appzet_slug}
-                  catalogIndex={catalogIndex}
-                  customizations={customizations}
-                  selectedAppzetSlug={selectedAppzetSlug}
-                  onSelectAppzet={onSelectAppzet}
-                />
-              ))
+              headerList.map((p) => renderPlacement('hdr', p))
             ) : (
               <IonTitle>{screenTitle}</IonTitle>
             )}
@@ -303,48 +299,18 @@ export function ScreenRenderer({
             <div className="appza-renderer-screen">
               {mainList.length > 0 && (
                 <section className="appza-renderer-slot" data-slot="main">
-                  {/* Keyed by position in the unfiltered list: a hidden placement would shift the indices and remount (and refetch) every survivor. */}
-                  {mainList.map((p) => (
-                    <PlacementRenderer
-                      key={`main:${p.key}`}
-                      appzetSlug={p.appzet_slug}
-                      catalogIndex={catalogIndex}
-                      customizations={customizations}
-                      selectedAppzetSlug={selectedAppzetSlug}
-                      onSelectAppzet={onSelectAppzet}
-                      propsOverride={p.props_override}
-                    />
-                  ))}
+                  {/* Keyed by placement key: a hidden or moved placement must not remount (and refetch) the others. */}
+                  {mainList.map((p) => renderPlacement('main', p))}
                 </section>
               )}
               {actionsList.length > 0 && (
                 <section className="appza-renderer-slot" data-slot="actions">
-                  {actionsList.map((p) => (
-                    <PlacementRenderer
-                      key={`act:${p.key}`}
-                      appzetSlug={p.appzet_slug}
-                      catalogIndex={catalogIndex}
-                      customizations={customizations}
-                      selectedAppzetSlug={selectedAppzetSlug}
-                      onSelectAppzet={onSelectAppzet}
-                      propsOverride={p.props_override}
-                    />
-                  ))}
+                  {actionsList.map((p) => renderPlacement('act', p))}
                 </section>
               )}
               {otherList.length > 0 && (
                 <section className="appza-renderer-slot" data-slot="other">
-                  {otherList.map((p) => (
-                    <PlacementRenderer
-                      key={`oth:${p.key}`}
-                      appzetSlug={p.appzet_slug}
-                      catalogIndex={catalogIndex}
-                      customizations={customizations}
-                      selectedAppzetSlug={selectedAppzetSlug}
-                      onSelectAppzet={onSelectAppzet}
-                      propsOverride={p.props_override}
-                    />
-                  ))}
+                  {otherList.map((p) => renderPlacement('oth', p))}
                 </section>
               )}
             </div>
@@ -356,17 +322,7 @@ export function ScreenRenderer({
             {footerList.length > 0 && (
               <IonToolbar>
                 <div className="appza-renderer-footer-slot" data-slot="footer">
-                  {footerList.map((p) => (
-                    <PlacementRenderer
-                      key={`ftr:${p.key}`}
-                      appzetSlug={p.appzet_slug}
-                      catalogIndex={catalogIndex}
-                      customizations={customizations}
-                      selectedAppzetSlug={selectedAppzetSlug}
-                      onSelectAppzet={onSelectAppzet}
-                      propsOverride={p.props_override}
-                    />
-                  ))}
+                  {footerList.map((p) => renderPlacement('ftr', p))}
                 </div>
               </IonToolbar>
             )}
@@ -376,16 +332,7 @@ export function ScreenRenderer({
                   className="appza-renderer-nav"
                   data-active-tab={activeNavTab(navPlacements, catalogIndex, screen.app_map_screen_slug)}
                 >
-                  {navPlacements.map((p, idx) => (
-                    <PlacementRenderer
-                      key={`nav:${p.appzet_slug}:${idx}`}
-                      appzetSlug={p.appzet_slug}
-                      catalogIndex={catalogIndex}
-                      customizations={customizations}
-                      selectedAppzetSlug={selectedAppzetSlug}
-                      onSelectAppzet={onSelectAppzet}
-                    />
-                  ))}
+                  {navPlacements.map((p) => renderPlacement('nav', p))}
                 </div>
               </IonToolbar>
             )}
@@ -406,71 +353,6 @@ function normalizeSlot(raw: string): SlotKey {
     default:
       return 'other';
   }
-}
-
-type ChromePlacement = { appzet_slug: string };
-
-function readTemplateChrome(catalog: Catalog): {
-  appbar: ChromePlacement[];
-  nav: ChromePlacement[];
-  drawer: ChromePlacement[];
-} {
-  const template = catalog.template as Record<string, unknown> | undefined;
-  return {
-    appbar: readChromeList(template, 'appbar_placements'),
-    nav: readChromeList(template, 'nav_placements'),
-    drawer: readChromeList(template, 'drawer_placements'),
-  };
-}
-
-function readScreenAppbar(screen: TemplateScreen): ChromePlacement[] {
-  const raw = (screen as unknown as Record<string, unknown>)['appbar_placements'];
-  if (!Array.isArray(raw)) return [];
-  const out: ChromePlacement[] = [];
-  for (const entry of raw) {
-    if (entry && typeof entry === 'object' && 'appzet_slug' in entry) {
-      const slug = (entry as Record<string, unknown>)['appzet_slug'];
-      if (typeof slug === 'string' && slug.length > 0) {
-        out.push({ appzet_slug: slug });
-      }
-    }
-  }
-  return out;
-}
-
-/** null inherits the template's nav; [] means none (unlike the appbar, which falls back on empty). */
-function readScreenNav(screen: TemplateScreen): ChromePlacement[] | null {
-  const raw = (screen as unknown as Record<string, unknown>)['nav_placements'];
-  if (!Array.isArray(raw)) return null;
-  const out: ChromePlacement[] = [];
-  for (const entry of raw) {
-    if (entry && typeof entry === 'object' && 'appzet_slug' in entry) {
-      const slug = (entry as Record<string, unknown>)['appzet_slug'];
-      if (typeof slug === 'string' && slug.length > 0) {
-        out.push({ appzet_slug: slug });
-      }
-    }
-  }
-  return out;
-}
-
-function readChromeList(
-  template: Record<string, unknown> | undefined,
-  key: string,
-): ChromePlacement[] {
-  if (!template) return [];
-  const raw = template[key];
-  if (!Array.isArray(raw)) return [];
-  const out: ChromePlacement[] = [];
-  for (const entry of raw) {
-    if (entry && typeof entry === 'object' && 'appzet_slug' in entry) {
-      const slug = (entry as Record<string, unknown>)['appzet_slug'];
-      if (typeof slug === 'string' && slug.length > 0) {
-        out.push({ appzet_slug: slug });
-      }
-    }
-  }
-  return out;
 }
 
 function readScreenTitle(screen: TemplateScreen): string {

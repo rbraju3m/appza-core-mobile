@@ -485,6 +485,21 @@ export {
 } from './postInformationPrefill';
 export { filterScreensBySurface } from './surface';
 export { buildDrawerMenu, type DrawerMenuRow } from './drawerMenu';
+export {
+  corePlacements,
+  derivedKeys,
+  drawerMenuItems,
+  mergeSiteItems,
+  readSiteItems,
+  screenAppbarPlacements,
+  screenLayoutKey,
+  screenPlacements,
+  SITE_KEY_PREFIX,
+  templateChromePlacements,
+  validLayout,
+  type DrawerMenuItem,
+  type EffectivePlacement,
+} from './effectivePlacements';
 export { useInsideDeviceViewport } from './insideDeviceViewport';
 export {
   addMemberPresentation,

@@ -195,6 +195,7 @@ import {
   ModerationReviewSheet,
   announceModerationDone,
 } from '@appza/renderer';
+import { drawerMenuItems, screenAppbarPlacements, screenPlacements } from '@appza/renderer';
 import { setAuthHeaderProvider, setExternalOpener, openExternal, useBackDismiss, dismissTopOverlay } from '@appza/renderer';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
@@ -519,43 +520,23 @@ function findAppzetForAction(
   catalog: Catalog | null,
   currentScreenId: number | null,
   action_slug: string,
+  customizations: unknown,
 ): string | null {
   if (!catalog || currentScreenId == null) return null;
   const screen = catalog.template_screens?.find((s) => s.id === currentScreenId);
   if (!screen) return null;
-  const placements = (screen as unknown as Record<string, unknown>).placements;
-  if (Array.isArray(placements)) {
-    for (const p of placements) {
-      if (!p || typeof p !== 'object') continue;
-      const slug = (p as Record<string, unknown>).appzet_slug;
-      if (typeof slug !== 'string') continue;
-      const appzet = catalog.appzets?.find((a) => a.slug === slug);
-      if (!appzet) continue;
-      const actions = (appzet.actions ?? null) as Record<string, unknown> | null;
-      if (!actions) continue;
-      for (const wiring of Object.values(actions)) {
-        if (wiring && typeof wiring === 'object' && !Array.isArray(wiring)) {
-          const rec = wiring as Record<string, unknown>;
-          if (rec.action_slug === action_slug) return slug;
-        }
-      }
-    }
-  }
-  const appbar = (screen as unknown as Record<string, unknown>).appbar_placements;
-  if (Array.isArray(appbar)) {
-    for (const p of appbar) {
-      if (!p || typeof p !== 'object') continue;
-      const slug = (p as Record<string, unknown>).appzet_slug;
-      if (typeof slug !== 'string') continue;
-      const appzet = catalog.appzets?.find((a) => a.slug === slug);
-      if (!appzet) continue;
-      const actions = (appzet.actions ?? null) as Record<string, unknown> | null;
-      if (!actions) continue;
-      for (const wiring of Object.values(actions)) {
-        if (wiring && typeof wiring === 'object' && !Array.isArray(wiring)) {
-          const rec = wiring as Record<string, unknown>;
-          if (rec.action_slug === action_slug) return slug;
-        }
+  // The appbar counts too: the create-post appbar's Post button lives outside the main slot.
+  const placements = [
+    ...screenPlacements(screen, catalog, customizations),
+    ...screenAppbarPlacements(screen, catalog, customizations),
+  ];
+  for (const p of placements) {
+    const appzet = catalog.appzets?.find((a) => a.slug === p.appzet_slug);
+    const actions = (appzet?.actions ?? null) as Record<string, unknown> | null;
+    if (!actions) continue;
+    for (const wiring of Object.values(actions)) {
+      if (wiring && typeof wiring === 'object' && !Array.isArray(wiring)) {
+        if ((wiring as Record<string, unknown>).action_slug === action_slug) return p.appzet_slug;
       }
     }
   }
@@ -1849,7 +1830,11 @@ export function App() {
               </div>
             )}
             <ul className="appza-menu-list">
-              {buildDrawerMenu(catalog.template_screens ?? [], catalog.app_map).map((row) => (
+              {buildDrawerMenu(
+                catalog.template_screens ?? [],
+                catalog.app_map,
+                drawerMenuItems(catalog, customizationsForRender),
+              ).map((row) => (
                 <li key={row.id}>
                   <button
                     type="button"
@@ -2092,7 +2077,7 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         onError('auth.login is missing its endpoint.');
         return;
       }
-      const owningAppzet = findAppzetForAction(catalog, currentScreenId, 'auth.login');
+      const owningAppzet = findAppzetForAction(catalog, currentScreenId, 'auth.login', currentCustomizations);
       if (!owningAppzet) {
         onError('auth.login: no owning appzet found on current screen');
         return;

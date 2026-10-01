@@ -48,6 +48,9 @@ const TemplateScreenRowSchema = z
     // One unresolvable icon drops the whole menu's icons (all-or-none).
     drawer_icon: z.string().nullable().optional(),
     drawer_position: z.number().int().nullable().optional(),
+    // D110: what the builder may add here, from Core's tags.
+    palette: z.array(z.string()).optional(),
+    appbar_palette: z.array(z.string()).optional(),
   })
   .passthrough();
 
@@ -69,6 +72,11 @@ const AppZetRowSchema = z
       })
       .nullable()
       .optional(),
+    // Only when there is a choice: the AppZet's own Superstructure first.
+    layouts: z
+      .array(z.object({ slug: z.string(), name: z.string(), is_default: z.boolean() }).passthrough())
+      .optional(),
+    tags: z.array(z.unknown()).nullable().optional(),
     is_active: z.boolean().optional(),
   })
   .passthrough();
@@ -141,6 +149,13 @@ export const CatalogSchema = z
     primitive_props: z.array(z.record(z.unknown())).optional().default([]),
     data_sources: z.array(z.record(z.unknown())).optional().default([]),
     actions: z.array(z.record(z.unknown())).optional().default([]),
+    chrome_palette: z
+      .object({ appbar: z.array(z.string()), nav: z.array(z.string()), drawer: z.array(z.string()) })
+      .partial()
+      .optional(),
+    builder_groups: z
+      .array(z.object({ slug: z.string(), label: z.string(), icon: z.string() }).passthrough())
+      .optional(),
   })
   .passthrough();
 

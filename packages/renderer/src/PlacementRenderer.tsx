@@ -53,6 +53,7 @@ import {
 import { publishCommentsView } from './CommentThread';
 import { getPostDraft, postDraftStateEntries, usePostDraft } from './postDraft';
 import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
+import { validLayout } from './effectivePlacements';
 
 const PAGINATED_DATA_SOURCES = new Set<string>(['fc-feed', 'fc-space-members', 'fc-members-directory', 'fc-moderation-reports']);
 const PAGE_SIZE_BY_SLUG: Record<string, number> = {
@@ -68,6 +69,11 @@ type PlacementRendererProps = {
   selectedAppzetSlug?: string | null;
   onSelectAppzet?: (slug: string | null) => void;
   propsOverride?: Record<string, unknown> | null;
+  /** The site's own props for this placement (D110); they beat every other layer. */
+  sitePropsOverride?: Record<string, unknown> | null;
+  /** A variant Superstructure slug from the AppZet's `layouts`. */
+  layout?: string | null;
+  placementKey?: string;
 };
 
 type SpacingOverride = {
@@ -123,6 +129,9 @@ export function PlacementRenderer({
   selectedAppzetSlug,
   onSelectAppzet,
   propsOverride,
+  sitePropsOverride,
+  layout,
+  placementKey,
 }: PlacementRendererProps) {
   const { viewMode: feedViewMode, sort: feedSort } = useFeedControls();
   // Every slice below is read unconditionally so hook order stays stable.
@@ -211,15 +220,15 @@ export function PlacementRenderer({
     ? {
         ...baseAppzet,
         default_props_override: {
+          // Core placement props sit under the site's AppZet-wide edit; the site's own placement props win.
           ...(resolveOverridableColumn(
             customizations,
             'appzet',
             baseAppzet.slug,
             'default_props_override',
-            baseAppzet.default_props_override ?? {},
+            { ...(baseAppzet.default_props_override ?? {}), ...(propsOverride ?? {}) },
           ) as Record<string, unknown>),
-          // Placement props go before the per-screen customization merge so an admin's own edit still wins.
-          ...(propsOverride ?? {}),
+          ...(sitePropsOverride ?? {}),
           ...optionData,
           // The label is state, and no field_mapping can bind state.
           ...(baseAppzet.slug === 'fc-comment-sort'
@@ -323,9 +332,12 @@ export function PlacementRenderer({
       }
     : baseAppzet;
 
-  const ss = appzet?.superstructure_id
-    ? catalogIndex.superstructureById.get(appzet.superstructure_id)
-    : undefined;
+  const layoutSlug = validLayout(baseAppzet, layout);
+  const ss = layoutSlug
+    ? catalogIndex.superstructureBySlug.get(layoutSlug)
+    : appzet?.superstructure_id
+      ? catalogIndex.superstructureById.get(appzet.superstructure_id)
+      : undefined;
   const localStateBag: Record<string, unknown> = {
     // Keyed the same way ScreenRenderer keys it so child and placement gates share one vocabulary.
     ...Object.fromEntries(
@@ -809,7 +821,7 @@ export function PlacementRenderer({
   {
     const dpo = (appzet.default_props_override ?? {}) as Record<string, unknown>;
     if (dpo['hidden'] === true) {
-      return <span data-appza-hidden-appzet={appzet.slug} style={{ display: 'none' }} />;
+      return <span data-appza-hidden-appzet={appzet.slug} data-appza-placement-key={placementKey} style={{ display: 'none' }} />;
     }
     const readSlug = (v: unknown): string | undefined => {
       if (!isRecord(v)) return undefined;
@@ -1412,6 +1424,7 @@ export function PlacementRenderer({
         <div
           className={wrapperClass}
           data-slug={appzet.slug}
+          data-appza-placement-key={placementKey}
           data-appza-can-submit={
             appzet.slug === 'fc-add-document-appbar'
               ? String(documentDraft.files.length > 0 && !documentDraft.submitting)
@@ -1512,6 +1525,7 @@ export function PlacementRenderer({
         <div
           className="appza-renderer-skeleton-list"
           data-slug={appzet.slug}
+          data-appza-placement-key={placementKey}
           aria-busy="true"
           aria-live="polite"
         >
@@ -1535,6 +1549,7 @@ export function PlacementRenderer({
         <div
           className="appza-renderer-empty"
           data-slug={appzet.slug}
+          data-appza-placement-key={placementKey}
           data-view-mode={listViewMode}
         >
           <p>No posts to show</p>
@@ -1607,6 +1622,7 @@ export function PlacementRenderer({
       <div
         className="appza-renderer-appzet-list"
         data-slug={appzet.slug}
+        data-appza-placement-key={placementKey}
         data-view-mode={listViewMode}
         data-appza-loading={drawingWhileLoading ? 'true' : undefined}
         data-spaces-active-tab={appzet.slug === 'fc-spaces-tabs' ? spacesTab : undefined}
