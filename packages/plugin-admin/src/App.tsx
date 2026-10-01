@@ -221,6 +221,8 @@ import { indexCatalog } from '@appza/renderer';
 import { BuilderPanel } from './BuilderPanel';
 import { DragCanvas } from './DragCanvas';
 import { useLayoutBuilder } from './useLayoutBuilder';
+import { GlobalPanel } from './GlobalPanel';
+import { useChromeBuilder } from './useChromeBuilder';
 import { mainKeys, rowsOf } from './layoutApi';
 import { OverridesPanel } from './OverridesPanel';
 import { PropertiesPanel } from './PropertiesPanel';
@@ -275,6 +277,7 @@ export function App() {
     window.appzaCoreConfig?.previewMode ?? 'auto',
   );
   const [uiMode, setUiMode] = useState<UiMode>('edit');
+  const [builderTab, setBuilderTab] = useState<SidebarTab>('screen');
   const [screenStack, setScreenStack] = useState<number[]>([]);
   // A ref so writes don't render; persists on the screen because post.edit reads feed_id from it at Save time.
   const screenContextRef = useRef<Record<string, unknown>>({});
@@ -515,8 +518,9 @@ export function App() {
     }
   }
 
-  async function pull(slug: string) {
-    setState({ kind: 'loading' });
+  // `quiet` refreshes in place after a layout save: no loading flash, and the screen stays.
+  async function pull(slug: string, quiet = false) {
+    if (!quiet) setState({ kind: 'loading' });
     try {
       const url = buildBootstrapUrl(slug);
       const response = await fetch(url, { headers: { Accept: 'application/json' } });
@@ -549,7 +553,9 @@ export function App() {
       applyFcRuntimeSettings(gated);
       setState({ kind: 'ok', envelope: gated });
       const firstScreen = gated.catalog.template_screens?.[0];
-      setSelectedScreenId(firstScreen ? firstScreen.id : null);
+      setSelectedScreenId((prev) =>
+        quiet && gated.catalog.template_screens?.some((s) => s.id === prev) ? prev : firstScreen ? firstScreen.id : null,
+      );
     } catch (err) {
       setState({
         kind: 'error',
@@ -754,8 +760,15 @@ export function App() {
     template: catalog?.template?.slug ?? templateSlug,
     screen: currentScreen?.app_map_screen_slug ?? null,
     appzetBySlug,
-    onSaved: () => pull(templateSlug),
+    onSaved: () => pull(templateSlug, true),
   });
+  const chrome = useChromeBuilder({
+    active: uiMode === 'drag' && builderTab === 'global',
+    template: catalog?.template?.slug ?? templateSlug,
+    screen: currentScreen?.app_map_screen_slug ?? null,
+    onSaved: () => pull(templateSlug, true),
+  });
+  const layoutOverlay = useCallback((c: unknown) => chrome.overlay(builder.overlay(c)), [chrome.overlay, builder.overlay]);
   const dndSensors = useSensors(
     // A small travel threshold keeps Add buttons and row clicks working.
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -765,7 +778,7 @@ export function App() {
 
   const effectiveCustomizations = useMemo(() => {
     const base = envelope?.customizations;
-    if (!livePreview && !livePrimitivePreview && uiMode !== 'app') return builder.overlay(base);
+    if (!livePreview && !livePrimitivePreview && uiMode !== 'app') return layoutOverlay(base);
     const baseRecord =
       base && typeof base === 'object' && !Array.isArray(base)
         ? (base as Record<string, unknown>)
@@ -819,8 +832,8 @@ export function App() {
       scopeRecord['fc-user-avatar'] = targetRecord;
       out = { ...out, appzet: scopeRecord };
     }
-    return builder.overlay(out);
-  }, [envelope, livePreview, livePrimitivePreview, uiMode, nowLabel, builder.overlay]);
+    return layoutOverlay(out);
+  }, [envelope, livePreview, livePrimitivePreview, uiMode, nowLabel, layoutOverlay]);
 
   useEffect(() => {
     if (uiMode !== 'drag' || !builder.selectedKey) return;
@@ -1426,10 +1439,13 @@ export function App() {
         onPreviewModeChange={setPreviewMode}
         onBuildApp={() => setBuildAppOpen(true)}
         uiMode={uiMode}
-        dirtyCount={builder.dirtyCount}
-        saving={builder.saving}
-        onSaveLayout={() => void builder.save()}
-        onDiscardLayout={builder.discard}
+        dirtyCount={builder.dirtyCount + chrome.dirtyCount}
+        saving={builder.saving || chrome.saving}
+        onSaveLayout={() => void builder.save().then(chrome.save)}
+        onDiscardLayout={() => {
+          builder.discard();
+          chrome.discard();
+        }}
         onUiModeChange={(m) => {
           setUiMode(m);
           if (m === 'drag') {
@@ -1737,8 +1753,20 @@ export function App() {
       >
       <div className="appza-body">
         <Sidebar
+          builderTab={builderTab}
+          onSelectBuilderTab={setBuilderTab}
           builderPanel={
             uiMode === 'drag' && catalog && catalogIndex ? (
+              builderTab === 'global' ? (
+              <GlobalPanel
+                chrome={chrome}
+                catalog={catalog}
+                catalogIndex={catalogIndex}
+                customizations={effectiveCustomizations}
+                screen={currentScreen?.app_map_screen_slug ?? null}
+                screenName={currentScreen?.app_map_screen_slug ?? null}
+              />
+              ) : (
               <BuilderPanel
                 draft={builder.draft}
                 loading={builder.loading}
@@ -1756,6 +1784,7 @@ export function App() {
                 onAddNew={builder.addNew}
                 onReset={() => void builder.reset()}
               />
+              )
             ) : undefined
           }
           sidebarTab={sidebarTab}

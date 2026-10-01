@@ -47,8 +47,14 @@ function base(): string {
   return customizations.replace(/\/customizations\/?$/, '');
 }
 
-function url(template: string, screen: string): string {
-  return `${base()}/screen-layout/${encodeURIComponent(template)}/${encodeURIComponent(screen)}/body`;
+export type LayoutPart = 'body' | 'appbar' | 'nav' | 'drawer' | 'drawer-menu';
+
+/** A null screen is the template's chrome. */
+function url(template: string, screen: string | null, part: LayoutPart = 'body'): string {
+  const t = encodeURIComponent(template);
+  return screen === null
+    ? `${base()}/chrome-layout/${t}/${part}`
+    : `${base()}/screen-layout/${t}/${encodeURIComponent(screen)}/${part}`;
 }
 
 function headers(json = false): HeadersInit {
@@ -81,24 +87,24 @@ function fromStored(raw: unknown): LayoutItem | null {
   return item;
 }
 
-export async function loadDraft(template: string, screen: string): Promise<ScreenDraft> {
-  const res = await fetch(url(template, screen), { headers: headers(), credentials: 'same-origin' });
+export type PartPayload = {
+  core: unknown[];
+  site: unknown[] | null;
+  palette: string[];
+  version: number | null;
+  drift: boolean;
+};
+
+export async function loadPart(template: string, screen: string | null, part: LayoutPart): Promise<PartPayload> {
+  const res = await fetch(url(template, screen, part), { headers: headers(), credentials: 'same-origin' });
   const body = await res.json();
   if (!res.ok) throw new Error(isRecord(body) && typeof body.message === 'string' ? body.message : `HTTP ${res.status}`);
-  const core = (Array.isArray(body.core) ? body.core : []) as CoreItem[];
-  const saved = Array.isArray(body.site)
-    ? (body.site as unknown[]).map(fromStored).filter((i): i is LayoutItem => i !== null)
-    : null;
   return {
-    template,
-    screen,
-    core,
+    core: Array.isArray(body.core) ? body.core : [],
+    site: Array.isArray(body.site) ? body.site : null,
     palette: Array.isArray(body.palette) ? (body.palette as string[]) : [],
-    baseVersion: typeof body.version === 'number' ? body.version : null,
+    version: typeof body.version === 'number' ? body.version : null,
     drift: body.drift === true,
-    saved,
-    items: saved ?? core.map((c) => ({ key: c.key })),
-    dirty: false,
   };
 }
 
@@ -106,12 +112,18 @@ export type SaveResult =
   | { ok: true; version: number }
   | { ok: false; status: number; message: string; errors?: Record<string, string> };
 
-export async function saveDraft(d: ScreenDraft, items: LayoutItem[] = d.items): Promise<SaveResult> {
-  const res = await fetch(url(d.template, d.screen), {
+export async function savePart(
+  template: string,
+  screen: string | null,
+  part: LayoutPart,
+  items: unknown[],
+  baseVersion: number | null,
+): Promise<SaveResult> {
+  const res = await fetch(url(template, screen, part), {
     method: 'PUT',
     headers: headers(true),
     credentials: 'same-origin',
-    body: JSON.stringify({ items, base_version: d.baseVersion }),
+    body: JSON.stringify({ items, base_version: baseVersion }),
   });
   const body = await res.json().catch(() => ({}));
   if (res.ok && typeof body.version === 'number') return { ok: true, version: body.version };
@@ -123,9 +135,34 @@ export async function saveDraft(d: ScreenDraft, items: LayoutItem[] = d.items): 
   };
 }
 
-export async function resetDraft(d: ScreenDraft): Promise<boolean> {
-  const res = await fetch(url(d.template, d.screen), { method: 'DELETE', headers: headers(), credentials: 'same-origin' });
+export async function resetPart(template: string, screen: string | null, part: LayoutPart): Promise<boolean> {
+  const res = await fetch(url(template, screen, part), { method: 'DELETE', headers: headers(), credentials: 'same-origin' });
   return res.ok;
+}
+
+export async function loadDraft(template: string, screen: string): Promise<ScreenDraft> {
+  const body = await loadPart(template, screen, 'body');
+  const core = body.core as CoreItem[];
+  const saved = body.site ? body.site.map(fromStored).filter((i): i is LayoutItem => i !== null) : null;
+  return {
+    template,
+    screen,
+    core,
+    palette: body.palette,
+    baseVersion: body.version,
+    drift: body.drift,
+    saved,
+    items: saved ?? core.map((c) => ({ key: c.key })),
+    dirty: false,
+  };
+}
+
+export function saveDraft(d: ScreenDraft, items: LayoutItem[] = d.items): Promise<SaveResult> {
+  return savePart(d.template, d.screen, 'body', items, d.baseVersion);
+}
+
+export function resetDraft(d: ScreenDraft): Promise<boolean> {
+  return resetPart(d.template, d.screen, 'body');
 }
 
 /** The draft as the renderer reads a saved row, so the preview shows unsaved work. */

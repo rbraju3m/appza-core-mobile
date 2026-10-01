@@ -341,7 +341,7 @@ function LibraryCard({
 }
 
 // A live, inert render with the same renderer the phone uses; never goes stale, needs no uploads.
-function Thumbnail({ slug, catalogIndex, customizations }: { slug: string; catalogIndex: CatalogIndex; customizations: unknown }) {
+export function Thumbnail({ slug, catalogIndex, customizations }: { slug: string; catalogIndex: CatalogIndex; customizations: unknown }) {
   return (
     <ThumbBoundary fallback={<span className="appza-builder-thumb-fallback">{slug.replace(/^fc-/, '').charAt(0).toUpperCase()}</span>}>
       <div className="appza-builder-thumb-live" {...{ inert: '' }}>

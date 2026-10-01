@@ -139,7 +139,7 @@ export function TopBar({
         {(dirtyCount > 0 || saving) && (
           <div className="appza-topbar-layout" role="group" aria-label="Unsaved layout">
             <span className="appza-topbar-unsaved">
-              ● {dirtyCount} unsaved {dirtyCount === 1 ? 'screen' : 'screens'}
+              ● {dirtyCount} unsaved {dirtyCount === 1 ? 'change' : 'changes'}
             </span>
             <button type="button" className="appza-btn" onClick={onDiscardLayout} disabled={saving}>
               Discard

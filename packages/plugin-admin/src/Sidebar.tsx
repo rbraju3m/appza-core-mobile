@@ -20,6 +20,8 @@ type SidebarProps = {
   onSelectAppzet?: (slug: string) => void;
   /** Drag mode's builder (D110) replaces the component list. */
   builderPanel?: React.ReactNode;
+  builderTab?: SidebarTab;
+  onSelectBuilderTab?: (tab: SidebarTab) => void;
 };
 
 export function Sidebar({
@@ -35,6 +37,8 @@ export function Sidebar({
   selectedAppzetSlug,
   onSelectAppzet,
   builderPanel,
+  builderTab = 'screen',
+  onSelectBuilderTab,
 }: SidebarProps) {
   // Include modals reached via action args (`*appzet_slug`), not just placements — same walk the server does for the bundle.
   const screenAppZetSlugs = useMemo<Set<string>>(() => {
@@ -90,7 +94,10 @@ export function Sidebar({
       {builderPanel ? (
         <>
           <div className="appza-sidebar-tabs">
-            <button className="appza-sidebar-tab" data-active="true" type="button">
+            <button className="appza-sidebar-tab" data-active={builderTab === 'global'} type="button" onClick={() => onSelectBuilderTab?.('global')}>
+              Global
+            </button>
+            <button className="appza-sidebar-tab" data-active={builderTab === 'screen'} type="button" onClick={() => onSelectBuilderTab?.('screen')}>
               Screen
             </button>
           </div>
