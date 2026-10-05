@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CatalogIndex } from '@appza/renderer';
 import type { AppZet, Superstructure, TemplateScreen } from '@appza/schemas';
+import { Thumbnail } from './BuilderPanel';
 
 export type SidebarTab = 'global' | 'screen';
 export type BottomTab = null | 'settings' | 'themes' | 'overrides';
 
 type SidebarProps = {
-  sidebarTab: SidebarTab;
-  onSelectTab: (tab: SidebarTab) => void;
+  /** Edit lists this screen's components; App lists nothing. Drag passes `builderPanel`. */
+  mode: 'edit' | 'drag' | 'app';
   appzets: AppZet[];
   superstructures: Superstructure[];
   currentScreen: TemplateScreen | null;
@@ -22,11 +24,13 @@ type SidebarProps = {
   builderPanel?: React.ReactNode;
   builderTab?: SidebarTab;
   onSelectBuilderTab?: (tab: SidebarTab) => void;
+  /** Edit rows draw a live preview when given. */
+  catalogIndex?: CatalogIndex | null;
+  customizations?: unknown;
 };
 
 export function Sidebar({
-  sidebarTab,
-  onSelectTab,
+  mode,
   appzets,
   superstructures,
   currentScreen,
@@ -39,6 +43,8 @@ export function Sidebar({
   builderPanel,
   builderTab = 'screen',
   onSelectBuilderTab,
+  catalogIndex,
+  customizations,
 }: SidebarProps) {
   // Include modals reached via action args (`*appzet_slug`), not just placements — same walk the server does for the bundle.
   const screenAppZetSlugs = useMemo<Set<string>>(() => {
@@ -79,15 +85,56 @@ export function Sidebar({
     return seen;
   }, [currentScreen, placedSlugs, appzets]);
 
-  const visibleAppZets = useMemo<AppZet[]>(() => {
-    if (sidebarTab === 'global') return appzets;
-    return appzets.filter((a) => screenAppZetSlugs.has(a.slug));
-  }, [sidebarTab, appzets, screenAppZetSlugs]);
+  const visibleAppZets = useMemo<AppZet[]>(
+    () => appzets.filter((a) => screenAppZetSlugs.has(a.slug)),
+    [appzets, screenAppZetSlugs],
+  );
 
-  const grouped = useMemo(() => groupBySuperstructure(visibleAppZets, superstructures), [
-    visibleAppZets,
-    superstructures,
-  ]);
+  // Placed ones in screen order; the rest are opened by an action (sheets, modals).
+  const { placed, opened } = useMemo(() => {
+    const bySlug = new Map(visibleAppZets.map((a) => [a.slug, a]));
+    const order = [...new Set(placedSlugs)].filter((s) => bySlug.has(s));
+    const placedSet = new Set(order);
+    return {
+      placed: order.map((s) => bySlug.get(s)!),
+      opened: visibleAppZets.filter((a) => !placedSet.has(a.slug)).sort((a, b) => a.name.localeCompare(b.name)),
+    };
+  }, [visibleAppZets, placedSlugs]);
+
+  const ssNameById = useMemo(() => new Map(superstructures.map((s) => [s.id, s.name])), [superstructures]);
+
+  const renderList = (items: AppZet[]) => (
+    <ul className="appza-builder-list">
+      {items.map((item) => {
+        const type = item.superstructure_id != null ? ssNameById.get(item.superstructure_id) : undefined;
+        const selected = item.slug === selectedAppzetSlug;
+        return (
+          <li key={item.slug} className="appza-builder-row appza-sidebar-card" data-selected={selected ? 'true' : undefined}>
+            <button
+              type="button"
+              className="appza-sidebar-card-btn"
+              aria-pressed={selected}
+              title={item.slug}
+              onClick={onSelectAppzet ? () => onSelectAppzet(item.slug) : undefined}
+            >
+              <span className="appza-builder-row-name">
+                <span>{item.name}</span>
+                {type && type !== item.name && <span className="appza-builder-chip">{type}</span>}
+              </span>
+              {catalogIndex &&
+                (item.image_url ? (
+                  <span className="appza-builder-thumb appza-sidebar-card-thumb" aria-hidden="true">
+                    <img src={item.image_url} alt="" />
+                  </span>
+                ) : (
+                  <LiveThumb slug={item.slug} catalogIndex={catalogIndex} customizations={customizations} />
+                ))}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
 
   return (
     <aside className="appza-sidebar" style={{ position: 'relative' }}>
@@ -103,80 +150,28 @@ export function Sidebar({
           </div>
           <div className="appza-sidebar-content">{builderPanel}</div>
         </>
+      ) : mode === 'app' ? (
+        <div className="appza-sidebar-content">
+          <div className="appza-sidebar-empty">App mode runs the app as a member sees it. Switch to Edit or Drag to change a screen.</div>
+        </div>
       ) : (
       <>
-      <div className="appza-sidebar-tabs">
-        <button
-          className="appza-sidebar-tab"
-          data-active={sidebarTab === 'global'}
-          onClick={() => onSelectTab('global')}
-        >
-          Global Components
-        </button>
-        <button
-          className="appza-sidebar-tab"
-          data-active={sidebarTab === 'screen'}
-          onClick={() => onSelectTab('screen')}
-        >
-          Screen Components
-        </button>
-      </div>
-
       <div className="appza-sidebar-content">
-        {grouped.length === 0 ? (
-          <div className="appza-sidebar-empty">
-            {sidebarTab === 'screen'
-              ? 'No components placed on this screen yet.'
-              : 'No components in the catalog.'}
-          </div>
+        {placed.length === 0 && opened.length === 0 ? (
+          <div className="appza-sidebar-empty">No components placed on this screen yet.</div>
         ) : (
-          grouped.map((group) => (
-            <CollapsibleSection
-              key={group.key}
-              title={group.title}
-              count={group.items.length}
-              defaultOpen={group.items.length > 0 && group.items.length <= 8}
-            >
-              {group.items.map((item) => (
-                <div
-                  key={item.slug}
-                  className="appza-section-item"
-                  data-selected={item.slug === selectedAppzetSlug ? 'true' : undefined}
-                  role={onSelectAppzet ? 'button' : undefined}
-                  tabIndex={onSelectAppzet ? 0 : undefined}
-                  aria-pressed={onSelectAppzet ? item.slug === selectedAppzetSlug : undefined}
-                  onClick={onSelectAppzet ? () => onSelectAppzet(item.slug) : undefined}
-                  onKeyDown={
-                    onSelectAppzet
-                      ? (e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            onSelectAppzet(item.slug);
-                          }
-                        }
-                      : undefined
-                  }
-                >
-                  {item.image_url ? (
-                    <img
-                      className="appza-section-item-icon"
-                      src={item.image_url}
-                      alt=""
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <span className="appza-section-item-icon appza-section-item-icon-fallback">
-                      {item.name.charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                  <span className="appza-section-item-name">{item.name}</span>
-                  <span className="appza-section-item-slug">{item.slug}</span>
-                </div>
-              ))}
-            </CollapsibleSection>
-          ))
+          <div className="appza-builder">
+            <section className="appza-builder-section">
+              <h3 className="appza-builder-heading">On this screen</h3>
+              {renderList(placed)}
+            </section>
+            {opened.length > 0 && (
+              <section className="appza-builder-section">
+                <h3 className="appza-builder-heading">Opened from this screen</h3>
+                {renderList(opened)}
+              </section>
+            )}
+          </div>
         )}
       </div>
 
@@ -215,65 +210,24 @@ export function Sidebar({
   );
 }
 
-type Group = { key: string; title: string; items: AppZet[] };
-
-function groupBySuperstructure(appzets: AppZet[], superstructures: Superstructure[]): Group[] {
-  const ssById = new Map<number, Superstructure>();
-  for (const ss of superstructures) ssById.set(ss.id, ss);
-
-  const buckets = new Map<string, Group>();
-  for (const appzet of appzets) {
-    const ss = appzet.superstructure_id ? ssById.get(appzet.superstructure_id) : undefined;
-    const key = ss ? `ss:${ss.id}` : 'other';
-    const title = ss ? ss.name : 'Other';
-    let bucket = buckets.get(key);
-    if (!bucket) {
-      bucket = { key, title, items: [] };
-      buckets.set(key, bucket);
-    }
-    bucket.items.push(appzet);
-  }
-
-  return Array.from(buckets.values()).sort((a, b) => a.title.localeCompare(b.title));
-}
-
-type CollapsibleSectionProps = {
-  title: string;
-  count: number;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
-};
-
-function CollapsibleSection({ title, count, defaultOpen = false, children }: CollapsibleSectionProps) {
-  const [open, setOpen] = useState(defaultOpen);
+// Hidden when the render draws nothing for this viewer, or only a renderer diagnostic.
+function LiveThumb({ slug, catalogIndex, customizations }: { slug: string; catalogIndex: CatalogIndex; customizations: unknown }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [blank, setBlank] = useState(false);
+  useEffect(() => {
+    const el = ref.current?.querySelector('.appza-builder-thumb-live');
+    if (!el) return;
+    const check = () =>
+      setBlank(el.getBoundingClientRect().height < 4 || (!!el.querySelector('.appza-renderer-missing') && el.textContent?.trim() === el.querySelector('.appza-renderer-missing')?.textContent?.trim()));
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   return (
-    <div className="appza-section" data-open={open}>
-      <div className="appza-section-header" onClick={() => setOpen((v) => !v)}>
-        <SquareIcon />
-        <span>{title}</span>
-        <span className="appza-section-item-slug" style={{ marginLeft: 6 }}>
-          ({count})
-        </span>
-        <ChevronIcon className="appza-section-chevron" />
-      </div>
-      <div className="appza-section-items">{children}</div>
-    </div>
-  );
-}
-
-function SquareIcon() {
-  return (
-    <svg className="appza-section-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <rect x="2" y="2" width="12" height="12" rx="2" />
-    </svg>
-  );
-}
-
-function ChevronIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2">
-      <polyline points="3,5 7,9 11,5" />
-    </svg>
+    <span ref={ref} className="appza-builder-thumb appza-sidebar-card-thumb" data-blank={blank ? 'true' : undefined} aria-hidden="true">
+      <Thumbnail slug={slug} catalogIndex={catalogIndex} customizations={customizations} />
+    </span>
   );
 }
 

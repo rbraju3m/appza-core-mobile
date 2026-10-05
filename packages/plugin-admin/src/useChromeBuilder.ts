@@ -16,7 +16,7 @@ export type ChromeDraft = {
   dirty: boolean;
 };
 
-export type ChromeItem = { key: string; appzet_slug?: string };
+export type ChromeItem = { key: string; appzet_slug?: string; layout?: string };
 
 const TEMPLATE_PARTS: LayoutPart[] = ['appbar', 'nav', 'drawer', 'drawer-menu'];
 

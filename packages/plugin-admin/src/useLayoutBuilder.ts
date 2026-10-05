@@ -82,14 +82,14 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
   );
 
   const add = useCallback(
-    (slug: string, index?: number) => {
+    (slug: string, index?: number, layout?: string) => {
       if (!draft) return;
       if (isSingle(appzetBySlug.get(slug)) && rowsOf(draft).some((r) => r.appzet_slug === slug)) {
         setSaveError(`${appzetBySlug.get(slug)?.name ?? slug} can appear once per screen.`);
         return;
       }
       const key = newSiteKey();
-      setItems(insertAt(draft, index ?? mainKeys(draft).length, { key, appzet_slug: slug }));
+      setItems(insertAt(draft, index ?? mainKeys(draft).length, { key, appzet_slug: slug, ...(layout ? { layout } : {}) }));
       setSelectedKey(key);
     },
     [draft, appzetBySlug, setItems],

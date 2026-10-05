@@ -15,6 +15,8 @@ export type CoreItem = {
   key: string;
   appzet_slug: string;
   slot?: string;
+  layout?: string;
+  props_override?: Record<string, unknown>;
   visible_when?: unknown;
 };
 
@@ -198,6 +200,8 @@ export type Row = {
   coreGate: boolean;
   visibility?: Visibility;
   isSite: boolean;
+  /** The site's layout, else Core's, else null for the AppZet's own. */
+  layout: string | null;
 };
 
 export function rowsOf(d: ScreenDraft): Row[] {
@@ -214,9 +218,20 @@ export function rowsOf(d: ScreenDraft): Row[] {
       coreGate: c ? c.visible_when !== undefined && c.visible_when !== null : false,
       visibility: i.visibility,
       isSite: !c,
+      layout: i.layout ?? c?.layout ?? null,
     });
   }
   return out;
+}
+
+/** A null or undefined patch value removes that field. */
+export function patchItem(d: ScreenDraft, key: string, patch: Partial<LayoutItem>): LayoutItem[] {
+  return d.items.map((it) => {
+    if (it.key !== key) return it;
+    const next: Record<string, unknown> = { ...it, ...patch };
+    for (const [k, v] of Object.entries(patch)) if (v === undefined || v === null) delete next[k];
+    return next as LayoutItem;
+  });
 }
 
 /** Main rows move; footer rows keep their place at the end of the array. */

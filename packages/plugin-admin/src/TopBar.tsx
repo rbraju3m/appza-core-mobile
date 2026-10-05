@@ -88,7 +88,7 @@ export function TopBar({
   const logoUrl = assetsBase ? `${assetsBase.replace(/\/$/, '')}/images/appza-logo.png` : '';
 
   return (
-    <header className="appza-topbar">
+    <header className="appza-topbar" data-dirty={dirtyCount > 0 || saving ? 'true' : undefined}>
       <div className="appza-topbar-logo">
         {logoUrl ? (
           <img src={logoUrl} alt="APPZA" className="appza-topbar-logo-img" />
@@ -138,8 +138,8 @@ export function TopBar({
 
         {(dirtyCount > 0 || saving) && (
           <div className="appza-topbar-layout" role="group" aria-label="Unsaved layout">
-            <span className="appza-topbar-unsaved">
-              ● {dirtyCount} unsaved {dirtyCount === 1 ? 'change' : 'changes'}
+            <span className="appza-topbar-unsaved" title="Layout changes not saved yet">
+              ● {dirtyCount} unsaved
             </span>
             <button type="button" className="appza-btn" onClick={onDiscardLayout} disabled={saving}>
               Discard

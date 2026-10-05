@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AppZet, PropertiesSchemaEntry, Superstructure } from '@appza/schemas';
 import { readDataPath, resolveOverridableColumn, useDataSource } from '@appza/renderer';
 import { IconPicker } from './IconPicker';
@@ -14,7 +14,19 @@ type Props = {
   onClose: () => void;
   onChanged: () => void;
   onLivePreview: (mergedOverride: Record<string, unknown> | null) => void;
+  /** Drag mode: the panel edits this one placement's props; the draft saves from the top bar. */
+  placement?: {
+    value: Record<string, unknown>;
+    coreProps?: Record<string, unknown> | null;
+    onChange: (value: Record<string, unknown> | undefined) => void;
+  };
+  scope?: { value: PropsScope; onChange: (scope: PropsScope) => void };
 };
+
+export type PropsScope = 'placement' | 'everywhere';
+
+const sameValue = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null) || (isEmpty(a) && isEmpty(b));
+const isEmpty = (v: unknown) => v === undefined || v === null || (typeof v === 'object' && Object.keys(v as object).length === 0);
 
 type OptionValue = boolean | number | string | Array<Record<string, unknown>>;
 type OptionValues = Record<string, OptionValue>;
@@ -44,6 +56,8 @@ export function PropertiesPanel({
   onClose,
   onChanged,
   onLivePreview,
+  placement,
+  scope,
 }: Props) {
   const dataState = useDataSource(dataSourceSlug ?? undefined);
   const previewItem = dataState.items[0];
@@ -60,9 +74,11 @@ export function PropertiesPanel({
     setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
 
   // Same resolver as the renderer, so panel and preview agree after a refresh.
-  const overridesBlob = useMemo<Record<string, unknown>>(() => {
-    const catalogBlob =
-      (appzet.default_props_override as Record<string, unknown> | null | undefined) ?? {};
+  const everywhereBlob = useMemo<Record<string, unknown>>(() => {
+    const catalogBlob = {
+      ...((appzet.default_props_override as Record<string, unknown> | null | undefined) ?? {}),
+      ...(placement?.coreProps ?? {}),
+    };
     const merged = resolveOverridableColumn(
       customizations,
       'appzet',
@@ -73,11 +89,19 @@ export function PropertiesPanel({
     return merged && typeof merged === 'object' && !Array.isArray(merged)
       ? (merged as Record<string, unknown>)
       : {};
-  }, [appzet, customizations]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appzet, customizations, JSON.stringify(placement?.coreProps ?? null)]);
+
+  const placementJson = placement ? JSON.stringify(placement.value) : null;
+  const overridesBlob = useMemo<Record<string, unknown>>(
+    () => (placementJson ? { ...everywhereBlob, ...(JSON.parse(placementJson) as Record<string, unknown>) } : everywhereBlob),
+    [everywhereBlob, placementJson],
+  );
 
   const initialSpacing = useMemo<Spacing>(() => {
     const v = overridesBlob['spacing'];
-    return v && typeof v === 'object' ? (v as Spacing) : {};
+    // PHP stores an empty spacing as [].
+    return v && typeof v === 'object' && !Array.isArray(v) ? (v as Spacing) : {};
   }, [overridesBlob]);
 
   const exposedProps = useMemo<PropertiesSchemaEntry[]>(() => {
@@ -108,6 +132,7 @@ export function PropertiesPanel({
   useEffect(() => {
     setSpacing({ ...initialSpacing });
     setOptions({ ...initialOptions });
+    if (placement) return;
     fetch(customizationsEndpoint, {
       headers: { Accept: 'application/json', 'X-WP-Nonce': restNonce },
       credentials: 'same-origin',
@@ -148,10 +173,31 @@ export function PropertiesPanel({
     return out;
   }
 
+  // A changed baseline (mount, Discard, a save) resets the form on the next render; only an edit after that is the user's.
+  const seenInitial = useRef<string | null>(null);
+
   useEffect(() => {
+    if (placement) {
+      const initial = JSON.stringify([initialSpacing, initialOptions]);
+      if (seenInitial.current !== initial) {
+        seenInitial.current = initial;
+        return;
+      }
+    }
     if (JSON.stringify(spacing) === JSON.stringify(initialSpacing) &&
         JSON.stringify(options) === JSON.stringify(initialOptions)) {
       onLivePreview(null);
+      return;
+    }
+    if (placement) {
+      // Only what differs from Everywhere is the placement's own.
+      const full = composeOverrideValue(spacing, options);
+      const editable = new Set(['spacing', ...exposedProps.map((p) => p.name)]);
+      const own: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(full)) {
+        if (editable.has(k) && !sameValue(v, everywhereBlob[k])) own[k] = v;
+      }
+      placement.onChange(Object.keys(own).length ? own : undefined);
       return;
     }
     onLivePreview(composeOverrideValue(spacing, options));
@@ -245,7 +291,7 @@ export function PropertiesPanel({
   const grouped = useMemo(() => groupOptions(exposedProps), [exposedProps]);
 
   return (
-    <aside className="appza-props-panel">
+    <aside className="appza-props-panel" data-scoped={scope ? 'true' : undefined}>
       <header className="appza-props-panel-header">
         <div className="appza-props-panel-header-titles">
           <span className="appza-props-panel-title">{appzet.name ?? appzet.slug}</span>
@@ -253,6 +299,24 @@ export function PropertiesPanel({
         </div>
         <button className="appza-props-panel-close" onClick={onClose} aria-label="Close">×</button>
       </header>
+
+      {scope && (
+        <div className="appza-props-scope" role="group" aria-label="Where these changes apply">
+          <div className="appza-segmented" style={{ display: 'flex', flex: 1 }}>
+            {(['placement', 'everywhere'] as PropsScope[]).map((s) => (
+              <button
+                key={s}
+                type="button"
+                className="appza-segmented-btn"
+                data-active={scope.value === s}
+                onClick={() => scope.onChange(s)}
+              >
+                {s === 'placement' ? 'This placement' : 'Everywhere'}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="appza-props-panel-tabs" role="tablist">
         {(['wrapper', 'options', 'action'] as TabKey[]).map((tab) => {
@@ -402,6 +466,19 @@ export function PropertiesPanel({
 
       {error && <div className="appza-props-panel-error">{error}</div>}
 
+      {placement ? (
+      <footer className="appza-props-panel-footer">
+        <span className="appza-props-scope-hint">Saved with the layout, from the top bar.</span>
+        <button
+          className="appza-btn"
+          onClick={() => placement.onChange(undefined)}
+          disabled={Object.keys(placement.value).length === 0}
+          title="Drop this placement's own values and follow Everywhere"
+        >
+          Clear
+        </button>
+      </footer>
+      ) : (
       <footer className="appza-props-panel-footer">
         <button
           className="appza-btn appza-btn-danger"
@@ -420,6 +497,7 @@ export function PropertiesPanel({
           </button>
         </div>
       </footer>
+      )}
     </aside>
   );
 }

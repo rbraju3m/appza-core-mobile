@@ -5,7 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { iconNames, type CatalogIndex, type DrawerMenuItem } from '@appza/renderer';
 import type { AppZet, Catalog } from '@appza/schemas';
 import { Thumbnail } from './BuilderPanel';
-import { selectedSlug, type ChromeBuilder, type ChromeDraft } from './useChromeBuilder';
+import { selectedSlug, type ChromeBuilder, type ChromeDraft, type ChromeItem } from './useChromeBuilder';
 
 type GlobalPanelProps = {
   chrome: ChromeBuilder;
@@ -93,6 +93,15 @@ type PickerProps = Shared & {
 function ChromePicker({ chrome, draft, title, emptyLabel, clearLabel, appzetBySlug, catalogIndex, customizations }: PickerProps) {
   const current = selectedSlug(draft);
   const others = draft.palette.filter((s) => s !== current && appzetBySlug.has(s));
+  const item = draft.items[0] as ChromeItem | undefined;
+  const layouts = (current ? appzetBySlug.get(current)?.layouts : undefined) ?? [];
+  const own = layouts.find((l) => l.is_default)?.slug;
+  const coreLayout = (draft.core as ChromeItem[]).find((c) => c.key === item?.key)?.layout;
+  const setLayout = (slug: string) => {
+    if (!item) return;
+    const { layout: _drop, ...rest } = item;
+    chrome.setItems(draft, [slug === own ? rest : { ...rest, layout: slug }]);
+  };
   const card = (slug: string, action?: ReactNode) => (
     <div key={slug} className="appza-builder-card appza-global-card" data-chrome-card={slug}>
       <div className="appza-builder-card-name">
@@ -115,6 +124,16 @@ function ChromePicker({ chrome, draft, title, emptyLabel, clearLabel, appzetBySl
       <DriftAndReset chrome={chrome} draft={draft} />
       <div className="appza-global-label">Selected</div>
       {current ? card(current) : <div className="appza-global-empty">{emptyLabel ?? 'None'}</div>}
+      {current && layouts.length > 1 && (
+        <label className="appza-builder-row-detail appza-global-layout">
+          <span>Layout</span>
+          <select value={item?.layout ?? coreLayout ?? own ?? ''} onChange={(e) => setLayout(e.target.value)}>
+            {layouts.map((l) => (
+              <option key={l.slug} value={l.slug}>{l.name}</option>
+            ))}
+          </select>
+        </label>
+      )}
       {current && clearLabel && (
         <button type="button" className="appza-btn appza-global-clear" onClick={() => chrome.select(draft, null)}>
           {clearLabel}

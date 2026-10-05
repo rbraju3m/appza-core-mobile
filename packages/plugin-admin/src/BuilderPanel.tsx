@@ -7,6 +7,7 @@ import type { AppZet, Catalog } from '@appza/schemas';
 import {
   VISIBILITY_LABEL,
   mainKeys,
+  patchItem,
   rowsOf,
   type LayoutItem,
   type Row,
@@ -28,7 +29,7 @@ type BuilderPanelProps = {
   onSelectKey: (key: string | null) => void;
   presentKeys: ReadonlySet<string>;
   onChangeItems: (items: LayoutItem[]) => void;
-  onAdd: (slug: string) => void;
+  onAdd: (slug: string, layout?: string) => void;
   onKeepMine: () => void;
   onAddNew: () => void;
   onReset: () => void;
@@ -94,6 +95,23 @@ function PlacementList(p: WithDraft) {
     );
   };
 
+  // The AppZet's own layout is stored as no layout.
+  const setLayout = (key: string, slug: string, layout: string) => {
+    const own = p.appzetBySlug.get(slug)?.layouts?.find((l) => l.is_default)?.slug;
+    p.onChangeItems(patchItem(p.draft, key, { layout: layout === own ? undefined : layout }));
+  };
+  const rowProps = (r: Row) => ({
+    row: r,
+    name: p.appzetBySlug.get(r.appzet_slug)?.name ?? r.appzet_slug,
+    layouts: p.appzetBySlug.get(r.appzet_slug)?.layouts,
+    present: p.presentKeys.has(r.key),
+    selected: p.selectedKey === r.key,
+    onSelect: () => p.onSelectKey(p.selectedKey === r.key ? null : r.key),
+    onRemove: () => remove(r.key),
+    onVisibility: (v: Visibility | '') => setVisibility(r.key, v),
+    onLayout: (l: string) => setLayout(r.key, r.appzet_slug, l),
+  });
+
   return (
     <section className="appza-builder-section">
       <h3 className="appza-builder-heading">On this screen</h3>
@@ -103,16 +121,10 @@ function PlacementList(p: WithDraft) {
           {main.map((r, i) => (
             <PlacementRow
               key={r.key}
-              row={r}
-              name={p.appzetBySlug.get(r.appzet_slug)?.name ?? r.appzet_slug}
-              present={p.presentKeys.has(r.key)}
-              selected={p.selectedKey === r.key}
+              {...rowProps(r)}
               first={i === 0}
               last={i === main.length - 1}
-              onSelect={() => p.onSelectKey(p.selectedKey === r.key ? null : r.key)}
               onMove={(by) => move(r.key, by)}
-              onRemove={() => remove(r.key)}
-              onVisibility={(v) => setVisibility(r.key, v)}
             />
           ))}
         </ul>
@@ -122,17 +134,7 @@ function PlacementList(p: WithDraft) {
           <h4 className="appza-builder-subheading">Footer</h4>
           <ul className="appza-builder-list">
             {footer.map((r) => (
-              <PlacementRow
-                key={r.key}
-                row={r}
-                fixed
-                name={p.appzetBySlug.get(r.appzet_slug)?.name ?? r.appzet_slug}
-                present={p.presentKeys.has(r.key)}
-                selected={p.selectedKey === r.key}
-                onSelect={() => p.onSelectKey(p.selectedKey === r.key ? null : r.key)}
-                onRemove={() => remove(r.key)}
-                onVisibility={(v) => setVisibility(r.key, v)}
-              />
+              <PlacementRow key={r.key} {...rowProps(r)} fixed />
             ))}
           </ul>
         </>
@@ -153,9 +155,13 @@ type PlacementRowProps = {
   onMove?: (by: number) => void;
   onRemove: () => void;
   onVisibility: (v: Visibility | '') => void;
+  layouts?: AppZet['layouts'];
+  onLayout: (layout: string) => void;
 };
 
-function PlacementRow({ row, name, present, selected, fixed, first, last, onSelect, onMove, onRemove, onVisibility }: PlacementRowProps) {
+function PlacementRow({ row, name, present, selected, fixed, first, last, onSelect, onMove, onRemove, onVisibility, layouts, onLayout }: PlacementRowProps) {
+  const own = layouts?.find((l) => l.is_default)?.slug;
+  const layout = layouts?.find((l) => l.slug === row.layout && l.slug !== own);
   const sortable = useSortable({ id: row.key, disabled: fixed });
   const style = { transform: CSS.Transform.toString(sortable.transform), transition: sortable.transition };
   const gate = row.visibility
@@ -184,6 +190,7 @@ function PlacementRow({ row, name, present, selected, fixed, first, last, onSele
         <button type="button" className="appza-builder-row-name" onClick={onSelect} title={row.key}>
           <span>{name}</span>
           {row.isSite && <span className="appza-builder-chip">Added</span>}
+          {layout && <span className="appza-builder-chip is-layout">{layout.name}</span>}
           {gate && <span className="appza-builder-chip is-gate">{gate}</span>}
           {!present && <span className="appza-builder-chip is-hidden">Hidden now</span>}
         </button>
@@ -195,6 +202,16 @@ function PlacementRow({ row, name, present, selected, fixed, first, last, onSele
         )}
         <button type="button" className="appza-builder-icon-btn is-danger" onClick={onRemove} aria-label={`Remove ${name}`}>✕</button>
       </div>
+      {selected && layouts && (
+        <label className="appza-builder-row-detail">
+          <span>Layout</span>
+          <select value={layout?.slug ?? own ?? ''} onChange={(e) => onLayout(e.target.value)}>
+            {layouts.map((l) => (
+              <option key={l.slug} value={l.slug}>{l.name}</option>
+            ))}
+          </select>
+        </label>
+      )}
       {selected && (
         <label className="appza-builder-row-detail">
           <span>Visibility</span>
@@ -224,6 +241,8 @@ function Library(p: WithDraft) {
     for (const r of rowsOf(p.draft)) m.set(r.appzet_slug, (m.get(r.appzet_slug) ?? 0) + 1);
     return m;
   }, [p.draft]);
+
+  const selectedRow = p.selectedKey ? rowsOf(p.draft).find((r) => r.key === p.selectedKey) ?? null : null;
 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -270,7 +289,11 @@ function Library(p: WithDraft) {
                     count={counts.get(a.slug) ?? 0}
                     catalogIndex={p.catalogIndex}
                     customizations={p.customizations}
-                    onAdd={() => p.onAdd(a.slug)}
+                    onAdd={(layout) => p.onAdd(a.slug, layout)}
+                    selectedRow={selectedRow?.appzet_slug === a.slug ? selectedRow : null}
+                    onSwitch={(layout) =>
+                      selectedRow && p.onChangeItems(patchItem(p.draft, selectedRow.key, { layout: layout ?? undefined }))
+                    }
                   />
                 ))}
               </div>
@@ -292,13 +315,20 @@ function LibraryCard({
   catalogIndex,
   customizations,
   onAdd,
+  selectedRow,
+  onSwitch,
 }: {
   appzet: AppZet;
   count: number;
   catalogIndex: CatalogIndex;
   customizations: unknown;
-  onAdd: () => void;
+  onAdd: (layout?: string) => void;
+  /** The selected placement, when it is this AppZet: its layout is marked and a click switches it. */
+  selectedRow: Row | null;
+  onSwitch: (layout: string | null) => void;
 }) {
+  const [showLayouts, setShowLayouts] = useState(false);
+  const layouts = appzet.layouts ?? [];
   const blocked = isSingle(appzet) && count > 0;
   const drag = useDraggable({ id: `${LIB_PREFIX}${appzet.slug}`, data: { slug: appzet.slug }, disabled: blocked });
   return (
@@ -315,6 +345,41 @@ function LibraryCard({
         <span>{appzet.name}</span>
         {count > 0 && <span className="appza-builder-chip">×{count}</span>}
       </div>
+      {layouts.length > 1 && (
+        <button
+          type="button"
+          className="appza-builder-layouts-toggle"
+          aria-expanded={showLayouts}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setShowLayouts((v) => !v)}
+        >
+          {layouts.length} layouts {showLayouts ? '▴' : '▾'}
+        </button>
+      )}
+      {showLayouts && (
+        <div className="appza-builder-layouts" onPointerDown={(e) => e.stopPropagation()}>
+          {layouts.map((l) => {
+            const current = selectedRow ? (selectedRow.layout ?? layouts.find((x) => x.is_default)?.slug) === l.slug : false;
+            return (
+              <button
+                key={l.slug}
+                type="button"
+                className="appza-builder-layout"
+                data-layout={l.slug}
+                data-current={current ? 'true' : undefined}
+                disabled={!selectedRow && blocked}
+                title={selectedRow ? 'Use this layout for the selected placement' : 'Add with this layout'}
+                onClick={() => (selectedRow ? onSwitch(l.is_default ? null : l.slug) : onAdd(l.is_default ? undefined : l.slug))}
+              >
+                <span className="appza-builder-layout-name">{current ? '● ' : ''}{l.name}</span>
+                <span className="appza-builder-thumb" aria-hidden="true">
+                  <Thumbnail slug={appzet.slug} layout={l.slug} catalogIndex={catalogIndex} customizations={customizations} />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
       <div className="appza-builder-thumb" aria-hidden="true">
         {appzet.image_url ? (
           <img src={appzet.image_url} alt="" />
@@ -330,7 +395,7 @@ function LibraryCard({
             type="button"
             className="appza-btn appza-btn-primary"
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={onAdd}
+            onClick={() => onAdd()}
           >
             Add
           </button>
@@ -341,12 +406,12 @@ function LibraryCard({
 }
 
 // A live, inert render with the same renderer the phone uses; never goes stale, needs no uploads.
-export function Thumbnail({ slug, catalogIndex, customizations }: { slug: string; catalogIndex: CatalogIndex; customizations: unknown }) {
+export function Thumbnail({ slug, layout, catalogIndex, customizations }: { slug: string; layout?: string; catalogIndex: CatalogIndex; customizations: unknown }) {
   return (
     <ThumbBoundary fallback={<span className="appza-builder-thumb-fallback">{slug.replace(/^fc-/, '').charAt(0).toUpperCase()}</span>}>
       <div className="appza-builder-thumb-live" {...{ inert: '' }}>
         <ActionProvider dispatch={() => undefined}>
-          <PlacementRenderer appzetSlug={slug} catalogIndex={catalogIndex} customizations={customizations} />
+          <PlacementRenderer appzetSlug={slug} layout={layout} catalogIndex={catalogIndex} customizations={customizations} />
         </ActionProvider>
       </div>
     </ThumbBoundary>

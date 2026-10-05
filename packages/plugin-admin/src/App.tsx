@@ -222,10 +222,11 @@ import { BuilderPanel } from './BuilderPanel';
 import { DragCanvas } from './DragCanvas';
 import { useLayoutBuilder } from './useLayoutBuilder';
 import { GlobalPanel } from './GlobalPanel';
+import { patchItem } from './layoutApi';
 import { useChromeBuilder } from './useChromeBuilder';
 import { mainKeys, rowsOf } from './layoutApi';
 import { OverridesPanel } from './OverridesPanel';
-import { PropertiesPanel } from './PropertiesPanel';
+import { PropertiesPanel, type PropsScope } from './PropertiesPanel';
 import { PrimitivePanel } from './PrimitivePanel';
 import { OnboardingModal } from './OnboardingModal';
 import { BuildAppModal } from './BuildAppModal';
@@ -267,7 +268,6 @@ export function App() {
   const [templateOptions, setTemplateOptions] = useState<TemplateOption[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [selectedScreenId, setSelectedScreenId] = useState<number | null>(null);
-  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('global');
   const [bottomTab, setBottomTab] = useState<BottomTab>(null);
   const [selectedAppzetSlug, setSelectedAppzetSlug] = useState<string | null>(null);
   const [selectedPrimitive, setSelectedPrimitive] = useState<SelectedPrimitive | null>(null);
@@ -278,6 +278,7 @@ export function App() {
   );
   const [uiMode, setUiMode] = useState<UiMode>('edit');
   const [builderTab, setBuilderTab] = useState<SidebarTab>('screen');
+  const [propsScope, setPropsScope] = useState<PropsScope>('placement');
   const [screenStack, setScreenStack] = useState<number[]>([]);
   // A ref so writes don't render; persists on the screen because post.edit reads feed_id from it at Save time.
   const screenContextRef = useRef<Record<string, unknown>>({});
@@ -1681,9 +1682,10 @@ export function App() {
           className="appza-auth-status-in-app"
           role="status"
           style={{
+            // Bottom right, beside the Apps pill: a top position lands on the top bar's buttons.
             position: 'fixed',
-            top: 60,
-            right: 20,
+            bottom: 18,
+            right: 104,
             display: 'flex',
             gap: 6,
             alignItems: 'center',
@@ -1779,7 +1781,7 @@ export function App() {
                 onSelectKey={builder.setSelectedKey}
                 presentKeys={builder.presentKeys}
                 onChangeItems={builder.setItems}
-                onAdd={(slug) => builder.add(slug)}
+                onAdd={(slug, layout) => builder.add(slug, undefined, layout)}
                 onKeepMine={() => void builder.keepMine()}
                 onAddNew={builder.addNew}
                 onReset={() => void builder.reset()}
@@ -1787,8 +1789,9 @@ export function App() {
               )
             ) : undefined
           }
-          sidebarTab={sidebarTab}
-          onSelectTab={setSidebarTab}
+          mode={uiMode}
+          catalogIndex={catalogIndex}
+          customizations={effectiveCustomizations}
           appzets={appzets}
           superstructures={superstructures}
           currentScreen={currentScreen}
@@ -2091,7 +2094,59 @@ export function App() {
           )}
         </main>
 
-        {selectedPrimitive && (() => {
+        {uiMode === 'drag' &&
+          builder.draft &&
+          builder.selectedKey &&
+          (() => {
+            const draft = builder.draft;
+            const row = rowsOf(draft).find((r) => r.key === builder.selectedKey);
+            const selected = row ? appzetBySlug.get(row.appzet_slug) : undefined;
+            const customizationsEndpoint = window.appzaCoreConfig?.endpoints?.customizations;
+            const nonce = window.appzaCoreConfig?.restNonce;
+            if (!row || !selected || !customizationsEndpoint || !nonce) return null;
+            const item = draft.items.find((i) => i.key === row.key);
+            const core = draft.core.find((c) => c.key === row.key);
+            // The layout's Superstructure decides which props exist.
+            const superstructure =
+              (row.layout ? superstructures.find((s) => s.slug === row.layout) : undefined) ??
+              superstructures.find((s) => s.id === selected.superstructure_id) ??
+              null;
+            const ds = catalog?.data_sources?.find((d) => d.id === selected.default_data_source_id);
+            return (
+              <PropertiesPanel
+                key={`${row.key}:${propsScope}:${row.layout ?? ''}`}
+                appzet={selected}
+                superstructure={superstructure}
+                dataSourceSlug={ds && typeof ds.slug === 'string' ? ds.slug : null}
+                customizations={envelope?.customizations}
+                customizationsEndpoint={customizationsEndpoint}
+                restNonce={nonce}
+                scope={{ value: propsScope, onChange: setPropsScope }}
+                placement={
+                  propsScope === 'placement'
+                    ? {
+                        value: item?.props_override ?? {},
+                        coreProps: core?.props_override ?? null,
+                        onChange: (value) => builder.setItems(patchItem(draft, row.key, { props_override: value })),
+                      }
+                    : undefined
+                }
+                onClose={() => {
+                  setLivePreview(null);
+                  builder.setSelectedKey(null);
+                }}
+                onChanged={() => {
+                  setLivePreview(null);
+                  pull(templateSlug, true);
+                }}
+                onLivePreview={(override) => {
+                  setLivePreview(override ? { slug: selected.slug, override } : null);
+                }}
+              />
+            );
+          })()}
+
+        {uiMode !== 'drag' && selectedPrimitive && (() => {
           const compositeKey = `${selectedPrimitive.appzetSlug}#${selectedPrimitive.primitivePath}`;
           const initialLayout = readInitialLayout(envelope?.customizations, compositeKey);
           const customizationsEndpoint = window.appzaCoreConfig?.endpoints?.customizations;
@@ -2120,7 +2175,8 @@ export function App() {
           );
         })()}
 
-        {!selectedPrimitive &&
+        {uiMode !== 'drag' &&
+          !selectedPrimitive &&
           selectedAppzetSlug &&
           (() => {
             const selected = appzets.find((a) => a.slug === selectedAppzetSlug);
