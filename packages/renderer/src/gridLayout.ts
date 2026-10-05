@@ -33,3 +33,8 @@ export function childAreas(layout: GridLayout | null | undefined): Map<number, s
   }
   return out;
 }
+
+// Pieces drawn without side padding or rounded corners; a look setting, so it holds while the grid itself is off.
+export function edgeToEdge(layout: GridLayout | null | undefined): Set<number> {
+  return new Set((layout?.edge_to_edge ?? []).filter((c) => Number.isInteger(c)));
+}

@@ -113,6 +113,7 @@ const GridLayoutSchema = z
     rows: z.array(z.array(z.string())).nullable().optional(),
     row_sizes: z.array(z.string()).nullable().optional(),
     child_areas: z.array(z.object({ child: z.number().int(), area: z.string() }).passthrough()).nullable().optional(),
+    edge_to_edge: z.array(z.number().int()).nullable().optional(),
     apply: z.boolean().nullable().optional(),
   })
   .passthrough();

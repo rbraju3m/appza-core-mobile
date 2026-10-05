@@ -12,7 +12,7 @@ import {
 } from './dataFetch';
 import { isRecord, readOverride, resolveOverridableColumn } from './resolveOverride';
 import { layoutStyleToCss } from './layoutStyle';
-import { childAreas, gridLayoutStyle } from './gridLayout';
+import { childAreas, edgeToEdge, gridLayoutStyle } from './gridLayout';
 import { useActionDispatch, type ActionInvocation } from './actionContext';
 import { useFeedControls } from './feedControls';
 import { useSpacesControls } from './spacesControls';
@@ -2068,7 +2068,9 @@ function SuperstructureRenderer({
   const root = ss.parent_superstructure_id ? catalogIndex.superstructureById.get(ss.parent_superstructure_id) : undefined;
   // child_areas counts Composition positions; a children_from_prop strip renumbers them.
   const fromProp = (ss as unknown as { children_from_prop?: unknown }).children_from_prop;
-  const areaOf = typeof fromProp === 'string' && fromProp !== '' ? new Map<number, string>() : childAreas(ss.grid_layout);
+  const renumbered = typeof fromProp === 'string' && fromProp !== '';
+  const areaOf = renumbered ? new Map<number, string>() : childAreas(ss.grid_layout);
+  const edge = renumbered ? new Set<number>() : edgeToEdge(ss.grid_layout);
 
   return (
     <div
@@ -2131,10 +2133,16 @@ function SuperstructureRenderer({
               if (activeChildValues) return activeChildValues.has(asStr) ? 'true' : undefined;
               return asStr === activeChildValue ? 'true' : undefined;
             })()}
+            data-edge-to-edge={edge.has(idx) ? '' : undefined}
             style={(() => {
               const area = areaOf.get(idx);
-              if (!childLayoutStyle && !area) return undefined;
-              return { ...layoutStyleToCss(childLayoutStyle), ...(area ? { gridArea: area } : {}) };
+              const full = edge.has(idx);
+              if (!childLayoutStyle && !area && !full) return undefined;
+              return {
+                ...layoutStyleToCss(childLayoutStyle),
+                ...(area ? { gridArea: area } : {}),
+                ...(full ? { paddingLeft: 0, paddingRight: 0 } : {}),
+              };
             })()}
             onClick={wrapperAction
               ? (e) => {

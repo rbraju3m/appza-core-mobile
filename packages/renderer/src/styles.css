@@ -4210,14 +4210,10 @@
   display: block;
 }
 
-.appza-renderer-ss[data-slug="fc-post-card"][data-layout="fc-post-card-media-first"] [data-child-index="7"],
-.appza-renderer-ss[data-slug="fc-post-card"][data-layout="fc-post-card-media-first"] [data-child-index="8"] {
-  padding: 0;
-}
-.appza-renderer-ss[data-slug="fc-post-card"][data-layout="fc-post-card-media-first"] [data-child-index="7"] ion-img,
-.appza-renderer-ss[data-slug="fc-post-card"][data-layout="fc-post-card-media-first"] [data-child-index="7"] img,
-.appza-renderer-ss[data-slug="fc-post-card"][data-layout="fc-post-card-media-first"] [data-child-index="8"] {
-  border-radius: 0;
+/* Edge to edge, set per piece in Core's Layout editor; the side padding is removed inline. */
+.appza-renderer-ss [data-edge-to-edge],
+.appza-renderer-ss [data-edge-to-edge] :is(img, ion-img, video, iframe, .appza-image-gallery, .appza-image-gallery-slide) {
+  border-radius: 0 !important;
 }
 
 /* Moderation: In Review chip + flagged banner */
