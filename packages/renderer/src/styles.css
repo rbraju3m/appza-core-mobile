@@ -4210,6 +4210,16 @@
   display: block;
 }
 
+.appza-renderer-ss[data-slug="fc-post-card"][data-layout="fc-post-card-media-first"] [data-child-index="7"],
+.appza-renderer-ss[data-slug="fc-post-card"][data-layout="fc-post-card-media-first"] [data-child-index="8"] {
+  padding: 0;
+}
+.appza-renderer-ss[data-slug="fc-post-card"][data-layout="fc-post-card-media-first"] [data-child-index="7"] ion-img,
+.appza-renderer-ss[data-slug="fc-post-card"][data-layout="fc-post-card-media-first"] [data-child-index="7"] img,
+.appza-renderer-ss[data-slug="fc-post-card"][data-layout="fc-post-card-media-first"] [data-child-index="8"] {
+  border-radius: 0;
+}
+
 /* Moderation: In Review chip + flagged banner */
 .appza-renderer-ss[data-slug="fc-post-card"] [data-child-index="32"] {
   grid-area: review;
@@ -4936,6 +4946,37 @@
 .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="7"] { grid-area: active; }
 .appza-renderer-ss[data-slug="fc-member-card"] ion-text:empty {
   display: none;
+}
+
+/* fc-member-card — compact layout (D110) */
+.appza-renderer-ss[data-slug="fc-member-card"][data-layout="fc-member-card-compact"] {
+  padding: var(--appza-card-padding, 10px 8px);
+  row-gap: 0;
+}
+.appza-renderer-ss[data-slug="fc-member-card"][data-layout="fc-member-card-compact"] [data-child-index="0"] {
+  padding: 0 0 6px 0;
+}
+.appza-renderer-ss[data-slug="fc-member-card"][data-layout="fc-member-card-compact"] [data-child-index="0"] ion-avatar {
+  width: var(--appza-avatar-size, 44px);
+  height: var(--appza-avatar-size, 44px);
+}
+.appza-renderer-ss[data-slug="fc-member-card"][data-layout="fc-member-card-compact"] [data-child-index="0"] .appza-renderer-avatar-fallback {
+  font-size: 1rem;
+}
+
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"][data-layout="fc-member-card-compact"] {
+  padding: var(--appza-card-padding, 8px 12px);
+  grid-template-areas:
+    "avatar name    role   menu"
+    "avatar handle  count  menu";
+  align-content: center;
+}
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"][data-layout="fc-member-card-compact"] [data-child-index="0"] {
+  padding: 0;
+}
+.appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"][data-layout="fc-member-card-compact"] [data-child-index="0"] ion-avatar {
+  width: var(--appza-avatar-size, 32px);
+  height: var(--appza-avatar-size, 32px);
 }
 
 /* fc-member-card — list layout */

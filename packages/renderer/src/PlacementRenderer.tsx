@@ -12,6 +12,7 @@ import {
 } from './dataFetch';
 import { isRecord, readOverride, resolveOverridableColumn } from './resolveOverride';
 import { layoutStyleToCss } from './layoutStyle';
+import { childAreas, gridLayoutStyle } from './gridLayout';
 import { useActionDispatch, type ActionInvocation } from './actionContext';
 import { useFeedControls } from './feedControls';
 import { useSpacesControls } from './spacesControls';
@@ -2063,8 +2064,19 @@ function SuperstructureRenderer({
     return <MissingNode label={`${ss.slug} has no children`} />;
   }
 
+  // A layout draws under its root's name so the root's styles apply; data-layout is what its own rules key on.
+  const root = ss.parent_superstructure_id ? catalogIndex.superstructureById.get(ss.parent_superstructure_id) : undefined;
+  // child_areas counts Composition positions; a children_from_prop strip renumbers them.
+  const fromProp = (ss as unknown as { children_from_prop?: unknown }).children_from_prop;
+  const areaOf = typeof fromProp === 'string' && fromProp !== '' ? new Map<number, string>() : childAreas(ss.grid_layout);
+
   return (
-    <div className="appza-renderer-ss" data-slug={ss.slug}>
+    <div
+      className="appza-renderer-ss"
+      data-slug={root?.slug ?? ss.slug}
+      data-layout={root ? ss.slug : undefined}
+      style={gridLayoutStyle(ss.grid_layout)}
+    >
       {children.map((child, idx) => {
         if (hiddenIndices?.has(idx)) return null;
         const isTopLevel = depth === 0;
@@ -2119,7 +2131,11 @@ function SuperstructureRenderer({
               if (activeChildValues) return activeChildValues.has(asStr) ? 'true' : undefined;
               return asStr === activeChildValue ? 'true' : undefined;
             })()}
-            style={childLayoutStyle ? layoutStyleToCss(childLayoutStyle) : undefined}
+            style={(() => {
+              const area = areaOf.get(idx);
+              if (!childLayoutStyle && !area) return undefined;
+              return { ...layoutStyleToCss(childLayoutStyle), ...(area ? { gridArea: area } : {}) };
+            })()}
             onClick={wrapperAction
               ? (e) => {
                   e.stopPropagation();

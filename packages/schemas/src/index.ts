@@ -11,6 +11,7 @@ export {
   type SourceIntegration,
   type AppMap,
   type PropertiesSchemaEntry,
+  type GridLayout,
 } from './catalog';
 export { LayoutStyleSchema, type LayoutStyle } from './layoutStyle';
 export { type AppzaCoreConfig, type PreviewMode } from './coreConfig';

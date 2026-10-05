@@ -106,6 +106,19 @@ const PropertiesSchemaEntrySchema = z
   })
   .passthrough();
 
+const GridLayoutSchema = z
+  .object({
+    areas: z.array(z.object({ name: z.string(), label: z.string().nullable().optional() }).passthrough()).nullable().optional(),
+    columns: z.array(z.string()).nullable().optional(),
+    rows: z.array(z.array(z.string())).nullable().optional(),
+    row_sizes: z.array(z.string()).nullable().optional(),
+    child_areas: z.array(z.object({ child: z.number().int(), area: z.string() }).passthrough()).nullable().optional(),
+    apply: z.boolean().nullable().optional(),
+  })
+  .passthrough();
+
+export type GridLayout = z.infer<typeof GridLayoutSchema>;
+
 const SuperstructureRowSchema = z
   .object({
     id: z.number().int(),
@@ -115,6 +128,8 @@ const SuperstructureRowSchema = z
     children_from_prop: z.string().nullable().optional(),
     properties_schema: z.array(PropertiesSchemaEntrySchema).nullable().optional(),
     is_active: z.boolean().optional(),
+    // Entered in the Core admin; a variant ships it already merged with its root's. A bad one is dropped, not fatal.
+    grid_layout: GridLayoutSchema.nullable().optional().catch(null),
   })
   .passthrough();
 
