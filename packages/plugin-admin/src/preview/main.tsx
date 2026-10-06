@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { setupIonicReact } from '@ionic/react';
+import { IonApp, IonContent, setupIonicReact } from '@ionic/react';
 import {
   ActionProvider,
   PlacementRenderer,
@@ -9,6 +9,7 @@ import {
   indexCatalog,
   setCatalogGlobal,
   setViewer,
+  tokensToCssVars,
 } from '@appza/renderer';
 import type { Catalog } from '@appza/schemas';
 
@@ -63,14 +64,30 @@ async function boot() {
     root.render(<Message text={res.status === 404 ? `No template "${template}".` : `Could not load the template (HTTP ${res.status}).`} />);
     return;
   }
-  const catalog = ((await res.json()) as { snapshot: Catalog }).snapshot;
+  draw(((await res.json()) as { snapshot: Catalog }).snapshot);
+
+  // Core's edit page posts the snapshot with its unsaved form applied; draw that instead.
+  window.addEventListener('message', (e: MessageEvent) => {
+    if (e.origin !== window.location.origin) return;
+    const msg = e.data as { type?: string; snapshot?: Catalog } | null;
+    if (msg?.type === 'appza:preview-snapshot' && msg.snapshot) draw(msg.snapshot);
+  });
+  window.parent.postMessage({ type: 'appza:preview-ready' }, window.location.origin);
+}
+
+function draw(catalog: Catalog) {
   setCatalogGlobal(catalog);
 
   if (appzetSlug) {
     root.render(
       <StrictMode>
         <ActionProvider dispatch={dispatch}>
-          <PlacementRenderer appzetSlug={appzetSlug} layout={layout} catalogIndex={indexCatalog(catalog)} customizations={{}} />
+          {/* The shell ScreenRenderer gives a screen: the template's theme, and the scroll area lists need. */}
+          <IonApp className="appza-renderer-app" style={tokensToCssVars(catalog.template?.tokens)}>
+            <IonContent>
+              <PlacementRenderer appzetSlug={appzetSlug} layout={layout} catalogIndex={indexCatalog(catalog)} customizations={{}} />
+            </IonContent>
+          </IonApp>
         </ActionProvider>
       </StrictMode>,
     );
