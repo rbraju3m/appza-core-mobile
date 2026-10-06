@@ -73,6 +73,26 @@ async function boot() {
     if (msg?.type === 'appza:preview-snapshot' && msg.snapshot) draw(msg.snapshot);
   });
   window.parent.postMessage({ type: 'appza:preview-ready' }, window.location.origin);
+
+  // A click names the piece under it, so Core's page can open that piece's settings. Taps still do nothing.
+  document.addEventListener(
+    'click',
+    (e) => {
+      // Top-level pieces carry their AppZet and path; a nested one counts as the piece it sits in.
+      const piece = (e.target as Element | null)?.closest?.('[data-appza-primitive-path]');
+      if (!piece) return;
+      window.parent.postMessage(
+        {
+          type: 'appza:preview-pick',
+          appzet: piece.getAttribute('data-appza-appzet-slug'),
+          block: piece.closest('.appza-renderer-ss')?.getAttribute('data-slug') ?? null,
+          child: Number(piece.getAttribute('data-child-index')),
+        },
+        window.location.origin,
+      );
+    },
+    true,
+  );
 }
 
 function draw(catalog: Catalog) {

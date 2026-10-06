@@ -662,7 +662,9 @@ function OptionRow({
   const effective = value !== undefined ? value : (prop.default as OptionValue | undefined);
   const isOverridden = value !== undefined;
   const defaultHint = formatDefault(prop.default);
-  const label = humanizeName(prop.name);
+  // A label written in Core wins over the tidied name.
+  const written = (prop as { label?: unknown }).label;
+  const label = typeof written === 'string' && written.trim() ? written : humanizeName(prop.name);
   const iconFlavored = type === 'string' && isIconProp(prop);
   const selectOptions = readSelectOptions(prop);
   const sizePresets = readSizePresets(prop);
