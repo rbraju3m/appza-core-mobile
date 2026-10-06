@@ -47,7 +47,10 @@ function Message({ text }: { text: string }) {
 const dispatch = (inv: { action_slug: string }) => console.info('[appza-preview] tap does nothing here:', inv.action_slug);
 
 async function boot() {
-  const res = await nativeFetch(`/admin/preview/snapshot?template=${encodeURIComponent(template)}`, {
+  const snapshotUrl = new URL('/admin/preview/snapshot', window.location.origin);
+  snapshotUrl.searchParams.set('template', template);
+  if (appzetSlug) snapshotUrl.searchParams.set('appzet', appzetSlug);
+  const res = await nativeFetch(snapshotUrl, {
     credentials: 'same-origin',
     headers: { Accept: 'application/json' },
   });
@@ -57,7 +60,7 @@ async function boot() {
     return;
   }
   if (!res.ok) {
-    root.render(<Message text={res.status === 404 ? `No active template "${template}".` : `Could not load the template (HTTP ${res.status}).`} />);
+    root.render(<Message text={res.status === 404 ? `No template "${template}".` : `Could not load the template (HTTP ${res.status}).`} />);
     return;
   }
   const catalog = ((await res.json()) as { snapshot: Catalog }).snapshot;
