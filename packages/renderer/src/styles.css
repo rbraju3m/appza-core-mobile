@@ -4777,7 +4777,7 @@
   grid-template-columns: repeat(var(--appza-grid-columns, 2), minmax(0, 1fr));
   gap: var(--appza-card-gap, 12px);
   padding: 12px;
-  background: #f8fafb;
+  background: var(--appza-list-bg-color, #f8fafb);
   align-items: stretch;
 }
 @media (max-width: 320px) {
@@ -4825,7 +4825,7 @@
 .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="0"] .appza-renderer-avatar-fallback {
   background: var(--appza-avatar-bg-color, #d1d5db);
   color: var(--appza-avatar-text-color, #374151);
-  font-size: 1.35rem;
+  font-size: var(--appza-avatar-text-size, 1.35rem);
   font-weight: 600;
   letter-spacing: 0.02em;
   background-image: none;
@@ -4837,7 +4837,7 @@
 }
 .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="1"] ion-button {
   --background: transparent;
-  --color: #9ca3af;
+  --color: var(--appza-menu-icon-color, #9ca3af);
   --box-shadow: none;
   --padding-start: 0;
   --padding-end: 0;
@@ -4852,13 +4852,13 @@
   min-height: 28px;
 }
 .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="1"] ion-button ion-icon {
-  font-size: 1.15rem;
-  color: #9ca3af;
+  font-size: var(--appza-menu-icon-size, 1.15rem);
+  color: var(--appza-menu-icon-color, #9ca3af);
 }
 .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="2"] {
   grid-area: name;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: var(--appza-name-size, 0.95rem);
   color: var(--appza-name-color, #111827);
   line-height: 1.2;
   width: 100%;
@@ -4876,7 +4876,7 @@
   grid-area: handle;
   justify-self: end;
   color: var(--appza-username-color, #6b7280);
-  font-size: 0.8rem;
+  font-size: var(--appza-username-size, 0.8rem);
   min-width: 0;
   overflow: hidden;
   line-height: 1.4;
@@ -4899,7 +4899,7 @@
   height: 16px;
   min-height: 16px;
   padding: 0 6px;
-  font-size: 0.62rem;
+  font-size: var(--appza-points-badge-text-size, 0.62rem);
   font-weight: 600;
   margin: 0;
   border-radius: 9999px;
@@ -4914,7 +4914,7 @@
   height: 18px;
   min-height: 18px;
   padding: 0 8px;
-  font-size: 0.62rem;
+  font-size: var(--appza-role-badge-text-size, 0.62rem);
   font-weight: 700;
   margin: 0;
   border-radius: 4px;
@@ -4923,7 +4923,7 @@
 .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="6"],
 .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="7"] {
   color: var(--appza-meta-color, #6b7280);
-  font-size: 0.72rem;
+  font-size: var(--appza-meta-size, 0.72rem);
   line-height: 1.35;
   width: 100%;
   min-width: 0;
@@ -4957,7 +4957,7 @@
   height: var(--appza-avatar-size, 44px);
 }
 .appza-renderer-ss[data-slug="fc-member-card"][data-layout="fc-member-card-compact"] [data-child-index="0"] .appza-renderer-avatar-fallback {
-  font-size: 1rem;
+  font-size: var(--appza-avatar-text-size, 1rem);
 }
 
 .appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"][data-layout="fc-member-card-compact"] {
@@ -4981,7 +4981,7 @@
   grid-template-columns: none;
   gap: 0;
   padding: 12px;
-  background: #f8fafb;
+  background: var(--appza-list-bg-color, #f8fafb);
 }
 .appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-appzet {
   height: auto;
@@ -4989,7 +4989,7 @@
   margin: 0;
 }
 .appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] {
-  background: #f8fafb;
+  background: var(--appza-list-bg-color, #f8fafb);
 }
 .appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] > .appza-renderer-appzet:first-child .appza-renderer-ss[data-slug="fc-member-card"] {
   border-top-left-radius: 8px;
@@ -5016,7 +5016,7 @@
   background: var(--appza-card-bg-color, #ffffff);
   border-radius: 0;
   box-shadow: none;
-  border-bottom: 1px solid #eef1f4;
+  border-bottom: 1px solid var(--appza-divider-color, #eef1f4);
   padding: var(--appza-card-padding, 12px 12px);
   min-width: 0;
   overflow: hidden;
@@ -5044,7 +5044,7 @@
   grid-area: name;
   justify-self: start;
   padding: 0;
-  font-size: 0.95rem;
+  font-size: var(--appza-name-size, 0.95rem);
   line-height: 1.2;
   width: 100%;
   min-width: 0;
@@ -5075,14 +5075,14 @@
   padding: 0 8px;
   height: 20px;
   min-height: 20px;
-  font-size: 0.66rem;
+  font-size: var(--appza-role-badge-text-size, 0.66rem);
   font-weight: 600;
 }
 .appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="6"] {
   grid-area: joined;
   justify-self: start;
   padding: 0;
-  font-size: 0.72rem;
+  font-size: var(--appza-meta-size, 0.72rem);
   color: var(--appza-meta-color, #6b7280);
   line-height: 1.4;
 }
@@ -5090,7 +5090,7 @@
   grid-area: active;
   justify-self: start;
   padding: 0;
-  font-size: 0.72rem;
+  font-size: var(--appza-meta-size, 0.72rem);
   color: var(--appza-meta-color, #6b7280);
   line-height: 1.4;
 }
