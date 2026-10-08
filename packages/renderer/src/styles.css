@@ -89,8 +89,8 @@
   line-height: 1.3;
 }
 .appza-renderer-ss[data-slug="fc-signin-header"] [data-child-index="2"] {
-  font-size: 0.9rem;
-  color: #6b7280;
+  font-size: var(--appza-subtitle-size, 0.9rem);
+  color: var(--appza-subtitle-color, #6b7280);
   line-height: 1.4;
 }
 
@@ -247,15 +247,15 @@
   align-items: center;
   padding-top: 24px;
   gap: 6px;
-  font-size: 0.85rem;
-  color: #6b7280;
+  font-size: var(--appza-card-text-size, 0.85rem);
+  color: var(--appza-card-text-color, #6b7280);
   text-align: center;
 }
 .appza-renderer-ss[data-slug="fc-signin-domain"] [data-child-index="0"],
 .appza-renderer-ss[data-slug="fc-signin-domain"] [data-child-index="0"] ion-text,
 .appza-renderer-ss[data-slug="fc-signin-domain"] [data-child-index="0"] ion-text > p {
-  color: #2456f0;
-  font-size: 0.9rem;
+  color: var(--appza-domain-color, #2456f0);
+  font-size: var(--appza-domain-size, 0.9rem);
   font-weight: 600;
   margin: 0;
   cursor: pointer;
@@ -263,8 +263,8 @@
 .appza-renderer-ss[data-slug="fc-signin-domain"] [data-child-index="1"],
 .appza-renderer-ss[data-slug="fc-signin-domain"] [data-child-index="1"] ion-text,
 .appza-renderer-ss[data-slug="fc-signin-domain"] [data-child-index="1"] ion-text > p {
-  color: #111827;
-  font-size: 0.85rem;
+  color: var(--appza-powered-by-color, #111827);
+  font-size: var(--appza-powered-by-size, 0.85rem);
   margin: 0;
 }
 
@@ -354,7 +354,7 @@
   color: #0f172a;
 }
 .appza-renderer-ss[data-slug="create-post-appbar-shell"] [data-child-index="2"] ion-button {
-  --border-radius: 8px;
+  --border-radius: var(--appza-cta-radius, 8px);
   --background: #6366f1;
   --background-hover: #4f46e5;
   --background-activated: #4338ca;
@@ -365,7 +365,7 @@
   height: 36px;
   min-width: 72px;
   margin: 0;
-  font-size: 0.92rem;
+  font-size: var(--appza-cta-text-size, 0.92rem);
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
@@ -425,7 +425,7 @@
 }
 .appza-renderer-ss[data-slug="fc-user-avatar"] [data-child-index="3"] ion-button ion-icon,
 .appza-renderer-ss[data-slug="fc-user-avatar"] [data-child-index="4"] ion-button ion-icon {
-  font-size: 28px !important;
+  font-size: var(--appza-meta-icon-size, 28px) !important;
   width: 28px !important;
   height: 28px !important;
   color: #64748b !important;
@@ -1006,7 +1006,7 @@
   --padding-end: 6px;
   --padding-top: 6px;
   --padding-bottom: 6px;
-  --color: #64748b;
+  --color: var(--appza-card-text-color, #64748b);
   --color-activated: #4338ca;
   --color-hover: #4338ca;
   --background: transparent;
@@ -1015,7 +1015,7 @@
   --background-activated: rgba(67, 56, 202, 0.10);
   --box-shadow: none;
   --border-radius: 10px;
-  font-size: 0.7rem;
+  font-size: var(--appza-card-text-size, 0.7rem);
   font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
@@ -1033,7 +1033,7 @@
   padding: 4px 2px;
 }
 .appza-renderer-ss[data-slug="bottom-tab-nav"] ion-button ion-icon {
-  font-size: 24px;
+  font-size: var(--appza-card-icon-size, 24px);
   margin: 0;
 }
 .appza-renderer-ss[data-slug="bottom-tab-nav"] > [data-child-index] {
@@ -1049,7 +1049,7 @@
   gap: 2px;
 }
 .appza-renderer-ss[data-slug="bottom-tab-nav"] .appza-btn-stack-label {
-  font-size: 12px;
+  font-size: var(--appza-btn-stack-label-size, 12px);
   line-height: 1.2;
 }
 .appza-renderer-nav[data-active-tab="1"] .appza-renderer-ss[data-slug="bottom-tab-nav"] > [data-child-index="0"] ion-button,
@@ -2283,7 +2283,7 @@
   grid-row-gap: 2px;
   background: #fff;
   border-radius: 10px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--appza-card-border-color, #e5e7eb);
   overflow: hidden;
   padding: 0 0 10px;
   position: relative;
@@ -2294,7 +2294,7 @@
   grid-row: 1;
   aspect-ratio: 1 / 1;
   overflow: hidden;
-  background: #f3f4f6;
+  background: var(--appza-images-bg-color, #f3f4f6);
 }
 .appza-renderer-ss[data-slug="fc-post-grid-item"] [data-child-index="0"] .appza-image-gallery-slide img,
 .appza-renderer-ss[data-slug="fc-post-grid-item"] [data-child-index="0"] ion-img {
@@ -2317,7 +2317,7 @@
 .appza-renderer-ss[data-slug="fc-post-grid-item"] [data-child-index="1"] ion-avatar {
   width: 36px;
   height: 36px;
-  border: 2px solid #fff;
+  border: 2px solid var(--appza-avatar-border-color, #fff);
   border-radius: 999px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.15);
   display: block;
@@ -2365,7 +2365,7 @@
   grid-column: 3;
   grid-row: 3;
   padding: 2px 0 0;
-  font-size: 0.7rem;
+  font-size: var(--appza-time-size, 0.7rem);
   color: #6b7280;
   white-space: nowrap;
 }
@@ -2377,8 +2377,8 @@
   grid-column: 4;
   grid-row: 3;
   padding: 2px 0 0;
-  font-size: 0.7rem;
-  color: #6b7280;
+  font-size: var(--appza-space-size, 0.7rem);
+  color: var(--appza-space-color, #6b7280);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2400,8 +2400,8 @@
   grid-row: 4;
   padding: 6px 6px 0 0;
   align-self: center;
-  font-size: 0.75rem;
-  color: #6b7280;
+  font-size: var(--appza-like-count-size, 0.75rem);
+  color: var(--appza-like-count-color, #6b7280);
 }
 .appza-renderer-ss[data-slug="fc-post-grid-item"] [data-child-index="8"] {
   grid-column: 4;
@@ -2414,8 +2414,8 @@
   grid-row: 4;
   padding: 6px 0 0;
   align-self: center;
-  font-size: 0.75rem;
-  color: #6b7280;
+  font-size: var(--appza-comment-count-size, 0.75rem);
+  color: var(--appza-comment-count-color, #6b7280);
 }
 
 .appza-renderer-ss[data-slug="fc-post-grid-item"] [data-child-index="10"] {
@@ -2424,7 +2424,7 @@
   right: 6px;
   padding: 0;
   z-index: 3;
-  background: rgba(255,255,255,0.9);
+  background: var(--appza-menu-bg-color, rgba(255,255,255,0.9));
   border-radius: 999px;
   width: 28px;
   height: 28px;
@@ -2451,7 +2451,7 @@
   margin: 0 !important;
 }
 .appza-renderer-ss[data-slug="fc-post-grid-item"] ion-button ion-icon {
-  font-size: 18px !important;
+  font-size: var(--appza-card-icon-size, 18px) !important;
 }
 
 /* fc-post-list-item */
@@ -2505,7 +2505,7 @@
 .appza-renderer-ss[data-slug="fc-post-list-item"] [data-child-index="3"] {
   grid-column: 3;
   grid-row: 2;
-  font-size: 0.72rem;
+  font-size: var(--appza-time-size, 0.72rem);
   color: #6b7280;
   white-space: nowrap;
 }
@@ -2516,8 +2516,8 @@
 .appza-renderer-ss[data-slug="fc-post-list-item"] [data-child-index="4"] {
   grid-column: 4;
   grid-row: 2;
-  font-size: 0.72rem;
-  color: #6b7280;
+  font-size: var(--appza-space-size, 0.72rem);
+  color: var(--appza-space-color, #6b7280);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2537,8 +2537,8 @@
   grid-column: 6;
   grid-row: 1 / span 2;
   align-self: center;
-  font-size: 0.75rem;
-  color: #6b7280;
+  font-size: var(--appza-like-count-size, 0.75rem);
+  color: var(--appza-like-count-color, #6b7280);
   padding-right: 6px;
 }
 .appza-renderer-ss[data-slug="fc-post-list-item"] [data-child-index="7"] {
@@ -2550,8 +2550,8 @@
   grid-column: 8;
   grid-row: 1 / span 2;
   align-self: center;
-  font-size: 0.75rem;
-  color: #6b7280;
+  font-size: var(--appza-comment-count-size, 0.75rem);
+  color: var(--appza-comment-count-color, #6b7280);
 }
 
 .appza-renderer-ss[data-slug="fc-post-list-item"] ion-button {
@@ -2572,7 +2572,7 @@
   margin: 0 !important;
 }
 .appza-renderer-ss[data-slug="fc-post-list-item"] ion-button ion-icon {
-  font-size: 16px !important;
+  font-size: var(--appza-card-icon-size, 16px) !important;
 }
 
 /* Spaces list screen */
@@ -2600,7 +2600,7 @@
   background: #ffffff;
   margin: 0 -12px 8px;
   padding: 0;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--appza-card-border-color, #e5e7eb);
 }
 .appza-renderer-ss[data-slug="fc-spaces-tabs"] {
   display: flex;
@@ -2625,7 +2625,7 @@
   --border-width: 0 !important;
   --border-style: none !important;
   --border-radius: 0 !important;
-  --color: #6b7280 !important;
+  --color: var(--appza-card-text-color, #6b7280) !important;
   --ripple-color: transparent !important;
   --padding-start: 0 !important;
   --padding-end: 0 !important;
@@ -2636,14 +2636,14 @@
   width: 100% !important;
   margin: 0 !important;
   font-weight: 500 !important;
-  font-size: 0.95rem !important;
+  font-size: var(--appza-card-text-size, 0.95rem) !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
 }
 .appza-renderer-ss[data-slug="fc-spaces-tabs"] ion-button::part(native) {
   border: 0 !important;
   outline: none !important;
-  color: #6b7280 !important;
+  color: var(--appza-card-text-color, #6b7280) !important;
   background-color: transparent !important;
 }
 .appza-renderer-appzet[data-spaces-active-tab="all"] .appza-renderer-ss[data-slug="fc-spaces-tabs"] [data-child-index="0"] ion-button::part(native),
@@ -2680,17 +2680,17 @@
   position: relative;
 }
 .appza-renderer-ss[data-slug="fc-spaces-toolbar"] [data-child-index="0"] ion-input {
-  --background: #ffffff;
-  --color: #111827;
-  --placeholder-color: #9ca3af;
+  --background: var(--appza-search-bg-color, #ffffff);
+  --color: var(--appza-search-text-color, #111827);
+  --placeholder-color: var(--appza-search-placeholder-color, #9ca3af);
   --padding-start: 40px !important;
   --padding-end: 12px !important;
   --padding-top: 12px !important;
   --padding-bottom: 12px !important;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 0.9rem;
+  background: var(--appza-search-bg-color, #ffffff);
+  border: 1px solid var(--appza-search-border-color, #e5e7eb);
+  border-radius: var(--appza-search-radius, 8px);
+  font-size: var(--appza-search-size, 0.9rem);
   min-height: 44px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
@@ -2712,13 +2712,13 @@
 .appza-renderer-ss[data-slug="fc-spaces-toolbar"] [data-child-index="1"] {
   display: flex;
   justify-content: flex-end;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--appza-sort-border-color, #e5e7eb);
   padding-top: 10px;
   margin: 0 0 4px;
 }
 .appza-renderer-ss[data-slug="fc-spaces-toolbar"] [data-child-index="1"] ion-button {
   --background: transparent !important;
-  --color: #4b5563 !important;
+  --color: var(--appza-sort-text-color, #4b5563) !important;
   --box-shadow: none !important;
   --border-width: 0 !important;
   --padding-start: 6px !important;
@@ -2729,20 +2729,20 @@
   height: auto !important;
   min-height: 0 !important;
   margin: 0 !important;
-  font-size: 0.85rem !important;
+  font-size: var(--appza-sort-text-size, 0.85rem) !important;
   font-weight: 500 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
-  color: #4b5563 !important;
+  color: var(--appza-sort-text-color, #4b5563) !important;
 }
 .appza-renderer-ss[data-slug="fc-spaces-toolbar"] [data-child-index="1"] ion-button::part(native) {
   border: 0 !important;
   outline: none !important;
-  color: #4b5563 !important;
+  color: var(--appza-sort-text-color, #4b5563) !important;
   background-color: transparent !important;
 }
 .appza-renderer-ss[data-slug="fc-spaces-toolbar"] [data-child-index="1"] ion-button ion-icon {
-  font-size: 16px !important;
+  font-size: var(--appza-sort-icon-size, 16px) !important;
   margin-inline-start: 4px !important;
 }
 
@@ -3033,9 +3033,9 @@
 .appza-renderer-appzet[data-slug="fc-courses-topics"] .appza-renderer-ss[data-slug="fc-space-topics"] [data-child-index="0"] {
   grid-row: 1;
   grid-column: 1 / span 10;
-  font-size: 15px;
+  font-size: var(--appza-section-header-size, 15px);
   font-weight: 500;
-  color: #111827;
+  color: var(--appza-section-header-color, #111827);
   margin: 0;
 }
 .appza-renderer-appzet[data-slug="fc-courses-topics"] .appza-renderer-ss[data-slug="fc-space-topics"] [data-child-index]:not([data-child-index="0"]) {
@@ -3063,10 +3063,10 @@
   margin-right: 8px;
 }
 .appza-renderer-appzet[data-slug="fc-courses-sort"] .appza-renderer-ss[data-slug="fc-space-post-toolbar"] [data-child-index="0"] {
-  font-size: 15px;
+  font-size: var(--appza-sort-size, 15px);
 }
 .appza-renderer-appzet[data-slug="fc-courses-sort"] .appza-renderer-ss[data-slug="fc-space-post-toolbar"] [data-child-index="1"] ion-button {
-  font-size: 15px !important;
+  font-size: var(--appza-sort-button-text-size, 15px) !important;
   font-weight: 500 !important;
 }
 
@@ -3108,8 +3108,8 @@
   justify-content: center;
 }
 .appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="1"] ion-icon {
-  font-size: 72px;
-  color: #1f2937;
+  font-size: var(--appza-placeholder-icon-size, 72px);
+  color: var(--appza-placeholder-icon-color, #1f2937);
   --ionicon-stroke-width: 20px;
 }
 .appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="2"] {
@@ -3123,8 +3123,8 @@
   pointer-events: none;
 }
 .appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="2"] ion-button {
-  --background: rgba(55, 55, 55, 0.72) !important;
-  --color: #ffffff !important;
+  --background: var(--appza-paid-bg-color, rgba(55, 55, 55, 0.72)) !important;
+  --color: var(--appza-paid-text-color, #ffffff) !important;
   --border-radius: 4px !important;
   --box-shadow: none !important;
   --padding-start: 6px !important;
@@ -3132,17 +3132,17 @@
   height: 24px !important;
   min-height: 24px !important;
   margin: 0 !important;
-  font-size: 13px !important;
+  font-size: var(--appza-paid-text-size, 13px) !important;
   font-weight: 500 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
 }
 .appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="2"] ion-button::part(native) {
-  color: #ffffff !important;
+  color: var(--appza-paid-text-color, #ffffff) !important;
   border: 0 !important;
 }
 .appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="2"] ion-icon {
-  font-size: 14px;
+  font-size: var(--appza-paid-icon-size, 14px);
   margin-right: 4px;
 }
 /* No z-index on the wrapper, so the disc joins the card's stacking order. */
@@ -3164,9 +3164,9 @@
 .appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="3"] ion-icon {
   position: relative;
   z-index: 2;
-  font-size: 20px;
-  color: #ffffff;
-  background: rgba(55, 55, 55, 0.72);
+  font-size: var(--appza-paid-lock-icon-size, 20px);
+  color: var(--appza-paid-lock-icon-color, #ffffff);
+  background: var(--appza-paid-lock-bg-color, rgba(55, 55, 55, 0.72));
   border-radius: 50%;
   padding: 11px;
 }
@@ -3183,7 +3183,7 @@
   grid-column: 1;
   grid-row: 3;
   padding: 10px 0 0 14px;
-  font-size: 14px;
+  font-size: var(--appza-counts-size, 14px);
   color: var(--appza-meta-color, #4b5563);
 }
 .appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="6"],
@@ -3191,7 +3191,7 @@
   grid-column: 2;
   grid-row: 3;
   padding: 10px 14px 0 0;
-  font-size: 14px;
+  font-size: var(--appza-students-size, 14px);
   color: var(--appza-meta-color, #4b5563);
   justify-self: end;
 }
@@ -3199,8 +3199,8 @@
   justify-self: start;
 }
 .appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="6"] ion-icon {
-  font-size: 18px;
-  color: #6b7280;
+  font-size: var(--appza-students-icon-size, 18px);
+  color: var(--appza-students-icon-color, #6b7280);
   vertical-align: -4px;
 }
 .appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="7"] {
@@ -3210,7 +3210,7 @@
 .appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="9"] {
   grid-column: 1 / -1;
   padding: 10px 14px 0;
-  font-size: 14px;
+  font-size: var(--appza-description-size, 14px);
   line-height: 1.45;
   color: var(--appza-meta-color, #4b5563);
 }
@@ -3235,7 +3235,7 @@
   --background: var(--appza-button-bg-color, #e8e8e8) !important;
   --background-activated: #d4d4d4 !important;
   --color: var(--appza-button-text-color, #1f2937) !important;
-  font-size: 14px !important;
+  font-size: var(--appza-card-text-size, 14px) !important;
   font-weight: 500 !important;
   letter-spacing: 0.02em !important;
   text-transform: uppercase !important;
@@ -3245,19 +3245,19 @@
   color: var(--appza-button-text-color, #1f2937) !important;
 }
 .appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index] ion-button ion-icon {
-  font-size: 18px;
+  font-size: var(--appza-card-icon-size, 18px);
   margin-right: 6px;
 }
 .appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="12"] ion-button {
-  border-bottom: 3px solid #1a54d6 !important;
+  border-bottom: 3px solid var(--appza-review-border-color, #1a54d6) !important;
 }
 .appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="14"] ion-button {
   --background: var(--appza-web-button-bg-color, #1a54d6) !important;
   --background-activated: #1440aa !important;
-  --color: #ffffff !important;
+  --color: var(--appza-web-text-color, #ffffff) !important;
 }
 .appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="14"] ion-button::part(native) {
-  color: #ffffff !important;
+  color: var(--appza-web-text-color, #ffffff) !important;
 }
 .appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="2"] ion-button {
   width: auto !important;
@@ -3265,18 +3265,18 @@
   min-height: 24px !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
-  font-size: 13px !important;
+  font-size: var(--appza-paid-text-size, 13px) !important;
   --box-shadow: none !important;
-  --background: rgba(55, 55, 55, 0.72) !important;
-  --color: #ffffff !important;
+  --background: var(--appza-paid-bg-color, rgba(55, 55, 55, 0.72)) !important;
+  --color: var(--appza-paid-text-color, #ffffff) !important;
   --padding-start: 6px !important;
   --padding-end: 8px !important;
 }
 .appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="2"] ion-button::part(native) {
-  color: #ffffff !important;
+  color: var(--appza-paid-text-color, #ffffff) !important;
 }
 .appza-renderer-ss[data-slug="fc-course-card"] > [data-child-index="2"] ion-button ion-icon {
-  font-size: 14px;
+  font-size: var(--appza-paid-icon-size, 14px);
   margin-right: 4px;
 }
 
@@ -3334,27 +3334,27 @@
   grid-row: counts;
   padding-top: 2px;
   padding-bottom: 17px;
-  font-size: 11px;
+  font-size: var(--appza-counts-size, 11px);
   color: var(--appza-meta-color, #4b5563);
 }
 .appza-renderer-ss[data-slug="fc-course-detail-header"] > [data-child-index="2"] {
   grid-row: dhead;
   margin-top: -6px;
-  font-size: 13px;
+  font-size: var(--appza-description-size, 13px);
   font-weight: 600;
 }
 .appza-renderer-ss[data-slug="fc-course-detail-header"] > [data-child-index="3"] {
   grid-row: desc;
   padding-top: 5px;
   padding-bottom: 15px;
-  font-size: 13px;
+  font-size: var(--appza-description-size, 13px);
   line-height: 1.45;
   white-space: pre-line;
 }
 .appza-renderer-ss[data-slug="fc-course-detail-header"] > [data-child-index="4"] {
   grid-row: chead;
   padding: 26px 1px 12px;
-  font-size: 15px;
+  font-size: var(--appza-content-size, 15px);
   font-weight: 700;
 }
 
@@ -3386,7 +3386,7 @@
 .appza-renderer-ss[data-slug="fc-course-section"] > [data-child-index="1"] {
   grid-column: 1;
   grid-row: count;
-  font-size: 11px;
+  font-size: var(--appza-lesson-count-size, 11px);
   line-height: 1.4;
   color: var(--appza-meta-color, #4b5563);
 }
@@ -3399,7 +3399,7 @@
 }
 .appza-renderer-ss[data-slug="fc-course-section"] > [data-child-index="2"] ion-button,
 .appza-renderer-ss[data-slug="fc-course-section"] > [data-child-index="3"] ion-button {
-  --color: #6b7280 !important;
+  --color: var(--appza-toggle-text-color, #6b7280) !important;
   --padding-start: 6px !important;
   --padding-end: 6px !important;
   margin: 0 !important;
@@ -3407,7 +3407,7 @@
 }
 .appza-renderer-ss[data-slug="fc-course-section"] > [data-child-index="2"] ion-icon,
 .appza-renderer-ss[data-slug="fc-course-section"] > [data-child-index="3"] ion-icon {
-  font-size: 18px;
+  font-size: var(--appza-toggle-icon-size, 18px);
 }
 /* By index, not :nth-child — hidden children leave no element. */
 .appza-renderer-ss[data-slug="fc-course-section"] > [data-child-slug="ion-button"]:not([data-child-index="2"]):not([data-child-index="3"]) {
@@ -3429,7 +3429,7 @@
   --color: var(--appza-lesson-color, #1f2937) !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
-  font-size: 13.5px !important;
+  font-size: var(--appza-card-text-size, 13.5px) !important;
   font-weight: 400 !important;
 }
 .appza-renderer-ss[data-slug="fc-course-section"] > [data-child-slug="ion-button"]:not([data-child-index="2"]):not([data-child-index="3"]) ion-button::part(native) {
@@ -3437,7 +3437,7 @@
   border: 0 !important;
 }
 .appza-renderer-ss[data-slug="fc-course-section"] > [data-child-slug="ion-button"]:not([data-child-index="2"]):not([data-child-index="3"]) ion-icon[slot="start"] {
-  font-size: 18px;
+  font-size: var(--appza-card-icon-size, 18px);
   margin: 0 7px 0 0;
   color: var(--appza-status-icon-color, #6b7280);
 }
@@ -3446,7 +3446,7 @@
 }
 .appza-renderer-ss[data-slug="fc-course-section"] .appza-btn-end-text {
   margin-left: auto;
-  font-size: 11px;
+  font-size: var(--appza-btn-end-text-size, 11px);
   color: var(--appza-meta-color, #4b5563);
 }
 
@@ -3479,13 +3479,13 @@
   grid-column: 2;
   grid-row: name;
   align-self: end;
-  font-size: 13px;
+  font-size: var(--appza-instructor-name-size, 13px);
   font-weight: 700;
 }
 .appza-renderer-ss[data-slug="fc-course-instructor"] > [data-child-index="3"] {
   grid-column: 2;
   grid-row: count;
-  font-size: 13px;
+  font-size: var(--appza-course-count-size, 13px);
 }
 
 .appza-renderer-appzet[data-slug="fc-course-detail-cta"] {
@@ -3512,7 +3512,7 @@
   --background: var(--appza-button-bg-color, rgb(74, 95, 223)) !important;
   --background-activated: rgb(58, 76, 190) !important;
   --color: var(--appza-button-text-color, #ffffff) !important;
-  font-size: 14px !important;
+  font-size: var(--appza-card-text-size, 14px) !important;
   font-weight: 400 !important;
   letter-spacing: 0.3px !important;
 }
@@ -3522,21 +3522,21 @@
 }
 .appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index="4"] ion-button {
   --background: var(--appza-locked-bg-color, #e5e7eb) !important;
-  --color: #4b5563 !important;
+  --color: var(--appza-invite-text-color, #4b5563) !important;
   --box-shadow: none !important;
   pointer-events: none;
 }
 .appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index="4"] ion-button::part(native) {
-  color: #4b5563 !important;
+  color: var(--appza-invite-text-color, #4b5563) !important;
 }
 .appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index="4"] ion-icon {
-  font-size: 15px;
+  font-size: var(--appza-invite-icon-size, 15px);
   margin-right: 6px;
 }
 .appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index="5"] {
   text-align: center;
-  font-size: 12px;
-  color: #6b7280;
+  font-size: var(--appza-invite-note-size, 12px);
+  color: var(--appza-invite-note-color, #6b7280);
 }
 .appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index="6"],
 .appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index="7"] {
@@ -3546,19 +3546,19 @@
 .appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index="6"] {
   padding-top: 15px;
   border-radius: 4px 4px 0 0;
-  font-size: 13px;
+  font-size: var(--appza-paywall-title-size, 13px);
   font-weight: 600;
   margin-bottom: -8px;
 }
 .appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index="7"] {
   padding-bottom: 15px;
   border-radius: 0 0 4px 4px;
-  font-size: 18px;
+  font-size: var(--appza-paywall-price-size, 18px);
   font-weight: 700;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 }
 .appza-renderer-ss[data-slug="fc-course-detail-cta"] > [data-child-index="8"] ion-icon {
-  font-size: 15px;
+  font-size: var(--appza-buy-icon-size, 15px);
   margin-right: 6px;
 }
 
@@ -3580,33 +3580,33 @@
   color: var(--appza-title-color, #111827);
 }
 .appza-renderer-ss[data-slug="course-detail-appbar-shell"] > [data-child-index="0"] ion-button {
-  --color: #111827 !important;
+  --color: var(--appza-back-text-color, #111827) !important;
   --padding-start: 6px !important;
   --padding-end: 6px !important;
   margin: 0 !important;
 }
 .appza-renderer-ss[data-slug="course-detail-appbar-shell"] > [data-child-index="0"] ion-icon {
-  font-size: 22px;
+  font-size: var(--appza-back-icon-size, 22px);
 }
 .appza-renderer-ss[data-slug="course-detail-appbar-shell"] > [data-child-index="2"] ion-button {
   height: 26px !important;
   min-height: 26px !important;
   margin: 0 4px 0 0 !important;
-  --background: #ffffff !important;
-  --color: #111827 !important;
-  --border-radius: 4px !important;
+  --background: var(--appza-students-bg-color, #ffffff) !important;
+  --color: var(--appza-students-text-color, #111827) !important;
+  --border-radius: var(--appza-students-radius, 4px) !important;
   --box-shadow: none !important;
   --padding-start: 10px !important;
   --padding-end: 10px !important;
-  border: 1px solid #d1d5db !important;
-  border-radius: 4px;
+  border: 1px solid var(--appza-students-border-color, #d1d5db) !important;
+  border-radius: var(--appza-students-radius, 4px);
   text-transform: none !important;
   letter-spacing: 0 !important;
-  font-size: 11px !important;
+  font-size: var(--appza-students-text-size, 11px) !important;
   font-weight: 600 !important;
 }
 .appza-renderer-ss[data-slug="course-detail-appbar-shell"] > [data-child-index="2"] ion-button::part(native) {
-  color: #111827 !important;
+  color: var(--appza-students-text-color, #111827) !important;
   border: 0 !important;
 }
 
@@ -3656,14 +3656,14 @@
 .appza-renderer-ss[data-slug="fc-course-student-row"] > [data-child-index="2"] {
   grid-column: 2;
   grid-row: user;
-  font-size: 11px;
+  font-size: var(--appza-username-size, 11px);
   line-height: 1.35;
   color: var(--appza-meta-color, #4b5563);
 }
 .appza-renderer-ss[data-slug="fc-course-student-row"] > [data-child-index="3"] {
   grid-column: 2;
   grid-row: enrolled;
-  font-size: 12px;
+  font-size: var(--appza-enrolled-size, 12px);
   line-height: 1.5;
   color: var(--appza-meta-color, #4b5563);
 }
@@ -3674,7 +3674,7 @@
   margin: -6px -10px 0 0;
 }
 .appza-renderer-ss[data-slug="fc-course-student-row"] > [data-child-index="4"] ion-button {
-  --color: #6b7280 !important;
+  --color: var(--appza-menu-text-color, #6b7280) !important;
   --padding-start: 6px !important;
   --padding-end: 6px !important;
   margin: 0 !important;
@@ -3687,7 +3687,7 @@
 }
 .appza-renderer-ss[data-slug="fc-course-student-row"] > [data-child-index="5"] ion-progress-bar {
   height: 5px;
-  border-radius: 3px;
+  border-radius: var(--appza-progress-radius, 3px);
   --background: var(--appza-progress-track-color, #d9d9d9);
   --progress-background: var(--appza-progress-color, #1a54d6);
 }
@@ -3695,7 +3695,7 @@
   grid-column: 3;
   grid-row: bar;
   margin-top: 8px;
-  font-size: 11px;
+  font-size: var(--appza-progress-label-size, 11px);
   color: var(--appza-meta-color, #4b5563);
   text-align: right;
 }
@@ -3840,7 +3840,7 @@
   gap: var(--appza-gap, 8px);
   padding: 8px 12px;
   overflow-x: auto;
-  background: #ffffff;
+  background: var(--appza-list-bg-color, #ffffff);
   -webkit-overflow-scrolling: touch;
 }
 .appza-renderer-appzet-list[data-slug="fc-space-switcher"]::-webkit-scrollbar { display: none; }
@@ -3852,7 +3852,7 @@
   --background: var(--appza-chip-bg-color, #ffffff) !important;
   --background-hover: #f9fafb !important;
   --color: var(--appza-chip-text-color, #374151) !important;
-  --border-color: #d1d5db !important;
+  --border-color: var(--appza-list-border-color, #d1d5db) !important;
   --border-style: solid !important;
   --border-width: 1px !important;
   --border-radius: var(--appza-chip-radius, 8px) !important;
@@ -3863,11 +3863,11 @@
   margin: 0 !important;
   text-transform: none !important;
   font-weight: 500 !important;
-  font-size: 0.85rem !important;
+  font-size: var(--appza-list-text-size, 0.85rem) !important;
   letter-spacing: 0 !important;
 }
 .appza-renderer-appzet-list[data-slug="fc-space-switcher"] ion-button::part(native) {
-  border: 1px solid #d1d5db !important;
+  border: 1px solid var(--appza-list-border-color, #d1d5db) !important;
   border-radius: var(--appza-chip-radius, 8px) !important;
   background: var(--appza-chip-bg-color, #ffffff) !important;
   color: var(--appza-chip-text-color, #374151) !important;
@@ -3884,8 +3884,8 @@
   display: block;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
+  background: var(--appza-list-bg-color, #ffffff);
+  border-bottom: 1px solid var(--appza-list-border-color, #e5e7eb);
 }
 .appza-renderer-appzet-list[data-slug="fc-space-subtabs"]::-webkit-scrollbar,
 .appza-renderer-appzet[data-slug="fc-space-subtabs"]::-webkit-scrollbar { display: none; }
@@ -3907,7 +3907,7 @@
 .appza-renderer-ss[data-slug="fc-space-subtabs"] ion-button {
   --background: transparent !important;
   --background-hover: transparent !important;
-  --color: #6b7280 !important;
+  --color: var(--appza-card-text-color, #6b7280) !important;
   --border-width: 0 !important;
   --padding-start: 0 !important;
   --padding-end: 0 !important;
@@ -3919,7 +3919,7 @@
   margin: 0 !important;
   text-transform: uppercase !important;
   font-weight: 600 !important;
-  font-size: 0.72rem !important;
+  font-size: var(--appza-card-text-size, 0.72rem) !important;
   letter-spacing: 0.15px !important;
   white-space: nowrap !important;
 }
@@ -3927,7 +3927,7 @@
   background: transparent !important;
   border: 0 !important;
   padding: 0 !important;
-  color: #6b7280 !important;
+  color: var(--appza-card-text-color, #6b7280) !important;
 }
 .appza-renderer-appzet-list[data-slug="fc-space-subtabs"][data-space-detail-active-subtab] .appza-renderer-ss[data-slug="fc-space-subtabs"] .appza-renderer-ss-child,
 .appza-renderer-ss[data-slug="fc-space-subtabs"] .appza-renderer-ss-child {
@@ -3997,7 +3997,7 @@
   pointer-events: none;
   color: var(--appza-overlay-text-color, #ffffff);
   font-weight: 600;
-  font-size: 1.25rem;
+  font-size: var(--appza-overlay-size, 1.25rem);
   line-height: 1.2;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
 }
@@ -4038,23 +4038,23 @@
 }
 .appza-renderer-ss[data-slug="fc-space-topics"] [data-child-index="0"] {
   flex: 0 0 100%;
-  font-size: 0.85rem;
+  font-size: var(--appza-section-header-size, 0.85rem);
   font-weight: var(--appza-font-weight, 600);
-  color: #111827;
+  color: var(--appza-section-header-color, #111827);
   margin-bottom: 4px;
   padding-bottom: 0;
   order: -2;
 }
 .appza-renderer-ss[data-slug="fc-space-topics"] ion-chip {
   --background: #ffffff !important;
-  --color: #374151 !important;
-  border: 1px solid #d1d5db !important;
+  --color: var(--appza-card-text-color, #374151) !important;
+  border: 1px solid var(--appza-card-border-color, #d1d5db) !important;
   border-radius: var(--appza-chip-radius, 6px) !important;
   height: 30px !important;
   min-height: 30px !important;
   padding: 0 12px !important;
   margin: 0 !important;
-  font-size: 0.82rem !important;
+  font-size: var(--appza-card-text-size, 0.82rem) !important;
   font-weight: var(--appza-font-weight, 500) !important;
 }
 .appza-renderer-ss[data-slug="fc-space-topics"] [data-active="true"] ion-chip {
@@ -4087,15 +4087,15 @@
   gap: 6px;
   padding: 8px 16px;
   background: #f3f4f6;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--appza-card-border-color, #e5e7eb);
 }
 .appza-renderer-ss[data-slug="fc-space-post-toolbar"] [data-child-index="0"] {
-  font-size: 0.85rem;
-  color: #6b7280;
+  font-size: var(--appza-sort-size, 0.85rem);
+  color: var(--appza-sort-color, #6b7280);
 }
 .appza-renderer-ss[data-slug="fc-space-post-toolbar"] [data-child-index="1"] ion-button {
   --background: transparent !important;
-  --color: #111827 !important;
+  --color: var(--appza-sort-button-text-color, #111827) !important;
   --border-width: 0 !important;
   --padding-start: 4px !important;
   --padding-end: 4px !important;
@@ -4105,12 +4105,12 @@
   margin: 0 !important;
   text-transform: none !important;
   font-weight: 500 !important;
-  font-size: 0.85rem !important;
+  font-size: var(--appza-sort-button-text-size, 0.85rem) !important;
 }
 .appza-renderer-ss[data-slug="fc-space-post-toolbar"] [data-child-index="1"] ion-button::part(native) {
   background: transparent !important;
   border: 0 !important;
-  color: #111827 !important;
+  color: var(--appza-sort-button-text-color, #111827) !important;
 }
 
 /* fc-tab-placeholder */
@@ -4121,16 +4121,16 @@
   justify-content: center;
   gap: 8px;
   padding: 48px 16px;
-  color: #6b7280;
+  color: var(--appza-card-text-color, #6b7280);
   background: #f3f4f6;
 }
 .appza-renderer-ss[data-slug="fc-tab-placeholder"] ion-icon {
-  font-size: 40px;
-  color: #9ca3af;
+  font-size: var(--appza-card-icon-size, 40px);
+  color: var(--appza-card-icon-color, #9ca3af);
 }
 .appza-renderer-ss[data-slug="fc-tab-placeholder"] [data-child-index="1"] {
-  font-size: 0.9rem;
-  color: #6b7280;
+  font-size: var(--appza-align-size, 0.9rem);
+  color: var(--appza-align-color, #6b7280);
   text-align: center;
 }
 
@@ -4680,8 +4680,8 @@
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   padding: 12px;
-  background: #ffffff;
-  border-bottom: 1px solid #eef1f4;
+  background: var(--appza-list-bg-color, #ffffff);
+  border-bottom: 1px solid var(--appza-list-border-color, #eef1f4);
 }
 .appza-renderer-appzet-list[data-slug="fc-space-links"]::-webkit-scrollbar,
 .appza-renderer-appzet[data-slug="fc-space-links"]::-webkit-scrollbar { display: none; }
@@ -4701,7 +4701,7 @@
   --padding-start: 14px;
   --padding-end: 14px;
   height: 34px;
-  font-size: 0.85rem;
+  font-size: var(--appza-card-text-size, 0.85rem);
   font-weight: var(--appza-font-weight, 500);
   text-transform: none;
   margin: 0;
@@ -4737,7 +4737,7 @@
   font-weight: 600;
   letter-spacing: 0.01em;
   text-transform: uppercase;
-  font-size: 0.75rem;
+  font-size: var(--appza-action-button-text-size, 0.75rem);
   width: 100%;
   margin: 0;
   white-space: nowrap;
@@ -5915,7 +5915,7 @@
   flex: 0 0 auto;
 }
 .appza-renderer-ss[data-slug="fc-documents-search"] ion-icon {
-  font-size: 20px;
+  font-size: var(--appza-card-icon-size, 20px);
   color: var(--appza-search-icon-color, #7c8798);
 }
 .appza-renderer-ss[data-slug="fc-documents-search"] [data-child-index="1"] {
@@ -5925,14 +5925,14 @@
 .appza-renderer-ss[data-slug="fc-documents-search"] ion-input {
   --background: transparent;
   --color: var(--appza-search-text-color, #1f2937);
-  --placeholder-color: #8b94a3;
+  --placeholder-color: var(--appza-card-placeholder-color, #8b94a3);
   --placeholder-opacity: 1;
   --padding-start: 0;
   --padding-end: 0;
   --border-width: 0;
   --highlight-height: 0;
   --min-height: 0;
-  font-size: 0.95rem;
+  font-size: var(--appza-card-text-size, 0.95rem);
   margin: 0;
 }
 
@@ -5948,7 +5948,7 @@
   flex-direction: column;
   align-items: stretch;
   background: var(--appza-card-bg-color, #ffffff);
-  border: 1px solid #e6eaf0;
+  border: 1px solid var(--appza-card-border-color, #e6eaf0);
   border-radius: var(--appza-card-radius, 8px);
   box-shadow: var(--appza-card-shadow, none);
   overflow: hidden;
@@ -5968,7 +5968,7 @@
 }
 .appza-renderer-ss[data-slug="fc-document-card"] [data-child-index="1"] ion-text {
   display: block;
-  font-size: 0.85rem;
+  font-size: var(--appza-meta-size, 0.85rem);
   color: var(--appza-meta-color, #6b7280);
 }
 .appza-renderer-ss[data-slug="fc-document-card"] .appza-renderer-ss-child:nth-child(n + 3) {
@@ -5989,7 +5989,7 @@
   height: 52px;
   width: 100%;
   margin: 0;
-  font-size: 0.9rem;
+  font-size: var(--appza-card-text-size, 0.9rem);
   font-weight: 400;
   text-transform: none;
   letter-spacing: 0;
@@ -6001,13 +6001,13 @@
   color: var(--appza-file-row-color, #1f2937);
 }
 .appza-renderer-ss[data-slug="fc-document-card"] ion-button ion-icon[slot="start"] {
-  font-size: 20px;
+  font-size: var(--appza-card-icon-size, 20px);
   color: var(--appza-file-icon-color, #6b7280);
   margin-inline-end: 12px;
   flex: 0 0 auto;
 }
 .appza-renderer-ss[data-slug="fc-document-card"] ion-button ion-icon.appza-icon-end {
-  font-size: 19px;
+  font-size: var(--appza-card-icon-size, 19px);
   color: var(--appza-download-icon-color, #4b5563);
   margin-inline-start: auto;
   flex: 0 0 auto;
@@ -6033,7 +6033,7 @@
   margin-bottom: 14px;
 }
 .appza-renderer-ss[data-slug="fc-documents-empty"] ion-icon {
-  font-size: 24px;
+  font-size: var(--appza-card-icon-size, 24px);
   color: var(--appza-icon-color, #6b7280);
 }
 .appza-renderer-ss[data-slug="fc-documents-empty"] [data-child-index="1"] ion-text {
@@ -6078,7 +6078,7 @@
   border-radius: 50%;
 }
 .appza-renderer-ss[data-slug="fc-document-fab"] ion-button ion-icon {
-  font-size: 26px;
+  font-size: var(--appza-card-icon-size, 26px);
   color: var(--appza-fab-icon-color, #ffffff);
 }
 
@@ -6100,7 +6100,7 @@
   --padding-end: 4px;
   margin: 0;
   height: 34px;
-  font-size: 0.8rem;
+  font-size: var(--appza-card-text-size, 0.8rem);
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -6163,7 +6163,7 @@
   background: var(--appza-field-bg-color, #ffffff);
   border: 1px solid var(--appza-field-border-color, #d8dee9);
   border-radius: var(--appza-field-radius, 8px);
-  font-size: 0.95rem;
+  font-size: var(--appza-card-text-size, 0.95rem);
   margin: 0;
 }
 .appza-renderer-ss[data-slug="fc-add-document-fields"] ion-textarea {
@@ -6307,7 +6307,7 @@
   --padding-end: 10px;
   height: var(--appza-chip-height, 22px);
   margin: 0;
-  font-size: 0.72rem;
+  font-size: var(--appza-card-text-size, 0.72rem);
   font-weight: 500;
   text-transform: none;
   letter-spacing: 0;
@@ -6361,7 +6361,7 @@
   justify-content: flex-start;
 }
 .appza-renderer-ss[data-slug="fc-add-document-schedule"] ion-icon {
-  font-size: 20px;
+  font-size: var(--appza-card-icon-size, 20px);
   color: var(--appza-icon-color, #2b6cf6);
 }
 .appza-renderer-ss[data-slug="fc-add-document-schedule"] ion-button {
@@ -6373,7 +6373,7 @@
   --padding-end: 0;
   margin: 0;
   height: 24px;
-  font-size: 0.95rem;
+  font-size: var(--appza-card-text-size, 0.95rem);
   font-weight: 500;
   text-transform: none;
   letter-spacing: 0;
@@ -6686,7 +6686,7 @@
 .appza-renderer-appzet-list[data-slug="fc-media-tabs"],
 .appza-renderer-appzet[data-slug="fc-media-tabs"] {
   display: block;
-  background: #f3f4f6;
+  background: var(--appza-list-bg-color, #f3f4f6);
   padding: var(--appza-row-padding, 12px 16px 4px 16px);
 }
 .appza-renderer-ss[data-slug="fc-media-tabs"] {
@@ -6718,7 +6718,7 @@
   margin: 0 !important;
   text-transform: none !important;
   font-weight: var(--appza-font-weight, 600) !important;
-  font-size: 0.85rem !important;
+  font-size: var(--appza-card-text-size, 0.85rem) !important;
   letter-spacing: 0 !important;
 }
 /* wp-admin paints a border on .button hosts in the simulator; reset host and ::part(native) */
@@ -6748,7 +6748,7 @@
   grid-template-columns: repeat(var(--appza-grid-columns, 2), minmax(0, 1fr));
   gap: var(--appza-tile-gap, 10px);
   padding: var(--appza-row-padding, 12px 16px 16px 16px);
-  background: #f3f4f6;
+  background: var(--appza-list-bg-color, #f3f4f6);
 }
 .appza-renderer-appzet-list[data-slug="fc-media-tile"] .appza-renderer-appzet {
   min-width: 0;
@@ -6813,7 +6813,7 @@
   flex-direction: column;
   gap: var(--appza-row-gap, 10px);
   padding: var(--appza-row-padding, 12px 16px 16px 16px);
-  background: #f3f4f6;
+  background: var(--appza-list-bg-color, #f3f4f6);
 }
 .appza-renderer-ss[data-slug="fc-media-audio-row"],
 .appza-renderer-ss[data-slug="fc-media-audio-row"] .appza-renderer-ss-child {
@@ -7091,7 +7091,7 @@ audio.appza-video-embed-native {
 }
 .appza-renderer-ss[data-slug="fc-comment-row"] [data-child-index="2"] {
   grid-area: time;
-  font-size: 0.7rem;
+  font-size: var(--appza-time-size, 0.7rem);
   color: var(--appza-meta-color, #6b7280);
   padding-left: 12px;
 }
@@ -7141,7 +7141,7 @@ audio.appza-video-embed-native {
   background: transparent;
 }
 .appza-renderer-ss[data-slug="chat-appbar-shell"] ion-button ion-icon {
-  font-size: 22px;
+  font-size: var(--appza-card-icon-size, 22px);
   color: var(--appza-icon-color, #1b1c1f);
 }
 .appza-renderer-ss[data-slug="chat-appbar-shell"] ion-avatar {
@@ -7528,7 +7528,7 @@ audio.appza-video-embed-native {
   background: var(--appza-send-active-bg-color, #4c5fdf);
 }
 .appza-renderer-ss[data-slug="fc-chat-input"] ion-button ion-icon {
-  font-size: 20px;
+  font-size: var(--appza-card-icon-size, 20px);
   color: var(--appza-send-icon-color, #ffffff);
 }
 
@@ -8101,35 +8101,35 @@ audio.appza-video-embed-native {
 [data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-leaderboard-tabs"],
 [data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-leader-row"],
 [data-screen-slug="leaderboard"] .appza-renderer-appzet[data-slug="fc-leaderboard-empty"] {
-  background: #ffffff;
-  border-left: 1px solid #e1e4eb;
-  border-right: 1px solid #e1e4eb;
+  background: var(--appza-list-bg-color, #ffffff);
+  border-left: 1px solid var(--appza-list-border-color, #e1e4eb);
+  border-right: 1px solid var(--appza-list-border-color, #e1e4eb);
   border-radius: 0;
 }
 
 [data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-leaderboard-profile"] {
   background: var(--appza-card-bg-color, #ffffff);
-  border-top: 1px solid #e1e4eb;
-  border-bottom: 1px solid #e1e4eb;
+  border-top: 1px solid var(--appza-list-border-color, #e1e4eb);
+  border-bottom: 1px solid var(--appza-list-border-color, #e1e4eb);
   border-radius: var(--appza-card-radius, 10px);
   box-shadow: var(--appza-card-shadow, none);
   margin-bottom: 16px;
 }
 
 [data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-level-row"] {
-  border-top: 1px solid #e1e4eb;
+  border-top: 1px solid var(--appza-list-border-color, #e1e4eb);
   border-radius: 10px 10px 0 0;
   padding-top: 6px;
 }
 [data-screen-slug="leaderboard"]
   .appza-renderer-appzet-list[data-slug="fc-level-row"]:not([data-leaderboard-levels-view="more"]) {
-  border-bottom: 1px solid #e1e4eb;
-  border-radius: 10px;
+  border-bottom: 1px solid var(--appza-list-border-color, #e1e4eb);
+  border-radius: var(--appza-list-radius, 10px);
   padding-bottom: 8px;
   margin-bottom: 16px;
 }
 [data-screen-slug="leaderboard"] .appza-renderer-appzet[data-slug="fc-leaderboard-view-all"] {
-  border-bottom: 1px solid #e1e4eb;
+  border-bottom: 1px solid var(--appza-card-border-color, #e1e4eb);
   border-radius: 0 0 10px 10px;
   margin-bottom: 16px;
 }
@@ -8141,7 +8141,7 @@ audio.appza-video-embed-native {
 }
 [data-screen-slug="leaderboard"] .appza-renderer-appzet-list[data-slug="fc-leader-row"],
 [data-screen-slug="leaderboard"] .appza-renderer-appzet[data-slug="fc-leaderboard-empty"] {
-  border-bottom: 1px solid #e1e4eb;
+  border-bottom: 1px solid var(--appza-list-border-color, #e1e4eb);
   border-radius: 0 0 10px 10px;
   padding-bottom: 6px;
 }
@@ -8207,11 +8207,11 @@ audio.appza-video-embed-native {
   height: var(--appza-badge-size, 20px);
   line-height: calc(var(--appza-badge-size, 20px) - 4px);
   border-radius: 999px;
-  border: 2px solid #ffffff;
+  border: 2px solid var(--appza-card-border-color, #ffffff);
   background: var(--appza-badge-bg-color, #0054ea);
   color: var(--appza-badge-text-color, #ffffff);
   text-align: center;
-  font-size: 11px;
+  font-size: var(--appza-card-text-size, 11px);
   font-weight: 700;
   box-sizing: border-box;
 }
@@ -8278,7 +8278,7 @@ audio.appza-video-embed-native {
 }
 .appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[4]"] ion-icon {
   color: var(--appza-trophy-color, #f2e534);
-  font-size: 15px;
+  font-size: var(--appza-card-icon-size, 15px);
   margin-inline-end: 6px;
 }
 .appza-renderer-ss[data-slug="fc-leaderboard-profile"] > [data-appza-primitive-path="children[6]"] {
@@ -8341,12 +8341,12 @@ audio.appza-video-embed-native {
   justify-content: center;
   box-sizing: border-box;
   color: var(--appza-marker-text-color, #525866);
-  font-size: 14px;
+  font-size: var(--appza-card-text-size, 14px);
   font-weight: 500;
 }
 .appza-renderer-ss[data-slug="fc-level-row"] > [data-appza-primitive-path="children[1]"] ion-icon {
   color: var(--appza-lock-color, #525866);
-  font-size: 17px;
+  font-size: var(--appza-card-icon-size, 17px);
 }
 .appza-renderer-ss[data-slug="fc-level-row"] > [data-appza-primitive-path="children[2]"] {
   grid-area: 1 / 2 / 2 / 3;
@@ -8487,7 +8487,7 @@ audio.appza-video-embed-native {
   background: #f6f7fb;
 }
 [data-row-variant] .appza-renderer-ss[data-slug="fc-leader-row"] > [data-appza-primitive-path="children[1]"] {
-  font-size: 9px;
+  font-size: var(--appza-card-text-size, 9px);
   font-weight: 700;
   background: transparent;
   min-width: 0;
@@ -8960,7 +8960,7 @@ audio.appza-video-embed-native {
 }
 [data-screen-slug="search"] .appza-renderer-appzet[data-slug="fc-search-tabs"],
 [data-screen-slug="search"] .appza-renderer-appzet[data-slug="fc-search-scope-tabs"] {
-  border-bottom: 1px solid #e6e8ef;
+  border-bottom: 1px solid var(--appza-card-border-color, #e6e8ef);
 }
 [data-screen-slug="search"]
   .appza-renderer-appzet[data-slug="fc-search-tabs"]:has(
@@ -10939,8 +10939,8 @@ audio.appza-video-embed-native {
   grid-template-rows: auto;
   column-gap: 12px;
   align-items: center;
-  border-top: 1px solid #eef0f4;
-  border-bottom: 1px solid #eef0f4;
+  border-top: 1px solid var(--appza-card-border-color, #eef0f4);
+  border-bottom: 1px solid var(--appza-card-border-color, #eef0f4);
 }
 .appza-renderer-appzet[data-slug="fc-profile-level-bar"] .appza-renderer-ss[data-slug="fc-leaderboard-profile"]::before,
 .appza-renderer-appzet[data-slug="fc-profile-level-bar"] .appza-renderer-ss[data-slug="fc-leaderboard-profile"]::after,
@@ -11263,14 +11263,14 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-profile-comment-card"] [data-child-index="3"] {
   grid-column: 2;
   grid-row: 1;
-  font-size: 13px;
+  font-size: var(--appza-time-size, 13px);
   color: var(--appza-meta-color, #6b7280);
 }
 .appza-renderer-ss[data-slug="fc-profile-comment-card"] [data-child-index="4"] {
   grid-column: 3;
   grid-row: 1;
   display: inline-flex;
-  font-size: 20px;
+  font-size: var(--appza-delete-size, 20px);
   color: var(--appza-meta-color, #6b7280);
   cursor: pointer;
 }
@@ -11278,7 +11278,7 @@ audio.appza-video-embed-native {
   grid-column: 1 / -1;
   grid-row: 2;
   margin-top: 10px;
-  font-size: 15px;
+  font-size: var(--appza-post-size, 15px);
   font-weight: 600;
   line-height: 1.35;
   color: var(--appza-title-color, #0e121b);
@@ -11288,11 +11288,11 @@ audio.appza-video-embed-native {
   grid-row: 3;
   margin-top: 12px;
   padding: 10px 12px;
-  border-radius: 3px;
+  border-radius: var(--appza-message-rendered-radius, 3px);
   background: var(--appza-comment-bg-color, #d9d9d9);
-  font-size: 14px;
+  font-size: var(--appza-message-rendered-size, 14px);
   line-height: 1.5;
-  color: #0e121b;
+  color: var(--appza-message-rendered-color, #0e121b);
 }
 .appza-renderer-ss[data-slug="fc-profile-comment-card"] [data-child-index="0"] p {
   margin: 0;
@@ -11301,8 +11301,8 @@ audio.appza-video-embed-native {
   grid-column: 1 / -1;
   grid-row: 4;
   margin-top: 6px;
-  font-size: 0.8rem;
-  color: #6b7280;
+  font-size: var(--appza-context-size, 0.8rem);
+  color: var(--appza-context-color, #6b7280);
 }
 
 /* Profile About tab */
@@ -11313,22 +11313,22 @@ audio.appza-video-embed-native {
 }
 .appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="0"] {
   display: block;
-  font-size: 1rem;
+  font-size: var(--appza-headline-size, 1rem);
   font-weight: 600;
-  color: #0f172a;
+  color: var(--appza-headline-color, #0f172a);
   margin-bottom: 8px;
 }
 .appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="1"] {
   display: block;
-  font-size: 0.92rem;
+  font-size: var(--appza-bio-size, 0.92rem);
   line-height: 1.55;
-  color: #374151;
+  color: var(--appza-bio-color, #374151);
 }
 .appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="2"] {
   display: block;
   margin-top: 12px;
-  font-size: 0.82rem;
-  color: #6b7280;
+  font-size: var(--appza-stats-size, 0.82rem);
+  color: var(--appza-stats-color, #6b7280);
 }
 .appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="3"] {
   display: block;
@@ -11337,14 +11337,14 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="3"] ion-button {
   margin: 0;
   height: 30px;
-  font-size: 0.85rem;
+  font-size: var(--appza-website-text-size, 0.85rem);
   font-weight: 500;
   text-transform: none;
   letter-spacing: 0;
   --background: transparent;
   --background-hover: transparent;
   --background-activated: transparent;
-  --color: #1d4ed8;
+  --color: var(--appza-website-text-color, #1d4ed8);
   --box-shadow: none;
   --padding-start: 0;
   --padding-end: 0;
@@ -11374,7 +11374,7 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="5"] {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #eef0f4;
+  border-top: 1px solid var(--appza-joined-border-color, #eef0f4);
 }
 .appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="3"] {
   margin-top: 0;
@@ -11396,7 +11396,7 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="6"] ion-button {
   margin: 0;
   height: 30px;
-  font-size: 0.875rem;
+  font-size: var(--appza-meta-text-size, 0.875rem);
   font-weight: 400;
   text-transform: none;
   letter-spacing: 0;
@@ -11405,7 +11405,7 @@ audio.appza-video-embed-native {
   --background-activated: transparent;
   --background-focused: transparent;
   --ripple-color: transparent;
-  --color: #374151;
+  --color: var(--appza-meta-text-color, #374151);
   --box-shadow: none;
   --padding-start: 0;
   --padding-end: 0;
@@ -11413,9 +11413,9 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="5"] ion-icon,
 .appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="6"] ion-icon,
 .appza-renderer-ss[data-slug="fc-profile-about"] [data-child-index="3"] ion-icon {
-  font-size: 16px;
+  font-size: var(--appza-detail-icon-size, 16px);
   margin-right: 8px;
-  color: #2563eb;
+  color: var(--appza-detail-icon-color, #2563eb);
 }
 
 /* Profile details view */
@@ -11505,15 +11505,15 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-basic-profile-information"] ion-input,
 .appza-renderer-ss[data-slug="fc-basic-profile-information"] ion-textarea {
   --background: #ffffff;
-  --color: #111827;
-  --placeholder-color: #9ca3af;
+  --color: var(--appza-card-text-color, #111827);
+  --placeholder-color: var(--appza-card-placeholder-color, #9ca3af);
   --padding-start: 12px;
   --padding-end: 12px;
   --padding-top: 10px;
   --padding-bottom: 10px;
   --border-radius: 8px;
-  font-size: 0.92rem;
-  border: 1px solid #d1d5db;
+  font-size: var(--appza-card-text-size, 0.92rem);
+  border: 1px solid var(--appza-card-border-color, #d1d5db);
   border-radius: 8px;
   min-height: 44px;
 }
@@ -11529,20 +11529,20 @@ audio.appza-video-embed-native {
   display: block;
   padding: 10px 16px;
   background: #ffffff;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--appza-card-border-color, #e5e7eb);
 }
 .appza-renderer-ss[data-slug="fc-save-button"] ion-button {
   margin: 0;
   width: 100%;
   height: 44px;
-  font-size: 0.92rem;
+  font-size: var(--appza-card-text-size, 0.92rem);
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
   --background: #1d4ed8;
   --background-activated: #1e40af;
   --background-hover: #1e40af;
-  --color: #ffffff;
+  --color: var(--appza-card-text-color, #ffffff);
   --border-radius: 8px;
   --box-shadow: none;
 }
@@ -11560,7 +11560,7 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-edit-profile-button"] ion-button {
   margin: 0;
   height: 34px;
-  font-size: 0.85rem;
+  font-size: var(--appza-card-text-size, 0.85rem);
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
@@ -11571,10 +11571,10 @@ audio.appza-video-embed-native {
 }
 .appza-renderer-ss[data-slug="fc-edit-profile-button"]
   [data-child-index="2"] ion-button {
-  --background: #1d4ed8;
+  --background: var(--appza-follow-bg-color, #1d4ed8);
   --background-activated: #1e40af;
   --background-hover: #1e40af;
-  --color: #ffffff;
+  --color: var(--appza-follow-text-color, #ffffff);
 }
 /* Border on host AND ::part(native) — Ionic's own border ignores the CSS vars */
 .appza-renderer-ss[data-slug="fc-edit-profile-button"]
@@ -11590,8 +11590,8 @@ audio.appza-video-embed-native {
   --background: transparent;
   --background-activated: #f1f5f9;
   --background-hover: #f8fafc;
-  --color: #1f2937;
-  border: 1px solid #d1d5db;
+  --color: var(--appza-button-text-color, #1f2937);
+  border: 1px solid var(--appza-button-border-color, #d1d5db);
   border-radius: 8px;
 }
 .appza-renderer-ss[data-slug="fc-edit-profile-button"]
@@ -11638,14 +11638,14 @@ audio.appza-video-embed-native {
   height: 40px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  --color: #2563eb;
-  border-color: #2563eb !important;
+  --color: var(--appza-edit-text-color, #2563eb);
+  border-color: var(--appza-edit-border-color, #2563eb) !important;
 }
 
 .appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="1"] ion-button,
 .appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="3"] ion-button {
-  --color: #2563eb;
-  border-color: #2563eb !important;
+  --color: var(--appza-secondary-button-text-color, #2563eb);
+  border-color: var(--appza-secondary-button-border-color, #2563eb) !important;
 }
 
 .appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="4"],
@@ -11657,20 +11657,20 @@ audio.appza-video-embed-native {
   width: 36px;
   --padding-start: 0;
   --padding-end: 0;
-  --color: #2563eb;
-  border-color: #2563eb !important;
+  --color: var(--appza-notify-text-color, #2563eb);
+  border-color: var(--appza-notify-border-color, #2563eb) !important;
 }
 .appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="4"] ion-icon,
 .appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="5"] ion-icon {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--appza-notify-icon-size, 18px);
 }
 
 .appza-renderer-ss[data-slug="fc-edit-profile-button"] [data-child-index="7"] ion-button {
   --background: transparent;
   --background-activated: #fef2f2;
   --background-hover: #fef2f2;
-  --color: #d92d20;
+  --color: var(--appza-unblock-text-color, #d92d20);
   border: 1px solid #d92d20;
   border-radius: 8px;
 }
@@ -11680,7 +11680,7 @@ audio.appza-video-embed-native {
 }
 .appza-renderer-ss[data-slug="fc-edit-profile-button"] ion-button ion-icon {
   margin-right: 6px;
-  font-size: 16px;
+  font-size: var(--appza-card-icon-size, 16px);
 }
 
 /* Profile tabs — scrolls; active tab marked by data-active */
@@ -11689,8 +11689,8 @@ audio.appza-video-embed-native {
   display: block;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
+  background: var(--appza-list-bg-color, #ffffff);
+  border-bottom: 1px solid var(--appza-list-border-color, #e5e7eb);
 }
 .appza-renderer-appzet-list[data-slug="fc-profile-tabs"]::-webkit-scrollbar,
 .appza-renderer-appzet[data-slug="fc-profile-tabs"]::-webkit-scrollbar { display: none; }
@@ -11714,21 +11714,21 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-profile-tabs"] ion-button {
   margin: 0;
   height: 40px;
-  font-size: 0.9rem;
+  font-size: var(--appza-card-text-size, 0.9rem);
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
   --background: transparent;
   --background-hover: transparent;
   --background-activated: transparent;
-  --color: #6b7280;
+  --color: var(--appza-card-text-color, #6b7280);
   --box-shadow: none;
   --border-radius: 0;
   --padding-start: 10px;
   --padding-end: 10px;
 }
 .appza-renderer-ss[data-slug="fc-profile-tabs"] .appza-renderer-ss-child[data-active="true"] ion-button {
-  --color: #1d4ed8;
+  --color: var(--appza-card-text-color, #1d4ed8);
 }
 
 /* Post detail */
@@ -12235,7 +12235,7 @@ audio.appza-video-embed-native {
   --padding-end: 14px;
   height: 36px;
   margin: 0;
-  font-size: 0.9rem;
+  font-size: var(--appza-button-text-size, 0.9rem);
   font-weight: 500;
   text-transform: none;
   letter-spacing: 0;
@@ -12267,8 +12267,8 @@ audio.appza-video-embed-native {
   display: block;
   margin-top: 4px;
   text-align: right;
-  font-size: 0.78rem;
-  color: #9ca3af;
+  font-size: var(--appza-headline-counter-size, 0.78rem);
+  color: var(--appza-headline-counter-color, #9ca3af);
 }
 
 /* Account cards — :has(> *) collapses a wrapper whose children are all gated off */
@@ -12298,8 +12298,8 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-profile-deactivate"] [data-child-index="1"] {
   display: block;
   margin-top: 4px;
-  font-size: 0.875rem;
-  color: #6b7280;
+  font-size: var(--appza-description-size, 0.875rem);
+  color: var(--appza-description-color, #6b7280);
   line-height: 1.45;
 }
 
@@ -12318,15 +12318,15 @@ audio.appza-video-embed-native {
   display: flex;
   align-items: center;
   padding: 0 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--appza-prefix-border-color, #e5e7eb);
   border-right: 0;
   border-radius: 8px 0 0 8px;
-  background: #f9fafb;
-  color: #6b7280;
+  background: var(--appza-prefix-bg-color, #f9fafb);
+  color: var(--appza-prefix-color, #6b7280);
 }
 .appza-renderer-ss[data-slug="fc-profile-username"] [data-child-index="2"] {
   grid-area: field;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--appza-placeholder-border-color, #e5e7eb);
   border-right: 0;
 }
 .appza-renderer-ss[data-slug="fc-profile-username"] [data-child-index="3"] { grid-area: change; }
@@ -12334,12 +12334,12 @@ audio.appza-video-embed-native {
   margin: 0;
   height: 100%;
   --border-radius: 0 8px 8px 0;
-  --background: #f1f2f4;
+  --background: var(--appza-change-bg-color, #f1f2f4);
   --background-hover: #e6e8ec;
   --background-activated: #e6e8ec;
-  --color: #1f2430;
+  --color: var(--appza-change-text-color, #1f2430);
   --box-shadow: none;
-  font-size: 0.85rem;
+  font-size: var(--appza-change-text-size, 0.85rem);
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
@@ -12350,9 +12350,9 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-profile-password"] [data-child-index="6"] {
   display: block;
   margin: 16px 0 6px;
-  font-size: 0.8rem;
+  font-size: var(--appza-field-size, 0.8rem);
   font-weight: 600;
-  color: #374151;
+  color: var(--appza-field-color, #374151);
 }
 .appza-renderer-ss[data-slug="fc-profile-password"] [data-child-index="8"] ion-button,
 .appza-renderer-ss[data-slug="fc-profile-deactivate"] [data-child-index="2"] ion-button {
@@ -12366,15 +12366,15 @@ audio.appza-video-embed-native {
   letter-spacing: 0;
 }
 .appza-renderer-ss[data-slug="fc-profile-password"] [data-child-index="8"] ion-button {
-  --background: #4c5fdf;
-  --color: #ffffff;
+  --background: var(--appza-save-bg-color, #4c5fdf);
+  --color: var(--appza-save-text-color, #ffffff);
 }
 .appza-renderer-ss[data-slug="fc-profile-deactivate"] [data-child-index="2"] ion-button {
   --background: transparent;
   --border-width: 1px;
   --border-style: solid;
-  --border-color: #d1d5db;
-  --color: #4c5fdf;
+  --border-color: var(--appza-button-border-color, #d1d5db);
+  --color: var(--appza-button-text-color, #4c5fdf);
 }
 
 /* Additional information — card chrome on each group div, not the root */
@@ -12686,14 +12686,14 @@ select.appza-profile-fields-input[multiple] {
 .appza-renderer-ss[data-slug="fc-members-toolbar"] ion-input {
   --background: transparent;
   --color: var(--appza-search-text-color, #1f2937);
-  --placeholder-color: #6b6b6b;
+  --placeholder-color: var(--appza-card-placeholder-color, #6b6b6b);
   --placeholder-opacity: 1;
   --padding-start: 2px;
   --padding-end: 6px;
   --border-width: 0;
   --highlight-height: 0;
   --min-height: 0;
-  font-size: 0.95rem;
+  font-size: var(--appza-card-text-size, 0.95rem);
   margin: 0;
 }
 .appza-renderer-ss[data-slug="fc-members-toolbar"] [data-child-index="2"] {
@@ -12707,7 +12707,7 @@ select.appza-profile-fields-input[multiple] {
   min-width: 148px;
   text-transform: none;
   letter-spacing: 0;
-  font-size: 0.92rem;
+  font-size: var(--appza-sort-text-size, 0.92rem);
   font-weight: 400;
   --background: var(--appza-sort-bg-color, #e4e4e4);
   --background-hover: var(--appza-sort-bg-color, #e4e4e4);
@@ -12806,7 +12806,7 @@ select.appza-profile-fields-input[multiple] {
   --color: var(--appza-menu-color, #555555);
   --padding-start: 0;
   --padding-end: 0;
-  font-size: 18px;
+  font-size: var(--appza-menu-text-size, 18px);
 }
 .appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="2"] {
   color: var(--appza-name-color, #111111);
@@ -12821,16 +12821,16 @@ select.appza-profile-fields-input[multiple] {
 .appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="3"],
 .appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="9"] {
   color: var(--appza-meta-color, #6b6b6b);
-  font-size: 12px;
+  font-size: var(--appza-meta-size, 12px);
   line-height: 1.35;
 }
 .appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="9"] {
-  font-size: 11px;
+  font-size: var(--appza-joined-size, 11px);
   margin-top: 1px;
 }
 .appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="4"] {
   color: var(--appza-headline-color, #555555);
-  font-size: 12px;
+  font-size: var(--appza-headline-size, 12px);
   line-height: 1.35;
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -12845,10 +12845,10 @@ select.appza-profile-fields-input[multiple] {
   height: auto;
   min-height: 0;
   padding: 1px 6px;
-  font-size: 11px;
+  font-size: var(--appza-status-badge-text-size, 11px);
   font-weight: 500;
-  --border-radius: 3px;
-  border-radius: 3px;
+  --border-radius: var(--appza-status-badge-radius, 3px);
+  border-radius: var(--appza-status-badge-radius, 3px);
 }
 .appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="5"] ion-chip {
   --background: var(--appza-badge-bg-color, #e5e5e5);
@@ -13292,12 +13292,12 @@ select.appza-profile-fields-input[multiple] {
 .appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="0"] {
   grid-area: cal;
   display: inline-flex;
-  font-size: 16px;
+  font-size: var(--appza-calendar-size, 16px);
   color: var(--appza-accent-color, #2563eb);
 }
 .appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="1"] {
   grid-area: when;
-  font-size: 12px;
+  font-size: var(--appza-scheduled-for-label-size, 12px);
   color: var(--appza-accent-color, #2563eb);
 }
 .appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="2"] {
@@ -13309,7 +13309,7 @@ select.appza-profile-fields-input[multiple] {
   grid-area: name;
   align-self: end;
   margin-top: 8px;
-  font-size: 13px;
+  font-size: var(--appza-author-name-size, 13px);
   font-weight: 600;
   line-height: 1.2;
   color: var(--appza-title-color, #111827);
@@ -13320,7 +13320,7 @@ select.appza-profile-fields-input[multiple] {
 .appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="4"] {
   grid-area: space;
   align-self: start;
-  font-size: 11px;
+  font-size: var(--appza-space-size, 11px);
   line-height: 1.2;
   color: var(--appza-muted-color, #6b7280);
   overflow: hidden;
@@ -13336,7 +13336,7 @@ select.appza-profile-fields-input[multiple] {
 }
 .appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="6"] {
   grid-area: body;
-  font-size: 12px;
+  font-size: var(--appza-excerpt-size, 12px);
   color: var(--appza-muted-color, #6b7280);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -13356,7 +13356,7 @@ select.appza-profile-fields-input[multiple] {
   margin-top: 14px;
   margin-left: 16px;
   display: inline-flex;
-  font-size: 22px;
+  font-size: var(--appza-delete-size, 22px);
   color: var(--appza-accent-color, #2563eb);
   cursor: pointer;
 }
@@ -13364,12 +13364,12 @@ select.appza-profile-fields-input[multiple] {
 .appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="8"] ion-button {
   --border-width: 0;
   --box-shadow: none;
-  --border-radius: 4px;
+  --border-radius: var(--appza-action-button-radius, 4px);
   --padding-start: 14px;
   --padding-end: 14px;
   height: 26px;
   margin: 0;
-  font-size: 14px;
+  font-size: var(--appza-action-button-text-size, 14px);
   font-weight: 500;
   text-transform: none;
   letter-spacing: 0;
@@ -13385,7 +13385,7 @@ select.appza-profile-fields-input[multiple] {
 }
 .appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="8"] ion-button {
   --background: var(--appza-accent-color, #2563eb);
-  --color: #ffffff;
+  --color: var(--appza-publish-text-color, #ffffff);
 }
 
 /* A data-bound app bar's ⋯ waits for its row: menu items gate on it */
@@ -13466,7 +13466,7 @@ select.appza-profile-fields-input[multiple] {
   grid-area: name;
   align-self: end;
   margin-top: 32px;
-  font-size: 13px;
+  font-size: var(--appza-author-size, 13px);
   font-weight: 600;
   line-height: 1.25;
   color: var(--appza-name-color, #111827);
@@ -13478,7 +13478,7 @@ select.appza-profile-fields-input[multiple] {
   grid-area: time;
   align-self: start;
   margin-bottom: 16px;
-  font-size: 11px;
+  font-size: var(--appza-time-size, 11px);
   line-height: 1.25;
   color: var(--appza-meta-color, #6b7280);
 }
@@ -13487,7 +13487,7 @@ select.appza-profile-fields-input[multiple] {
   align-self: start;
   margin: 14px 16px 0 0;
   display: inline-flex;
-  font-size: 20px;
+  font-size: var(--appza-more-size, 20px);
   color: var(--appza-name-color, #111827);
   cursor: pointer;
 }
@@ -13495,14 +13495,14 @@ select.appza-profile-fields-input[multiple] {
   grid-area: type;
   padding: 14px 16px 0;
   border-top: 1px solid var(--appza-divider-color, #e5e7eb);
-  font-size: 11px;
+  font-size: var(--appza-type-size, 11px);
   font-weight: 500;
   color: var(--appza-type-color, #4f5bd5);
 }
 .appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="5"] {
   grid-area: body;
   padding: 6px 16px 0;
-  font-size: 11px;
+  font-size: var(--appza-excerpt-size, 11px);
   line-height: 1.3;
   color: var(--appza-meta-color, #6b7280);
   overflow: hidden;
@@ -13513,8 +13513,8 @@ select.appza-profile-fields-input[multiple] {
   grid-area: media;
   padding: 6px 16px 0;
   display: inline-flex;
-  font-size: 15px;
-  color: #374151;
+  font-size: var(--appza-media-size, 15px);
+  color: var(--appza-media-color, #374151);
 }
 .appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="7"] {
   grid-area: chip;
@@ -13532,8 +13532,8 @@ select.appza-profile-fields-input[multiple] {
   min-height: 0;
   margin: 0;
   padding: 2px 5px;
-  border-radius: 3px;
-  font-size: 10px;
+  border-radius: var(--appza-report-count-radius, 3px);
+  font-size: var(--appza-report-count-text-size, 10px);
   font-weight: 500;
   line-height: 1.3;
 }
@@ -13571,7 +13571,7 @@ select.appza-profile-fields-input[multiple] {
 .appza-renderer-ss[data-slug="fc-course-lesson-header"] > [data-child-index="0"] {
   grid-area: pos;
   align-self: center;
-  font-size: 15px;
+  font-size: var(--appza-position-size, 15px);
   color: var(--appza-meta-color, #4b5563);
 }
 .appza-renderer-ss[data-slug="fc-course-lesson-header"] > [data-child-index="1"],
@@ -13594,20 +13594,20 @@ select.appza-profile-fields-input[multiple] {
   --padding-end: 0 !important;
   --padding-top: 0 !important;
   --padding-bottom: 0 !important;
-  --background: #ffffff !important;
-  --color: #4b5563 !important;
+  --background: var(--appza-nav-bg-color, #ffffff) !important;
+  --color: var(--appza-nav-text-color, #4b5563) !important;
   --box-shadow: none !important;
-  --border-radius: 3px !important;
+  --border-radius: var(--appza-nav-radius, 3px) !important;
 }
 .appza-renderer-ss[data-slug="fc-course-lesson-header"] > [data-child-index="1"] ion-button::part(native),
 .appza-renderer-ss[data-slug="fc-course-lesson-header"] > [data-child-index="2"] ion-button::part(native),
 .appza-renderer-ss[data-slug="fc-course-lesson-header"] > [data-child-index="3"] ion-button::part(native),
 .appza-renderer-ss[data-slug="fc-course-lesson-header"] > [data-child-index="4"] ion-button::part(native) {
-  border: 1px solid #c4c7cf !important;
-  color: #4b5563 !important;
+  border: 1px solid var(--appza-nav-border-color, #c4c7cf) !important;
+  color: var(--appza-nav-text-color, #4b5563) !important;
 }
 .appza-renderer-ss[data-slug="fc-course-lesson-header"] > [data-child-index] ion-button ion-icon {
-  font-size: 15px;
+  font-size: var(--appza-card-icon-size, 15px);
   margin: 0;
 }
 .appza-renderer-ss[data-slug="fc-course-lesson-header"] > [data-child-index="2"],
@@ -13646,11 +13646,11 @@ select.appza-profile-fields-input[multiple] {
   height: 32px !important;
   min-height: 32px !important;
   margin: 0 !important;
-  --border-radius: 3px !important;
+  --border-radius: var(--appza-progress-button-radius, 3px) !important;
   --box-shadow: none !important;
-  --background: #ffffff !important;
+  --background: var(--appza-progress-button-bg-color, #ffffff) !important;
   --color: var(--appza-button-bg-color, rgb(74, 95, 223)) !important;
-  font-size: 14px !important;
+  font-size: var(--appza-progress-button-text-size, 14px) !important;
   font-weight: 400 !important;
   letter-spacing: 0.3px !important;
 }
@@ -13662,16 +13662,16 @@ select.appza-profile-fields-input[multiple] {
 .appza-renderer-ss[data-slug="fc-course-lesson-header"] > [data-child-index="8"] ion-button {
   --background: var(--appza-button-bg-color, rgb(74, 95, 223)) !important;
   --background-activated: rgb(58, 76, 190) !important;
-  --color: #ffffff !important;
+  --color: var(--appza-completed-text-color, #ffffff) !important;
   --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
 }
 .appza-renderer-ss[data-slug="fc-course-lesson-header"] > [data-child-index="8"] ion-button::part(native) {
   border: 0 !important;
-  color: #ffffff !important;
+  color: var(--appza-completed-text-color, #ffffff) !important;
 }
 .appza-renderer-ss[data-slug="fc-course-lesson-header"] > [data-child-index="7"] ion-button ion-icon,
 .appza-renderer-ss[data-slug="fc-course-lesson-header"] > [data-child-index="8"] ion-button ion-icon {
-  font-size: 16px;
+  font-size: var(--appza-complete-button-icon-size, 16px);
   margin-right: 5px;
 }
 
@@ -13699,9 +13699,9 @@ select.appza-profile-fields-input[multiple] {
   border-radius: var(--appza-card-radius, 4px);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
   padding: 16px;
-  font-size: 15px;
+  font-size: var(--appza-content-size, 15px);
   line-height: 1.6;
-  color: #374151;
+  color: var(--appza-content-color, #374151);
 }
 .appza-renderer-ss[data-slug="fc-course-lesson-body"] > [data-child-index="1"] .appza-rich-text-clamped {
   display: block;
@@ -13728,9 +13728,9 @@ select.appza-profile-fields-input[multiple] {
   height: 64px;
   margin-top: 40px;
   border-radius: 50%;
-  background: #e3e1e2;
-  color: #6b6b6b;
-  font-size: 28px;
+  background: var(--appza-lock-bg-color, #e3e1e2);
+  color: var(--appza-lock-color, #6b6b6b);
+  font-size: var(--appza-lock-size, 28px);
 }
 .appza-renderer-ss[data-slug="fc-course-lesson-body"] > [data-child-index="3"],
 .appza-renderer-ss[data-slug="fc-course-lesson-body"] > [data-child-index="4"] {
@@ -13740,14 +13740,14 @@ select.appza-profile-fields-input[multiple] {
 }
 .appza-renderer-ss[data-slug="fc-course-lesson-body"] > [data-child-index="3"] {
   margin-top: -4px;
-  font-size: 16px;
+  font-size: var(--appza-lock-title-size, 16px);
   font-weight: 700;
-  color: #000000;
+  color: var(--appza-lock-title-color, #000000);
 }
 .appza-renderer-ss[data-slug="fc-course-lesson-body"] > [data-child-index="4"] {
   margin-top: -10px;
-  font-size: 14px;
-  color: #6b6b6b;
+  font-size: var(--appza-lock-message-size, 14px);
+  color: var(--appza-lock-message-color, #6b6b6b);
 }
 .appza-renderer-ss[data-slug="fc-course-lesson-body"] > [data-child-index="5"] {
   align-self: center;
@@ -13758,11 +13758,11 @@ select.appza-profile-fields-input[multiple] {
   margin: 0 !important;
   --padding-start: 18px !important;
   --padding-end: 18px !important;
-  --border-radius: 3px !important;
+  --border-radius: var(--appza-back-radius, 3px) !important;
   --box-shadow: none !important;
-  --background: #ffffff !important;
+  --background: var(--appza-back-bg-color, #ffffff) !important;
   --color: var(--appza-button-bg-color, rgb(74, 95, 223)) !important;
-  font-size: 14px !important;
+  font-size: var(--appza-back-text-size, 14px) !important;
   font-weight: 400 !important;
   text-transform: none !important;
 }
