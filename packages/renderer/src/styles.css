@@ -10985,41 +10985,41 @@ audio.appza-video-embed-native {
     ".      c1num   c2num   c3num   ."
     ".      c1lbl   c2lbl   c3lbl   ."
     ".      badge1  badge2  badge3  .";
-  grid-template-rows: 128px auto auto auto auto auto auto;
-  background: #ffffff;
-  padding-bottom: 14px;
-  margin-bottom: 8px;
+  grid-template-rows: var(--appza-cover-height, 128px) auto auto auto auto auto auto;
+  background: var(--appza-card-bg-color, #ffffff);
+  padding-bottom: var(--appza-card-padding-bottom, 14px);
+  margin-bottom: var(--appza-card-margin-bottom, 8px);
 }
 /* Band on the grid area: the cover child is absent without a cover */
 .appza-renderer-ss[data-slug="fc-basic-profile"] {
-  background-image: linear-gradient(135deg, #e2e8f0, #cbd5e1);
-  background-size: 100% 128px;
+  background-image: linear-gradient(135deg, var(--appza-cover-start-color, #e2e8f0), var(--appza-cover-end-color, #cbd5e1));
+  background-size: 100% var(--appza-cover-height, 128px);
   background-repeat: no-repeat;
 }
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="0"] {
   grid-area: cover;
-  height: 128px;
+  height: var(--appza-cover-height, 128px);
   overflow: hidden;
 }
 /* Style the ion-img host — the <img> is in its shadow root */
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="0"] ion-img,
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="0"] img {
   width: 100%;
-  height: 128px;
+  height: var(--appza-cover-height, 128px);
   object-fit: cover;
   display: block;
 }
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="1"] {
   position: absolute;
   left: 16px;
-  top: 90px;
+  top: calc(var(--appza-cover-height, 128px) - 38px);
   width: 76px;
   height: 76px;
   margin: 0;
   border-radius: 50%;
-  border: 3px solid #ffffff;
+  border: 3px solid var(--appza-avatar-ring-color, #ffffff);
   overflow: hidden;
-  background: #e5e7eb;
+  background: var(--appza-avatar-bg-color, #e5e7eb);
   z-index: 2;
 }
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="1"] ion-avatar,
@@ -11062,23 +11062,23 @@ audio.appza-video-embed-native {
   grid-area: verify;
   align-self: end;
   justify-self: start;
-  font-size: 1rem;
+  font-size: var(--appza-verified-icon-size, 1rem);
   color: #2563eb;
   padding-bottom: 2px;
 }
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="10"] {
   position: absolute;
   left: 68px;
-  top: 142px;
+  top: calc(var(--appza-cover-height, 128px) + 14px);
   z-index: 3;
   min-width: 22px;
   height: 22px;
   padding: 0 5px;
   border-radius: 11px;
-  border: 2px solid #ffffff;
+  border: 2px solid var(--appza-level-badge-ring-color, #ffffff);
   background: #2563eb;
   color: #ffffff;
-  font-size: 0.72rem;
+  font-size: var(--appza-level-badge-text-size, 0.72rem);
   font-weight: 700;
   line-height: 18px;
   text-align: center;
@@ -11116,7 +11116,7 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="6"] ion-button {
   margin: 0;
   height: 20px;
-  font-size: 1rem;
+  font-size: var(--appza-count-size, 1rem);
   font-weight: 700;
   text-transform: none;
   letter-spacing: 0;
@@ -11124,7 +11124,7 @@ audio.appza-video-embed-native {
   --background-hover: transparent;
   --background-activated: transparent;
   --box-shadow: none;
-  --color: #0f172a;
+  --color: var(--appza-count-color, #0f172a);
   --padding-start: 0;
   --padding-end: 0;
   --ripple-color: transparent;
@@ -11134,8 +11134,8 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="7"],
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="8"],
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="9"] {
-  font-size: 0.8rem;
-  color: #6b7280;
+  font-size: var(--appza-count-label-size, 0.8rem);
+  color: var(--appza-count-label-color, #6b7280);
   line-height: 1.2;
   padding-bottom: 2px;
 }
@@ -11157,10 +11157,10 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="14"] ion-chip,
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="15"] ion-chip {
   margin: 0;
-  height: 26px;
-  font-size: 0.8rem;
+  height: var(--appza-chip-height, 26px);
+  font-size: var(--appza-chip-text-size, 0.8rem);
   font-weight: 500;
-  border-radius: 6px;
+  border-radius: var(--appza-chip-radius, 6px);
 }
 
 /* Cover and avatar controls (own profile) */
@@ -11173,19 +11173,19 @@ audio.appza-video-embed-native {
 }
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="16"] ion-button {
   margin: 0;
-  width: 32px;
-  height: 32px;
+  width: var(--appza-cover-menu-button-size, 32px);
+  height: var(--appza-cover-menu-button-size, 32px);
   --padding-start: 0;
   --padding-end: 0;
   --background: transparent;
   --background-hover: rgba(0, 0, 0, 0.18);
   --background-activated: rgba(0, 0, 0, 0.28);
   --box-shadow: none;
-  --color: #ffffff;
+  --color: var(--appza-cover-menu-icon-color, #ffffff);
 }
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="17"] {
   position: absolute;
-  top: 46px;
+  top: calc(var(--appza-cover-height, 128px) / 2 - 18px);
   left: 0;
   right: 0;
   z-index: 3;
@@ -11194,25 +11194,25 @@ audio.appza-video-embed-native {
 }
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="17"] ion-button {
   margin: 0;
-  height: 34px;
-  font-size: 0.85rem;
+  height: var(--appza-upload-button-height, 34px);
+  font-size: var(--appza-upload-button-text-size, 0.85rem);
   font-weight: 500;
   text-transform: none;
   letter-spacing: 0;
-  border-radius: 6px;
-  --border-radius: 6px;
-  --background: rgba(31, 36, 48, 0.55);
+  border-radius: var(--appza-upload-button-radius, 6px);
+  --border-radius: var(--appza-upload-button-radius, 6px);
+  --background: var(--appza-upload-button-bg-color, rgba(31, 36, 48, 0.55));
   --background-hover: rgba(31, 36, 48, 0.68);
   --background-activated: rgba(31, 36, 48, 0.72);
   --box-shadow: none;
-  --color: #ffffff;
+  --color: var(--appza-upload-button-text-color, #ffffff);
   --padding-start: 12px;
   --padding-end: 14px;
 }
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="18"] {
   position: absolute;
   left: 18px;
-  top: 136px;
+  top: calc(var(--appza-cover-height, 128px) + 8px);
   z-index: 4;
 }
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="18"] ion-button {
@@ -11222,16 +11222,16 @@ audio.appza-video-embed-native {
   --border-radius: 50%;
   --padding-start: 0;
   --padding-end: 0;
-  --background: #2563eb;
+  --background: var(--appza-camera-button-bg-color, #2563eb);
   --background-hover: #1d4ed8;
   --background-activated: #1d4ed8;
   --box-shadow: none;
-  --color: #ffffff;
-  border: 2px solid #ffffff;
+  --color: var(--appza-camera-icon-color, #ffffff);
+  border: 2px solid var(--appza-camera-ring-color, #ffffff);
   border-radius: 50%;
 }
 .appza-renderer-ss[data-slug="fc-basic-profile"] [data-child-index="18"] ion-icon {
-  font-size: 14px;
+  font-size: var(--appza-camera-icon-size, 14px);
 }
 
 /* Profile comment card — children placed by index */
