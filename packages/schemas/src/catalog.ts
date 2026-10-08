@@ -103,6 +103,7 @@ const PropertiesSchemaEntrySchema = z
     presets: z.array(z.number()).optional(),
     unit: z.string().optional(),
     hint: z.string().optional(),
+    style: z.boolean().optional(),
   })
   .passthrough();
 

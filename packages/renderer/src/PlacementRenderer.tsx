@@ -1398,10 +1398,17 @@ export function PlacementRenderer({
       for (const alias of aliases) styleVars[alias] = s;
     }
   };
+  // A setting marked `style` feeds the stylesheet: its block default applies, an override wins.
+  const styleKnobs = new Set(STYLE_KNOBS);
+  for (const entry of (ss.properties_schema ?? []) as PropertiesSchemaEntry[]) {
+    if (!entry || entry.style !== true || typeof entry.name !== 'string') continue;
+    styleKnobs.add(entry.name);
+    stampVar(entry.name, entry.default);
+  }
   if (styleBag && typeof styleBag === 'object' && !Array.isArray(styleBag)) {
     for (const [k, v] of Object.entries(styleBag as Record<string, unknown>)) stampVar(k, v);
   }
-  for (const k of STYLE_KNOBS) {
+  for (const k of styleKnobs) {
     if (k in dpoForStyle) stampVar(k, dpoForStyle[k]);
   }
 
