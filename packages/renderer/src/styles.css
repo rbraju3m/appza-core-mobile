@@ -97,41 +97,41 @@
 .appza-renderer-ss[data-slug="fc-signin-info"] {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  background: #ffffff;
-  padding: 24px 20px;
+  gap: var(--appza-content-gap, 10px);
+  background: var(--appza-card-bg-color, #ffffff);
+  padding: var(--appza-card-padding, 24px 20px);
   margin: 0 auto;
-  max-width: 340px;
+  max-width: var(--appza-card-max-width, 340px);
   width: 100%;
 }
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="0"],
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="2"] {
-  font-size: 0.9rem;
+  font-size: var(--appza-label-size, 0.9rem);
   font-weight: 600;
-  color: #111827;
+  color: var(--appza-label-color, #111827);
   margin-bottom: -6px;
 }
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="1"] ion-input,
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="3"] ion-input {
-  --background: #ffffff;
-  --color: #0f172a;
-  --placeholder-color: #9ca3af;
+  --background: var(--appza-field-bg-color, #ffffff);
+  --color: var(--appza-field-text-color, #0f172a);
+  --placeholder-color: var(--appza-field-placeholder-color, #9ca3af);
   --placeholder-opacity: 1;
   --padding-start: 14px;
   --padding-end: 14px;
   --padding-top: 12px;
   --padding-bottom: 12px;
   --highlight-height: 0;
-  --border-radius: 6px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
+  --border-radius: var(--appza-field-radius, 6px);
+  border: 1px solid var(--appza-field-border-color, #d1d5db);
+  border-radius: var(--appza-field-radius, 6px);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  font-size: 0.95rem;
-  min-height: 46px;
+  font-size: var(--appza-field-text-size, 0.95rem);
+  min-height: var(--appza-field-height, 46px);
 }
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="1"] ion-input:focus-within,
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="3"] ion-input:focus-within {
-  border-color: #2456f0;
+  border-color: var(--appza-field-focus-color, #2456f0);
   box-shadow: 0 0 0 3px rgba(36, 86, 240, 0.15);
 }
 
@@ -142,8 +142,8 @@
 }
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="5"] ion-text,
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="5"] ion-text > p {
-  color: #dc2626;
-  font-size: 0.85rem;
+  color: var(--appza-forgot-color, #dc2626);
+  font-size: var(--appza-forgot-size, 0.85rem);
   font-weight: 600;
   cursor: pointer;
   margin: 0;
@@ -160,15 +160,15 @@
   --background-hover: #1d47cf;
   --background-activated: #1a3fb8;
   --color: #ffffff;
-  --border-radius: 8px;
+  --border-radius: var(--appza-button-radius, 8px);
   --box-shadow: none;
   --padding-top: 14px;
   --padding-bottom: 14px;
   display: block;
   width: 100%;
-  height: 48px;
+  height: var(--appza-button-height, 48px);
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--appza-signin-button-text-size, 1rem);
   font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
@@ -192,14 +192,14 @@
   content: "";
   display: block;
   height: 1px;
-  background: #d1d5db;
+  background: var(--appza-divider-color, #d1d5db);
   min-height: 1px;
   align-self: center;
 }
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="6"] ion-text,
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="6"] ion-text > p {
-  color: #6b7280;
-  font-size: 0.85rem;
+  color: var(--appza-divider-text-color, #6b7280);
+  font-size: var(--appza-divider-text-size, 0.85rem);
   margin: 0;
   white-space: nowrap;
 }
@@ -217,10 +217,10 @@
   --color-hover: #111827;
   --color-activated: #111827;
   --color-focused: #111827;
-  --border-color: #e5e7eb;
+  --border-color: var(--appza-google-button-border-color, #e5e7eb);
   --border-width: 1px;
   --border-style: solid;
-  --border-radius: 8px;
+  --border-radius: var(--appza-button-radius, 8px);
   --box-shadow: none;
   --padding-top: 14px;
   --padding-bottom: 14px;
@@ -228,16 +228,16 @@
   --ion-color-contrast: #ffffff;
   display: block;
   width: 100%;
-  height: 48px;
+  height: var(--appza-button-height, 48px);
   margin: 0;
-  font-size: 0.98rem;
+  font-size: var(--appza-google-button-text-size, 0.98rem);
   font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
   color: #111827;
 }
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="7"] ion-button ion-icon {
-  font-size: 22px;
+  font-size: var(--appza-google-icon-size, 22px);
   margin-inline-end: 10px;
 }
 
