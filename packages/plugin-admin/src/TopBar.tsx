@@ -249,7 +249,6 @@ export function TopBar({
           </div>
         )}
 
-        <button className="appza-btn">Preview</button>
         <button
           className="appza-btn appza-btn-primary"
           onClick={onBuildApp}
