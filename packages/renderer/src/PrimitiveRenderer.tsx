@@ -14,6 +14,8 @@ import {
   IonList,
   IonRadio,
   IonRadioGroup,
+  IonSegment,
+  IonSegmentButton,
   IonText,
   IonTextarea,
   IonToggle,
@@ -462,6 +464,40 @@ function SeededIonToggle({
   return <IonToggle ref={ref} disabled={disabled} onIonChange={onToggle} />;
 }
 
+/** Holds its own pick so a tap shows at once; a new `value` from state replaces it. */
+function SeededIonSegment({
+  value,
+  options,
+  disabled,
+  onPick,
+}: {
+  value: string;
+  options: SelectOption[];
+  disabled: boolean;
+  onPick?: (value: string) => void;
+}) {
+  const [picked, setPicked] = useState(value);
+  useEffect(() => setPicked(value), [value]);
+  return (
+    <IonSegment
+      value={picked}
+      disabled={disabled}
+      onIonChange={(e) => {
+        const next = e.detail.value === undefined ? '' : String(e.detail.value);
+        if (next === picked) return;
+        setPicked(next);
+        onPick?.(next);
+      }}
+    >
+      {options.map((opt) => (
+        <IonSegmentButton key={opt.value} value={opt.value}>
+          <IonLabel>{opt.label}</IonLabel>
+        </IonSegmentButton>
+      ))}
+    </IonSegment>
+  );
+}
+
 /** Seeded once via ref, not a `value` prop: a re-applied value fights typing, and the save reads the field from the DOM. */
 function SeededIonInput({
   initialValue,
@@ -551,6 +587,7 @@ export const SELF_ACTION_PRIMITIVES: ReadonlySet<string> = new Set([
   // A wrapper click carries no value and fires before the user has typed or flipped anything.
   'ion-textarea',
   'ion-toggle',
+  'ion-segment',
   'appza-chat-composer',
   'appza-post-composer',
   'appza-comment-list',
@@ -798,6 +835,24 @@ export function PrimitiveRenderer({ primitive, overrides, action }: Props) {
           initialChecked={readBoolean(overrides, 'checked')}
           disabled={readBoolean(overrides, 'disabled')}
           onToggle={handleToggle}
+        />
+      );
+    }
+
+    case 'IonSegment': {
+      const handlePick = action
+        ? (value: string) =>
+            dispatch({
+              ...action,
+              item: { ...((action.item as Record<string, unknown> | null | undefined) ?? {}), value },
+            })
+        : undefined;
+      return (
+        <SeededIonSegment
+          value={readString(overrides, 'value') ?? ''}
+          options={readSelectOptions(overrides, 'options')}
+          disabled={readBoolean(overrides, 'disabled')}
+          onPick={handlePick}
         />
       );
     }
