@@ -12,6 +12,7 @@ import {
   tokensToCssVars,
 } from '@appza/renderer';
 import type { Catalog } from '@appza/schemas';
+import { pieceOf, setHighlight, setLabels, setPicked, startPointer, stylingOf, type Highlight, type PieceLabels } from './pointer';
 
 import '@ionic/react/css/core.css';
 import '@appza/renderer/styles.css';
@@ -69,9 +70,12 @@ async function boot() {
   // Core's edit page posts the snapshot with its unsaved form applied; draw that instead.
   window.addEventListener('message', (e: MessageEvent) => {
     if (e.origin !== window.location.origin) return;
-    const msg = e.data as { type?: string; snapshot?: Catalog } | null;
+    const msg = e.data as { type?: string; snapshot?: Catalog; labels?: PieceLabels; highlight?: Highlight } | null;
     if (msg?.type === 'appza:preview-snapshot' && msg.snapshot) draw(msg.snapshot);
+    if (msg?.type === 'appza:preview-labels' && msg.labels) setLabels(msg.labels);
+    if (msg?.type === 'appza:preview-highlight') setHighlight(msg.highlight ?? null);
   });
+  startPointer();
   window.parent.postMessage({ type: 'appza:preview-ready' }, window.location.origin);
 
   // A click names the piece under it, so Core's page can open that piece's settings. Taps still do nothing.
@@ -79,15 +83,11 @@ async function boot() {
     'click',
     (e) => {
       // Top-level pieces carry their AppZet and path; a nested one counts as the piece it sits in.
-      const piece = (e.target as Element | null)?.closest?.('[data-appza-primitive-path]');
+      const piece = pieceOf(e.target as Element | null);
       if (!piece) return;
+      setPicked(piece.el);
       window.parent.postMessage(
-        {
-          type: 'appza:preview-pick',
-          appzet: piece.getAttribute('data-appza-appzet-slug'),
-          block: piece.closest('.appza-renderer-ss')?.getAttribute('data-slug') ?? null,
-          child: Number(piece.getAttribute('data-child-index')),
-        },
+        { type: 'appza:preview-pick', appzet: piece.appzet, block: piece.block, child: piece.child, ...stylingOf(e.target as Element, piece.el) },
         window.location.origin,
       );
     },
