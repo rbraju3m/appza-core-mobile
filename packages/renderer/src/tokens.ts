@@ -29,5 +29,21 @@ export function tokensToCssVars(tokens: unknown): CSSProperties {
     }
   }
 
+  // Every block's look (D118): unset keys stamp nothing, so the stylesheet keeps its own values.
+  const theme = isRecord(tokens.theme) ? tokens.theme : null;
+  if (theme) {
+    for (const key of THEME_COLORS) {
+      const v = theme[key];
+      if (typeof v === 'string' && v.length > 0) out[`--appza-theme-${key}`] = v;
+    }
+    for (const key of THEME_SCALES) {
+      const v = theme[key];
+      if (typeof v === 'number' && Number.isFinite(v) && v >= 0) out[`--appza-theme-${key.replace(/_/g, '-')}`] = String(v);
+    }
+  }
+
   return out as CSSProperties;
 }
+
+const THEME_COLORS = ['surface', 'heading', 'body', 'muted', 'border', 'accent'] as const;
+const THEME_SCALES = ['radius_scale', 'text_scale'] as const;
