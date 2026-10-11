@@ -1398,6 +1398,11 @@ export function PlacementRenderer({
       for (const alias of aliases) styleVars[alias] = s;
     }
   };
+  // The block's design is the base; settings and the AppZet's own values go on top.
+  const blockDesign = ss.design;
+  if (blockDesign && typeof blockDesign === 'object' && !Array.isArray(blockDesign)) {
+    for (const [k, v] of Object.entries(blockDesign as Record<string, unknown>)) stampVar(k, v);
+  }
   // A setting marked `style` feeds the stylesheet: its block default applies, an override wins.
   const styleKnobs = new Set(STYLE_KNOBS);
   for (const entry of (ss.properties_schema ?? []) as PropertiesSchemaEntry[]) {

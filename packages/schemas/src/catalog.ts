@@ -132,6 +132,8 @@ const SuperstructureRowSchema = z
     is_active: z.boolean().optional(),
     // Entered in the Core admin; a variant ships it already merged with its root's. A bad one is dropped, not fatal.
     grid_layout: GridLayoutSchema.nullable().optional().catch(null),
+    // The block's look, style variable → value; a variant ships it merged with its root's.
+    design: z.record(z.unknown()).nullable().optional().catch(null),
   })
   .passthrough();
 
