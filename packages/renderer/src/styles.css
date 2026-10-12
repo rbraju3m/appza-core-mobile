@@ -2631,8 +2631,8 @@
   --padding-end: 0 !important;
   border: 0 !important;
   outline: none !important;
-  height: 48px !important;
-  min-height: 48px !important;
+  height: var(--appza-button-height, 48px) !important;
+  min-height: var(--appza-button-min-height, 48px) !important;
   width: 100% !important;
   margin: 0 !important;
   font-weight: 500 !important;
@@ -2676,7 +2676,7 @@
 }
 .appza-renderer-ss[data-slug="fc-spaces-toolbar"] [data-child-index="0"] {
   display: block;
-  margin: 0 0 12px;
+  margin: var(--appza-search-margin, 0 0 12px);
   position: relative;
 }
 .appza-renderer-ss[data-slug="fc-spaces-toolbar"] [data-child-index="0"] ion-input {
@@ -2691,7 +2691,7 @@
   border: 1px solid var(--appza-search-border-color, var(--appza-theme-border, #e5e7eb));
   border-radius: var(--appza-search-radius, calc(8px * var(--appza-theme-radius-scale, 1)));
   font-size: var(--appza-search-size, calc(0.9rem * var(--appza-theme-text-scale, 1)));
-  min-height: 44px;
+  min-height: var(--appza-search-field-min-height, 44px);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 /* On the wrapper — pseudo-elements don't attach reliably to custom elements. */
@@ -2713,8 +2713,8 @@
   display: flex;
   justify-content: flex-end;
   border-top: 1px solid var(--appza-sort-border-color, var(--appza-theme-border, #e5e7eb));
-  padding-top: 10px;
-  margin: 0 0 4px;
+  padding-top: var(--appza-sort-padding-top, 10px);
+  margin: var(--appza-sort-margin, 0 0 4px);
 }
 .appza-renderer-ss[data-slug="fc-spaces-toolbar"] [data-child-index="1"] ion-button {
   --background: transparent !important;
@@ -2795,7 +2795,7 @@
 .appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="1"] {
   grid-column: 1 / span 2;
   grid-row: 2;
-  padding: 12px 14px 0;
+  padding: var(--appza-title-padding, 12px 14px 0);
   font-weight: 700;
   font-size: var(--appza-title-size, calc(1rem * var(--appza-theme-text-scale, 1)));
   color: var(--appza-title-color, var(--appza-theme-heading, #111827));
@@ -2809,7 +2809,7 @@
 .appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="2"] {
   grid-column: 3;
   grid-row: 2;
-  padding: 12px 14px 0;
+  padding: var(--appza-member-badge-padding, 12px 14px 0);
   align-self: center;
 }
 .appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="2"] ion-chip {
@@ -2821,7 +2821,7 @@
   font-size: var(--appza-member-badge-text-size, calc(0.72rem * var(--appza-theme-text-scale, 1))) !important;
   font-weight: 600 !important;
   margin: 0 !important;
-  padding: 0 8px !important;
+  padding: var(--appza-member-badge-chip-padding, 0 8px) !important;
 }
 
 .appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="3"],
@@ -2829,12 +2829,12 @@
   grid-column: 1;
   grid-row: 3;
   align-self: center;
-  padding: 8px 0 0 14px;
+  padding: var(--appza-meta-padding, 8px 0 0 14px);
   color: var(--appza-meta-icon-color, var(--appza-theme-muted, #6b7280));
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
-  width: 32px;
+  width: var(--appza-meta-width, 32px);
   z-index: 1;
 }
 .appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="3"] ion-icon,
@@ -2848,7 +2848,7 @@
   grid-column: 1;
   grid-row: 3;
   align-self: center;
-  padding: 8px 0 0 40px;
+  padding: var(--appza-meta-padding, 8px 0 0 40px);
   color: var(--appza-meta-color, var(--appza-theme-muted, #6b7280));
   font-size: var(--appza-meta-size, calc(0.82rem * var(--appza-theme-text-scale, 1)));
 }
@@ -2859,7 +2859,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  padding: 8px 6px 0 0;
+  padding: var(--appza-members-padding, 8px 6px 0 0);
 }
 .appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="7"] ion-icon {
   font-size: var(--appza-members-icon-size, 16px);
@@ -2869,7 +2869,7 @@
   grid-column: 3;
   grid-row: 3;
   align-self: center;
-  padding: 8px 14px 0 0;
+  padding: var(--appza-meta8-padding, 8px 14px 0 0);
   font-size: var(--appza-meta-size, calc(0.82rem * var(--appza-theme-text-scale, 1)));
   color: var(--appza-meta-color, var(--appza-theme-muted, #6b7280));
   white-space: nowrap;
@@ -2880,7 +2880,7 @@
 .appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="9"] {
   grid-column: 1 / -1;
   grid-row: 4;
-  padding: 8px 14px 12px;
+  padding: var(--appza-description-padding, 8px 14px 12px);
   color: var(--appza-description-color, var(--appza-theme-body, #4b5563));
   font-size: var(--appza-description-size, calc(0.88rem * var(--appza-theme-text-scale, 1)));
   line-height: 1.4;
@@ -2899,7 +2899,7 @@
 .appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="11"] {
   grid-column: 1 / -1;
   grid-row: 5;
-  padding: 0 14px 14px;
+  padding: var(--appza-button-padding, 0 14px 14px);
 }
 .appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="10"] ion-button,
 .appza-renderer-ss[data-slug="fc-space-card"] [data-child-index="11"] ion-button {
@@ -3027,8 +3027,8 @@
   grid-auto-flow: column;
   grid-auto-columns: max-content;
   grid-template-rows: auto auto;
-  column-gap: 6px;
-  row-gap: 6px;
+  column-gap: var(--appza-card-column-gap, 6px);
+  row-gap: var(--appza-card-row-gap, 6px);
 }
 .appza-renderer-appzet[data-slug="fc-courses-topics"] .appza-renderer-ss[data-slug="fc-space-topics"] [data-child-index="0"] {
   grid-row: 1;
@@ -3900,7 +3900,7 @@
 }
 .appza-renderer-ss[data-slug="fc-space-subtabs"] .appza-renderer-ss-child {
   position: relative;
-  padding-bottom: 8px;
+  padding-bottom: var(--appza-piece-padding-bottom, 8px);
   flex: 0 0 auto;
   white-space: nowrap;
 }
@@ -3914,8 +3914,8 @@
   --box-shadow: none !important;
   /* ion-button's host padding isn't reached by --padding-start; this drives the width. */
   padding-inline: 5px !important;
-  height: 32px !important;
-  min-height: 32px !important;
+  height: var(--appza-button-height, 32px) !important;
+  min-height: var(--appza-button-min-height, 32px) !important;
   margin: 0 !important;
   text-transform: uppercase !important;
   font-weight: 600 !important;
@@ -4041,7 +4041,7 @@
   font-size: var(--appza-section-header-size, calc(0.85rem * var(--appza-theme-text-scale, 1)));
   font-weight: var(--appza-font-weight, 600);
   color: var(--appza-section-header-color, var(--appza-theme-heading, #111827));
-  margin-bottom: 4px;
+  margin-bottom: var(--appza-section-header-margin-bottom, 4px);
   padding-bottom: 0;
   order: -2;
 }
@@ -4050,9 +4050,9 @@
   --color: var(--appza-card-text-color, var(--appza-theme-body, #374151)) !important;
   border: 1px solid var(--appza-card-border-color, var(--appza-theme-border, #d1d5db)) !important;
   border-radius: var(--appza-chip-radius, calc(6px * var(--appza-theme-radius-scale, 1))) !important;
-  height: 30px !important;
-  min-height: 30px !important;
-  padding: 0 12px !important;
+  height: var(--appza-chip-height, 30px) !important;
+  min-height: var(--appza-chip-min-height, 30px) !important;
+  padding: var(--appza-chip-padding, 0 12px) !important;
   margin: 0 !important;
   font-size: var(--appza-card-text-size, calc(0.82rem * var(--appza-theme-text-scale, 1))) !important;
   font-weight: var(--appza-font-weight, 500) !important;
@@ -4100,8 +4100,8 @@
   --padding-start: 4px !important;
   --padding-end: 4px !important;
   --box-shadow: none !important;
-  height: 28px !important;
-  min-height: 28px !important;
+  height: var(--appza-sort-button-height, 28px) !important;
+  min-height: var(--appza-sort-button-min-height, 28px) !important;
   margin: 0 !important;
   text-transform: none !important;
   font-weight: 500 !important;
@@ -4700,7 +4700,7 @@
   --box-shadow: none;
   --padding-start: 14px;
   --padding-end: 14px;
-  height: 34px;
+  height: var(--appza-button-height, 34px);
   font-size: var(--appza-card-text-size, calc(0.85rem * var(--appza-theme-text-scale, 1)));
   font-weight: var(--appza-font-weight, 500);
   text-transform: none;
@@ -13219,7 +13219,7 @@ select.appza-profile-fields-input[multiple] {
   right: 4px;
   z-index: 2;
   display: inline-flex;
-  padding: 4px;
+  padding: var(--appza-remove-member-padding, 4px);
   font-size: var(--appza-remove-member-icon-size, 22px);
   color: var(--appza-remove-member-icon-color, #3f3f46);
   cursor: pointer;
