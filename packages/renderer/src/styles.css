@@ -3005,7 +3005,7 @@
   box-shadow: none;
 }
 .appza-renderer-appzet[data-slug="fc-courses-search"] .appza-renderer-ss[data-slug="fc-members-toolbar"] > [data-child-index="0"] {
-  padding: 0 8px 0 12px;
+  padding: var(--appza-search-padding, 0 8px 0 12px);
 }
 .appza-renderer-appzet[data-slug="fc-courses-search"] .appza-renderer-ss[data-slug="fc-members-toolbar"] {
   grid-template-columns: auto minmax(0, 1fr);
@@ -4805,7 +4805,7 @@
   justify-items: center;
   align-content: start;
   row-gap: 2px;
-  column-gap: 4px;
+  column-gap: var(--appza-card-column-gap, 4px);
   background: var(--appza-card-bg-color, var(--appza-theme-surface, #ffffff));
   border-radius: var(--appza-card-radius, calc(8px * var(--appza-theme-radius-scale, 1)));
   padding: var(--appza-card-padding, 18px 10px 14px 10px);
@@ -4816,7 +4816,7 @@
 }
 .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="0"] {
   grid-area: avatar;
-  padding: 4px 0 10px 0;
+  padding: var(--appza-avatar-padding, 4px 0 10px 0);
 }
 .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="0"] ion-avatar {
   width: var(--appza-avatar-size, 62px);
@@ -4841,15 +4841,15 @@
   --box-shadow: none;
   --padding-start: 0;
   --padding-end: 0;
-  height: 28px;
-  min-width: 28px;
-  width: 28px;
+  height: var(--appza-menu-button-height, 28px);
+  min-width: var(--appza-menu-button-min-width, 28px);
+  width: var(--appza-menu-button-width, 28px);
   margin: 0;
 }
 .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="1"] ion-button::part(native) {
   background: transparent;
   padding: 0;
-  min-height: 28px;
+  min-height: var(--appza-menu-button-min-height, 28px);
 }
 .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="1"] ion-button ion-icon {
   font-size: var(--appza-menu-icon-size, 1.15rem);
@@ -4863,7 +4863,7 @@
   line-height: 1.2;
   width: 100%;
   min-width: 0;
-  padding: 2px 4px 0 4px;
+  padding: var(--appza-name-padding, 2px 4px 0 4px);
 }
 .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="2"] p,
 .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="2"] ion-text {
@@ -4896,28 +4896,28 @@
 .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="4"] ion-chip {
   --background: var(--appza-points-badge-bg-color, #e5e7eb);
   --color: var(--appza-points-badge-text-color, var(--appza-theme-body, #374151));
-  height: 16px;
-  min-height: 16px;
-  padding: 0 6px;
+  height: var(--appza-points-badge-chip-height, 16px);
+  min-height: var(--appza-points-badge-chip-min-height, 16px);
+  padding: var(--appza-points-badge-chip-padding, 0 6px);
   font-size: var(--appza-points-badge-text-size, calc(0.62rem * var(--appza-theme-text-scale, 1)));
   font-weight: 600;
   margin: 0;
-  border-radius: 9999px;
+  border-radius: var(--appza-points-badge-chip-radius, calc(9999px * var(--appza-theme-radius-scale, 1)));
 }
 .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="5"] {
   grid-area: role;
-  margin-top: 4px;
+  margin-top: var(--appza-role-badge-margin-top, 4px);
 }
 .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="5"] ion-chip {
   --background: var(--appza-role-badge-bg-color, #dbeafe);
   --color: var(--appza-role-badge-text-color, #2b7cff);
-  height: 18px;
-  min-height: 18px;
-  padding: 0 8px;
+  height: var(--appza-role-badge-chip-height, 18px);
+  min-height: var(--appza-role-badge-chip-min-height, 18px);
+  padding: var(--appza-role-badge-chip-padding, 0 8px);
   font-size: var(--appza-role-badge-text-size, calc(0.62rem * var(--appza-theme-text-scale, 1)));
   font-weight: 700;
   margin: 0;
-  border-radius: 4px;
+  border-radius: var(--appza-role-badge-chip-radius, calc(4px * var(--appza-theme-radius-scale, 1)));
   text-transform: none;
 }
 .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="6"],
@@ -4938,7 +4938,7 @@
   text-overflow: ellipsis;
   display: block;
 }
-.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="6"] { grid-area: joined; padding-top: 8px; }
+.appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="6"] { grid-area: joined; padding-top: var(--appza-meta-padding-top, 8px); }
 .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="7"] { grid-area: active; }
 .appza-renderer-ss[data-slug="fc-member-card"] ion-text:empty {
   display: none;
@@ -4950,7 +4950,7 @@
   row-gap: 0;
 }
 .appza-renderer-ss[data-slug="fc-member-card"][data-layout="fc-member-card-compact"] [data-child-index="0"] {
-  padding: 0 0 6px 0;
+  padding: var(--appza-avatar-padding, 0 0 6px 0);
 }
 .appza-renderer-ss[data-slug="fc-member-card"][data-layout="fc-member-card-compact"] [data-child-index="0"] ion-avatar {
   width: var(--appza-avatar-size, 44px);
@@ -5010,7 +5010,7 @@
     "avatar joined  active menu";
   justify-items: start;
   align-items: center;
-  column-gap: 8px;
+  column-gap: var(--appza-card-column-gap, 8px);
   row-gap: 2px;
   text-align: left;
   background: var(--appza-card-bg-color, var(--appza-theme-surface, #ffffff));
@@ -5022,7 +5022,7 @@
   overflow: hidden;
 }
 .appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="0"] {
-  margin-right: 4px;
+  margin-right: var(--appza-avatar-margin-right, 4px);
 }
 .appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="0"] {
   grid-area: avatar;
@@ -5071,10 +5071,10 @@
 .appza-renderer-appzet-list[data-slug="fc-member-card"][data-fc-member-layout="list"] .appza-renderer-ss[data-slug="fc-member-card"] [data-child-index="5"] ion-chip {
   --background: var(--appza-role-badge-bg-color, #eef2ff);
   --color: var(--appza-role-badge-text-color, #4f46e5);
-  border-radius: 6px;
-  padding: 0 8px;
-  height: 20px;
-  min-height: 20px;
+  border-radius: var(--appza-role-badge-chip-radius, calc(6px * var(--appza-theme-radius-scale, 1)));
+  padding: var(--appza-role-badge-chip-padding, 0 8px);
+  height: var(--appza-role-badge-chip-height, 20px);
+  min-height: var(--appza-role-badge-chip-min-height, 20px);
   font-size: var(--appza-role-badge-text-size, calc(0.66rem * var(--appza-theme-text-scale, 1)));
   font-weight: 600;
 }
@@ -12660,7 +12660,7 @@ select.appza-profile-fields-input[multiple] {
 .appza-renderer-ss[data-slug="fc-members-toolbar"] [data-child-index="0"] {
   display: flex;
   align-items: center;
-  padding: 0 4px 0 8px;
+  padding: var(--appza-search-padding, 0 4px 0 8px);
   background: var(--appza-search-bg-color, #ebebeb);
   border: 1px solid var(--appza-search-border-color, #6b6b6b);
   border-right: 0;
@@ -12669,7 +12669,7 @@ select.appza-profile-fields-input[multiple] {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 .appza-renderer-ss[data-slug="fc-members-toolbar"] [data-child-index="0"] ion-icon {
-  font-size: 20px;
+  font-size: var(--appza-search-icon-size, 20px);
   color: var(--appza-search-icon-color, #3a3a3a);
 }
 .appza-renderer-ss[data-slug="fc-members-toolbar"] [data-child-index="1"] {
@@ -12704,7 +12704,7 @@ select.appza-profile-fields-input[multiple] {
 .appza-renderer-ss[data-slug="fc-members-toolbar"] [data-child-index="2"] ion-button {
   margin: 0;
   height: var(--appza-search-height, 34px);
-  min-width: 148px;
+  min-width: var(--appza-sort-button-min-width, 148px);
   text-transform: none;
   letter-spacing: 0;
   font-size: var(--appza-sort-text-size, calc(0.92rem * var(--appza-theme-text-scale, 1)));
@@ -12785,7 +12785,7 @@ select.appza-profile-fields-input[multiple] {
   box-shadow: var(--appza-card-shadow, 0 2px 4px rgba(0, 0, 0, 0.22));
 }
 .appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="0"] {
-  padding: 0 0 8px;
+  padding: var(--appza-avatar-padding, 0 0 8px);
 }
 .appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="0"] ion-avatar {
   width: var(--appza-avatar-size, 52px);
@@ -12798,8 +12798,8 @@ select.appza-profile-fields-input[multiple] {
 }
 .appza-renderer-ss[data-slug="fc-directory-member-card"] [data-child-index="1"] ion-button {
   margin: 0;
-  width: 28px;
-  height: 28px;
+  width: var(--appza-menu-button-width, 28px);
+  height: var(--appza-menu-button-height, 28px);
   --background: transparent;
   --background-hover: transparent;
   --box-shadow: none;
