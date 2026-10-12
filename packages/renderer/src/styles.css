@@ -68,24 +68,24 @@
   text-align: center;
 }
 .appza-renderer-ss[data-slug="fc-signin-header"] [data-child-index="0"] {
-  width: 64px;
-  height: 64px;
+  width: var(--appza-img0-width, 64px);
+  height: var(--appza-img0-height, 64px);
   display: grid;
   place-items: center;
-  margin-bottom: 16px;
+  margin-bottom: var(--appza-img0-margin-bottom, 16px);
   background: transparent;
 }
 .appza-renderer-ss[data-slug="fc-signin-header"] [data-child-index="0"] ion-img,
 .appza-renderer-ss[data-slug="fc-signin-header"] [data-child-index="0"] img {
-  width: 64px;
-  height: 64px;
+  width: var(--appza-img0-width, 64px);
+  height: var(--appza-img0-height, 64px);
   object-fit: contain;
   border-radius: 50%;
 }
 .appza-renderer-ss[data-slug="fc-signin-header"] [data-child-index="1"] {
-  font-size: 1.15rem;
+  font-size: var(--appza-text1-size, calc(1.15rem * var(--appza-theme-text-scale, 1)));
   font-weight: 600;
-  color: #111827;
+  color: var(--appza-text1-color, var(--appza-theme-heading, #111827));
   line-height: 1.3;
 }
 .appza-renderer-ss[data-slug="fc-signin-header"] [data-child-index="2"] {
@@ -138,7 +138,7 @@
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="5"] {
   text-align: right;
   margin-top: -4px;
-  margin-bottom: 4px;
+  margin-bottom: var(--appza-forgot-margin-bottom, 4px);
 }
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="5"] ion-text,
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="5"] ion-text > p {
@@ -151,7 +151,7 @@
 
 /* Wrapper and ion-button both block, or Ionic's inline-block collapses it to content width. */
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="4"] {
-  margin-top: 6px;
+  margin-top: var(--appza-button-margin-top, 6px);
   display: block;
   width: 100%;
 }
@@ -183,8 +183,8 @@
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 12px;
-  padding: 8px 0 4px;
+  gap: var(--appza-divider-gap, 12px);
+  padding: var(--appza-divider-padding, 8px 0 4px);
   width: 100%;
 }
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="6"]::before,
@@ -234,7 +234,7 @@
   font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
-  color: #111827;
+  color: var(--appza-button-color, var(--appza-theme-heading, #111827));
 }
 .appza-renderer-ss[data-slug="fc-signin-info"] [data-child-index="7"] ion-button ion-icon {
   font-size: var(--appza-google-icon-size, 22px);
@@ -245,7 +245,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 24px;
+  padding-top: var(--appza-card-padding-top, 24px);
   gap: 6px;
   font-size: var(--appza-card-text-size, calc(0.85rem * var(--appza-theme-text-scale, 1)));
   color: var(--appza-card-text-color, var(--appza-theme-muted, #6b7280));
@@ -334,7 +334,7 @@
 }
 .appza-renderer-ss[data-slug="appbar-shell"] [data-child-index="1"] {
   font-weight: 600;
-  font-size: 1rem;
+  font-size: var(--appza-text1-size, calc(1rem * var(--appza-theme-text-scale, 1)));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -350,8 +350,8 @@
 }
 .appza-renderer-ss[data-slug="create-post-appbar-shell"] [data-child-index="1"] {
   font-weight: 600;
-  font-size: 1rem;
-  color: #0f172a;
+  font-size: var(--appza-text1-size, calc(1rem * var(--appza-theme-text-scale, 1)));
+  color: var(--appza-text1-color, var(--appza-theme-heading, #0f172a));
 }
 .appza-renderer-ss[data-slug="create-post-appbar-shell"] [data-child-index="2"] ion-button {
   --border-radius: var(--appza-cta-radius, calc(8px * var(--appza-theme-radius-scale, 1)));
@@ -362,8 +362,8 @@
   --box-shadow: 0 2px 6px -2px rgba(99, 102, 241, 0.6);
   --padding-start: 20px;
   --padding-end: 20px;
-  height: 36px;
-  min-width: 72px;
+  height: var(--appza-cta-button-height, 36px);
+  min-width: var(--appza-cta-button-min-width, 72px);
   margin: 0;
   font-size: var(--appza-cta-text-size, calc(0.92rem * var(--appza-theme-text-scale, 1)));
   font-weight: 600;
@@ -1020,9 +1020,9 @@
   letter-spacing: 0;
   text-transform: none;
   height: 100%;
-  min-height: 54px;
+  min-height: var(--appza-button-min-height, 54px);
   flex: 1 1 0;
-  margin: 0 2px;
+  margin: var(--appza-button-margin, 0 2px);
 }
 .appza-renderer-ss[data-slug="bottom-tab-nav"] ion-button::part(native) {
   display: flex;
@@ -1030,7 +1030,7 @@
   align-items: center;
   justify-content: center;
   gap: 2px;
-  padding: 4px 2px;
+  padding: var(--appza-button-padding, 4px 2px);
 }
 .appza-renderer-ss[data-slug="bottom-tab-nav"] ion-button ion-icon {
   font-size: var(--appza-card-icon-size, 24px);
@@ -5986,7 +5986,7 @@
   --border-radius: 0;
   --padding-start: 14px;
   --padding-end: 14px;
-  height: 52px;
+  height: var(--appza-button-height, 52px);
   width: 100%;
   margin: 0;
   font-size: var(--appza-card-text-size, calc(0.9rem * var(--appza-theme-text-scale, 1)));
@@ -6023,14 +6023,14 @@
   gap: 6px;
 }
 .appza-renderer-ss[data-slug="fc-documents-empty"] [data-child-index="0"] {
-  width: 60px;
-  height: 60px;
+  width: var(--appza-icon-circle-width, 60px);
+  height: var(--appza-icon-circle-height, 60px);
   border-radius: 50%;
   background: var(--appza-icon-circle-color, #e6e8ec);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 14px;
+  margin-bottom: var(--appza-icon-circle-margin-bottom, 14px);
 }
 .appza-renderer-ss[data-slug="fc-documents-empty"] ion-icon {
   font-size: var(--appza-card-icon-size, 24px);
@@ -6099,7 +6099,7 @@
   --padding-start: 4px;
   --padding-end: 4px;
   margin: 0;
-  height: 34px;
+  height: var(--appza-button-height, 34px);
   font-size: var(--appza-card-text-size, calc(0.8rem * var(--appza-theme-text-scale, 1)));
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -6372,7 +6372,7 @@
   --padding-start: 0;
   --padding-end: 0;
   margin: 0;
-  height: 24px;
+  height: var(--appza-button-height, 24px);
   font-size: var(--appza-card-text-size, calc(0.95rem * var(--appza-theme-text-scale, 1)));
   font-weight: 500;
   text-transform: none;
@@ -7133,7 +7133,7 @@ audio.appza-video-embed-native {
   --color: var(--appza-icon-color, #1b1c1f);
   border: 0;
   margin: 0;
-  height: 36px;
+  height: var(--appza-button-height, 36px);
   color: var(--appza-icon-color, #1b1c1f);
 }
 .appza-renderer-ss[data-slug="chat-appbar-shell"] ion-button::part(native) {
@@ -9176,7 +9176,7 @@ audio.appza-video-embed-native {
   --padding-end: 6px;
   --color: var(--appza-remove-color, #a2a3a7);
   margin: 0;
-  height: 32px;
+  height: var(--appza-remove-button-height, 32px);
   font-size: 0;
 }
 .appza-renderer-ss[data-slug="fc-search-recent-row"] [data-child-index="3"] ion-icon {
@@ -11534,7 +11534,7 @@ audio.appza-video-embed-native {
 .appza-renderer-ss[data-slug="fc-save-button"] ion-button {
   margin: 0;
   width: 100%;
-  height: 44px;
+  height: var(--appza-button-height, 44px);
   font-size: var(--appza-card-text-size, calc(0.92rem * var(--appza-theme-text-scale, 1)));
   font-weight: 600;
   text-transform: none;
@@ -13282,7 +13282,7 @@ select.appza-profile-fields-input[multiple] {
     "title title title title title"
     "body  body  body  body  body"
     ".     .     resch pub   trash";
-  column-gap: 6px;
+  column-gap: var(--appza-card-column-gap, 6px);
   align-items: center;
   padding: 12px 16px 14px;
   background: var(--appza-card-bg-color, var(--appza-theme-surface, #ffffff));
@@ -13302,13 +13302,13 @@ select.appza-profile-fields-input[multiple] {
 }
 .appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="2"] {
   grid-area: av;
-  margin-top: 8px;
+  margin-top: var(--appza-avatar2-margin-top, 8px);
   margin-right: 2px;
 }
 .appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="3"] {
   grid-area: name;
   align-self: end;
-  margin-top: 8px;
+  margin-top: var(--appza-author-name-margin-top, 8px);
   font-size: var(--appza-author-name-size, 13px);
   font-weight: 600;
   line-height: 1.2;
@@ -13329,7 +13329,7 @@ select.appza-profile-fields-input[multiple] {
 }
 .appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="5"] {
   grid-area: title;
-  margin-top: 12px;
+  margin-top: var(--appza-title-margin-top, 12px);
   font-size: 14px;
   font-weight: 600;
   color: var(--appza-title-color, var(--appza-theme-heading, #111827));
@@ -13344,17 +13344,17 @@ select.appza-profile-fields-input[multiple] {
 }
 .appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="7"] {
   grid-area: resch;
-  margin-top: 14px;
+  margin-top: var(--appza-action-button-margin-top, 14px);
 }
 .appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="8"] {
   grid-area: pub;
-  margin-top: 14px;
-  margin-left: 12px;
+  margin-top: var(--appza-action-button-margin-top, 14px);
+  margin-left: var(--appza-action-button-margin-left, 12px);
 }
 .appza-renderer-ss[data-slug="fc-scheduled-post-card"] [data-child-index="9"] {
   grid-area: trash;
-  margin-top: 14px;
-  margin-left: 16px;
+  margin-top: var(--appza-accent-margin-top, 14px);
+  margin-left: var(--appza-accent-margin-left, 16px);
   display: inline-flex;
   font-size: var(--appza-delete-size, 22px);
   color: var(--appza-accent-color, var(--appza-theme-accent, #2563eb));
@@ -13367,7 +13367,7 @@ select.appza-profile-fields-input[multiple] {
   --border-radius: var(--appza-action-button-radius, calc(4px * var(--appza-theme-radius-scale, 1)));
   --padding-start: 14px;
   --padding-end: 14px;
-  height: 26px;
+  height: var(--appza-action-button-height, 26px);
   margin: 0;
   font-size: var(--appza-action-button-text-size, 14px);
   font-weight: 500;
@@ -13448,7 +13448,7 @@ select.appza-profile-fields-input[multiple] {
     "media media media"
     "chip chip chip";
   /* Explicit: the base gap would add space around an empty media row */
-  column-gap: 8px;
+  column-gap: var(--appza-card-column-gap, 8px);
   row-gap: 0;
   align-items: center;
   padding: 0 0 20px;
@@ -13460,12 +13460,12 @@ select.appza-profile-fields-input[multiple] {
 .appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="0"] {
   grid-area: av;
   align-self: start;
-  margin: 29px 0 17px 24px;
+  margin: var(--appza-avatar0-margin, 29px 0 17px 24px);
 }
 .appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="1"] {
   grid-area: name;
   align-self: end;
-  margin-top: 32px;
+  margin-top: var(--appza-author-margin-top, 32px);
   font-size: var(--appza-author-size, 13px);
   font-weight: 600;
   line-height: 1.25;
@@ -13477,7 +13477,7 @@ select.appza-profile-fields-input[multiple] {
 .appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="2"] {
   grid-area: time;
   align-self: start;
-  margin-bottom: 16px;
+  margin-bottom: var(--appza-meta-margin-bottom, 16px);
   font-size: var(--appza-time-size, 11px);
   line-height: 1.25;
   color: var(--appza-meta-color, var(--appza-theme-muted, #6b7280));
@@ -13485,7 +13485,7 @@ select.appza-profile-fields-input[multiple] {
 .appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="3"] {
   grid-area: more;
   align-self: start;
-  margin: 14px 16px 0 0;
+  margin: var(--appza-more-margin, 14px 16px 0 0);
   display: inline-flex;
   font-size: var(--appza-more-size, 20px);
   color: var(--appza-name-color, var(--appza-theme-heading, #111827));
@@ -13493,7 +13493,7 @@ select.appza-profile-fields-input[multiple] {
 }
 .appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="4"] {
   grid-area: type;
-  padding: 14px 16px 0;
+  padding: var(--appza-type-padding, 14px 16px 0);
   border-top: 1px solid var(--appza-divider-color, var(--appza-theme-border, #e5e7eb));
   font-size: var(--appza-type-size, 11px);
   font-weight: 500;
@@ -13501,7 +13501,7 @@ select.appza-profile-fields-input[multiple] {
 }
 .appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="5"] {
   grid-area: body;
-  padding: 6px 16px 0;
+  padding: var(--appza-excerpt-padding, 6px 16px 0);
   font-size: var(--appza-excerpt-size, 11px);
   line-height: 1.3;
   color: var(--appza-meta-color, var(--appza-theme-muted, #6b7280));
@@ -13511,7 +13511,7 @@ select.appza-profile-fields-input[multiple] {
 }
 .appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="6"] {
   grid-area: media;
-  padding: 6px 16px 0;
+  padding: var(--appza-media-padding, 6px 16px 0);
   display: inline-flex;
   font-size: var(--appza-media-size, 15px);
   color: var(--appza-media-color, var(--appza-theme-body, #374151));
@@ -13521,7 +13521,7 @@ select.appza-profile-fields-input[multiple] {
   justify-self: start;
   display: flex;
   line-height: 0;
-  padding: 8px 16px 0;
+  padding: var(--appza-chip-padding, 8px 16px 0);
 }
 .appza-renderer-ss[data-slug="fc-moderation-card"] [data-child-index="7"] ion-chip {
   --background: var(--appza-chip-bg-color, #fcc8cf);
@@ -13531,7 +13531,7 @@ select.appza-profile-fields-input[multiple] {
   height: auto;
   min-height: 0;
   margin: 0;
-  padding: 2px 5px;
+  padding: var(--appza-chip-padding, 2px 5px);
   border-radius: var(--appza-report-count-radius, calc(3px * var(--appza-theme-radius-scale, 1)));
   font-size: var(--appza-report-count-text-size, 10px);
   font-weight: 500;
