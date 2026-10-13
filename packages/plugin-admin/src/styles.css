@@ -2894,3 +2894,22 @@ body {
   outline: 2px solid var(--appza-primary);
   outline-offset: 2px;
 }
+
+/* Themes → Every block (Phase 6.4) */
+.appza-theme-panel {
+  max-width: 720px;
+  margin-bottom: 16px;
+}
+
+.appza-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  column-gap: 16px;
+}
+
+.appza-theme-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}

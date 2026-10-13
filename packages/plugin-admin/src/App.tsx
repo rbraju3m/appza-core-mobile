@@ -229,6 +229,7 @@ import { mainKeys, rowsOf } from './layoutApi';
 import { OverridesPanel } from './OverridesPanel';
 import { designFor, partHighlight, partsForPick, pieceLabel, useDesignIndex, type DesignFocus } from './DesignTab';
 import { useAdvanced } from './advanced';
+import { ThemePanel } from './ThemePanel';
 import { setHighlight } from './preview/pointer';
 import { PropertiesPanel, type PropsScope } from './PropertiesPanel';
 import { PrimitivePanel } from './PrimitivePanel';
@@ -432,6 +433,8 @@ export function App() {
     slug: string;
     override: Record<string, unknown>;
   } | null>(null);
+  // The Themes panel's unsaved "Every block" tokens, drawn over the site's saved ones.
+  const [liveTokens, setLiveTokens] = useState<Record<string, unknown> | null>(null);
   const [livePrimitivePreview, setLivePrimitivePreview] = useState<{
     compositeKey: string;
     layout: LayoutStyle;
@@ -795,7 +798,7 @@ export function App() {
 
   const effectiveCustomizations = useMemo(() => {
     const base = envelope?.customizations;
-    if (!livePreview && !livePrimitivePreview && uiMode !== 'app') return layoutOverlay(base);
+    if (!livePreview && !livePrimitivePreview && !liveTokens && uiMode !== 'app') return layoutOverlay(base);
     const baseRecord =
       base && typeof base === 'object' && !Array.isArray(base)
         ? (base as Record<string, unknown>)
@@ -813,6 +816,12 @@ export function App() {
       targetRecord['default_props_override'] = livePreview.override;
       scopeRecord[livePreview.slug] = targetRecord;
       out = { ...out, appzet: scopeRecord };
+    }
+    if (liveTokens) {
+      const slug = catalog?.template?.slug ?? templateSlug;
+      const scopeRecord = isRecord(out['template']) ? { ...out['template'] } : {};
+      scopeRecord[slug] = { ...(isRecord(scopeRecord[slug]) ? scopeRecord[slug] : {}), tokens: liveTokens };
+      out = { ...out, template: scopeRecord };
     }
     if (livePrimitivePreview) {
       const scopeRecord =
@@ -850,7 +859,7 @@ export function App() {
       out = { ...out, appzet: scopeRecord };
     }
     return layoutOverlay(out);
-  }, [envelope, livePreview, livePrimitivePreview, uiMode, nowLabel, layoutOverlay]);
+  }, [envelope, livePreview, livePrimitivePreview, liveTokens, catalog?.template?.slug, templateSlug, uiMode, nowLabel, layoutOverlay]);
 
   useEffect(() => {
     if (uiMode !== 'drag' || !builder.selectedKey) return;
@@ -1380,7 +1389,24 @@ export function App() {
       return renderSettings(envelope);
     }
     if (bottomTab === 'themes') {
-      return renderThemes(catalog?.template?.tokens, currentScreen?.screen_tokens);
+      const endpoint = window.appzaCoreConfig?.endpoints?.customizations;
+      const restNonce = window.appzaCoreConfig?.restNonce;
+      return (
+        <>
+          {endpoint && restNonce && (
+            <ThemePanel
+              templateSlug={catalog?.template?.slug ?? templateSlug}
+              templateTokens={catalog?.template?.tokens}
+              customizations={envelope.customizations}
+              customizationsEndpoint={endpoint}
+              restNonce={restNonce}
+              onLive={setLiveTokens}
+              onChanged={() => pull(templateSlug, true)}
+            />
+          )}
+          {renderThemes(catalog?.template?.tokens, currentScreen?.screen_tokens)}
+        </>
+      );
     }
     const customizationsEndpoint = window.appzaCoreConfig?.endpoints?.customizations;
     const nonce = window.appzaCoreConfig?.restNonce;
