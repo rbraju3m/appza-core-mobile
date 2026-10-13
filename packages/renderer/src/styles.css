@@ -7192,7 +7192,7 @@ audio.appza-video-embed-native {
   text-align: left;
 }
 .appza-chat-row[data-mine="1"] .appza-chat-sender {
-  margin: var(--appza-chat-sender-margin, 0 2px 8px 0);
+  margin: var(--appza-own-sender-margin, 0 2px 8px 0);
   text-align: right;
 }
 
