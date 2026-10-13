@@ -1,5 +1,6 @@
 import type { AppMap, TemplateScreen } from '@appza/schemas';
 import type { PreviewMode, UiMode } from './App';
+import { useAdvanced } from './advanced';
 
 type TemplateOption = {
   slug: string;
@@ -71,6 +72,7 @@ export function TopBar({
   onSaveLayout,
   onDiscardLayout,
 }: TopBarProps) {
+  const [advanced, setAdvanced] = useAdvanced();
   const nameBySlug = new Map<string, string>();
   if (appMap && Array.isArray(appMap.screens)) {
     for (const s of appMap.screens) {
@@ -131,6 +133,25 @@ export function TopBar({
                 onClick={() => onUiModeChange(m.value)}
               >
                 {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="appza-topbar-mode" role="group" aria-label="Controls">
+          <div className="appza-segmented">
+            {[false, true].map((on) => (
+              <button
+                key={String(on)}
+                type="button"
+                className="appza-segmented-btn"
+                data-active={advanced === on ? 'true' : 'false'}
+                title={on
+                  ? 'Exact values, variable names, Wrapper, the piece Layout editor and Overrides.'
+                  : 'Design, Options and Action — the controls a site needs.'}
+                onClick={() => setAdvanced(on)}
+              >
+                {on ? 'Advanced' : 'Simple'}
               </button>
             ))}
           </div>

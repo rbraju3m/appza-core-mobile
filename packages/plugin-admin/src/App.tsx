@@ -285,6 +285,13 @@ export function App() {
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [selectedScreenId, setSelectedScreenId] = useState<number | null>(null);
   const [bottomTab, setBottomTab] = useState<BottomTab>(null);
+  // Simple hides the developer controls: close any that are open (Phase 6.5).
+  useEffect(() => {
+    if (advanced) return;
+    setBottomTab((t) => (t === 'overrides' ? null : t));
+    setSelectedPrimitive(null);
+    setLivePrimitivePreview(null);
+  }, [advanced]); // eslint-disable-line react-hooks/exhaustive-deps
   const [selectedAppzetSlug, setSelectedAppzetSlug] = useState<string | null>(null);
   const [selectedPrimitive, setSelectedPrimitive] = useState<SelectedPrimitive | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -2129,12 +2136,12 @@ export function App() {
                   }}
                   selectedPrimitive={selectedPrimitive}
                   onSelectPrimitive={(sel) => {
-                    // Simple: a piece opens its parts on the Design tab; Advanced keeps the raw piece Layout editor.
-                    const parts = sel && !advanced ? designOf(sel.appzetSlug).design?.parts : undefined;
-                    if (sel && parts?.length) {
+                    // Simple: a piece opens its block (its parts on the Design tab when it has some); Advanced keeps the raw piece Layout editor.
+                    if (sel && !advanced) {
+                      const parts = designOf(sel.appzetSlug).design?.parts;
                       setSelectedPrimitive(null);
                       setSelectedAppzetSlug(sel.appzetSlug);
-                      setDesignFocus(partsForPick(parts, { child: sel.child ?? 0, tags: sel.tags ?? [], classes: sel.classes ?? [] }));
+                      setDesignFocus(parts?.length ? partsForPick(parts, { child: sel.child ?? 0, tags: sel.tags ?? [], classes: sel.classes ?? [] }) : null);
                       return;
                     }
                     setSelectedPrimitive(sel);
@@ -2200,7 +2207,7 @@ export function App() {
             );
           })()}
 
-        {uiMode !== 'drag' && selectedPrimitive && (() => {
+        {uiMode !== 'drag' && advanced && selectedPrimitive && (() => {
           const compositeKey = `${selectedPrimitive.appzetSlug}#${selectedPrimitive.primitivePath}`;
           const initialLayout = readInitialLayout(envelope?.customizations, compositeKey);
           const customizationsEndpoint = window.appzaCoreConfig?.endpoints?.customizations;

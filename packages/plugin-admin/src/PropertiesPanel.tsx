@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AppZet, PropertiesSchemaEntry, Superstructure } from '@appza/schemas';
 import { readDataPath, resolveOverridableColumn, useDataSource } from '@appza/renderer';
 import { IconPicker } from './IconPicker';
+import { useAdvanced } from './advanced';
 import { DesignTab, type AppZetDesign, type DesignFocus, type DesignPart } from './DesignTab';
 
 type Props = {
@@ -72,7 +73,13 @@ export function PropertiesPanel({
   const previewItem = dataState.items[0];
   // A site's Design is its AppZet everywhere (owner, Phase 6): not offered for one placement.
   const designOn = !!design && !placement;
-  const [activeTab, setActiveTab] = useState<TabKey>(designOn ? 'design' : 'wrapper');
+  const [advanced] = useAdvanced();
+  // Simple: Design + Options + Action; Advanced adds the Wrapper steps (Phase 6.5).
+  const tabs: TabKey[] = [...(designOn ? ['design' as const] : []), ...(advanced ? ['wrapper' as const] : []), 'options', 'action'];
+  const [activeTab, setActiveTab] = useState<TabKey>(tabs[0]!);
+  useEffect(() => {
+    if (!tabs.includes(activeTab)) setActiveTab(tabs[0]!);
+  }, [advanced]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (designFocus && designOn) setActiveTab('design');
   }, [designFocus?.at]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -418,7 +425,7 @@ export function PropertiesPanel({
       )}
 
       <div className="appza-props-panel-tabs" role="tablist">
-        {((designOn ? ['design', 'wrapper', 'options', 'action'] : ['wrapper', 'options', 'action']) as TabKey[]).map((tab) => {
+        {tabs.map((tab) => {
           const tabDirty =
             (tab === 'design' && designDirty) ||
             (tab === 'wrapper' && spacingDirty) ||

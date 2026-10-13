@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CatalogIndex } from '@appza/renderer';
 import type { AppZet, Superstructure, TemplateScreen } from '@appza/schemas';
 import { Thumbnail } from './BuilderPanel';
+import { useAdvanced } from './advanced';
 
 export type SidebarTab = 'global' | 'screen';
 export type BottomTab = null | 'settings' | 'themes' | 'overrides';
@@ -46,6 +47,7 @@ export function Sidebar({
   catalogIndex,
   customizations,
 }: SidebarProps) {
+  const [advanced] = useAdvanced();
   // Include modals reached via action args (`*appzet_slug`), not just placements — same walk the server does for the bundle.
   const screenAppZetSlugs = useMemo<Set<string>>(() => {
     if (!currentScreen) return new Set();
@@ -197,14 +199,16 @@ export function Sidebar({
           <PaintIcon />
           Themes
         </button>
-        <button
-          className="appza-bottom-tab"
-          data-active={bottomTab === 'overrides'}
-          onClick={() => onSelectBottomTab(bottomTab === 'overrides' ? null : 'overrides')}
-        >
-          <OverridesIcon />
-          Overrides
-        </button>
+        {advanced && (
+          <button
+            className="appza-bottom-tab"
+            data-active={bottomTab === 'overrides'}
+            onClick={() => onSelectBottomTab(bottomTab === 'overrides' ? null : 'overrides')}
+          >
+            <OverridesIcon />
+            Overrides
+          </button>
+        )}
       </div>
     </aside>
   );

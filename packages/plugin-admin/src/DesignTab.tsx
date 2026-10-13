@@ -181,7 +181,7 @@ type Props = {
 };
 
 export function DesignTab({ design, missing, value, underneath, onSet, focus, onShow }: Props) {
-  const [advanced, setAdvanced] = useAdvanced();
+  const [advanced] = useAdvanced();
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const lit = useMemo(() => new Set(focus?.keys ?? []), [focus]);
   useEffect(() => {
@@ -231,9 +231,6 @@ export function DesignTab({ design, missing, value, underneath, onSet, focus, on
             : `You clicked ${pieceName(pieces, focus.child)}: ${focus.keys.length} part${focus.keys.length === 1 ? '' : 's'} lit below.`}
         </p>
       )}
-      <label className="appza-design-advanced">
-        <input type="checkbox" checked={advanced} onChange={(e) => setAdvanced(e.target.checked)} /> Exact values and variable names
-      </label>
       {parts.map((p) => {
         const names = Object.keys(p.vars);
         const changed = names.filter((n) => value[n] !== undefined).length;
