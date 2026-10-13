@@ -3723,36 +3723,36 @@
   max-height: 82%;
   display: flex;
   flex-direction: column;
-  padding-bottom: 12px;
+  padding-bottom: var(--appza-student-sheet-padding-bottom, 12px);
 }
 .appza-add-student-eyebrow {
-  padding: 4px 16px 0;
-  font-size: 11px;
+  padding: var(--appza-student-eyebrow-padding, 4px 16px 0);
+  font-size: var(--appza-student-eyebrow-size, 11px);
   font-weight: 500;
   letter-spacing: 0.3px;
   text-transform: uppercase;
   color: var(--appza-eyebrow-color, var(--appza-theme-muted, #6b6b6b));
 }
 .appza-add-student-title {
-  padding: 6px 16px 10px;
-  font-size: 17px;
+  padding: var(--appza-student-title-padding, 6px 16px 10px);
+  font-size: var(--appza-student-title-size, 17px);
   font-weight: 600;
   color: var(--appza-title-color, var(--appza-theme-heading, #0e121b));
 }
 .appza-add-student-search {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 0 14px 8px;
-  padding: 0 12px;
-  height: 38px;
-  border-radius: 4px;
+  gap: var(--appza-search-gap, 10px);
+  margin: var(--appza-search-margin, 0 14px 8px);
+  padding: var(--appza-search-padding, 0 12px);
+  height: var(--appza-search-height, 38px);
+  border-radius: var(--appza-search-radius, calc(4px * var(--appza-theme-radius-scale, 1)));
   background: var(--appza-field-bg-color, #ebebeb);
   box-shadow: 0 2px 3px rgba(0, 0, 0, 0.18);
-  color: #6b6b6b;
+  color: var(--appza-search-color, var(--appza-theme-muted, #6b6b6b));
 }
 .appza-add-student-search ion-icon {
-  font-size: 18px;
+  font-size: var(--appza-search-icon-size, 18px);
   flex: 0 0 auto;
 }
 .appza-add-student-search input {
@@ -3776,26 +3776,26 @@
 }
 .appza-add-student-list {
   overflow-y: auto;
-  padding: 2px 8px;
+  padding: var(--appza-list-padding, 2px 8px);
 }
 .appza-add-student-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--appza-student-row-gap, 8px);
   width: 100%;
-  padding: 7px 8px;
+  padding: var(--appza-student-row-padding, 7px 8px);
   border: 0;
   background: transparent;
   text-align: left;
   cursor: pointer;
 }
 .appza-add-student-avatar {
-  width: 38px;
-  height: 38px;
+  width: var(--appza-avatar-width, 38px);
+  height: var(--appza-avatar-height, 38px);
   flex: 0 0 38px;
   border-radius: 50%;
   overflow: hidden;
-  background: #e5e7eb;
+  background: var(--appza-avatar-bg-color, #e5e7eb);
 }
 .appza-add-student-avatar img {
   width: 100%;
@@ -3809,7 +3809,7 @@
   min-width: 0;
 }
 .appza-add-student-name {
-  font-size: 15px;
+  font-size: var(--appza-name-size, 15px);
   font-weight: 600;
   color: var(--appza-name-color, var(--appza-theme-heading, #111827));
   overflow: hidden;
@@ -3817,17 +3817,17 @@
   white-space: nowrap;
 }
 .appza-add-student-email {
-  font-size: 12px;
+  font-size: var(--appza-email-size, 12px);
   color: var(--appza-email-color, var(--appza-theme-body, #4b5563));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .appza-add-student-empty {
-  padding: 24px 16px;
+  padding: var(--appza-student-empty-padding, 24px 16px);
   text-align: center;
-  font-size: 14px;
-  color: #6b6b6b;
+  font-size: var(--appza-empty-size, 14px);
+  color: var(--appza-empty-color, var(--appza-theme-muted, #6b6b6b));
 }
 
 /* Space Detail screen */
@@ -5298,24 +5298,24 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px 12px 20px;
+  padding: var(--appza-header-padding, 16px 20px 12px 20px);
   border-bottom: 1px solid #e5e7eb;
 }
 .appza-add-member-title {
-  font-size: 1.05rem;
+  font-size: var(--appza-title-size, calc(1.05rem * var(--appza-theme-text-scale, 1)));
   font-weight: 700;
-  color: #111827;
+  color: var(--appza-title-color, var(--appza-theme-heading, #111827));
 }
 .appza-add-member-close {
   border: none;
   background: transparent;
-  padding: 4px;
+  padding: var(--appza-close-padding, 4px);
   cursor: pointer;
-  color: #6b7280;
-  font-size: 1.2rem;
+  color: var(--appza-close-color, var(--appza-theme-muted, #6b7280));
+  font-size: var(--appza-close-size, calc(1.2rem * var(--appza-theme-text-scale, 1)));
   display: grid;
   place-items: center;
-  border-radius: 6px;
+  border-radius: var(--appza-close-radius, calc(6px * var(--appza-theme-radius-scale, 1)));
 }
 .appza-add-member-close:hover {
   background: #f3f4f6;
@@ -5330,9 +5330,9 @@
   overflow-y: auto;
 }
 .appza-add-member-label {
-  font-size: 0.85rem;
+  font-size: var(--appza-label-size, calc(0.85rem * var(--appza-theme-text-scale, 1)));
   font-weight: 500;
-  color: #1f2937;
+  color: var(--appza-label-color, var(--appza-theme-heading, #1f2937));
   margin: var(--appza-am-gap, 6px) 0 8px 0;
 }
 .appza-add-member-label--role {
@@ -5344,22 +5344,22 @@
   align-items: center;
   background: var(--appza-am-search-bg, #f3f4f6);
   border: 1px solid var(--appza-am-search-border, transparent);
-  border-radius: 8px;
-  padding: 0 10px;
+  border-radius: var(--appza-search-radius, calc(8px * var(--appza-theme-radius-scale, 1)));
+  padding: var(--appza-search-padding, 0 10px);
 }
 .appza-add-member-search-icon {
-  color: #9ca3af;
-  font-size: 1rem;
-  margin-right: 8px;
+  color: var(--appza-search-icon-color, var(--appza-theme-muted, #9ca3af));
+  font-size: var(--appza-search-icon-size, 1rem);
+  margin-right: var(--appza-search-icon-margin-right, 8px);
   flex-shrink: 0;
 }
 .appza-add-member-search-input {
   flex: 1 1 auto;
   border: none;
   background: transparent;
-  padding: 10px 0;
+  padding: var(--appza-search-input-padding, 10px 0);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: var(--appza-search-input-size, calc(0.9rem * var(--appza-theme-text-scale, 1)));
   color: var(--appza-am-search-text, #111827);
   outline: none;
 }
@@ -5367,12 +5367,12 @@
   color: #9ca3af;
 }
 .appza-add-member-list {
-  margin-top: 10px;
+  margin-top: var(--appza-list-margin-top, 10px);
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  max-height: 220px;
+  border-radius: var(--appza-list-radius, calc(10px * var(--appza-theme-radius-scale, 1)));
+  max-height: var(--appza-list-max-height, 220px);
   overflow-y: auto;
-  padding: 4px;
+  padding: var(--appza-list-padding, 4px);
 }
 .appza-add-member-empty,
 .appza-add-member-error {
@@ -5382,19 +5382,19 @@
   font-size: 0.85rem;
 }
 .appza-add-member-error {
-  color: #b91c1c;
+  color: var(--appza-error-color, #b91c1c);
 }
 .appza-add-member-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--appza-row-gap, 12px);
   width: 100%;
-  padding: 8px 10px;
+  padding: var(--appza-row-padding, 8px 10px);
   border: none;
   background: transparent;
   text-align: left;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: var(--appza-row-radius, calc(8px * var(--appza-theme-radius-scale, 1)));
   font: inherit;
 }
 .appza-add-member-row:hover,
@@ -5402,10 +5402,10 @@
   background: #f3f4f6;
 }
 .appza-add-member-avatar {
-  width: 34px;
-  height: 34px;
+  width: var(--appza-avatar-width, 34px);
+  height: var(--appza-avatar-height, 34px);
   border-radius: 50%;
-  background: #e5e7eb;
+  background: var(--appza-avatar-bg-color, #e5e7eb);
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -5417,9 +5417,9 @@
   object-fit: cover;
 }
 .appza-add-member-initials {
-  font-size: 0.72rem;
+  font-size: var(--appza-initials-size, calc(0.72rem * var(--appza-theme-text-scale, 1)));
   font-weight: 700;
-  color: #6b7280;
+  color: var(--appza-initials-color, var(--appza-theme-muted, #6b7280));
   letter-spacing: 0.02em;
 }
 .appza-add-member-row-text {
@@ -5428,16 +5428,16 @@
   min-width: 0;
 }
 .appza-add-member-name {
-  font-size: 0.9rem;
+  font-size: var(--appza-name-size, calc(0.9rem * var(--appza-theme-text-scale, 1)));
   font-weight: 600;
-  color: #111827;
+  color: var(--appza-name-color, var(--appza-theme-heading, #111827));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .appza-add-member-email {
-  font-size: 0.75rem;
-  color: #6b7280;
+  font-size: var(--appza-email-size, calc(0.75rem * var(--appza-theme-text-scale, 1)));
+  color: var(--appza-email-color, var(--appza-theme-muted, #6b7280));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -5448,15 +5448,15 @@
 .appza-add-member-chip {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--appza-chip-gap, 8px);
   width: 100%;
   background: var(--appza-am-chip-bg, #f3f4f6);
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-radius: var(--appza-chip-radius, calc(8px * var(--appza-theme-radius-scale, 1)));
+  padding: var(--appza-chip-padding, 8px 10px);
 }
 .appza-add-member-chip-label {
   flex: 1 1 auto;
-  font-size: 0.9rem;
+  font-size: var(--appza-chip-label-size, calc(0.9rem * var(--appza-theme-text-scale, 1)));
   color: var(--appza-am-chip-text, #111827);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5465,13 +5465,13 @@
 .appza-add-member-chip-clear {
   border: none;
   background: transparent;
-  color: #6b7280;
+  color: var(--appza-chip-clear-color, var(--appza-theme-muted, #6b7280));
   cursor: pointer;
   display: grid;
   place-items: center;
   padding: 2px;
-  border-radius: 4px;
-  font-size: 0.95rem;
+  border-radius: var(--appza-chip-clear-radius, calc(4px * var(--appza-theme-radius-scale, 1)));
+  font-size: var(--appza-chip-clear-size, calc(0.95rem * var(--appza-theme-text-scale, 1)));
 }
 .appza-add-member-chip-clear:hover {
   background: #e5e7eb;
@@ -5488,10 +5488,10 @@
   justify-content: space-between;
   background: var(--appza-am-role-bg, #f3f4f6);
   border: 1px solid var(--appza-am-role-border, transparent);
-  border-radius: 8px;
-  padding: 10px 12px;
+  border-radius: var(--appza-role-trigger-radius, calc(8px * var(--appza-theme-radius-scale, 1)));
+  padding: var(--appza-role-trigger-padding, 10px 12px);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: var(--appza-role-trigger-size, calc(0.9rem * var(--appza-theme-text-scale, 1)));
   color: var(--appza-am-role-text, #111827);
   cursor: pointer;
 }
@@ -5506,18 +5506,18 @@
   color: #6b7280;
 }
 .appza-add-member-role-caret {
-  color: #2b7cff;
-  font-size: 0.9rem;
-  margin-left: 8px;
+  color: var(--appza-role-caret-color, #2b7cff);
+  font-size: var(--appza-role-caret-size, calc(0.9rem * var(--appza-theme-text-scale, 1)));
+  margin-left: var(--appza-role-caret-margin-left, 8px);
 }
 /* In-flow, not absolute: the modal body's overflow-y would clip it */
 .appza-add-member-role-menu {
-  margin-top: 4px;
-  background: #ffffff;
-  border-radius: 8px;
+  margin-top: var(--appza-role-menu-margin-top, 4px);
+  background: var(--appza-role-menu-bg-color, var(--appza-theme-surface, #ffffff));
+  border-radius: var(--appza-role-menu-radius, calc(8px * var(--appza-theme-radius-scale, 1)));
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   border: 1px solid #e5e7eb;
-  padding: 4px;
+  padding: var(--appza-role-menu-padding, 4px);
 }
 .appza-add-member-role-option {
   display: block;
@@ -5525,12 +5525,12 @@
   text-align: left;
   border: none;
   background: transparent;
-  padding: 10px 12px;
+  padding: var(--appza-role-option-padding, 10px 12px);
   font: inherit;
-  font-size: 0.9rem;
-  color: #111827;
+  font-size: var(--appza-role-option-size, calc(0.9rem * var(--appza-theme-text-scale, 1)));
+  color: var(--appza-role-option-color, var(--appza-theme-heading, #111827));
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--appza-role-option-radius, calc(6px * var(--appza-theme-radius-scale, 1)));
 }
 .appza-add-member-role-option:hover {
   background: #f3f4f6;
@@ -5541,18 +5541,18 @@
   font-weight: 500;
 }
 .appza-add-member-footer {
-  padding: 12px 20px 18px 20px;
+  padding: var(--appza-footer-padding, 12px 20px 18px 20px);
 }
 .appza-add-member-submit {
   width: 100%;
   border: none;
   background: var(--appza-am-submit-bg, #2b7cff);
   color: var(--appza-am-submit-text, #ffffff);
-  padding: 12px 16px;
+  padding: var(--appza-submit-padding, 12px 16px);
   border-radius: var(--appza-am-submit-radius, calc(8px * var(--appza-theme-radius-scale, 1)));
   font: inherit;
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: var(--appza-submit-size, calc(0.85rem * var(--appza-theme-text-scale, 1)));
   letter-spacing: 0.04em;
   cursor: pointer;
 }
@@ -5595,25 +5595,25 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px 14px 20px;
+  padding: var(--appza-header-padding, 16px 20px 14px 20px);
   border-bottom: 1px solid #e5e7eb;
   flex: 0 0 auto;
 }
 .appza-invite-user-title {
-  font-size: 1.15rem;
+  font-size: var(--appza-title-size, calc(1.15rem * var(--appza-theme-text-scale, 1)));
   font-weight: 700;
-  color: #111827;
+  color: var(--appza-title-color, var(--appza-theme-heading, #111827));
 }
 .appza-invite-user-close {
   border: none;
   background: transparent;
-  padding: 4px;
+  padding: var(--appza-close-padding, 4px);
   cursor: pointer;
-  color: #6b7280;
-  font-size: 1.25rem;
+  color: var(--appza-close-color, var(--appza-theme-muted, #6b7280));
+  font-size: var(--appza-close-size, calc(1.25rem * var(--appza-theme-text-scale, 1)));
   display: grid;
   place-items: center;
-  border-radius: 6px;
+  border-radius: var(--appza-close-radius, calc(6px * var(--appza-theme-radius-scale, 1)));
 }
 .appza-invite-user-close:hover {
   background: #f3f4f6;
@@ -5626,23 +5626,23 @@
 
 .appza-invite-user-tabs {
   display: flex;
-  gap: 4px;
-  margin: 12px 16px;
-  padding: 3px;
+  gap: var(--appza-tabs-gap, 4px);
+  margin: var(--appza-tabs-margin, 12px 16px);
+  padding: var(--appza-tabs-padding, 3px);
   background: var(--appza-iu-tab-bg, #ececec);
-  border-radius: 8px;
+  border-radius: var(--appza-tabs-radius, calc(8px * var(--appza-theme-radius-scale, 1)));
   flex: 0 0 auto;
 }
 .appza-invite-user-tab {
   flex: 1 1 0;
   border: none;
   background: transparent;
-  padding: 8px 6px;
+  padding: var(--appza-tab-padding, 8px 6px);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: var(--appza-tab-size, calc(0.85rem * var(--appza-theme-text-scale, 1)));
   font-weight: 600;
   color: var(--appza-iu-tab-text, #8b8b8b);
-  border-radius: 6px;
+  border-radius: var(--appza-tab-radius, calc(6px * var(--appza-theme-radius-scale, 1)));
   cursor: pointer;
 }
 .appza-invite-user-tab.is-active {
@@ -5655,7 +5655,7 @@
 .appza-invite-user-list {
   flex: 1 1 auto;
   overflow-y: auto;
-  padding: 0 4px 4px 4px;
+  padding: var(--appza-list-padding, 0 4px 4px 4px);
 }
 .appza-invite-user-empty,
 .appza-invite-user-error {
@@ -5665,14 +5665,14 @@
   font-size: 0.85rem;
 }
 .appza-invite-user-error {
-  color: #b91c1c;
+  color: var(--appza-error-color, #b91c1c);
 }
 .appza-invite-user-row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
-  padding: 13px 14px;
+  gap: var(--appza-row-gap, 8px);
+  padding: var(--appza-row-padding, 13px 14px);
   border-bottom: 1px solid #eeeeee;
 }
 .appza-invite-user-row:last-child {
@@ -5683,7 +5683,7 @@
   min-width: 0;
 }
 .appza-invite-user-row-title {
-  font-size: 0.82rem;
+  font-size: var(--appza-row-title-size, calc(0.82rem * var(--appza-theme-text-scale, 1)));
   font-weight: 600;
   color: var(--appza-iu-row-title, #111827);
   line-height: 1.3;
@@ -5692,22 +5692,22 @@
 .appza-invite-user-copy {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 4px;
+  gap: var(--appza-copy-gap, 4px);
+  margin-top: var(--appza-copy-margin-top, 4px);
   padding: 0;
   border: none;
   background: transparent;
   font: inherit;
-  font-size: 0.78rem;
-  color: #2b7cff;
+  font-size: var(--appza-copy-size, calc(0.78rem * var(--appza-theme-text-scale, 1)));
+  color: var(--appza-copy-color, #2b7cff);
   cursor: pointer;
 }
 .appza-invite-user-copy:hover {
   text-decoration: underline;
 }
 .appza-invite-user-row-meta {
-  margin-top: 3px;
-  font-size: 0.72rem;
+  margin-top: var(--appza-row-meta-margin-top, 3px);
+  font-size: var(--appza-row-meta-size, calc(0.72rem * var(--appza-theme-text-scale, 1)));
   color: var(--appza-iu-row-meta, #9a9a9a);
   line-height: 1.35;
 }
@@ -5716,13 +5716,13 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 8px;
+  gap: var(--appza-row-side-gap, 8px);
 }
 .appza-invite-user-chip {
   display: inline-block;
-  padding: 2px 7px;
-  border-radius: 10px;
-  font-size: 0.66rem;
+  padding: var(--appza-chip-padding, 2px 7px);
+  border-radius: var(--appza-chip-radius, calc(10px * var(--appza-theme-radius-scale, 1)));
+  font-size: var(--appza-chip-size, calc(0.66rem * var(--appza-theme-text-scale, 1)));
   font-weight: 600;
   white-space: nowrap;
 }
@@ -5742,16 +5742,16 @@
 .appza-invite-user-row-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--appza-row-controls-gap, 8px);
 }
 .appza-invite-user-resend {
   border: 1px solid #d6d6d6;
-  background: #ffffff;
-  border-radius: 4px;
-  padding: 2px 7px;
+  background: var(--appza-resend-bg-color, var(--appza-theme-surface, #ffffff));
+  border-radius: var(--appza-resend-radius, calc(4px * var(--appza-theme-radius-scale, 1)));
+  padding: var(--appza-resend-padding, 2px 7px);
   font: inherit;
-  font-size: 0.7rem;
-  color: #4b4b4b;
+  font-size: var(--appza-resend-size, calc(0.7rem * var(--appza-theme-text-scale, 1)));
+  color: var(--appza-resend-color, #4b4b4b);
   cursor: pointer;
 }
 .appza-invite-user-resend:hover {
@@ -5761,8 +5761,8 @@
   border: none;
   background: transparent;
   padding: 2px;
-  font-size: 1.05rem;
-  color: #e53935;
+  font-size: var(--appza-invite-delete-size, calc(1.05rem * var(--appza-theme-text-scale, 1)));
+  color: var(--appza-invite-delete-color, #e53935);
   cursor: pointer;
   display: grid;
   place-items: center;
@@ -5777,9 +5777,9 @@
 .appza-invite-user-label {
   display: block;
   margin: var(--appza-iu-gap, 14px) 0 8px 0;
-  font-size: 0.95rem;
+  font-size: var(--appza-label-size, calc(0.95rem * var(--appza-theme-text-scale, 1)));
   font-weight: 700;
-  color: #111827;
+  color: var(--appza-label-color, var(--appza-theme-heading, #111827));
 }
 /* Scoped under the modal to outrank wp-admin forms.css without !important */
 .appza-invite-user-modal .appza-invite-user-input {
@@ -5790,9 +5790,9 @@
   background: var(--appza-iu-field-bg, #ececec);
   border: 1px solid var(--appza-iu-field-border, transparent);
   border-radius: var(--appza-iu-field-radius, calc(6px * var(--appza-theme-radius-scale, 1)));
-  padding: 12px 12px;
+  padding: var(--appza-input-padding, 12px 12px);
   font: inherit;
-  font-size: 0.88rem;
+  font-size: var(--appza-input-size, calc(0.88rem * var(--appza-theme-text-scale, 1)));
   color: var(--appza-iu-field-text, #111827);
   outline: none;
 }
@@ -5815,14 +5815,14 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
+  gap: var(--appza-role-trigger-gap, 8px);
   border: none;
   background: var(--appza-iu-field-bg, #ececec);
   border: 1px solid var(--appza-iu-field-border, transparent);
   border-radius: var(--appza-iu-field-radius, calc(6px * var(--appza-theme-radius-scale, 1)));
-  padding: 12px 12px;
+  padding: var(--appza-role-trigger-padding, 12px 12px);
   font: inherit;
-  font-size: 0.88rem;
+  font-size: var(--appza-role-trigger-size, calc(0.88rem * var(--appza-theme-text-scale, 1)));
   color: var(--appza-iu-field-text, #111827);
   cursor: pointer;
   text-align: left;
@@ -5835,15 +5835,15 @@
   color: #9a9a9a;
 }
 .appza-invite-user-role-caret {
-  font-size: 0.95rem;
-  color: #6b7280;
+  font-size: var(--appza-role-caret-size, calc(0.95rem * var(--appza-theme-text-scale, 1)));
+  color: var(--appza-role-caret-color, var(--appza-theme-muted, #6b7280));
 }
 .appza-invite-user-role-menu {
-  margin-top: 6px;
+  margin-top: var(--appza-role-menu-margin-top, 6px);
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  border-radius: var(--appza-role-menu-radius, calc(8px * var(--appza-theme-radius-scale, 1)));
   overflow: hidden;
-  background: #ffffff;
+  background: var(--appza-role-menu-bg-color, var(--appza-theme-surface, #ffffff));
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
 }
 .appza-invite-user-role-option {
@@ -5851,10 +5851,10 @@
   width: 100%;
   border: none;
   background: transparent;
-  padding: 10px 12px;
+  padding: var(--appza-role-option-padding, 10px 12px);
   font: inherit;
-  font-size: 0.88rem;
-  color: #111827;
+  font-size: var(--appza-role-option-size, calc(0.88rem * var(--appza-theme-text-scale, 1)));
+  color: var(--appza-role-option-color, var(--appza-theme-heading, #111827));
   text-align: left;
   cursor: pointer;
 }
@@ -5867,26 +5867,26 @@
 }
 /* Scoped: wp-admin styles bare p, which outranks a lone class */
 .appza-invite-user-modal .appza-invite-user-helper {
-  margin: 8px 0 0 0;
-  font-size: 0.64rem;
+  margin: var(--appza-helper-margin, 8px 0 0 0);
+  font-size: var(--appza-helper-size, calc(0.64rem * var(--appza-theme-text-scale, 1)));
   line-height: 1.45;
   color: var(--appza-iu-helper-text, #9a9a9a);
 }
 .appza-invite-user-footer {
   flex: 0 0 auto;
-  padding: 12px 20px 20px 20px;
+  padding: var(--appza-footer-padding, 12px 20px 20px 20px);
 }
 .appza-invite-user-submit {
   width: 100%;
   border: none;
-  border-radius: 6px;
-  padding: 13px 12px;
+  border-radius: var(--appza-invite-submit-radius, calc(6px * var(--appza-theme-radius-scale, 1)));
+  padding: var(--appza-invite-submit-padding, 13px 12px);
   font: inherit;
-  font-size: 0.88rem;
+  font-size: var(--appza-invite-submit-size, calc(0.88rem * var(--appza-theme-text-scale, 1)));
   font-weight: 700;
   letter-spacing: 0.03em;
-  background: #2b7cff;
-  color: #ffffff;
+  background: var(--appza-invite-submit-bg-color, #2b7cff);
+  color: var(--appza-invite-submit-color, #ffffff);
   cursor: pointer;
 }
 .appza-invite-user-submit.is-disabled {
@@ -8563,26 +8563,26 @@ audio.appza-video-embed-native {
 }
 .appza-lb-sheet-grabber {
   flex: 0 0 auto;
-  width: 40px;
-  height: 5px;
+  width: var(--appza-grabber-width, 40px);
+  height: var(--appza-grabber-height, 5px);
   margin: 10px auto 6px;
-  border-radius: 999px;
+  border-radius: var(--appza-grabber-radius, 999px);
   background: var(--appza-handle-color, #c9cbd1);
 }
 .appza-lb-sheet-scroll {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 16px;
+  padding-bottom: var(--appza-scroll-padding-bottom, 16px);
 }
 .appza-lb-sheet-title {
-  margin: 8px 0 14px;
+  margin: var(--appza-title-margin, 8px 0 14px);
   color: var(--appza-title-color, var(--appza-theme-heading, #0d111a));
   font-size: var(--appza-title-size, 19px);
   font-weight: 700;
   line-height: 1.3;
 }
 .appza-lb-sheet-heading {
-  margin: 16px 0 8px;
+  margin: var(--appza-heading-margin, 16px 0 8px);
   color: var(--appza-heading-color, var(--appza-theme-heading, #0d111a));
   font-size: var(--appza-heading-size, 15px);
   font-weight: 700;
@@ -8594,12 +8594,12 @@ audio.appza-video-embed-native {
   font-size: var(--appza-body-size, 14px);
   line-height: 1.5;
 }
-.appza-lb-sheet-levels { margin-top: 18px; }
+.appza-lb-sheet-levels { margin-top: var(--appza-levels-margin-top, 18px); }
 .appza-lb-sheet-level {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--appza-level-gap, 16px);
   padding: var(--appza-row-padding, 13px 0);
   border-bottom: 1px solid var(--appza-divider-color, var(--appza-theme-border, #e1e4eb));
 }
@@ -8615,7 +8615,7 @@ audio.appza-video-embed-native {
   white-space: nowrap;
 }
 .appza-lb-sheet-empty {
-  padding: 20px 0;
+  padding: var(--appza-empty-padding, 20px 0);
   color: var(--appza-body-color, var(--appza-theme-muted, #525866));
   font-size: var(--appza-body-size, 14px);
   text-align: center;
@@ -8714,19 +8714,19 @@ audio.appza-video-embed-native {
 }
 .appza-options-sheet-grabber {
   flex: 0 0 auto;
-  width: 40px;
-  height: 5px;
+  width: var(--appza-grabber-width, 40px);
+  height: var(--appza-grabber-height, 5px);
   margin: 10px auto 4px;
-  border-radius: 999px;
+  border-radius: var(--appza-grabber-radius, 999px);
   background: var(--appza-handle-color, #c6c6c8);
 }
 .appza-options-sheet-scroll {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 14px;
+  padding-bottom: var(--appza-scroll-padding-bottom, 14px);
 }
 .appza-options-sheet-title {
-  margin: 10px 8px 10px;
+  margin: var(--appza-title-margin, 10px 8px 10px);
   color: var(--appza-title-color, var(--appza-theme-heading, #0e121b));
   font-size: var(--appza-title-size, 19px);
   font-weight: var(--appza-title-weight, 700);
@@ -8785,7 +8785,7 @@ audio.appza-video-embed-native {
   color: inherit;
 }
 .appza-options-sheet-empty {
-  padding: 20px 0;
+  padding: var(--appza-empty-padding, 20px 0);
   color: var(--appza-label-color, #898995);
   font-size: var(--appza-label-size, 14px);
   text-align: center;
@@ -8814,19 +8814,19 @@ audio.appza-video-embed-native {
 }
 .appza-post-menu-sheet-grabber {
   flex: 0 0 auto;
-  width: 40px;
-  height: 5px;
+  width: var(--appza-grabber-width, 40px);
+  height: var(--appza-grabber-height, 5px);
   margin: 10px auto 2px;
-  border-radius: 999px;
+  border-radius: var(--appza-grabber-radius, 999px);
   background: var(--appza-handle-color, #c6c6c8);
 }
 .appza-post-menu-sheet-scroll {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 10px;
+  padding-bottom: var(--appza-scroll-padding-bottom, 10px);
 }
 .appza-post-menu-sheet-eyebrow {
-  margin: 6px 20px 8px;
+  margin: var(--appza-eyebrow-margin, 6px 20px 8px);
   color: var(--appza-eyebrow-color, #898995);
   font-size: var(--appza-eyebrow-size, 13px);
   font-weight: var(--appza-eyebrow-weight, 500);
@@ -12539,22 +12539,22 @@ select.appza-profile-fields-input[multiple] {
   flex-direction: column;
   background: var(--appza-sheet-bg-color, var(--appza-theme-surface, #ffffff));
   border-radius: var(--appza-sheet-radius, calc(16px * var(--appza-theme-radius-scale, 1))) var(--appza-sheet-radius, calc(16px * var(--appza-theme-radius-scale, 1))) 0 0;
-  padding: 0 0 8px;
+  padding: var(--appza-sheet-padding, 0 0 8px);
 }
 .appza-follow-sheet-grabber {
-  width: 40px;
-  height: 4px;
+  width: var(--appza-grabber-width, 40px);
+  height: var(--appza-grabber-height, 4px);
   margin: 8px auto 12px;
-  border-radius: 2px;
-  background: #c6c6c8;
+  border-radius: var(--appza-grabber-radius, calc(2px * var(--appza-theme-radius-scale, 1)));
+  background: var(--appza-grabber-bg-color, #c6c6c8);
   flex: none;
 }
 .appza-follow-sheet-tabs {
   display: flex;
-  gap: 4px;
-  margin: 0 16px 8px;
-  padding: 4px;
-  border-radius: 10px;
+  gap: var(--appza-tabs-gap, 4px);
+  margin: var(--appza-tabs-margin, 0 16px 8px);
+  padding: var(--appza-tabs-padding, 4px);
+  border-radius: var(--appza-tabs-radius, calc(10px * var(--appza-theme-radius-scale, 1)));
   background: var(--appza-tab-track-color, #eceef2);
   flex: none;
 }
@@ -12562,8 +12562,8 @@ select.appza-profile-fields-input[multiple] {
   flex: 1;
   border: 0;
   background: transparent;
-  border-radius: 8px;
-  padding: 9px 4px;
+  border-radius: var(--appza-tab-radius, calc(8px * var(--appza-theme-radius-scale, 1)));
+  padding: var(--appza-tab-padding, 9px 4px);
   font-size: var(--appza-tab-size, calc(0.95rem * var(--appza-theme-text-scale, 1)));
   font-weight: 500;
   color: var(--appza-tab-color, var(--appza-theme-muted, #6b7280));
@@ -12577,13 +12577,13 @@ select.appza-profile-fields-input[multiple] {
 .appza-follow-sheet-list {
   overflow-y: auto;
   border-top: 1px solid #ececed;
-  padding-top: 4px;
+  padding-top: var(--appza-list-padding-top, 4px);
 }
 .appza-follow-sheet-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
+  gap: var(--appza-row-gap, 12px);
+  padding: var(--appza-row-padding, 10px 16px);
 }
 .appza-follow-sheet-avatar {
   flex: none;
@@ -12591,7 +12591,7 @@ select.appza-profile-fields-input[multiple] {
   height: var(--appza-avatar-size, 40px);
   border-radius: 50%;
   overflow: hidden;
-  background: #e5e7eb;
+  background: var(--appza-avatar-bg-color, #e5e7eb);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -12602,9 +12602,9 @@ select.appza-profile-fields-input[multiple] {
   object-fit: cover;
 }
 .appza-follow-sheet-avatar-fallback {
-  font-size: 0.85rem;
+  font-size: var(--appza-avatar-fallback-size, calc(0.85rem * var(--appza-theme-text-scale, 1)));
   font-weight: 600;
-  color: #4b5563;
+  color: var(--appza-avatar-fallback-color, var(--appza-theme-body, #4b5563));
 }
 .appza-follow-sheet-person {
   flex: 1;
@@ -12629,13 +12629,13 @@ select.appza-profile-fields-input[multiple] {
   border-radius: var(--appza-unblock-radius, calc(8px * var(--appza-theme-radius-scale, 1)));
   background: transparent;
   color: var(--appza-unblock-color, var(--appza-theme-heading, #111827));
-  font-size: 0.875rem;
+  font-size: var(--appza-unblock-size, calc(0.875rem * var(--appza-theme-text-scale, 1)));
   font-weight: 500;
-  padding: 7px 14px;
+  padding: var(--appza-unblock-padding, 7px 14px);
   cursor: pointer;
 }
 .appza-follow-sheet-empty {
-  padding: 48px 24px;
+  padding: var(--appza-empty-padding, 48px 24px);
   text-align: center;
   font-size: var(--appza-empty-size, calc(0.9rem * var(--appza-theme-text-scale, 1)));
   color: var(--appza-empty-color, var(--appza-theme-muted, #6b7280));
@@ -12978,7 +12978,7 @@ select.appza-profile-fields-input[multiple] {
 }
 
 .appza-options-sheet-section + .appza-options-sheet-section {
-  margin-top: 12px;
+  margin-top: var(--appza-section-margin-top, 12px);
 }
 .appza-options-sheet-eyebrow {
   margin: 10px 8px -6px;
@@ -12989,7 +12989,7 @@ select.appza-profile-fields-input[multiple] {
   text-transform: uppercase;
 }
 .appza-options-sheet-section-title {
-  margin: 4px 8px 6px;
+  margin: var(--appza-section-title-margin, 4px 8px 6px);
   color: var(--appza-section-title-color, var(--appza-theme-muted, #6b6b6b));
   font-size: var(--appza-section-title-size, 13px);
   font-weight: 600;
