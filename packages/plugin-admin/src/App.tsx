@@ -32,6 +32,7 @@ import {
   PollVotersSheet,
   openPollVotersSheet,
   ModerationReviewSheet,
+  OverlayDesignStyle,
   announceModerationDone,
   getFcRuntimeSettings,
   setFeedControls,
@@ -1411,6 +1412,7 @@ export function App() {
       <LeaderboardPointsSheet />
       <PollVotersSheet />
       <ModerationReviewSheet />
+      <OverlayDesignStyle catalog={catalog} customizations={effectiveCustomizations} />
     </>
   );
 

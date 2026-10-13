@@ -193,6 +193,7 @@ import {
   PollVotersSheet,
   openPollVotersSheet,
   ModerationReviewSheet,
+  OverlayDesignStyle,
   announceModerationDone,
 } from '@appza/renderer';
 import { drawerMenuItems, screenAppbarPlacements, screenPlacements } from '@appza/renderer';
@@ -1574,6 +1575,7 @@ export function App() {
         <LeaderboardPointsSheet />
         <PollVotersSheet />
         <ModerationReviewSheet />
+        <OverlayDesignStyle catalog={catalog} customizations={customizationsForRender} />
       </ActionProvider>
 
       {errorToast && (

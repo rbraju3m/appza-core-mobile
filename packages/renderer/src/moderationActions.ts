@@ -88,6 +88,7 @@ function openReview(
       : undefined;
 
   openModerationReview({
+    appzetSlug: sheetSlug,
     endpoint,
     idParam,
     contentId,

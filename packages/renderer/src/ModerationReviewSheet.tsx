@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useBackDismiss } from './backStack';
+import { appzetAttrs } from './designTimeAttrs';
 
 // The CTAs only hand their verb to onAct; the modal closes on MODERATION_DONE_EVENT, since the confirm can still be cancelled.
 
@@ -65,6 +66,8 @@ export type ModerationReviewOpenDetail = {
   buttons?: Partial<Record<ModerationReviewAct, boolean>>;
   reportId?: number | string;
   presentation: ModerationReviewPresentation;
+  /** Its sheet AppZet: the overlay design stylesheet finds the root by it. */
+  appzetSlug?: string;
   authHeader?: string;
   onAct: (act: ModerationReviewAct, reportId: number | string) => void;
 };
@@ -157,7 +160,7 @@ export function ModerationReviewSheet() {
 
   return (
     <div className="appza-modreview-backdrop" onClick={() => setOpen(null)}>
-      <div className="appza-modreview" onClick={(e) => e.stopPropagation()}>
+      <div className="appza-modreview" onClick={(e) => e.stopPropagation()} {...(open.appzetSlug ? appzetAttrs(open.appzetSlug) : {})}>
         <div className="appza-modreview-head">
           {open.content.authorAvatar ? (
             <img className="appza-modreview-avatar" src={open.content.authorAvatar} alt="" />
