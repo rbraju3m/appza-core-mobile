@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
 import type { Catalog } from '@appza/schemas';
 import { resolveOverridableColumn } from './resolveOverride';
+import { tokensToCssVars } from './tokens';
 
 // A sheet or modal opens outside PlacementRenderer, so its block's design and its AppZet's `_style` never reach it
 // as inline vars. One stylesheet hands them to every overlay root by its AppZet slug; the overlay's own inline vars
-// (from its settings) still win, as they do over a block's design.
+// (from its settings) still win, as they do over a block's design. The theme is set on the screen, and an overlay
+// opens beside it, so the template's theme is handed to every overlay root here too.
 
 const UNSAFE = /[;{}<>\\"]|url\(|expression\(/i;
 
@@ -22,12 +24,23 @@ function stamp(into: Map<string, string>, bag: unknown): void {
   }
 }
 
+function themeRule(catalog: Catalog | null | undefined, customizations?: unknown): string | null {
+  const template = (catalog?.template ?? null) as Row | null;
+  const base = template?.tokens ?? {};
+  const slug = typeof template?.slug === 'string' ? template.slug : '';
+  const tokens = customizations ? resolveOverridableColumn(customizations, 'template', slug, 'tokens', base) : base;
+  const vars = Object.entries(tokensToCssVars(tokens) as Record<string, string>)
+    .filter(([k, v]) => k.startsWith('--appza-theme-') && !UNSAFE.test(String(v)));
+  return vars.length ? `[data-appza-overlay]{${vars.map(([k, v]) => `${k}:${v}`).join(';')}}` : null;
+}
+
 export function overlayDesignCss(catalog: Catalog | null | undefined, customizations?: unknown): string {
   const blocks = new Map<number, Row>();
   for (const s of (catalog?.superstructures ?? []) as unknown as Row[]) {
     if (typeof s.id === 'number') blocks.set(s.id, s);
   }
-  const rules: string[] = [];
+  const theme = themeRule(catalog, customizations);
+  const rules: string[] = theme ? [theme] : [];
   for (const a of (catalog?.appzets ?? []) as unknown as Row[]) {
     if (typeof a.slug !== 'string' || !/^[a-z0-9-]+$/.test(a.slug)) continue;
     const ss = typeof a.superstructure_id === 'number' ? blocks.get(a.superstructure_id) : undefined;
