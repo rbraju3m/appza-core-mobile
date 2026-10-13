@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { setLabeler, startPointer, stylingOf } from './preview/pointer';
 import { ScreenRenderer } from '@appza/renderer';
 import type { Catalog, TemplateScreen } from '@appza/schemas';
 
@@ -6,6 +7,10 @@ export type SelectedPrimitive = {
   appzetSlug: string;
   primitivePath: string;
   primitiveSlug: string;
+  /** The top-level piece and what the click landed on inside it: the Design tab opens the parts that style it. */
+  child?: number;
+  tags?: string[];
+  classes?: string[];
 };
 
 type DeviceFrameProps = {
@@ -22,6 +27,8 @@ type DeviceFrameProps = {
   overlaySlot?: ReactNode;
   /** Drag mode (D110): nothing on the screen fires; a click selects a placement. */
   onSelectPlacement?: (key: string | null) => void;
+  /** Edit mode: outline the piece under the pointer with this label ("#10 Button · Like"). */
+  hoverLabel?: (appzet: string | null, child: number) => string | undefined;
 };
 
 // Selection outline is toggled here, not in the renderer, so the shared renderer stays unaware of designer state.
@@ -37,8 +44,21 @@ export function DeviceFrame({
   onSelectPrimitive,
   overlaySlot,
   onSelectPlacement,
+  hoverLabel,
 }: DeviceFrameProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
+  const labelRef = useRef(hoverLabel);
+  labelRef.current = hoverLabel;
+  const hovering = !!hoverLabel;
+  useEffect(() => {
+    if (!hovering || !viewportRef.current) return;
+    setLabeler((_block, appzet, child) => labelRef.current?.(appzet, child));
+    const stop = startPointer(viewportRef.current);
+    return () => {
+      setLabeler(null);
+      stop();
+    };
+  }, [hovering]);
 
   useLayoutEffect(() => {
     const el = viewportRef.current;
@@ -77,7 +97,13 @@ export function DeviceFrame({
       const primitiveSlug = primitiveEl.getAttribute('data-child-slug');
       if (primitivePath && appzetSlug && primitiveSlug) {
         if (!inOverlay) e.stopPropagation();
-        onSelectPrimitive({ appzetSlug, primitivePath, primitiveSlug });
+        onSelectPrimitive({
+          appzetSlug,
+          primitivePath,
+          primitiveSlug,
+          child: Number(primitiveEl.getAttribute('data-child-index') ?? 0),
+          ...stylingOf(target, primitiveEl),
+        });
         return;
       }
     }

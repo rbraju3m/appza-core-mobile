@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AppZet, PropertiesSchemaEntry, Superstructure } from '@appza/schemas';
 import { readDataPath, resolveOverridableColumn, useDataSource } from '@appza/renderer';
 import { IconPicker } from './IconPicker';
-import { DesignTab, type AppZetDesign } from './DesignTab';
+import { DesignTab, type AppZetDesign, type DesignFocus, type DesignPart } from './DesignTab';
 
 type Props = {
   appzet: AppZet;
@@ -24,6 +24,9 @@ type Props = {
   scope?: { value: PropsScope; onChange: (scope: PropsScope) => void };
   /** The parts this AppZet can be styled by (design index from Core); `missing` = the site has not synced one. */
   design?: { design: AppZetDesign | null; missing: boolean };
+  /** A click on a piece of this AppZet: the Design tab opens its parts. */
+  designFocus?: DesignFocus | null;
+  onShowPart?: (part: DesignPart | null) => void;
 };
 
 export type PropsScope = 'placement' | 'everywhere';
@@ -62,12 +65,17 @@ export function PropertiesPanel({
   placement,
   scope,
   design,
+  designFocus,
+  onShowPart,
 }: Props) {
   const dataState = useDataSource(dataSourceSlug ?? undefined);
   const previewItem = dataState.items[0];
   // A site's Design is its AppZet everywhere (owner, Phase 6): not offered for one placement.
   const designOn = !!design && !placement;
   const [activeTab, setActiveTab] = useState<TabKey>(designOn ? 'design' : 'wrapper');
+  useEffect(() => {
+    if (designFocus && designOn) setActiveTab('design');
+  }, [designFocus?.at]); // eslint-disable-line react-hooks/exhaustive-deps
   const [spacing, setSpacing] = useState<Spacing>({});
   const [options, setOptions] = useState<OptionValues>({});
   const [styleBag, setStyleBag] = useState<Record<string, string>>({});
@@ -439,6 +447,8 @@ export function PropertiesPanel({
             value={designValue}
             underneath={designUnderneath}
             onSet={setDesign}
+            focus={designFocus}
+            onShow={onShowPart}
           />
         )}
 

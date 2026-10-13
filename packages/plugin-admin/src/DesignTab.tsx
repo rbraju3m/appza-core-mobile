@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAdvanced } from './advanced';
+import type { Highlight } from './preview/pointer';
 
 // The same parts, names and rules as Core's Design tab (resources/js/Components/DesignPanel.tsx), drawn with the
 // simulator's own controls. The index comes from Core at sync (GET appza/v1/design-index).
@@ -44,6 +45,36 @@ export function useDesignIndex(templateSlug: string | null, endpoint: string | u
 }
 
 const localKey = (p: DesignPart) => p.key.slice(p.key.indexOf(':') + 1);
+
+export type DesignFocus = { keys: string[]; child: number; fallback: boolean; at: number };
+
+/** The parts a click lands on: the piece's own, then every-tag / class parts it matches; none → the whole block. */
+export function partsForPick(parts: DesignPart[], pick: { child: number; tags: string[]; classes: string[] }): DesignFocus {
+  const own = parts.filter((p) => p.target === 'piece' && p.pieces.includes(pick.child));
+  const styling = parts.filter((p) =>
+    (p.target === 'all' && pick.tags.includes(localKey(p).replace(/^all-/, '')))
+    || (p.target === 'class' && pick.classes.includes(localKey(p).replace(/^class-/, ''))));
+  const found = [...own, ...styling];
+  const keys = (found.length ? found : parts.filter((p) => p.target === 'block')).map((p) => p.key);
+  return { keys, child: pick.child, fallback: found.length === 0, at: Date.now() };
+}
+
+/** What the device outlines for an opened part; the block is found from the AppZet. */
+export function partHighlight(part: DesignPart, appzet: string): Highlight {
+  const key = localKey(part);
+  if (part.target === 'piece') return { appzet, pieces: part.pieces };
+  if (part.target === 'all') return { appzet, tag: key.replace(/^all-/, '') };
+  if (part.target === 'class') return { appzet, cls: key.replace(/^class-/, '') };
+  return { appzet, whole: true };
+}
+
+/** The hover label: "#10 Button · Like", or "#30 Comment List" when no part styles that piece. */
+export function pieceLabel(design: AppZetDesign | null, child: number): string | undefined {
+  if (!design || !design.pieces[child]) return undefined;
+  const part = design.parts.find((p) => p.target === 'piece' && p.pieces.includes(child));
+  const guess = part ? guessed(part.label) : '';
+  return pieceName(design.pieces, child) + (guess ? ` · ${guess}` : '');
+}
 export const pieceName = (pieces: string[] | undefined, i: number) => `#${i} ${pieces?.[i] ?? 'piece'}`;
 const guessed = (label: string) => label.replace(/\s*\(piece \d+\)$/i, '').replace(/^Piece \d+$/i, '');
 
@@ -143,11 +174,28 @@ type Props = {
   // What shows when nothing is set here: a setting's default, the block's design, else the stylesheet's.
   underneath: (name: string) => string;
   onSet: SetFn;
+  // A click on the device: open and light the parts it lands on.
+  focus?: DesignFocus | null;
+  // The part just opened (null when closed), so the device can outline it.
+  onShow?: (part: DesignPart | null) => void;
 };
 
-export function DesignTab({ design, missing, value, underneath, onSet }: Props) {
+export function DesignTab({ design, missing, value, underneath, onSet, focus, onShow }: Props) {
   const [advanced, setAdvanced] = useAdvanced();
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const lit = useMemo(() => new Set(focus?.keys ?? []), [focus]);
+  useEffect(() => {
+    if (!focus || focus.keys.length === 0) return;
+    setOpen(Object.fromEntries(focus.keys.map((k) => [k, true])));
+    window.setTimeout(() => document.querySelector(`[data-design-part="${CSS.escape(focus.keys[0]!)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.at]);
+  useEffect(() => () => onShow?.(null), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggle = (p: DesignPart) => {
+    const opening = !open[p.key];
+    setOpen((o) => ({ ...o, [p.key]: opening }));
+    onShow?.(opening ? p : null);
+  };
   const parts = design?.parts ?? [];
   const pieces = design?.pieces;
   const partsOf = useMemo(() => {
@@ -176,6 +224,13 @@ export function DesignTab({ design, missing, value, underneath, onSet }: Props) 
       <p className="appza-design-intro">
         Each part of the block and what it looks like. Anything you leave alone keeps today’s look, shown greyed. Part names are guessed; the #number is the piece.
       </p>
+      {focus && (
+        <p className="appza-design-focus">
+          {focus.fallback
+            ? `You clicked ${pieceName(pieces, focus.child)}. It has no design values of its own yet, so the whole block is open.`
+            : `You clicked ${pieceName(pieces, focus.child)}: ${focus.keys.length} part${focus.keys.length === 1 ? '' : 's'} lit below.`}
+        </p>
+      )}
       <label className="appza-design-advanced">
         <input type="checkbox" checked={advanced} onChange={(e) => setAdvanced(e.target.checked)} /> Exact values and variable names
       </label>
@@ -185,8 +240,8 @@ export function DesignTab({ design, missing, value, underneath, onSet }: Props) 
         const t = partTitle(p, pieces);
         const isOpen = parts.length === 1 || !!open[p.key];
         return (
-          <div key={p.key} className="appza-props-panel-section" data-design-part={p.key} data-collapsed={isOpen ? 'false' : 'true'}>
-            <button type="button" className="appza-props-panel-section-head" aria-expanded={isOpen} onClick={() => setOpen((o) => ({ ...o, [p.key]: !o[p.key] }))}>
+          <div key={p.key} className="appza-props-panel-section" data-design-part={p.key} data-collapsed={isOpen ? 'false' : 'true'} data-lit={lit.has(p.key) || undefined}>
+            <button type="button" className="appza-props-panel-section-head" aria-expanded={isOpen} onClick={() => toggle(p)}>
               <span className="appza-props-panel-section-chevron" aria-hidden="true" data-collapsed={isOpen ? 'false' : 'true'}>▸</span>
               <span className="appza-props-panel-section-title">{t.title}</span>
               {t.sub && <span className="appza-design-sub">{t.sub}</span>}

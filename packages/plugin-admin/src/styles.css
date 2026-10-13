@@ -2883,3 +2883,14 @@ body {
   border: 1px solid var(--appza-border);
   border-radius: 4px;
 }
+
+.appza-design-focus {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  color: var(--appza-primary-hover);
+}
+
+.appza-props-panel-section[data-lit="true"] {
+  outline: 2px solid var(--appza-primary);
+  outline-offset: 2px;
+}

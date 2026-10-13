@@ -1,8 +1,8 @@
-// Core's preview only: outlines on a layer above the app (hover, the clicked piece, a part Core asks for).
-// Nothing is added inside the app, so the renderer and its styles are untouched.
+// Outlines on a layer above the app (hover, the clicked piece, a part the editor asks for): Core's preview, and the
+// simulator's device screen. Nothing is added inside the app, so the renderer and its styles are untouched.
 
 export type PieceLabels = Record<string, { pieces?: Record<string, string>; whole?: string }>;
-export type Highlight = { block: string; appzet?: string | null; pieces?: number[]; tag?: string; cls?: string; whole?: boolean } | null;
+export type Highlight = { block?: string | null; appzet?: string | null; pieces?: number[]; tag?: string; cls?: string; whole?: boolean } | null;
 
 const MAX_BOXES = 80;
 const HOVER = '#f08c00';
@@ -12,6 +12,9 @@ let labels: PieceLabels = {};
 let hovered: Element | null = null;
 let picked: Element | null = null;
 let highlight: Highlight = null;
+// The simulator draws the app inside wp-admin: only pieces inside this element count.
+let scope: Element | null = null;
+let labeler: ((block: string | null, appzet: string | null, child: number) => string | undefined) | null = null;
 
 const layer = document.createElement('div');
 layer.setAttribute('data-appza-preview-layer', '');
@@ -63,12 +66,14 @@ export function stylingOf(target: Element, piece: Element): { tags: string[]; cl
 }
 
 function labelOf(p: NonNullable<ReturnType<typeof pieceOf>>): string {
-  return (p.block && labels[p.block]?.pieces?.[String(p.child)]) || `Piece ${p.child + 1}`;
+  return labeler?.(p.block, p.appzet, p.child) || (p.block && labels[p.block]?.pieces?.[String(p.child)]) || `Piece ${p.child + 1}`;
 }
 
 function highlighted(): Element[] {
   if (!highlight) return [];
-  const blocks = [...document.querySelectorAll(`.appza-renderer-ss[data-slug="${CSS.escape(highlight.block)}"]`)].filter(
+  // No block named: every block that draws this AppZet.
+  const selector = highlight.block ? `.appza-renderer-ss[data-slug="${CSS.escape(highlight.block)}"]` : '.appza-renderer-ss';
+  const blocks = [...(scope ?? document).querySelectorAll(selector)].filter(
     (ss) => !highlight!.appzet || ss.querySelector(`:scope > [data-appza-appzet-slug="${CSS.escape(highlight!.appzet)}"]`),
   );
   const out: Element[] = [];
@@ -86,6 +91,7 @@ function highlighted(): Element[] {
 }
 
 function paint() {
+  if (!running) return;
   if (hovered && !hovered.isConnected) hovered = null;
   if (picked && !picked.isConnected) picked = null;
   if (!hovered && !picked && !highlight) {
@@ -96,17 +102,38 @@ function paint() {
   layer.replaceChildren();
   for (const el of highlighted()) layer.appendChild(box(el, PICKED, true));
   if (picked) layer.appendChild(box(picked, PICKED, false));
-  const h = pieceOf(hovered);
+  const h = hovered && (!scope || scope.contains(hovered)) ? pieceOf(hovered) : null;
   if (h && h.el !== picked) layer.appendChild(box(h.el, HOVER, false, labelOf(h)));
   else if (h) layer.appendChild(box(h.el, PICKED, false, labelOf(h)));
   requestAnimationFrame(paint);
 }
 
-export function startPointer() {
-  document.body.appendChild(layer);
-  document.addEventListener('mouseover', (e) => { hovered = e.target as Element; }, true);
-  document.addEventListener('mouseleave', () => { hovered = null; });
-  requestAnimationFrame(paint);
+const onOver = (e: Event) => { hovered = e.target as Element; };
+const onLeave = () => { hovered = null; };
+let running = false;
+
+export function startPointer(within: Element | null = null): () => void {
+  scope = within;
+  if (!running) {
+    running = true;
+    document.body.appendChild(layer);
+    document.addEventListener('mouseover', onOver, true);
+    document.addEventListener('mouseleave', onLeave);
+    requestAnimationFrame(paint);
+  }
+  return () => {
+    running = false;
+    hovered = picked = null;
+    highlight = null;
+    document.removeEventListener('mouseover', onOver, true);
+    document.removeEventListener('mouseleave', onLeave);
+    layer.replaceChildren();
+    layer.remove();
+  };
+}
+
+export function setLabeler(fn: typeof labeler) {
+  labeler = fn;
 }
 
 export function setPicked(el: Element | null) {

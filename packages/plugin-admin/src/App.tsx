@@ -227,7 +227,9 @@ import { patchItem } from './layoutApi';
 import { useChromeBuilder } from './useChromeBuilder';
 import { mainKeys, rowsOf } from './layoutApi';
 import { OverridesPanel } from './OverridesPanel';
-import { designFor, useDesignIndex } from './DesignTab';
+import { designFor, partHighlight, partsForPick, pieceLabel, useDesignIndex, type DesignFocus } from './DesignTab';
+import { useAdvanced } from './advanced';
+import { setHighlight } from './preview/pointer';
 import { PropertiesPanel, type PropsScope } from './PropertiesPanel';
 import { PrimitivePanel } from './PrimitivePanel';
 import { OnboardingModal } from './OnboardingModal';
@@ -270,6 +272,8 @@ export function App() {
   const designIndex = useDesignIndex(templateSlug, window.appzaCoreConfig?.endpoints?.designIndex, window.appzaCoreConfig?.restNonce, designRev);
   // One object per AppZet per index: the panel resets its form when these change identity.
   const designCache = useMemo(() => new Map<string, ReturnType<typeof designFor>>(), [designIndex.index]);
+  const [advanced] = useAdvanced();
+  const [designFocus, setDesignFocus] = useState<DesignFocus | null>(null);
   const designOf = (slug: string) => {
     if (!designCache.has(slug)) designCache.set(slug, designFor(designIndex.index, slug));
     return { design: designCache.get(slug) ?? null, missing: designIndex.missing };
@@ -2091,12 +2095,22 @@ export function App() {
                   customizations={effectiveCustomizations}
                   templateName={catalog?.template?.name}
                   selectedAppzetSlug={selectedAppzetSlug}
+                  hoverLabel={(appzet, child) => (appzet ? pieceLabel(designOf(appzet).design, child) : undefined)}
                   onSelectAppzet={(slug) => {
                     setSelectedAppzetSlug(slug);
+                    setDesignFocus(null);
                     if (slug) setSelectedPrimitive(null);
                   }}
                   selectedPrimitive={selectedPrimitive}
                   onSelectPrimitive={(sel) => {
+                    // Simple: a piece opens its parts on the Design tab; Advanced keeps the raw piece Layout editor.
+                    const parts = sel && !advanced ? designOf(sel.appzetSlug).design?.parts : undefined;
+                    if (sel && parts?.length) {
+                      setSelectedPrimitive(null);
+                      setSelectedAppzetSlug(sel.appzetSlug);
+                      setDesignFocus(partsForPick(parts, { child: sel.child ?? 0, tags: sel.tags ?? [], classes: sel.classes ?? [] }));
+                      return;
+                    }
                     setSelectedPrimitive(sel);
                     if (sel) setSelectedAppzetSlug(null);
                   }}
@@ -2210,15 +2224,20 @@ export function App() {
             })();
             return (
               <PropertiesPanel
+                key={selected.slug}
                 appzet={selected}
                 superstructure={superstructure}
                 dataSourceSlug={dataSourceSlug}
                 design={designOf(selected.slug)}
+                designFocus={designFocus}
+                onShowPart={(part) => setHighlight(part ? partHighlight(part, selected.slug) : null)}
                 customizations={envelope?.customizations}
                 customizationsEndpoint={customizationsEndpoint}
                 restNonce={nonce}
                 onClose={() => {
                   setLivePreview(null);
+                  setHighlight(null);
+                  setDesignFocus(null);
                   setSelectedAppzetSlug(null);
                 }}
                 onChanged={() => {
