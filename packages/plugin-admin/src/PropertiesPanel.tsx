@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AppZet, PropertiesSchemaEntry, Superstructure } from '@appza/schemas';
 import { readDataPath, resolveOverridableColumn, useDataSource } from '@appza/renderer';
 import { IconPicker } from './IconPicker';
+import { DesignTab, type AppZetDesign } from './DesignTab';
 
 type Props = {
   appzet: AppZet;
@@ -21,6 +22,8 @@ type Props = {
     onChange: (value: Record<string, unknown> | undefined) => void;
   };
   scope?: { value: PropsScope; onChange: (scope: PropsScope) => void };
+  /** The parts this AppZet can be styled by (design index from Core); `missing` = the site has not synced one. */
+  design?: { design: AppZetDesign | null; missing: boolean };
 };
 
 export type PropsScope = 'placement' | 'everywhere';
@@ -31,7 +34,7 @@ const isEmpty = (v: unknown) => v === undefined || v === null || (typeof v === '
 type OptionValue = boolean | number | string | Array<Record<string, unknown>>;
 type OptionValues = Record<string, OptionValue>;
 
-type TabKey = 'wrapper' | 'options' | 'action';
+type TabKey = 'design' | 'wrapper' | 'options' | 'action';
 
 const CELL_VALUES = [0, 4, 8, 16, 24] as const;
 const BORDER_WIDTHS = [0, 1, 2, 4, 8] as const;
@@ -58,12 +61,17 @@ export function PropertiesPanel({
   onLivePreview,
   placement,
   scope,
+  design,
 }: Props) {
   const dataState = useDataSource(dataSourceSlug ?? undefined);
   const previewItem = dataState.items[0];
-  const [activeTab, setActiveTab] = useState<TabKey>('wrapper');
+  // A site's Design is its AppZet everywhere (owner, Phase 6): not offered for one placement.
+  const designOn = !!design && !placement;
+  const [activeTab, setActiveTab] = useState<TabKey>(designOn ? 'design' : 'wrapper');
   const [spacing, setSpacing] = useState<Spacing>({});
   const [options, setOptions] = useState<OptionValues>({});
+  const [styleBag, setStyleBag] = useState<Record<string, string>>({});
+  const [declared, setDeclared] = useState<Record<string, string>>({});
   const [existingRowId, setExistingRowId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,6 +121,36 @@ export function PropertiesPanel({
     );
   }, [superstructure, previewItem]);
 
+  // A name the block declares as a setting is that setting (one value, two views); the rest go in `_style` — as Core.
+  const declaredNames = useMemo(
+    () => new Set((Array.isArray(superstructure?.properties_schema) ? superstructure!.properties_schema : []).map((p) => p.name)),
+    [superstructure],
+  );
+  const exposedNames = useMemo(() => new Set(exposedProps.map((p) => p.name)), [exposedProps]);
+  const designParts = design?.design?.parts;
+  const designNames = useMemo(
+    () => new Set((designParts ?? []).flatMap((p) => Object.keys(p.vars))),
+    [designParts],
+  );
+  const initialBag = useMemo<Record<string, string>>(() => {
+    const bag = overridesBlob['_style'];
+    if (!bag || typeof bag !== 'object' || Array.isArray(bag)) return {};
+    return Object.fromEntries(
+      Object.entries(bag as Record<string, unknown>)
+        .filter(([, v]) => typeof v === 'string' || typeof v === 'number')
+        .map(([k, v]) => [k, String(v)]),
+    );
+  }, [overridesBlob]);
+  // Declared names the Options tab does not show (not exposed to the builder) are edited here only.
+  const initialDeclared = useMemo<Record<string, string>>(() => {
+    const out: Record<string, string> = {};
+    for (const n of designNames) {
+      const v = overridesBlob[n];
+      if (declaredNames.has(n) && !exposedNames.has(n) && (typeof v === 'string' || typeof v === 'number')) out[n] = String(v);
+    }
+    return out;
+  }, [designNames, declaredNames, exposedNames, overridesBlob]);
+
   const initialOptions = useMemo<OptionValues>(() => {
     const out: OptionValues = {};
     for (const p of exposedProps) {
@@ -128,6 +166,11 @@ export function PropertiesPanel({
     return () => onLivePreview(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    setStyleBag({ ...initialBag });
+    setDeclared({ ...initialDeclared });
+  }, [initialBag, initialDeclared]);
 
   useEffect(() => {
     setSpacing({ ...initialSpacing });
@@ -157,7 +200,11 @@ export function PropertiesPanel({
     () => JSON.stringify(options) !== JSON.stringify(initialOptions),
     [options, initialOptions],
   );
-  const dirty = spacingDirty || optionsDirty;
+  const designDirty = useMemo(
+    () => JSON.stringify(styleBag) !== JSON.stringify(initialBag) || JSON.stringify(declared) !== JSON.stringify(initialDeclared),
+    [styleBag, initialBag, declared, initialDeclared],
+  );
+  const dirty = spacingDirty || optionsDirty || designDirty;
 
   // Starts from the persisted view so keys this panel doesn't manage survive the save.
   function composeOverrideValue(
@@ -170,6 +217,15 @@ export function PropertiesPanel({
         delete out[p.name];
       }
     }
+    if (placement) return out;
+    for (const n of designNames) {
+      if (!declaredNames.has(n) || exposedNames.has(n)) continue;
+      if (n in declared) out[n] = declared[n];
+      else delete out[n];
+    }
+    // The whole bag is written, so a value set back to the default is gone, not merged back in.
+    if (Object.keys(styleBag).length) out['_style'] = styleBag;
+    else delete out['_style'];
     return out;
   }
 
@@ -185,7 +241,7 @@ export function PropertiesPanel({
       }
     }
     if (JSON.stringify(spacing) === JSON.stringify(initialSpacing) &&
-        JSON.stringify(options) === JSON.stringify(initialOptions)) {
+        JSON.stringify(options) === JSON.stringify(initialOptions) && !designDirty) {
       onLivePreview(null);
       return;
     }
@@ -202,7 +258,36 @@ export function PropertiesPanel({
     }
     onLivePreview(composeOverrideValue(spacing, options));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spacing, options, initialSpacing, initialOptions]);
+  }, [spacing, options, initialSpacing, initialOptions, styleBag, declared, designDirty]);
+
+  const designValue = useMemo<Record<string, string>>(() => {
+    const out: Record<string, string> = { ...styleBag, ...declared };
+    for (const n of designNames) {
+      const v = options[n];
+      if (exposedNames.has(n) && (typeof v === 'string' || typeof v === 'number')) out[n] = String(v);
+    }
+    return out;
+  }, [styleBag, declared, options, designNames, exposedNames]);
+
+  const designUnderneath = (name: string) => {
+    const spec = (Array.isArray(superstructure?.properties_schema) ? superstructure!.properties_schema : []).find((p) => p.name === name);
+    const d = spec?.default ?? (superstructure?.design as Record<string, unknown> | null | undefined)?.[name];
+    return d == null || d === '' ? '' : String(d);
+  };
+
+  function setDesign(name: string, v: string | null) {
+    if (exposedNames.has(name)) {
+      setOption(name, v ?? undefined);
+      return;
+    }
+    const set = declaredNames.has(name) ? setDeclared : setStyleBag;
+    set((prev) => {
+      const next = { ...prev };
+      if (v === null) delete next[name];
+      else next[name] = v;
+      return next;
+    });
+  }
 
   function setField<K extends keyof Spacing>(key: K, value: Spacing[K]) {
     setSpacing((prev) => ({ ...prev, [key]: value }));
@@ -255,6 +340,8 @@ export function PropertiesPanel({
     if (existingRowId == null) {
       setSpacing({});
       setOptions({});
+      setStyleBag({});
+      setDeclared({});
       onLivePreview(null);
       return;
     }
@@ -272,6 +359,8 @@ export function PropertiesPanel({
       }
       setSpacing({});
       setOptions({});
+      setStyleBag({});
+      setDeclared({});
       setExistingRowId(null);
       onLivePreview(null);
       onChanged();
@@ -285,6 +374,8 @@ export function PropertiesPanel({
   function handleReset() {
     setSpacing({ ...initialSpacing });
     setOptions({ ...initialOptions });
+    setStyleBag({ ...initialBag });
+    setDeclared({ ...initialDeclared });
     setError(null);
   }
 
@@ -319,8 +410,9 @@ export function PropertiesPanel({
       )}
 
       <div className="appza-props-panel-tabs" role="tablist">
-        {(['wrapper', 'options', 'action'] as TabKey[]).map((tab) => {
+        {((designOn ? ['design', 'wrapper', 'options', 'action'] : ['wrapper', 'options', 'action']) as TabKey[]).map((tab) => {
           const tabDirty =
+            (tab === 'design' && designDirty) ||
             (tab === 'wrapper' && spacingDirty) ||
             (tab === 'options' && optionsDirty);
           return (
@@ -340,6 +432,16 @@ export function PropertiesPanel({
       </div>
 
       <div className="appza-props-panel-body">
+        {activeTab === 'design' && designOn && (
+          <DesignTab
+            design={design!.design}
+            missing={design!.missing}
+            value={designValue}
+            underneath={designUnderneath}
+            onSet={setDesign}
+          />
+        )}
+
         {activeTab === 'wrapper' && (
           <>
             <Section

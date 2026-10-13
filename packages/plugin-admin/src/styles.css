@@ -2765,3 +2765,121 @@ body {
   transform: none;
   zoom: 0.8;
 }
+
+/* Design tab (Phase 6): Core's parts and rules in the simulator's own controls. */
+.appza-design-intro {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  color: var(--appza-text-muted);
+}
+
+.appza-design-advanced {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  font-size: 0.75rem;
+  color: var(--appza-text-muted);
+}
+
+.appza-design-sub,
+.appza-design-count {
+  font-size: 0.72rem;
+  color: var(--appza-text-muted);
+  font-weight: 400;
+}
+
+.appza-design-changed {
+  margin-left: auto;
+  font-size: 0.68rem;
+}
+
+.appza-design-row {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--appza-border);
+}
+
+.appza-design-row:last-child {
+  border-bottom: 0;
+}
+
+.appza-design-row-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.appza-design-row-name {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.appza-design-row-value {
+  font-size: 0.72rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--appza-text-muted);
+}
+
+.appza-design-row-value[data-set="true"] {
+  color: var(--appza-text);
+}
+
+.appza-design-reset {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--appza-text-muted);
+}
+
+.appza-design-reset:hover {
+  color: var(--appza-primary);
+}
+
+.appza-design-color {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 6px;
+  align-items: center;
+}
+
+.appza-design-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.appza-design-chips .appza-props-panel-cell {
+  padding: 4px 8px;
+}
+
+.appza-design-exact {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+}
+
+.appza-design-note {
+  margin-top: 4px;
+  font-size: 0.7rem;
+  color: var(--appza-text-muted);
+}
+
+.appza-design-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 0.68rem;
+  color: var(--appza-text-muted);
+}
+
+.appza-design-tags code,
+.appza-design-tags span {
+  padding: 1px 6px;
+  border: 1px solid var(--appza-border);
+  border-radius: 4px;
+}

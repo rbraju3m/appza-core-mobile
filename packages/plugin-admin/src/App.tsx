@@ -227,6 +227,7 @@ import { patchItem } from './layoutApi';
 import { useChromeBuilder } from './useChromeBuilder';
 import { mainKeys, rowsOf } from './layoutApi';
 import { OverridesPanel } from './OverridesPanel';
+import { designFor, useDesignIndex } from './DesignTab';
 import { PropertiesPanel, type PropsScope } from './PropertiesPanel';
 import { PrimitivePanel } from './PrimitivePanel';
 import { OnboardingModal } from './OnboardingModal';
@@ -264,6 +265,15 @@ export function App() {
     window.appzaCoreConfig?.defaultTemplate ?? DEFAULT_TEMPLATE,
   );
   const [onboardingOpen, setOnboardingOpen] = useState(false);
+  // A sync may bring a new design index; the Design tab reloads it.
+  const [designRev, setDesignRev] = useState(0);
+  const designIndex = useDesignIndex(templateSlug, window.appzaCoreConfig?.endpoints?.designIndex, window.appzaCoreConfig?.restNonce, designRev);
+  // One object per AppZet per index: the panel resets its form when these change identity.
+  const designCache = useMemo(() => new Map<string, ReturnType<typeof designFor>>(), [designIndex.index]);
+  const designOf = (slug: string) => {
+    if (!designCache.has(slug)) designCache.set(slug, designFor(designIndex.index, slug));
+    return { design: designCache.get(slug) ?? null, missing: designIndex.missing };
+  };
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [buildAppOpen, setBuildAppOpen] = useState(false);
   const [templateOptions, setTemplateOptions] = useState<TemplateOption[]>([]);
@@ -512,6 +522,7 @@ export function App() {
         `Synced ${body.template_slug} → v${body.catalog_snapshot_version}`,
       );
       await pull(slug);
+      setDesignRev((r) => r + 1);
       window.setTimeout(() => setSyncMessage(null), 4000);
     } catch (err) {
       setSyncMessage(err instanceof Error ? err.message : String(err));
@@ -2124,6 +2135,7 @@ export function App() {
                 customizationsEndpoint={customizationsEndpoint}
                 restNonce={nonce}
                 scope={{ value: propsScope, onChange: setPropsScope }}
+                design={designOf(selected.slug)}
                 placement={
                   propsScope === 'placement'
                     ? {
@@ -2201,6 +2213,7 @@ export function App() {
                 appzet={selected}
                 superstructure={superstructure}
                 dataSourceSlug={dataSourceSlug}
+                design={designOf(selected.slug)}
                 customizations={envelope?.customizations}
                 customizationsEndpoint={customizationsEndpoint}
                 restNonce={nonce}

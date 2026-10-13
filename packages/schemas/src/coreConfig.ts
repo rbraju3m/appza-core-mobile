@@ -4,6 +4,7 @@ export type AppzaCoreConfig = {
   endpoints?: {
     bootstrap?: string;
     customizations?: string;
+    designIndex?: string;
     previewProxy?: string;
     syncFromCore?: string;
     sourceIntegrations?: string;
