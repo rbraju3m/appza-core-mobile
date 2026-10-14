@@ -86,10 +86,10 @@ export function DeviceFrame({
     if (!onSelectPrimitive && !onSelectAppzet) return;
     const target = e.target as HTMLElement | null;
     if (!target) return;
-    // Inline controls (e.g. video play badge) opt out of primitive-select via this attr.
-    if (target.closest('[data-appza-inline-click]')) return;
     // Inside a live overlay the click must reach its control as well as select it; elsewhere selecting consumes it so no real action fires.
     const inOverlay = Boolean(target.closest('[data-appza-overlay]'));
+    // A piece with its own action (like, play, poll) is picked like any other in Edit mode; Preview runs it.
+    if (!inOverlay && target.closest('[data-appza-inline-click]')) e.preventDefault();
     const primitiveEl = target.closest('[data-appza-primitive-path]') as HTMLElement | null;
     if (primitiveEl && onSelectPrimitive) {
       const primitivePath = primitiveEl.getAttribute('data-appza-primitive-path');

@@ -1,11 +1,29 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAdvanced } from './advanced';
 
-// "Every block" (D118), as Core's Theme editor shows it: the common colours, corners and text size of all blocks.
+// As Core's Theme editor: main colours + font (color.*, typography.fontFamily), then "Every block" (D118, theme.*).
 // A site stores only what it changes, over the template's own tokens (customization scope `template`, column
 // `tokens`); a field left empty follows the template.
 
 type Bag = Record<string, unknown>;
+type Group = 'color' | 'typography' | 'theme';
+
+const MAIN_COLORS: { name: string; label: string }[] = [
+  { name: 'primary', label: 'Main colour (buttons, links)' },
+  { name: 'secondary', label: 'Second colour' },
+  { name: 'tertiary', label: 'Third colour' },
+  { name: 'success', label: 'Success (green states)' },
+  { name: 'warning', label: 'Warning' },
+  { name: 'danger', label: 'Danger (delete, errors)' },
+  { name: 'background', label: 'Page background' },
+  { name: 'text', label: 'Text' },
+];
+
+const FONTS: { value: string; label: string }[] = [
+  { value: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', label: "The phone's own font" },
+  { value: 'Georgia, "Times New Roman", serif', label: 'Serif (like a book)' },
+  { value: 'ui-monospace, Menlo, Consolas, monospace', label: 'Monospace (like code)' },
+];
 
 const COLORS: { name: string; label: string }[] = [
   { name: 'surface', label: 'Card background' },
@@ -44,7 +62,11 @@ export function ThemePanel({ templateSlug, templateTokens, customizations, custo
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fromTemplate = asBag(asBag(templateTokens).theme);
+  const templateColor = asBag(asBag(templateTokens).color);
+  const templateFont = asBag(asBag(templateTokens).typography).fontFamily;
   const theme = asBag(bag.theme);
+  const color = asBag(bag.color);
+  const font = asBag(bag.typography).fontFamily;
   const dirty = JSON.stringify(bag) !== JSON.stringify(saved);
 
   useEffect(() => setBag(saved), [saved]);
@@ -66,16 +88,42 @@ export function ThemePanel({ templateSlug, templateTokens, customizations, custo
     };
   }, [customizationsEndpoint, restNonce, templateSlug, saved]);
 
-  // Other token groups the site may have saved (colours, font) are kept as they are.
-  const set = (key: string, v: string | number | null) => {
-    const nextTheme = { ...asBag(bag.theme) };
-    if (v === null || v === '') delete nextTheme[key];
-    else nextTheme[key] = v;
+  // Keys this panel does not show are kept as they are.
+  const setIn = (group: Group, key: string, v: string | number | null) => {
+    const nextGroup = { ...asBag(bag[group]) };
+    if (v === null || v === '') delete nextGroup[key];
+    else nextGroup[key] = v;
     const next: Bag = { ...bag };
-    if (Object.keys(nextTheme).length) next.theme = nextTheme;
-    else delete next.theme;
+    if (Object.keys(nextGroup).length) next[group] = nextGroup;
+    else delete next[group];
     setBag(next);
   };
+  const set = (key: string, v: string | number | null) => setIn('theme', key, v);
+  const extraColors = Object.keys(color).filter((n) => !MAIN_COLORS.some((c) => c.name === n));
+  const fontOptions = typeof font === 'string' && font && !FONTS.some((f) => f.value === font) ? [...FONTS, { value: font, label: font }] : FONTS;
+  const templateFontLabel = typeof templateFont === 'string' && templateFont ? FONTS.find((f) => f.value === templateFont)?.label ?? templateFont : null;
+
+  const colorRow = (name: string, label: string, value: string, tpl: string, empty: string, onSet: (v: string | null) => void) => (
+    <div key={name} className="appza-design-row" data-theme-field={name}>
+      <div className="appza-design-row-head">
+        <span className="appza-design-row-name">{label}</span>
+        {value && (
+          <button type="button" className="appza-design-reset" onClick={() => onSet(null)} title="Back to the template" aria-label="Back to the template">↺</button>
+        )}
+      </div>
+      <div className="appza-design-color">
+        <input type="color" className="appza-props-panel-color" value={asHex(value || tpl)} onChange={(e) => onSet(e.target.value)} aria-label={label} />
+        <input
+          className="appza-props-panel-input appza-design-exact"
+          value={value}
+          placeholder={tpl ? `Template: ${tpl}` : empty}
+          onChange={(e) => onSet(e.target.value)}
+          aria-label={`${label} value`}
+        />
+      </div>
+    </div>
+  );
+  const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
   async function save() {
     setError(null);
@@ -104,35 +152,34 @@ export function ThemePanel({ templateSlug, templateTokens, customizations, custo
 
   return (
     <div className="appza-theme-panel">
+      <p className="appza-bottom-panel-title">Main colours and font</p>
+      <p className="appza-design-intro">The app's own colours (buttons, states, page) and its font. Empty follows the template.</p>
+      <div className="appza-theme-grid">
+        {[...MAIN_COLORS, ...extraColors.map((n) => ({ name: n, label: n }))].map((c) =>
+          colorRow(`color.${c.name}`, c.label, str(color[c.name]), str(templateColor[c.name]), 'Not set (app default)', (v) => setIn('color', c.name, v)),
+        )}
+      </div>
+      <div className="appza-design-row" data-theme-field="typography.fontFamily">
+        <div className="appza-design-row-head">
+          <span className="appza-design-row-name">Font</span>
+          {str(font) && (
+            <button type="button" className="appza-design-reset" onClick={() => setIn('typography', 'fontFamily', null)} title="Back to the template" aria-label="Back to the template">↺</button>
+          )}
+        </div>
+        <select className="appza-props-panel-input" value={str(font)} onChange={(e) => setIn('typography', 'fontFamily', e.target.value || null)} aria-label="Font">
+          <option value="">{templateFontLabel ? `Template: ${templateFontLabel}` : "The app's default font"}</option>
+          {fontOptions.map((f) => (
+            <option key={f.value} value={f.value}>{f.label}</option>
+          ))}
+        </select>
+      </div>
+      {advanced && <div className="appza-design-note">Drawn as --ion-color-&lt;name&gt; (and its shade / tint), --ion-background-color, --ion-text-color, --ion-font-family.</div>}
       <p className="appza-bottom-panel-title">Every block</p>
       <p className="appza-design-intro">
         The common colours, corners and text size of every block and pop-up. Empty follows the template; a block’s Design and settings still win.
       </p>
       <div className="appza-theme-grid">
-        {COLORS.map((c) => {
-          const set_ = typeof theme[c.name] === 'string' ? (theme[c.name] as string) : '';
-          const tpl = typeof fromTemplate[c.name] === 'string' ? (fromTemplate[c.name] as string) : '';
-          return (
-            <div key={c.name} className="appza-design-row" data-theme-field={c.name}>
-              <div className="appza-design-row-head">
-                <span className="appza-design-row-name">{c.label}</span>
-                {set_ && (
-                  <button type="button" className="appza-design-reset" onClick={() => set(c.name, null)} title="Back to the template" aria-label="Back to the template">↺</button>
-                )}
-              </div>
-              <div className="appza-design-color">
-                <input type="color" className="appza-props-panel-color" value={asHex(set_ || tpl)} onChange={(e) => set(c.name, e.target.value)} aria-label={c.label} />
-                <input
-                  className="appza-props-panel-input appza-design-exact"
-                  value={set_}
-                  placeholder={tpl ? `Template: ${tpl}` : "Not set (each block's own)"}
-                  onChange={(e) => set(c.name, e.target.value)}
-                  aria-label={`${c.label} value`}
-                />
-              </div>
-            </div>
-          );
-        })}
+        {COLORS.map((c) => colorRow(c.name, c.label, str(theme[c.name]), str(fromTemplate[c.name]), "Not set (each block's own)", (v) => set(c.name, v)))}
       </div>
       {SCALES.map((s) => {
         const v = typeof theme[s.name] === 'number' ? (theme[s.name] as number) : null;
