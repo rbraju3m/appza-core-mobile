@@ -55,6 +55,7 @@ import { publishCommentsView } from './CommentThread';
 import { getPostDraft, postDraftStateEntries, usePostDraft } from './postDraft';
 import { SELF_ACTION_PRIMITIVES } from './PrimitiveRenderer';
 import { validLayout } from './effectivePlacements';
+import { PIECE_KEYS } from './pieceKeys';
 
 const PAGINATED_DATA_SOURCES = new Set<string>(['fc-feed', 'fc-space-members', 'fc-members-directory', 'fc-moderation-reports']);
 const PAGE_SIZE_BY_SLUG: Record<string, number> = {
@@ -2124,6 +2125,7 @@ function SuperstructureRenderer({
             key={`${child.slug}:${idx}`}
             className={wrapperClass}
             data-child-index={idx}
+            data-piece={child.key}
             data-child-slug={child.slug}
             data-appza-primitive-path={isTopLevel ? `children[${idx}]` : undefined}
             data-appza-appzet-slug={isTopLevel ? appzetSlugForPath : undefined}
@@ -2250,6 +2252,8 @@ type VisibleWhen = VisibleWhenClause | VisibleWhenClause[];
 
 type SSChild = {
   slug: string;
+  // The piece's stable name; the stylesheet styles pieces by it (data-piece), not by position.
+  key?: string;
   visible_when?: VisibleWhen;
   on_click_open_url?: string;
   on_click_action?: string;
@@ -2281,15 +2285,23 @@ function cardLevelClauses(vw: VisibleWhen | undefined): VisibleWhen | undefined 
   return keep(vw) ? vw : undefined;
 }
 
+// A snapshot synced before pieces had names: the name listed for this position, if the kind still matches.
+function fallbackPieceKey(blockSlug: string, position: number, slug: string): string | undefined {
+  const entry = PIECE_KEYS[blockSlug]?.[position];
+  return entry && entry[0] === slug ? entry[1] : undefined;
+}
+
 function readChildren(ss: Superstructure): SSChild[] {
   const raw = (ss as unknown as { children?: unknown }).children;
   if (!Array.isArray(raw)) return [];
   return raw
-    .map((c) => {
+    .map((c, position) => {
       if (!c || typeof c !== 'object' || !('slug' in c)) return null;
       const rec = c as Record<string, unknown>;
       if (typeof rec.slug !== 'string') return null;
       const out: SSChild = { slug: rec.slug };
+      const key = typeof rec.key === 'string' && rec.key !== '' ? rec.key : fallbackPieceKey(ss.slug, position, rec.slug);
+      if (key) out.key = key;
       const vw = rec.visible_when;
       if (Array.isArray(vw)) {
         const clauses = vw
@@ -2387,6 +2399,7 @@ function readExpandedChildren(
     }
     const child: SSChild = {
       slug: template.slug,
+      key: template.key,
       on_click_action:
         typeof entry.on_click_action === 'string'
           ? entry.on_click_action
