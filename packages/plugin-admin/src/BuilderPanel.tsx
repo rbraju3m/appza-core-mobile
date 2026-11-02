@@ -14,6 +14,7 @@ import {
   type ScreenDraft,
   type Visibility,
 } from './layoutApi';
+import { isAdvanced } from './advanced';
 
 export const LIB_PREFIX = 'lib:';
 
@@ -41,18 +42,18 @@ export function BuilderPanel(props: BuilderPanelProps) {
 
   if (loading && !draft) return <div className="appza-sidebar-empty">Loading layout…</div>;
   if (loadError) return <div className="appza-builder-error">{loadError}</div>;
-  if (!draft) return <div className="appza-sidebar-empty">Pick a screen.</div>;
+  if (!draft) return <div className="appza-sidebar-empty">Pick a page at the top.</div>;
 
   return (
     <div className="appza-builder">
       {draft.drift && (
         <div className="appza-builder-drift" role="status">
-          <strong>Core updated this screen.</strong>
-          <span>Your layout is kept as you saved it.</span>
+          <strong>APPZA has an update for this page.</strong>
+          <span>Your page stays as you saved it until you choose.</span>
           <div className="appza-builder-drift-actions">
             <button type="button" className="appza-btn" onClick={props.onKeepMine}>Keep mine</button>
             <button type="button" className="appza-btn" onClick={props.onAddNew}>Add the new ones</button>
-            <button type="button" className="appza-btn" onClick={props.onReset}>Reset to Core</button>
+            <button type="button" className="appza-btn" onClick={props.onReset}>Use the new design</button>
           </div>
         </div>
       )}
@@ -187,12 +188,12 @@ function PlacementRow({ row, name, present, selected, fixed, first, last, onSele
             ⠿
           </button>
         )}
-        <button type="button" className="appza-builder-row-name" onClick={onSelect} title={row.key}>
+        <button type="button" className="appza-builder-row-name" onClick={onSelect} title={isAdvanced() ? row.key : undefined}>
           <span>{name}</span>
           {row.isSite && <span className="appza-builder-chip">Added</span>}
           {layout && <span className="appza-builder-chip is-layout">{layout.name}</span>}
           {gate && <span className="appza-builder-chip is-gate">{gate}</span>}
-          {!present && <span className="appza-builder-chip is-hidden">Hidden now</span>}
+          {!present && <span className="appza-builder-chip is-hidden" title="Not showing on the phone right now: its 'show when' rule is not met with the current sample (for example, signed-in only).">Hidden now</span>}
         </button>
         {!fixed && (
           <>
@@ -368,7 +369,7 @@ function LibraryCard({
                 data-layout={l.slug}
                 data-current={current ? 'true' : undefined}
                 disabled={!selectedRow && blocked}
-                title={selectedRow ? 'Use this layout for the selected placement' : 'Add with this layout'}
+                title={selectedRow ? 'Use this look for the selected block' : 'Add with this layout'}
                 onClick={() => (selectedRow ? onSwitch(l.is_default ? null : l.slug) : onAdd(l.is_default ? undefined : l.slug))}
               >
                 <span className="appza-builder-layout-name">{current ? '● ' : ''}{l.name}</span>
@@ -435,12 +436,12 @@ function ResetRow({ draft, onReset }: { draft: ScreenDraft; onReset: () => void 
     <div className="appza-builder-reset">
       {asking ? (
         <>
-          <span>Drop this screen's layout and use Core's?</span>
+          <span>Drop your changes to this page and go back to its original design?</span>
           <button type="button" className="appza-btn" onClick={() => { setAsking(false); onReset(); }}>Reset</button>
           <button type="button" className="appza-btn" onClick={() => setAsking(false)}>Cancel</button>
         </>
       ) : (
-        <button type="button" className="appza-btn" onClick={() => setAsking(true)}>Reset to Core</button>
+        <button type="button" className="appza-btn" onClick={() => setAsking(true)}>Back to original</button>
       )}
     </div>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAdvanced } from './advanced';
+import { Problem, httpProblem } from './errors';
 
 // As Core's Theme editor: main colours + font (color.*, typography.fontFamily), then "Every block" (D118, theme.*).
 // A site stores only what it changes, over the template's own tokens (customization scope `template`, column
@@ -140,7 +141,7 @@ export function ThemePanel({ templateSlug, templateTokens, customizations, custo
             credentials: 'same-origin',
             body: JSON.stringify({ scope: 'template', target_slug: templateSlug, target_column: 'tokens', override_value: bag }),
           });
-      if (res && !res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
+      if (res && !res.ok) throw new Problem(await httpProblem(res, 'Saving the colours'));
       onLive(null);
       onChanged();
     } catch (err) {

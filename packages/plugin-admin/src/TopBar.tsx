@@ -42,9 +42,9 @@ const UI_MODES: Array<{ value: UiMode; label: string; title: string }> = [
 ];
 
 const PREVIEW_MODES: Array<{ value: PreviewMode; label: string; title: string }> = [
-  { value: 'auto', label: 'Auto', title: 'Real data if the upstream responds, demo fixture otherwise.' },
-  { value: 'demo', label: 'Demo', title: 'Always render with the bundled fixture data — skip the upstream call.' },
-  { value: 'real', label: 'Real', title: 'Always call the upstream — no fixture fallback (empty list if it fails).' },
+  { value: 'auto', label: 'Auto', title: 'Your site\'s real content, or sample content where your site has none yet.' },
+  { value: 'demo', label: 'Sample', title: 'Always show sample content, never your site\'s.' },
+  { value: 'real', label: 'Real', title: 'Only your site\'s real content; empty where there is none.' },
 ];
 
 export function TopBar({
@@ -100,19 +100,19 @@ export function TopBar({
       </div>
 
       <div className="appza-topbar-screen">
-        <span className="appza-topbar-screen-label">Screen</span>
+        <span className="appza-topbar-screen-label">Page</span>
         <select
           className="appza-select"
           value={selectedScreenId ?? ''}
           onChange={(e) => onSelectScreen(Number(e.target.value))}
           disabled={screens.length === 0}
         >
-          {screens.length === 0 && <option value="">— no screens —</option>}
+          {screens.length === 0 && <option value="">No pages yet</option>}
           {screens.map((screen) => {
             const friendly = nameBySlug.get(screen.app_map_screen_slug);
             return (
               <option key={screen.id} value={screen.id}>
-                {friendly ? `${friendly} — ${screen.app_map_screen_slug}` : screen.app_map_screen_slug}
+                {friendly ?? screen.app_map_screen_slug}
               </option>
             );
           })}
@@ -172,7 +172,7 @@ export function TopBar({
         )}
 
         <div className="appza-topbar-mode" role="group" aria-label="Preview data mode">
-          <span className="appza-topbar-mode-label">Data</span>
+          <span className="appza-topbar-mode-label">Content</span>
           <div className="appza-segmented">
             {PREVIEW_MODES.map((m) => (
               <button
@@ -191,7 +191,7 @@ export function TopBar({
             type="button"
             className="appza-btn appza-topbar-refresh-btn"
             onClick={onRefreshData}
-            title="Refresh the data feed — bypasses the 5-min proxy cache and pulls fresh upstream data (new fcom posts appear immediately)."
+            title="Show the newest content from your site"
             aria-label="Refresh data"
           >
             ↻
@@ -248,25 +248,25 @@ export function TopBar({
             className="appza-btn"
             onClick={onSync}
             disabled={syncing || loading}
-            title="Fetch the latest catalog from Core and rebuild the plug-in snapshot"
+            title="Get the newest designs and blocks from APPZA"
           >
-            {syncing ? 'Syncing…' : 'Sync'}
+            {syncing ? 'Updating…' : 'Get latest designs'}
           </button>
-          <button
+          {advanced && <button
             className="appza-btn"
             onClick={onReload}
             disabled={loading || syncing}
-            title="Re-fetch the plug-in bootstrap (does not pull from Core)"
+            title="Reload what this site already has (does not get new designs)"
           >
             {loading ? '…' : 'Reload'}
-          </button>
+          </button>}
         </div>
         {syncMessage && (
           <div
             className="appza-topbar-sync-message"
-            data-error={syncMessage.startsWith('HTTP') || syncMessage.startsWith('Sync unavailable') ? 'true' : 'false'}
+            data-error={syncMessage.startsWith('! ') ? 'true' : 'false'}
           >
-            {syncMessage}
+            {syncMessage.replace(/^! /, '')}
           </div>
         )}
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { httpProblem } from './errors';
 
 const SCOPES = [
   'appzet',
@@ -45,7 +46,7 @@ export function OverridesPanel({ listEndpoint, mutateEndpoint, restNonce, onChan
         credentials: 'same-origin',
       });
       if (!response.ok) {
-        setError(`HTTP ${response.status}`);
+        setError(await httpProblem(response, 'Loading the changes'));
         return;
       }
       const json = (await response.json()) as OverrideRow[];

@@ -116,7 +116,7 @@ export function Sidebar({
               type="button"
               className="appza-sidebar-card-btn"
               aria-pressed={selected}
-              title={item.slug}
+              title={advanced ? item.slug : undefined}
               onClick={onSelectAppzet ? () => onSelectAppzet(item.slug) : undefined}
             >
               <span className="appza-builder-row-name">
@@ -183,14 +183,17 @@ export function Sidebar({
       {bottomPanel && <div className="appza-bottom-panel">{bottomPanel}</div>}
 
       <div className="appza-bottom-tabs">
-        <button
-          className="appza-bottom-tab"
-          data-active={bottomTab === 'settings'}
-          onClick={() => onSelectBottomTab(bottomTab === 'settings' ? null : 'settings')}
-        >
-          <SettingsIcon />
-          Settings
-        </button>
+        {advanced && (
+          <button
+            className="appza-bottom-tab"
+            data-active={bottomTab === 'settings'}
+            onClick={() => onSelectBottomTab(bottomTab === 'settings' ? null : 'settings')}
+            title="Technical details of the designs this site has"
+          >
+            <SettingsIcon />
+            Settings
+          </button>
+        )}
         <button
           className="appza-bottom-tab"
           data-active={bottomTab === 'themes'}

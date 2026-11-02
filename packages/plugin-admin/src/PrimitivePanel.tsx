@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { LayoutStyle } from '@appza/schemas';
 import type { SelectedPrimitive } from './DeviceFrame';
 import { LayoutEditor } from './LayoutEditor';
+import { Problem, httpProblem } from './errors';
 
 type Props = {
   selection: SelectedPrimitive;
@@ -103,8 +104,7 @@ export function PrimitivePanel({
         }),
       });
       if (!response.ok) {
-        const t = await response.text();
-        throw new Error(`HTTP ${response.status}: ${t.slice(0, 200)}`);
+        throw new Problem(await httpProblem(response, 'Saving'));
       }
       onLivePreview(null);
       onChanged();
@@ -130,8 +130,7 @@ export function PrimitivePanel({
         credentials: 'same-origin',
       });
       if (!response.ok) {
-        const t = await response.text();
-        throw new Error(`HTTP ${response.status}: ${t.slice(0, 200)}`);
+        throw new Problem(await httpProblem(response, 'Saving'));
       }
       setLayout({});
       setExistingRowId(null);
@@ -186,13 +185,13 @@ export function PrimitivePanel({
           className="appza-btn appza-btn-danger"
           onClick={handleRemove}
           disabled={saving || existingRowId == null}
-          title="Delete the customization row for this primitive"
+          title="Undo every saved change to this part and go back to how it was designed"
         >
-          Remove
+          Back to original
         </button>
         <div className="appza-props-panel-footer-primary">
-          <button className="appza-btn" onClick={handleReset} disabled={!dirty || saving}>
-            Reset
+          <button className="appza-btn" onClick={handleReset} disabled={!dirty || saving} title="Drop the changes you have not saved">
+            Discard
           </button>
           <button
             className="appza-btn appza-btn-primary"

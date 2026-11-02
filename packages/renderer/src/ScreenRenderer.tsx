@@ -292,8 +292,8 @@ export function ScreenRenderer({
         <IonContent ref={contentRef} className="appza-renderer-content" fullscreen>
           {placements.length === 0 ? (
             <div className="appza-renderer-empty">
-              <p>No placements on this screen.</p>
-              <small>Wire AppZets to slots in the Core admin to see them here.</small>
+              <p>Nothing on this page yet.</p>
+              <small>Add blocks to it from the Library in the APPZA builder.</small>
             </div>
           ) : (
             <div className="appza-renderer-screen">

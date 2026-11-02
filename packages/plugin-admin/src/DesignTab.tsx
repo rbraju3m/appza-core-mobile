@@ -207,7 +207,7 @@ export function DesignTab({ design, missing, value, underneath, onSet, focus, on
   if (!design) {
     return (
       <div className="appza-props-panel-empty-state">
-        <p>{missing ? 'No design index yet. Sync from Core to load the parts this block can be styled by.' : 'Loading the parts…'}</p>
+        <p>{missing ? 'Nothing to change here yet. Press "Get latest designs" at the top.' : 'Loading the parts…'}</p>
       </div>
     );
   }
@@ -222,7 +222,7 @@ export function DesignTab({ design, missing, value, underneath, onSet, focus, on
   return (
     <div className="appza-design">
       <p className="appza-design-intro">
-        Each part of the block and what it looks like. Anything you leave alone keeps today’s look, shown greyed. Part names are guessed; the #number is the piece.
+        Each part of the block and what it looks like. Anything you leave alone keeps today’s look, shown greyed. Click a part on the phone to jump to it.
       </p>
       {focus && (
         <p className="appza-design-focus">

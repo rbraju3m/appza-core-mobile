@@ -4,6 +4,11 @@ import { useEffect, useState } from 'react';
 const KEY = 'appza.simulator.advanced';
 const EVENT = 'appza:simulator-advanced';
 
+/** The switch's value right now, for code outside React (error messages). */
+export function isAdvanced(): boolean {
+  return read();
+}
+
 function read(): boolean {
   try {
     return window.localStorage.getItem(KEY) === '1';

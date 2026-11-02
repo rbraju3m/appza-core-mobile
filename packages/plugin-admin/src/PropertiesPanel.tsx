@@ -4,6 +4,7 @@ import { readDataPath, resolveOverridableColumn, useDataSource } from '@appza/re
 import { IconPicker } from './IconPicker';
 import { useAdvanced } from './advanced';
 import { DesignTab, type AppZetDesign, type DesignFocus, type DesignPart } from './DesignTab';
+import { Problem, httpProblem } from './errors';
 
 type Props = {
   appzet: AppZet;
@@ -339,8 +340,7 @@ export function PropertiesPanel({
         }),
       });
       if (!response.ok) {
-        const t = await response.text();
-        throw new Error(`HTTP ${response.status}: ${t.slice(0, 200)}`);
+        throw new Problem(await httpProblem(response, 'Saving'));
       }
       onLivePreview(null);
       onChanged();
@@ -369,8 +369,7 @@ export function PropertiesPanel({
         credentials: 'same-origin',
       });
       if (!response.ok) {
-        const t = await response.text();
-        throw new Error(`HTTP ${response.status}: ${t.slice(0, 200)}`);
+        throw new Problem(await httpProblem(response, 'Saving'));
       }
       setSpacing({});
       setOptions({});
@@ -401,7 +400,7 @@ export function PropertiesPanel({
       <header className="appza-props-panel-header">
         <div className="appza-props-panel-header-titles">
           <span className="appza-props-panel-title">{appzet.name ?? appzet.slug}</span>
-          <span className="appza-props-panel-subtitle">{appzet.slug}</span>
+          {advanced && <span className="appza-props-panel-subtitle">{appzet.slug}</span>}
         </div>
         <button className="appza-props-panel-close" onClick={onClose} aria-label="Close">×</button>
       </header>
@@ -415,9 +414,10 @@ export function PropertiesPanel({
                 type="button"
                 className="appza-segmented-btn"
                 data-active={scope.value === s}
+                title={s === 'placement' ? 'Changes apply to this spot on this page only.' : 'Changes apply wherever this block appears in your app.'}
                 onClick={() => scope.onChange(s)}
               >
-                {s === 'placement' ? 'This placement' : 'Everywhere'}
+                {s === 'placement' ? 'Only here' : 'Everywhere'}
               </button>
             ))}
           </div>
@@ -493,11 +493,11 @@ export function PropertiesPanel({
           <>
             {!superstructure ? (
               <div className="appza-props-panel-empty-state">
-                <p>No linked Superstructure.</p>
+                <p>This block has nothing to set.</p>
               </div>
             ) : exposedProps.length === 0 ? (
               <div className="appza-props-panel-empty-state">
-                <p>This Superstructure exposes no options.</p>
+                <p>This block has no options to change.</p>
               </div>
             ) : (
               <>
@@ -562,21 +562,21 @@ export function PropertiesPanel({
                   <li key={slot}>
                     <span className="appza-props-panel-action-slot">
                       <span className="appza-props-panel-action-gesture">{gestureFor(slot)}</span>
-                      {slot}
+                      {advanced ? slot : slot.replace(/^on_(long_press|tap)_?/, '').replace(/_/g, ' ') || 'the block'}
                     </span>
                     {wiring?.action_slug ? (
                       <span className="appza-props-panel-action-slug appza-props-panel-badge">
                         {wiring.action_slug}
                       </span>
                     ) : (
-                      <span className="appza-props-panel-action-unwired">unwired</span>
+                      <span className="appza-props-panel-action-unwired">does nothing</span>
                     )}
                   </li>
                 ))}
               </ul>
             ) : (
               <div className="appza-props-panel-empty-state">
-                <p>This AppZet wires no actions.</p>
+                <p>Tapping this block does nothing.</p>
               </div>
             )}
           </Section>
@@ -592,7 +592,7 @@ export function PropertiesPanel({
           className="appza-btn"
           onClick={() => placement.onChange(undefined)}
           disabled={Object.keys(placement.value).length === 0}
-          title="Drop this placement's own values and follow Everywhere"
+          title="Drop the changes made only here, and use the ones for everywhere"
         >
           Clear
         </button>
@@ -603,13 +603,13 @@ export function PropertiesPanel({
           className="appza-btn appza-btn-danger"
           onClick={handleRemove}
           disabled={saving || existingRowId == null}
-          title="Delete the customization row for this AppZet"
+          title="Undo every saved change to this block and go back to how it was designed"
         >
-          Remove
+          Back to original
         </button>
         <div className="appza-props-panel-footer-primary">
-          <button className="appza-btn" onClick={handleReset} disabled={!dirty || saving}>
-            Reset
+          <button className="appza-btn" onClick={handleReset} disabled={!dirty || saving} title="Drop the changes you have not saved">
+            Discard
           </button>
           <button className="appza-btn appza-btn-primary" onClick={handleSave} disabled={!dirty || saving}>
             {saving ? 'Saving…' : 'Save'}

@@ -71,7 +71,7 @@ export function GlobalPanel({ chrome, catalog, catalogIndex, customizations, scr
         drawer.dirty || menu.dirty,
         <>
           {drawer.palette.length === 0 && drawer.core.length === 0 ? (
-            <p className="appza-global-note">The app uses its built-in drawer. Other drawer designs arrive as Core adds them.</p>
+            <p className="appza-global-note">The app uses its built-in drawer. More menu designs arrive with APPZA updates.</p>
           ) : (
             <ChromePicker {...shared} draft={drawer} title="Design" />
           )}
@@ -142,7 +142,7 @@ function ChromePicker({ chrome, draft, title, emptyLabel, clearLabel, appzetBySl
       <div className="appza-global-label">Library</div>
       {others.length === 0 ? (
         <p className="appza-global-note">
-          {draft.palette.length <= 1 ? 'One design so far. More arrive as Core adds them.' : 'No other designs.'}
+          {draft.palette.length <= 1 ? 'One design so far. More arrive with APPZA updates.' : 'No other designs.'}
         </p>
       ) : (
         <div className="appza-builder-grid">
@@ -164,10 +164,10 @@ function DriftAndReset({ chrome, draft }: { chrome: ChromeBuilder; draft: Chrome
   if (draft.drift) {
     return (
       <div className="appza-builder-drift" role="status">
-        <strong>Core updated this.</strong>
+        <strong>APPZA has an update for this.</strong>
         <div className="appza-builder-drift-actions">
           <button type="button" className="appza-btn" onClick={() => void chrome.keepMine(draft)}>Keep mine</button>
-          <button type="button" className="appza-btn" onClick={() => void chrome.reset(draft)}>Reset to Core</button>
+          <button type="button" className="appza-btn" onClick={() => void chrome.reset(draft)}>Use the new design</button>
         </div>
       </div>
     );
@@ -175,7 +175,7 @@ function DriftAndReset({ chrome, draft }: { chrome: ChromeBuilder; draft: Chrome
   if (draft.baseVersion === null) return null;
   return (
     <button type="button" className="appza-btn appza-global-clear" onClick={() => void chrome.reset(draft)}>
-      Reset to Core
+      Back to original
     </button>
   );
 }
@@ -285,7 +285,7 @@ function MenuRow({ item, fallbackLabel, fallbackIcon, open, first, last, onToggl
         <button type="button" className="appza-builder-handle" aria-label={`Drag ${name}`} {...sortable.attributes} {...sortable.listeners}>
           ⠿
         </button>
-        <button type="button" className="appza-builder-row-name" onClick={onToggleOpen} title={item.screen_slug}>
+        <button type="button" className="appza-builder-row-name" onClick={onToggleOpen}>
           <span>{name}</span>
           {item.hidden && <span className="appza-builder-chip is-hidden">Hidden</span>}
         </button>

@@ -1,4 +1,5 @@
 import { isRecord, screenLayoutKey } from '@appza/renderer';
+import { problemFor } from './errors';
 
 /** One entry of a builder layout as the client edits it (D110). The server turns `visibility` into `visible_when`. */
 export type LayoutItem = {
@@ -100,7 +101,7 @@ export type PartPayload = {
 export async function loadPart(template: string, screen: string | null, part: LayoutPart): Promise<PartPayload> {
   const res = await fetch(url(template, screen, part), { headers: headers(), credentials: 'same-origin' });
   const body = await res.json();
-  if (!res.ok) throw new Error(isRecord(body) && typeof body.message === 'string' ? body.message : `HTTP ${res.status}`);
+  if (!res.ok) throw new Error(problemFor(res.status, JSON.stringify(body ?? {}), 'Loading the layout'));
   return {
     core: Array.isArray(body.core) ? body.core : [],
     site: Array.isArray(body.site) ? body.site : null,
@@ -132,7 +133,7 @@ export async function savePart(
   return {
     ok: false,
     status: res.status,
-    message: isRecord(body) && typeof body.message === 'string' ? body.message : `HTTP ${res.status}`,
+    message: problemFor(res.status, JSON.stringify(body ?? {}), 'Saving'),
     errors: isRecord(body) && isRecord(body.data) && isRecord(body.data.errors) ? (body.data.errors as Record<string, string>) : undefined,
   };
 }

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Problem, httpProblem, problemFor } from './errors';
+import { isAdvanced } from './advanced';
 
 type SourceIntegration = {
   slug: string;
@@ -47,13 +49,7 @@ const STATUS_TEXT: Record<BuildStatus, string> = {
 
 async function errorMessage(res: Response): Promise<string> {
   const text = await res.text();
-  try {
-    const body = JSON.parse(text) as { message?: unknown };
-    if (typeof body.message === 'string' && body.message) return body.message;
-  } catch {
-    /* not JSON */
-  }
-  return `HTTP ${res.status}: ${text.slice(0, 300)}`;
+  return problemFor(res.status, text);
 }
 
 export type BuildRequest = {
@@ -92,7 +88,7 @@ export function BuildAppModal({ onClose, templateOptions, defaultTemplateSlug }:
       if (!sourceEndpoint || !activeEndpoint || !nonce) {
         setState({
           kind: 'error',
-          message: 'Build requires the WP-admin host — open the APPZA Core admin page.',
+          message: 'Open this page from your WordPress dashboard (APPZA in the menu) to continue.',
         });
         return;
       }
@@ -104,8 +100,8 @@ export function BuildAppModal({ onClose, templateOptions, defaultTemplateSlug }:
             credentials: 'same-origin',
           }),
         ]);
-        if (!listRes.ok) throw new Error(`HTTP ${listRes.status} from source-integrations`);
-        if (!activeRes.ok) throw new Error(`HTTP ${activeRes.status} from active-source-integrations`);
+        if (!listRes.ok) throw new Problem(await httpProblem(listRes, 'Loading the apps you can build'));
+        if (!activeRes.ok) throw new Problem(await httpProblem(activeRes, 'Loading the apps you can build'));
         const listBody = await listRes.json();
         const activeBody = await activeRes.json();
         if (cancelled) return;
@@ -225,8 +221,8 @@ export function BuildAppModal({ onClose, templateOptions, defaultTemplateSlug }:
           <div className="appza-onboard-header">
             <h2 className="appza-onboard-title">{STATUS_TEXT[result.status]}</h2>
             <p className="appza-onboard-subtitle">
-              A signed “Appza QA” APK of <code>{result.site_url}</code> ({result.template_slug}). A build takes a
-              minute or two; you can close this and find it later on the Core admin's Builds page.
+              A test app (Android) of <code>{result.site_url}</code>. A build takes a minute or two; you can close
+              this and find it later under APPZA → Build History.
             </p>
           </div>
           <div className="appza-onboard-body">
@@ -332,7 +328,7 @@ export function BuildAppModal({ onClose, templateOptions, defaultTemplateSlug }:
                           )}
                           <div className="appza-onboard-row-text">
                             <span className="appza-onboard-row-name">{row.name}</span>
-                            <span className="appza-onboard-row-slug">{row.addon_plugin_slug}</span>
+                            {isAdvanced() && <span className="appza-onboard-row-slug">{row.addon_plugin_slug}</span>}
                           </div>
                         </label>
                       </li>

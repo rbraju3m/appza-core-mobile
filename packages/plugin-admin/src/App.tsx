@@ -228,13 +228,14 @@ import { useChromeBuilder } from './useChromeBuilder';
 import { mainKeys, rowsOf } from './layoutApi';
 import { OverridesPanel } from './OverridesPanel';
 import { designFor, partHighlight, partsForPick, pieceLabel, useDesignIndex, type DesignFocus } from './DesignTab';
-import { useAdvanced } from './advanced';
+import { isAdvanced, useAdvanced } from './advanced';
 import { ThemePanel } from './ThemePanel';
 import { setHighlight } from './preview/pointer';
 import { PropertiesPanel, type PropsScope } from './PropertiesPanel';
 import { PrimitivePanel } from './PrimitivePanel';
 import { OnboardingModal } from './OnboardingModal';
 import { BuildAppModal } from './BuildAppModal';
+import { Problem, caughtProblem, httpProblem, httpTag, problemFor, setupGap } from './errors';
 
 type FetchState =
   | { kind: 'idle' }
@@ -514,7 +515,7 @@ export function App() {
     const endpoint = window.appzaCoreConfig?.endpoints?.syncFromCore;
     const nonce = window.appzaCoreConfig?.restNonce;
     if (!endpoint || !nonce) {
-      setSyncMessage('Sync unavailable — open this page inside /wp-admin/.');
+      setSyncMessage('! Open this page from your WordPress dashboard to get the latest designs.');
       return;
     }
     setSyncing(true);
@@ -528,18 +529,17 @@ export function App() {
         credentials: 'same-origin',
       });
       if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`HTTP ${response.status}: ${text.slice(0, 200)}`);
+        throw new Problem(await httpProblem(response, 'Getting the latest designs'));
       }
       const body = await response.json();
       setSyncMessage(
-        `Synced ${body.template_slug} → v${body.catalog_snapshot_version}`,
+        isAdvanced() ? `Synced ${body.template_slug} → v${body.catalog_snapshot_version}` : 'Your designs are up to date.',
       );
       await pull(slug);
       setDesignRev((r) => r + 1);
       window.setTimeout(() => setSyncMessage(null), 4000);
     } catch (err) {
-      setSyncMessage(err instanceof Error ? err.message : String(err));
+      setSyncMessage(`! ${caughtProblem(err, 'Getting the latest designs')}`);
     } finally {
       setSyncing(false);
     }
@@ -552,7 +552,7 @@ export function App() {
       const url = buildBootstrapUrl(slug);
       const response = await fetch(url, { headers: { Accept: 'application/json' } });
       if (!response.ok) {
-        setState({ kind: 'error', message: `HTTP ${response.status} from ${url}` });
+        setState({ kind: 'error', message: await httpProblem(response, 'Loading your app') });
         return;
       }
       const json = await response.json();
@@ -560,9 +560,9 @@ export function App() {
       if (!parsed.success) {
         setState({
           kind: 'error',
-          message: `Schema validation failed: ${parsed.error.issues
+          message: `Your app's designs are from a different version of APPZA. Press "Get latest designs" to update them.${isAdvanced() ? ` (Schema validation failed: ${parsed.error.issues
             .map((i) => `${i.path.join('.')}: ${i.message}`)
-            .join('; ')}`,
+            .join('; ')})` : ''}`,
         });
         return;
       }
@@ -978,7 +978,7 @@ export function App() {
       setVideoLoading(true);
       if (!target || !target.endpoint) {
         setAuthMessage(
-          'Video attach is missing its endpoint — set picker.video args.endpoint in the catalog.',
+          setupGap('Video attach is missing its endpoint — set picker.video args.endpoint in the catalog.'),
         );
         setVideoLoading(false);
         return;
@@ -997,7 +997,7 @@ export function App() {
         const json = await res.json().catch(() => null);
         console.log('[appza/oembed]', { status: res.status, json });
         if (!res.ok) {
-          setAuthMessage(`Video lookup failed (HTTP ${res.status})`);
+          setAuthMessage(`Video lookup failed${httpTag(res.status)}`);
           return;
         }
         // Failure is either a non-200 wrapper or null items on a 200.
@@ -1289,7 +1289,7 @@ export function App() {
       const target = uploadEndpointRef.current;
       if (!target) {
         setAuthMessage(
-          'Image attach is missing its endpoint — set picker.image args.endpoint in the catalog.',
+          setupGap('Image attach is missing its endpoint — set picker.image args.endpoint in the catalog.'),
         );
         return;
       }
@@ -1329,7 +1329,7 @@ export function App() {
           if (!res.ok) {
             const msg = (json && typeof (json as Record<string, unknown>).message === 'string')
               ? ((json as Record<string, unknown>).message as string)
-              : `Upload failed (HTTP ${res.status})`;
+              : `Upload failed${httpTag(res.status)}`;
             setAuthMessage(msg);
             return null;
           }
@@ -1393,7 +1393,7 @@ export function App() {
   const bottomPanel = useMemo(() => {
     if (!bottomTab || !envelope) return null;
     if (bottomTab === 'settings') {
-      return renderSettings(envelope);
+      return advanced ? renderSettings(envelope) : null;
     }
     if (bottomTab === 'themes') {
       const endpoint = window.appzaCoreConfig?.endpoints?.customizations;
@@ -1411,7 +1411,7 @@ export function App() {
               onChanged={() => pull(templateSlug, true)}
             />
           )}
-          {renderThemes(catalog?.template?.tokens, currentScreen?.screen_tokens)}
+          {advanced && renderThemes(catalog?.template?.tokens, currentScreen?.screen_tokens)}
         </>
       );
     }
@@ -1420,7 +1420,7 @@ export function App() {
     if (!customizationsEndpoint || !nonce) {
       return (
         <p className="appza-bottom-panel-title">
-          Overrides UI requires the WP-admin host. Open this page inside /wp-admin/.
+          Open this page from your WordPress dashboard to see this.
         </p>
       );
     }
@@ -1433,7 +1433,7 @@ export function App() {
       />
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bottomTab, envelope, catalog, currentScreen, templateSlug]);
+  }, [bottomTab, envelope, catalog, currentScreen, templateSlug, advanced]);
 
   // Mounted in both modes (Edit-mode taps dispatch real actions too); inside the viewport they pin to the phone and are selectable.
   const sharedOverlays = (
@@ -2020,7 +2020,7 @@ export function App() {
                               (json && typeof (json as Record<string, unknown>).message === 'string'
                                 ? (json as Record<string, string>).message
                                 : null) ||
-                              `${pendingDelete.failLabel ?? 'Delete'} failed (HTTP ${res.status})`;
+                              `${pendingDelete.failLabel ?? 'Delete'} failed${httpTag(res.status)}`;
                             setAuthMessage(msg);
                             return;
                           }
@@ -2541,7 +2541,7 @@ async function readInvitationOutcome(
   const message =
     (inner && typeof inner.message === 'string' && inner.message) ||
     (rec && typeof rec.message === 'string' ? (rec.message as string) : '') ||
-    (ok ? '' : `HTTP ${res.status}`);
+    (ok ? '' : problemFor(res.status, ''));
   return { ok, message };
 }
 
@@ -3068,7 +3068,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
               json && typeof (json as Record<string, unknown>).message === 'string'
                 ? ((json as Record<string, unknown>).message as string)
                 : null;
-            onLoginError(bodyMsg ?? `Login failed (HTTP ${res.status})`);
+            onLoginError(bodyMsg ?? `Login failed${httpTag(res.status)}`);
             return;
           }
           const j = json as Record<string, unknown>;
@@ -3208,7 +3208,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
               (json && typeof (json as Record<string, unknown>).message === 'string'
                 ? (json as Record<string, string>).message
                 : null) ||
-              `Post failed (HTTP ${res.status})`;
+              `Post failed${httpTag(res.status)}`;
             onLoginError(msg);
             return;
           }
@@ -3311,7 +3311,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     case 'poll.voters': {
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       if (!endpoint) {
-        onLoginError('poll.voters is missing its endpoint.');
+        onLoginError(setupGap('poll.voters is missing its endpoint.'));
         return;
       }
       const feedIdPath =
@@ -3697,7 +3697,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
               (json && typeof (json as Record<string, unknown>).message === 'string'
                 ? (json as Record<string, string>).message
                 : null) ||
-              `Update failed (HTTP ${res.status})`;
+              `Update failed${httpTag(res.status)}`;
             onLoginError(msg);
             return;
           }
@@ -3731,7 +3731,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         : (action_slug === 'bookmark.toggle' ? 'bookmark' : 'like');
       const feedIdPath = typeof argRec.feed_id_path === 'string' ? argRec.feed_id_path : 'data.id';
       if (!endpoint) {
-        onLoginError(`${action_slug} is missing its endpoint — set args.endpoint in the catalog.`);
+        onLoginError(setupGap(`${action_slug} is missing its endpoint — set args.endpoint in the catalog.`));
         return;
       }
       if (!auth) {
@@ -3821,7 +3821,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
             }
             const msg =
               (status && typeof status.message === 'string' && status.message) ||
-              `Reaction failed (HTTP ${res.status})`;
+              `Reaction failed${httpTag(res.status)}`;
             onLoginError(msg);
           }
         } catch (err) {
@@ -3847,11 +3847,11 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       const placeholder = typeof argRec.placeholder === 'string' ? argRec.placeholder : 'Write a comment…';
       const sendLabel = typeof argRec.send_label === 'string' ? argRec.send_label : 'Send';
       if (!endpoint) {
-        onLoginError('comment.create is missing its endpoint — set args.endpoint in the catalog.');
+        onLoginError(setupGap('comment.create is missing its endpoint — set args.endpoint in the catalog.'));
         return;
       }
       if (!listEndpoint) {
-        onLoginError('comment.create is missing its list_endpoint — set args.list_endpoint in the catalog.');
+        onLoginError(setupGap('comment.create is missing its list_endpoint — set args.list_endpoint in the catalog.'));
         return;
       }
       if (!auth) {
@@ -3930,7 +3930,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       const sendLabel =
         typeof argRec.send_label === 'string' ? argRec.send_label : isEdit ? 'Save' : 'Reply';
       if (!endpoint || !listEndpoint) {
-        onLoginError(`${action_slug} is missing its endpoint or list_endpoint.`);
+        onLoginError(setupGap(`${action_slug} is missing its endpoint or list_endpoint.`));
         return;
       }
       if (!auth) {
@@ -4012,7 +4012,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       const voteKey = typeof argRec.vote_key === 'string' && argRec.vote_key ? argRec.vote_key : 'vote_indexes';
       const feedIdPath = typeof argRec.feed_id_path === 'string' ? argRec.feed_id_path : 'data.id';
       if (!endpoint) {
-        onLoginError('poll.vote is missing its endpoint — set args.endpoint in the catalog.');
+        onLoginError(setupGap('poll.vote is missing its endpoint — set args.endpoint in the catalog.'));
         return;
       }
       if (!auth) {
@@ -4065,7 +4065,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           if (!httpOk || !bodyOk) {
             const msg =
               (status && typeof status.message === 'string' && status.message) ||
-              `Vote failed (HTTP ${res.status})`;
+              `Vote failed${httpTag(res.status)}`;
             onLoginError(msg);
             return;
           }
@@ -4168,7 +4168,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       const method = typeof argRec.method === 'string' ? argRec.method.toUpperCase() : 'POST';
       if (!endpoint) {
-        onLoginError('picker.image is missing its endpoint — set args.endpoint in the catalog.');
+        onLoginError(setupGap('picker.image is missing its endpoint — set args.endpoint in the catalog.'));
         return;
       }
       deps.openImagePicker({ endpoint, method });
@@ -5071,7 +5071,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           const ok = innerStatus !== null ? innerStatus === 200 : res.ok;
           if (!ok) {
             const msg =
-              (inner && typeof inner.message === 'string' && inner.message) || `HTTP ${res.status}`;
+              (inner && typeof inner.message === 'string' && inner.message) || problemFor(res.status, '');
             onLoginError(msg);
             return;
           }
@@ -5111,7 +5111,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     case 'chat.send': {
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       if (!endpoint) {
-        onLoginError('chat.send is missing its endpoint.');
+        onLoginError(setupGap('chat.send is missing its endpoint.'));
         return;
       }
       const refetchDs =
@@ -5144,7 +5144,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     case 'chat.delete_message': {
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       if (!endpoint) {
-        onLoginError('chat.delete_message is missing its endpoint.');
+        onLoginError(setupGap('chat.delete_message is missing its endpoint.'));
         return;
       }
       const messageId = itemRec ? readDataPath(itemRec, 'data.id') : undefined;
@@ -5189,7 +5189,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
     case 'chat.attach_image': {
       const endpoint = typeof argRec.endpoint === 'string' ? argRec.endpoint : null;
       if (!endpoint) {
-        onLoginError('chat.attach_image is missing its endpoint.');
+        onLoginError(setupGap('chat.attach_image is missing its endpoint.'));
         return;
       }
       pickAndUploadChatImage({
@@ -5659,7 +5659,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           if (!ok) {
             const msg =
               (inner && typeof inner.message === 'string' && inner.message) ||
-              `HTTP ${res.status}`;
+              problemFor(res.status, '');
             onLoginError(msg);
             return;
           }
@@ -5757,7 +5757,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           if (!ok) {
             const msg =
               (inner && typeof inner.message === 'string' && inner.message) ||
-              `HTTP ${res.status}`;
+              problemFor(res.status, '');
             onLoginError(msg);
             return;
           }
@@ -5859,7 +5859,7 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
           if (!ok) {
             const msg =
               (inner && typeof inner.message === 'string' && inner.message) ||
-              `HTTP ${res.status}`;
+              problemFor(res.status, '');
             onLoginError(msg);
             return;
           }
@@ -6337,7 +6337,7 @@ function CommentPanel({
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json || typeof json !== 'object') {
-        onError(`Loading comments failed (HTTP ${res.status})`);
+        onError(`Loading comments failed${httpTag(res.status)}`);
         return;
       }
       const rec = json as Record<string, unknown>;
@@ -6390,7 +6390,7 @@ function CommentPanel({
       if (!httpOk || !bodyOk) {
         const msg =
           (status && typeof status.message === 'string' && status.message) ||
-          `Comment failed (HTTP ${res.status})`;
+          `Comment failed${httpTag(res.status)}`;
         onError(msg);
         return;
       }

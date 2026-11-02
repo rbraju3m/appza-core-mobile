@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { Problem, httpProblem } from './errors';
+import { isAdvanced } from './advanced';
 
 type SourceIntegration = {
   slug: string;
@@ -38,7 +40,7 @@ export function OnboardingModal({ onClose, onSaved }: Props) {
       if (!sourceEndpoint || !activeEndpoint || !nonce) {
         setState({
           kind: 'error',
-          message: 'Wizard requires the WP-admin host — open the APPZA Core admin page.',
+          message: 'Open this page from your WordPress dashboard (APPZA in the menu) to continue.',
         });
         return;
       }
@@ -50,8 +52,8 @@ export function OnboardingModal({ onClose, onSaved }: Props) {
             credentials: 'same-origin',
           }),
         ]);
-        if (!listRes.ok) throw new Error(`HTTP ${listRes.status} from source-integrations`);
-        if (!activeRes.ok) throw new Error(`HTTP ${activeRes.status} from active-source-integrations`);
+        if (!listRes.ok) throw new Problem(await httpProblem(listRes, 'Loading the apps you can build'));
+        if (!activeRes.ok) throw new Problem(await httpProblem(activeRes, 'Loading the apps you can build'));
         const listBody = await listRes.json();
         const activeBody = await activeRes.json();
         if (cancelled) return;
@@ -103,8 +105,7 @@ export function OnboardingModal({ onClose, onSaved }: Props) {
         body: JSON.stringify({ slugs: Array.from(selected) }),
       });
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+        throw new Problem(await httpProblem(res, 'Saving your choice'));
       }
       const body = await res.json();
       const persisted: string[] = Array.isArray(body?.slugs) ? body.slugs : [];
@@ -128,10 +129,10 @@ export function OnboardingModal({ onClose, onSaved }: Props) {
         </div>
 
         <div className="appza-onboard-body">
-          {state.kind === 'loading' && <div className="appza-onboard-status">Loading integrations…</div>}
+          {state.kind === 'loading' && <div className="appza-onboard-status">Loading the apps you can build…</div>}
           {state.kind === 'error' && <div className="appza-onboard-status appza-onboard-error">{state.message}</div>}
           {state.kind === 'ok' && state.rows.length === 0 && (
-            <div className="appza-onboard-status">No Source Integrations returned by the Core.</div>
+            <div className="appza-onboard-status">No apps are available yet. Check this site's connection on the APPZA → Sync page.</div>
           )}
           {state.kind === 'ok' && state.rows.length > 0 && (
             <ul className="appza-onboard-list">
@@ -167,11 +168,11 @@ export function OnboardingModal({ onClose, onSaved }: Props) {
                       )}
                       <div className="appza-onboard-row-text">
                         <span className="appza-onboard-row-name">{row.name}</span>
-                        <span className="appza-onboard-row-slug">{row.addon_plugin_slug}</span>
+                        {isAdvanced() && <span className="appza-onboard-row-slug">{row.addon_plugin_slug}</span>}
                       </div>
                       {disabled && (
                         <span className="appza-onboard-row-hint">
-                          Install {row.addon_plugin_slug} first
+                          Needs the “{row.addon_plugin_slug}” plug-in: install and activate it first
                         </span>
                       )}
                     </label>
