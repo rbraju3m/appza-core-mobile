@@ -99,7 +99,7 @@ export function TopBar({
         )}
       </div>
 
-      <div className="appza-topbar-screen">
+      <div className="appza-topbar-screen" data-tour="pages">
         <span className="appza-topbar-screen-label">Page</span>
         <select
           className="appza-select"
@@ -247,6 +247,7 @@ export function TopBar({
           <button
             className="appza-btn"
             onClick={onSync}
+            data-tour="designs"
             disabled={syncing || loading}
             title="Get the newest designs and blocks from APPZA"
           >
@@ -273,7 +274,8 @@ export function TopBar({
         <button
           className="appza-btn appza-btn-primary"
           onClick={onBuildApp}
-          title="Pick an activated app + base URL, then kick off a build"
+          data-tour="build"
+          title="Make a test app of your design"
         >
           Build App
         </button>

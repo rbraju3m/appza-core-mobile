@@ -234,6 +234,8 @@ import { setHighlight } from './preview/pointer';
 import { PropertiesPanel, type PropsScope } from './PropertiesPanel';
 import { PrimitivePanel } from './PrimitivePanel';
 import { OnboardingModal } from './OnboardingModal';
+import { Tour } from './Tour';
+import { configFlag, markTourSeen, saveSiteTemplate, syncTemplate } from './siteTemplate';
 import { BuildAppModal } from './BuildAppModal';
 import { Problem, caughtProblem, httpProblem, httpTag, problemFor, setupGap } from './errors';
 
@@ -269,6 +271,17 @@ export function App() {
     window.appzaCoreConfig?.defaultTemplate ?? DEFAULT_TEMPLATE,
   );
   const [onboardingOpen, setOnboardingOpen] = useState(false);
+  // Friendly v2 P2: first run. null = not checked yet; the wizard opens when the site has no platform.
+  const [platformCount, setPlatformCount] = useState<number | null>(null);
+  const [templateSaved, setTemplateSaved] = useState(() => configFlag(window.appzaCoreConfig?.templateSaved));
+  const [tourOpen, setTourOpen] = useState(false);
+  // A template with nothing synced gets its designs once per page load, by itself.
+  const autoSynced = useRef<Set<string>>(new Set());
+  const [firstSync, setFirstSync] = useState<{ kind: 'idle' } | { kind: 'running' } | { kind: 'failed'; message: string }>({ kind: 'idle' });
+  // A template picked in the top bar waits for "Switch your app to …?" (owner, C).
+  const [pendingTemplate, setPendingTemplate] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
+  const [switchProblem, setSwitchProblem] = useState<string | null>(null);
   // A sync may bring a new design index; the Design tab reloads it.
   const [designRev, setDesignRev] = useState(0);
   const designIndex = useDesignIndex(templateSlug, window.appzaCoreConfig?.endpoints?.designIndex, window.appzaCoreConfig?.restNonce, designRev);
@@ -493,6 +506,7 @@ export function App() {
       .then((body) => {
         if (cancelled) return;
         const slugs = Array.isArray(body?.slugs) ? body.slugs : [];
+        setPlatformCount(slugs.length);
         if (slugs.length === 0) setOnboardingOpen(true);
       })
       .catch(() => {
@@ -510,6 +524,51 @@ export function App() {
     if (!window.appzaCoreConfig) window.appzaCoreConfig = {};
     window.appzaCoreConfig.previewMode = previewMode;
   }, [previewMode]);
+
+  // Nothing synced for this template yet: get its designs once, by itself, instead of showing an empty phone.
+  const snapshotVersion = state.kind === 'ok' ? state.envelope.catalog_snapshot_version : null;
+  useEffect(() => {
+    if (snapshotVersion !== 0 || onboardingOpen || !platformCount || autoSynced.current.has(templateSlug)) return;
+    autoSynced.current.add(templateSlug);
+    void getDesignsFirstTime(templateSlug);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshotVersion, onboardingOpen, platformCount, templateSlug]);
+
+  async function getDesignsFirstTime(slug: string) {
+    setFirstSync({ kind: 'running' });
+    try {
+      await syncTemplate(slug);
+      await pull(slug);
+      setDesignRev((r) => r + 1);
+      setFirstSync({ kind: 'idle' });
+    } catch (err) {
+      setFirstSync({ kind: 'failed', message: caughtProblem(err, "Getting your app's designs") });
+    }
+  }
+
+  async function switchTemplate(slug: string) {
+    setSwitching(true);
+    setSwitchProblem(null);
+    try {
+      await saveSiteTemplate(slug);
+      setTemplateSaved(true);
+      setPendingTemplate(null);
+      setTemplateSlug(slug);
+      setSelectedAppzetSlug(null);
+      await pull(slug);
+    } catch (err) {
+      setSwitchProblem(caughtProblem(err, "Saving your app's design"));
+    } finally {
+      setSwitching(false);
+    }
+  }
+
+  function finishTour() {
+    setTourOpen(false);
+    void markTourSeen().catch(() => {
+      /* the tour shows again next time; nothing else depends on it */
+    });
+  }
 
   async function syncFromCore(slug: string) {
     const endpoint = window.appzaCoreConfig?.endpoints?.syncFromCore;
@@ -1473,8 +1532,9 @@ export function App() {
         onSelectScreen={setSelectedScreenId}
         templateSlug={templateSlug}
         onTemplateSlugChange={(slug) => {
-          setTemplateSlug(slug);
-          pull(slug);
+          if (slug === templateSlug) return;
+          setSwitchProblem(null);
+          setPendingTemplate(slug);
         }}
         templateOptions={templateOptions}
         templatesLoading={templatesLoading}
@@ -1877,8 +1937,29 @@ export function App() {
               : undefined
           }
         >
-          {state.kind === 'loading' ? (
-            <div className="appza-loading">Loading…</div>
+          {state.kind === 'loading' || firstSync.kind === 'running' ? (
+            <div className="appza-loading">{firstSync.kind === 'running' ? "Getting your app's designs…" : 'Loading…'}</div>
+          ) : firstSync.kind === 'failed' ? (
+            <div className="appza-first-run" role="alert">
+              <p>{firstSync.message}</p>
+              <div className="appza-first-run-actions">
+                <button type="button" className="appza-btn appza-btn-primary" onClick={() => void getDesignsFirstTime(templateSlug)}>
+                  Try again
+                </button>
+                <button type="button" className="appza-btn" onClick={() => setOnboardingOpen(true)}>
+                  Check connection
+                </button>
+              </div>
+            </div>
+          ) : platformCount === 0 && !onboardingOpen && snapshotVersion === 0 ? (
+            <div className="appza-first-run">
+              <p>Choose your platform and a look to see your app here.</p>
+              <div className="appza-first-run-actions">
+                <button type="button" className="appza-btn appza-btn-primary" onClick={() => setOnboardingOpen(true)}>
+                  Set up your app
+                </button>
+              </div>
+            </div>
           ) : (
             // Wraps both modes: Edit mode still needs state-only actions (tabs, sort, search).
             <ActionProvider dispatch={dispatchAction}>
@@ -2303,13 +2384,54 @@ export function App() {
 
       {onboardingOpen && (
         <OnboardingModal
-          onClose={() => setOnboardingOpen(false)}
-          onSaved={() => {
+          firstRun={!platformCount && !templateSaved}
+          currentTemplate={templateSlug}
+          onClose={() => {
+            setOnboardingOpen(false);
+            // The platforms may have changed even when no look was picked.
             loadTemplates();
-            pull(templateSlug);
+          }}
+          onFinished={(slug) => {
+            const wasFirstRun = !platformCount && !templateSaved;
+            setOnboardingOpen(false);
+            setPlatformCount((n) => Math.max(n ?? 0, 1));
+            setTemplateSaved(true);
+            setFirstSync({ kind: 'idle' });
+            autoSynced.current.add(slug);
+            setTemplateSlug(slug);
+            setSelectedAppzetSlug(null);
+            loadTemplates();
+            setDesignRev((r) => r + 1);
+            void pull(slug).then(() => {
+              if (wasFirstRun && !configFlag(window.appzaCoreConfig?.tourSeen)) setTourOpen(true);
+            });
           }}
         />
       )}
+
+      {pendingTemplate && (
+        <div className="appza-onboard-overlay" role="dialog" aria-modal="true" aria-label="Switch your app's look">
+          <div className="appza-onboard-card appza-onboard-card-small">
+            <div className="appza-onboard-header">
+              <h2 className="appza-onboard-title">
+                Switch your app to {templateOptions.find((t) => t.slug === pendingTemplate)?.name ?? pendingTemplate}?
+              </h2>
+              <p className="appza-onboard-subtitle">The builder and your next app build will use this look.</p>
+            </div>
+            {switchProblem && <div className="appza-onboard-status appza-onboard-error">{switchProblem}</div>}
+            <div className="appza-onboard-footer">
+              <button type="button" className="appza-onboard-btn appza-onboard-btn-ghost" onClick={() => setPendingTemplate(null)} disabled={switching}>
+                Cancel
+              </button>
+              <button type="button" className="appza-onboard-btn appza-onboard-btn-primary" onClick={() => void switchTemplate(pendingTemplate)} disabled={switching}>
+                {switching ? 'Switching…' : 'Switch'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tourOpen && <Tour onDone={finishTour} />}
 
       {buildAppOpen && (
         <BuildAppModal

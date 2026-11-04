@@ -117,7 +117,7 @@ export function DeviceFrame({
   }
 
   return (
-    <div className="appza-device-frame">
+    <div className="appza-device-frame" data-tour="phone">
       <div className="appza-device-notch" aria-hidden="true" />
       <div
         className="appza-device-viewport"

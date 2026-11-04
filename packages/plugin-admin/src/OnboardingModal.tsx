@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Problem, httpProblem } from './errors';
+import { Problem, caughtProblem, httpProblem } from './errors';
 import { isAdvanced } from './advanced';
+import {
+  loadTemplateCards,
+  readConnection,
+  saveConnection,
+  saveSiteTemplate,
+  syncTemplate,
+  type CoreConnection,
+  type TemplateCard,
+} from './siteTemplate';
+
+// Friendly v2 P2: the first run. Connect (only when APPZA can't be reached) → your platform → pick a look; the tour
+// follows in the builder. The "Apps" pill reopens it; there, choosing another look asks first (owner, C).
 
 type SourceIntegration = {
   slug: string;
@@ -13,71 +25,98 @@ type SourceIntegration = {
   is_disable: boolean;
 };
 
-type FetchState =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'ok'; rows: SourceIntegration[] };
+type Step = 'loading' | 'connect' | 'platform' | 'look' | 'finishing';
 
 type Props = {
+  /** True when the site has never chosen a platform or a look. */
+  firstRun: boolean;
+  /** The template the builder shows now. */
+  currentTemplate: string;
   onClose: () => void;
-  onSaved?: (slugs: string[]) => void;
+  /** Platforms and look saved, designs fetched: open the builder on this template. */
+  onFinished: (template: string) => void;
 };
 
-export function OnboardingModal({ onClose, onSaved }: Props) {
-  const [state, setState] = useState<FetchState>({ kind: 'loading' });
+export function OnboardingModal({ firstRun, currentTemplate, onClose, onFinished }: Props) {
+  const [step, setStep] = useState<Step>('loading');
+  const [rows, setRows] = useState<SourceIntegration[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [cards, setCards] = useState<TemplateCard[]>([]);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [connection, setConnection] = useState<CoreConnection | null>(null);
+  const [address, setAddress] = useState('');
 
   const sourceEndpoint = window.appzaCoreConfig?.endpoints?.sourceIntegrations;
   const activeEndpoint = window.appzaCoreConfig?.endpoints?.activeSourceIntegrations;
   const nonce = window.appzaCoreConfig?.restNonce;
 
+  async function loadPlatforms(): Promise<boolean> {
+    if (!sourceEndpoint || !activeEndpoint || !nonce) {
+      throw new Problem('Open this page from your WordPress dashboard (APPZA in the menu) to continue.');
+    }
+    const [listRes, activeRes] = await Promise.all([
+      fetch(sourceEndpoint, { headers: { Accept: 'application/json' } }),
+      fetch(activeEndpoint, { headers: { Accept: 'application/json', 'X-WP-Nonce': nonce }, credentials: 'same-origin' }),
+    ]);
+    // The platform list comes from APPZA: when it fails, the site can't reach APPZA.
+    if (!listRes.ok) return false;
+    if (!activeRes.ok) throw new Problem(await httpProblem(activeRes, 'Loading the apps you can build'));
+    const listBody = await listRes.json();
+    const activeBody = await activeRes.json();
+    setRows(Array.isArray(listBody?.source_integrations) ? listBody.source_integrations : []);
+    setSelected(new Set(Array.isArray(activeBody?.slugs) ? (activeBody.slugs as string[]) : []));
+    return true;
+  }
+
+  async function openConnect() {
+    setStep('connect');
+    try {
+      const c = await readConnection();
+      setConnection(c);
+      setAddress(c.url);
+    } catch (err) {
+      setProblem(caughtProblem(err, 'Checking the connection to APPZA'));
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
-
-    async function load() {
-      if (!sourceEndpoint || !activeEndpoint || !nonce) {
-        setState({
-          kind: 'error',
-          message: 'Open this page from your WordPress dashboard (APPZA in the menu) to continue.',
-        });
-        return;
-      }
+    (async () => {
       try {
-        const [listRes, activeRes] = await Promise.all([
-          fetch(sourceEndpoint, { headers: { Accept: 'application/json' } }),
-          fetch(activeEndpoint, {
-            headers: { Accept: 'application/json', 'X-WP-Nonce': nonce },
-            credentials: 'same-origin',
-          }),
-        ]);
-        if (!listRes.ok) throw new Problem(await httpProblem(listRes, 'Loading the apps you can build'));
-        if (!activeRes.ok) throw new Problem(await httpProblem(activeRes, 'Loading the apps you can build'));
-        const listBody = await listRes.json();
-        const activeBody = await activeRes.json();
+        const ok = await loadPlatforms();
         if (cancelled) return;
-
-        const rows: SourceIntegration[] = Array.isArray(listBody?.source_integrations)
-          ? listBody.source_integrations
-          : [];
-        const activeSlugs: string[] = Array.isArray(activeBody?.slugs) ? activeBody.slugs : [];
-        setSelected(new Set(activeSlugs));
-        setState({ kind: 'ok', rows });
+        if (ok) setStep('platform');
+        else await openConnect();
       } catch (err) {
-        if (cancelled) return;
-        setState({
-          kind: 'error',
-          message: err instanceof Error ? err.message : String(err),
-        });
+        if (!cancelled) {
+          setProblem(caughtProblem(err, 'Loading the apps you can build'));
+          setStep('platform');
+        }
       }
-    }
-
-    load();
+    })();
     return () => {
       cancelled = true;
     };
-  }, [sourceEndpoint, activeEndpoint, nonce]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function checkConnection() {
+    setBusy(true);
+    setProblem(null);
+    try {
+      const c =
+        connection && !connection.locked && address.trim() !== connection.url ? await saveConnection(address.trim()) : await readConnection();
+      setConnection(c);
+      if (c.connected && (await loadPlatforms())) setStep('platform');
+    } catch (err) {
+      setProblem(caughtProblem(err, 'Checking the connection to APPZA'));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function toggle(slug: string, disabled: boolean) {
     if (disabled) return;
@@ -89,69 +128,112 @@ export function OnboardingModal({ onClose, onSaved }: Props) {
     });
   }
 
-  async function save() {
+  async function savePlatforms() {
     if (!activeEndpoint || !nonce) return;
-    setSaving(true);
-    setSaveError(null);
+    setBusy(true);
+    setProblem(null);
     try {
       const res = await fetch(activeEndpoint, {
         method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'X-WP-Nonce': nonce,
-        },
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
         credentials: 'same-origin',
         body: JSON.stringify({ slugs: Array.from(selected) }),
       });
-      if (!res.ok) {
-        throw new Problem(await httpProblem(res, 'Saving your choice'));
-      }
-      const body = await res.json();
-      const persisted: string[] = Array.isArray(body?.slugs) ? body.slugs : [];
-      onSaved?.(persisted);
-      onClose();
+      if (!res.ok) throw new Problem(await httpProblem(res, 'Saving your choice'));
+      const list = await loadTemplateCards();
+      setCards(list);
+      setPicked(list.some((t) => t.slug === currentTemplate) ? currentTemplate : list[0]?.slug ?? null);
+      setConfirming(false);
+      setStep('look');
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : String(err));
+      setProblem(caughtProblem(err, 'Saving your choice'));
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
   }
 
+  async function useLook() {
+    if (!picked) return;
+    // Changing the look of an app that already has one asks first: it also changes what Build App uses.
+    if (!firstRun && picked !== currentTemplate && !confirming) {
+      setConfirming(true);
+      return;
+    }
+    setBusy(true);
+    setProblem(null);
+    setStep('finishing');
+    try {
+      await saveSiteTemplate(picked);
+      await syncTemplate(picked);
+      onFinished(picked);
+    } catch (err) {
+      setProblem(caughtProblem(err, "Getting your app's designs"));
+      setStep('look');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const pickedName = cards.find((t) => t.slug === picked)?.name ?? picked ?? '';
+  const onLook = step === 'look' || step === 'finishing';
+
   return (
-    <div className="appza-onboard-overlay" role="dialog" aria-modal="true" aria-label="Select App">
-      <div className="appza-onboard-card">
+    <div className="appza-onboard-overlay" role="dialog" aria-modal="true" aria-label="Set up your app">
+      <div className="appza-onboard-card appza-onboard-card-wide">
         <div className="appza-onboard-header">
-          <h2 className="appza-onboard-title">Select App</h2>
+          {(step === 'platform' || onLook) && (
+            <ol className="appza-onboard-steps" aria-label="Steps">
+              <li data-state={onLook ? 'done' : 'now'}>Your platform</li>
+              <li data-state={onLook ? 'now' : 'next'}>Pick a look</li>
+              <li data-state="next">Quick tour</li>
+            </ol>
+          )}
+          <h2 className="appza-onboard-title">
+            {step === 'connect' ? 'Connect to APPZA' : onLook ? 'Pick a look for your app' : firstRun ? "Let's build your app" : 'Your platform'}
+          </h2>
           <p className="appza-onboard-subtitle">
-            Choose the platforms you want to build apps for. You can change this any time.
+            {step === 'connect'
+              ? "This site could not reach APPZA, where your app's designs come from. Check the address below."
+              : onLook
+              ? 'You can change any colour, text or setting afterwards.'
+              : 'Which plug-in should your app show? You can change this any time.'}
           </p>
         </div>
 
         <div className="appza-onboard-body">
-          {state.kind === 'loading' && <div className="appza-onboard-status">Loading the apps you can build…</div>}
-          {state.kind === 'error' && <div className="appza-onboard-status appza-onboard-error">{state.message}</div>}
-          {state.kind === 'ok' && state.rows.length === 0 && (
+          {step === 'loading' && <div className="appza-onboard-status">Loading…</div>}
+
+          {step === 'connect' && (
+            <div className="appza-onboard-connect">
+              <label htmlFor="appza-core-address">APPZA address</label>
+              <input
+                id="appza-core-address"
+                type="url"
+                value={address}
+                disabled={!!connection?.locked}
+                placeholder="https://…"
+                onChange={(e) => setAddress(e.target.value)}
+              />
+              {connection?.locked && <p className="appza-onboard-hint">This address is set in wp-config.php. Ask your developer to change it.</p>}
+              {connection && !connection.connected && (
+                <p className="appza-onboard-hint">Not connected yet.{isAdvanced() && connection.message ? ` (${connection.message})` : ''}</p>
+              )}
+            </div>
+          )}
+
+          {step === 'platform' && rows.length === 0 && !problem && (
             <div className="appza-onboard-status">No apps are available yet. Check this site's connection on the APPZA → Sync page.</div>
           )}
-          {state.kind === 'ok' && state.rows.length > 0 && (
+          {step === 'platform' && rows.length > 0 && (
             <ul className="appza-onboard-list">
-              {state.rows.map((row) => {
+              {rows.map((row) => {
                 const isSelected = selected.has(row.slug);
                 const disabled = row.is_disable;
                 return (
-                  <li
-                    key={row.slug}
-                    className={`appza-onboard-row${disabled ? ' is-disabled' : ''}${isSelected ? ' is-selected' : ''}`}
-                    onClick={() => toggle(row.slug, disabled)}
-                  >
+                  // The label alone handles the click: a row onClick as well toggled twice when the box itself was clicked.
+                  <li key={row.slug} className={`appza-onboard-row${disabled ? ' is-disabled' : ''}${isSelected ? ' is-selected' : ''}`}>
                     <label className="appza-onboard-row-label">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        disabled={disabled}
-                        onChange={() => toggle(row.slug, disabled)}
-                      />
+                      <input type="checkbox" checked={isSelected} disabled={disabled} onChange={() => toggle(row.slug, disabled)} />
                       {row.image_url ? (
                         <img
                           className="appza-onboard-row-icon"
@@ -162,18 +244,14 @@ export function OnboardingModal({ onClose, onSaved }: Props) {
                           }}
                         />
                       ) : (
-                        <span className="appza-onboard-row-icon appza-onboard-row-icon-fallback">
-                          {row.name.charAt(0).toUpperCase()}
-                        </span>
+                        <span className="appza-onboard-row-icon appza-onboard-row-icon-fallback">{row.name.charAt(0).toUpperCase()}</span>
                       )}
                       <div className="appza-onboard-row-text">
                         <span className="appza-onboard-row-name">{row.name}</span>
                         {isAdvanced() && <span className="appza-onboard-row-slug">{row.addon_plugin_slug}</span>}
                       </div>
                       {disabled && (
-                        <span className="appza-onboard-row-hint">
-                          Needs the “{row.addon_plugin_slug}” plug-in: install and activate it first
-                        </span>
+                        <span className="appza-onboard-row-hint">Needs the “{row.addon_plugin_slug}” plug-in: install and activate it first</span>
                       )}
                     </label>
                   </li>
@@ -181,22 +259,80 @@ export function OnboardingModal({ onClose, onSaved }: Props) {
               })}
             </ul>
           )}
+
+          {onLook && cards.length === 0 && <div className="appza-onboard-status">There are no designs for this platform yet.</div>}
+          {onLook && cards.length > 0 && (
+            <ul className="appza-onboard-looks" role="radiogroup" aria-label="Designs">
+              {cards.map((t) => (
+                <li key={t.slug}>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={picked === t.slug}
+                    className="appza-onboard-look"
+                    data-picked={picked === t.slug}
+                    disabled={step === 'finishing'}
+                    onClick={() => {
+                      setPicked(t.slug);
+                      setConfirming(false);
+                    }}
+                  >
+                    <span className="appza-onboard-look-thumb">
+                      {t.preview_image_url ? <img src={t.preview_image_url} alt="" /> : <span aria-hidden="true">{t.name.charAt(0)}</span>}
+                    </span>
+                    <span className="appza-onboard-look-name">{t.name}</span>
+                    {t.description && <span className="appza-onboard-look-desc">{t.description}</span>}
+                    {!firstRun && t.slug === currentTemplate && <span className="appza-onboard-look-now">Your app now</span>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {step === 'finishing' && <div className="appza-onboard-status">Getting your app's designs…</div>}
+          {confirming && step === 'look' && (
+            <div className="appza-onboard-confirm" role="alert">
+              Switch your app to <b>{pickedName}</b>? Your next app build will use it too.
+            </div>
+          )}
         </div>
 
-        {saveError && <div className="appza-onboard-status appza-onboard-error">{saveError}</div>}
+        {problem && <div className="appza-onboard-status appza-onboard-error">{problem}</div>}
 
         <div className="appza-onboard-footer">
-          <button type="button" className="appza-onboard-btn appza-onboard-btn-ghost" onClick={onClose}>
-            Skip
-          </button>
-          <button
-            type="button"
-            className="appza-onboard-btn appza-onboard-btn-primary"
-            onClick={save}
-            disabled={saving || state.kind !== 'ok'}
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </button>
+          {step === 'look' ? (
+            <button type="button" className="appza-onboard-btn appza-onboard-btn-ghost" onClick={() => setStep('platform')} disabled={busy}>
+              Back
+            </button>
+          ) : (
+            <button type="button" className="appza-onboard-btn appza-onboard-btn-ghost" onClick={onClose} disabled={busy}>
+              {firstRun ? 'Later' : 'Close'}
+            </button>
+          )}
+          {step === 'connect' && (
+            <button
+              type="button"
+              className="appza-onboard-btn appza-onboard-btn-primary"
+              onClick={checkConnection}
+              disabled={busy || !connection || (connection.locked && connection.connected)}
+            >
+              {busy ? 'Checking…' : 'Check connection'}
+            </button>
+          )}
+          {step === 'platform' && (
+            <button
+              type="button"
+              className="appza-onboard-btn appza-onboard-btn-primary"
+              onClick={savePlatforms}
+              disabled={busy || rows.length === 0 || selected.size === 0}
+            >
+              {busy ? 'Saving…' : 'Next'}
+            </button>
+          )}
+          {onLook && (
+            <button type="button" className="appza-onboard-btn appza-onboard-btn-primary" onClick={useLook} disabled={busy || !picked}>
+              {step === 'finishing' ? 'Getting designs…' : confirming ? `Switch to ${pickedName}` : 'Use this look'}
+            </button>
+          )}
         </div>
       </div>
     </div>

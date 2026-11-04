@@ -1885,6 +1885,8 @@ body {
   align-items: center;
   gap: 12px;
   cursor: inherit;
+  /* The whole row is the click target (the row itself no longer handles clicks). */
+  width: 100%;
 }
 
 .appza-onboard-row-label input[type='checkbox'] {
@@ -2912,4 +2914,254 @@ body {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 10px;
+}
+
+/* Friendly v2 P2 — first run: wizard steps, look cards, connect, the switch confirm, the tour. */
+.appza-onboard-card-wide {
+  width: min(760px, calc(100% - 32px));
+}
+
+.appza-onboard-card-small {
+  width: min(440px, calc(100% - 32px));
+}
+
+.appza-onboard-steps {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0 0 12px;
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--appza-text-muted);
+  counter-reset: appza-step;
+}
+
+.appza-onboard-steps li {
+  counter-increment: appza-step;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.appza-onboard-steps li::before {
+  content: counter(appza-step);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  border: 1px solid var(--appza-border-strong);
+  background: var(--appza-bg);
+}
+
+.appza-onboard-steps li[data-state='now'] {
+  color: var(--appza-text);
+  font-weight: 600;
+}
+
+.appza-onboard-steps li[data-state='now']::before {
+  background: var(--appza-primary);
+  border-color: var(--appza-primary);
+  color: #fff;
+}
+
+.appza-onboard-steps li[data-state='done']::before {
+  content: '✓';
+  background: var(--appza-bg-alt);
+}
+
+.appza-onboard-looks {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.appza-onboard-look {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 10px;
+  text-align: left;
+  border: 2px solid var(--appza-border);
+  border-radius: 10px;
+  background: var(--appza-bg);
+  cursor: pointer;
+  font: inherit;
+  color: var(--appza-text);
+}
+
+.appza-onboard-look:hover {
+  border-color: var(--appza-border-strong);
+}
+
+.appza-onboard-look[data-picked='true'] {
+  border-color: var(--appza-primary);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
+}
+
+.appza-onboard-look:focus-visible {
+  outline: 2px solid var(--appza-primary);
+  outline-offset: 2px;
+}
+
+.appza-onboard-look-thumb {
+  aspect-ratio: 4 / 3;
+  border-radius: 6px;
+  background: var(--appza-bg-alt);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--appza-text-muted);
+}
+
+.appza-onboard-look-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.appza-onboard-look-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.appza-onboard-look-desc {
+  font-size: 0.8rem;
+  color: var(--appza-text-muted);
+  line-height: 1.4;
+}
+
+.appza-onboard-look-now {
+  align-self: flex-start;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--appza-bg-alt);
+  color: var(--appza-text-muted);
+}
+
+.appza-onboard-connect {
+  display: grid;
+  gap: 6px;
+  padding: 12px 0;
+}
+
+.appza-onboard-connect label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--appza-text);
+}
+
+.appza-onboard-connect input {
+  padding: 8px 10px;
+  border: 1px solid var(--appza-border-strong);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.appza-onboard-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--appza-text-muted);
+}
+
+.appza-onboard-confirm {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  font-size: 0.85rem;
+  color: var(--appza-text);
+}
+
+.appza-first-run {
+  margin: 48px auto;
+  max-width: 360px;
+  padding: 20px;
+  text-align: center;
+  border: 1px solid var(--appza-border);
+  border-radius: 10px;
+  background: var(--appza-bg);
+  color: var(--appza-text);
+  font-size: 0.9rem;
+}
+
+.appza-first-run p {
+  margin: 0 0 14px;
+}
+
+.appza-first-run-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.appza-tour {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+}
+
+.appza-tour-ring {
+  position: fixed;
+  border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(17, 24, 39, 0.45);
+  outline: 2px solid var(--appza-primary);
+  pointer-events: none;
+  transition: top 0.2s, left 0.2s, width 0.2s, height 0.2s;
+}
+
+.appza-tour-card {
+  position: fixed;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--appza-bg);
+  box-shadow: 0 20px 60px rgba(17, 24, 39, 0.35);
+  color: var(--appza-text);
+}
+
+.appza-tour-count {
+  font-size: 0.72rem;
+  color: var(--appza-text-muted);
+  margin-bottom: 4px;
+}
+
+.appza-tour-title {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.appza-tour-body {
+  margin: 0 0 14px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--appza-text-muted);
+}
+
+.appza-tour-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .appza-tour-ring {
+    transition: none;
+  }
 }
