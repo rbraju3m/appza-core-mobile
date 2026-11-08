@@ -24,6 +24,24 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
       "button-3"
     ]
   ],
+  "action-menu": [
+    [
+      "ion-text",
+      "eyebrow"
+    ],
+    [
+      "ion-icon",
+      "row-icon"
+    ],
+    [
+      "ion-text",
+      "row-label"
+    ],
+    [
+      "ion-text",
+      "title"
+    ]
+  ],
   "add-document-appbar-shell": [
     [
       "ion-button",
@@ -326,6 +344,48 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
     [
       "ion-button",
       "cta"
+    ]
+  ],
+  "date-time-sheet": [
+    [
+      "ion-text",
+      "eyebrow"
+    ],
+    [
+      "ion-text",
+      "title"
+    ],
+    [
+      "ion-button",
+      "month"
+    ],
+    [
+      "ion-button",
+      "prev"
+    ],
+    [
+      "ion-button",
+      "next"
+    ],
+    [
+      "ion-text",
+      "weekdays"
+    ],
+    [
+      "ion-button",
+      "day"
+    ],
+    [
+      "ion-text",
+      "time-label"
+    ],
+    [
+      "ion-input",
+      "time"
+    ],
+    [
+      "ion-button",
+      "submit"
     ]
   ],
   "details-view": [
@@ -2904,6 +2964,28 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
       "tile"
     ]
   ],
+  "media-viewer": [
+    [
+      "ion-text",
+      "counter"
+    ],
+    [
+      "ion-button",
+      "close"
+    ],
+    [
+      "ion-img",
+      "image"
+    ],
+    [
+      "ion-button",
+      "download"
+    ],
+    [
+      "ion-button",
+      "open"
+    ]
+  ],
   "menu-row": [
     [
       "ion-button",
@@ -3204,6 +3286,24 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
     [
       "ion-button",
       "review"
+    ]
+  ],
+  "options-sheet": [
+    [
+      "ion-text",
+      "title"
+    ],
+    [
+      "ion-icon",
+      "row-icon"
+    ],
+    [
+      "ion-text",
+      "row-label"
+    ],
+    [
+      "ion-icon",
+      "check"
     ]
   ],
   "password-form": [

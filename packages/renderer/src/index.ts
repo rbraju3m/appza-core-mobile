@@ -568,3 +568,4 @@ export { setAuthHeaderProvider, getAuthHeader } from './authHeader';
 export { setExternalOpener, openExternal } from './externalLink';
 export { useBackDismiss, dismissTopOverlay } from './backStack';
 export { OverlayDesignStyle, overlayDesignCss } from './OverlayDesign';
+export { overlayBlockDefaults, withOverlayBlockDefaults } from './overlayProps';

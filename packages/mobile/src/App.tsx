@@ -194,6 +194,7 @@ import {
   openPollVotersSheet,
   ModerationReviewSheet,
   OverlayDesignStyle,
+  withOverlayBlockDefaults,
   announceModerationDone,
 } from '@appza/renderer';
 import { drawerMenuItems, screenAppbarPlacements, screenPlacements } from '@appza/renderer';
@@ -5510,7 +5511,7 @@ function readAppzetPropsFromCatalog(slug: string): Record<string, unknown> {
     'default_props_override',
     base,
   );
-  return isRecord(resolved) ? resolved : base;
+  return withOverlayBlockDefaults(cat, slug, isRecord(resolved) ? resolved : base);
 }
 
 // Module-level: shared by the picker action and the strip's Edit event so they can't drift.

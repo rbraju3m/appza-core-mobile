@@ -12,6 +12,7 @@ import {
   tokensToCssVars,
 } from '@appza/renderer';
 import type { Catalog } from '@appza/schemas';
+import { OverlayPreview, overlayShapeOf } from './overlay';
 import { pieceOf, setHighlight, setLabels, setPicked, startPointer, stylingOf, type Highlight, type PieceLabels } from './pointer';
 
 import '@ionic/react/css/core.css';
@@ -97,6 +98,23 @@ async function boot() {
 
 function draw(catalog: Catalog) {
   setCatalogGlobal(catalog);
+
+  const shape = appzetSlug ? overlayShapeOf(catalog, appzetSlug) : null;
+  if (appzetSlug && shape) {
+    root.render(
+      <StrictMode>
+        <ActionProvider dispatch={dispatch}>
+          <IonApp className="appza-renderer-app" style={tokensToCssVars(catalog.template?.tokens)}>
+            {/* Inside IonContent for the app's font; the overlay is fixed, so it still covers the page. */}
+            <IonContent>
+              <OverlayPreview catalog={catalog} appzetSlug={appzetSlug} shape={shape} />
+            </IonContent>
+          </IonApp>
+        </ActionProvider>
+      </StrictMode>,
+    );
+    return;
+  }
 
   if (appzetSlug) {
     root.render(
