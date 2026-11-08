@@ -170,6 +170,31 @@ export function PlacementRenderer({
     () => new Set(documentDraft.topic_ids.map((id) => String(id))),
     [documentDraft.topic_ids],
   );
+  // A shared block's AppZet names the state it follows (`active_state`, `sort_state`), instead of the renderer knowing
+  // each AppZet by slug. The fc- AppZets keep their own wiring below.
+  const namedState: Record<string, string | undefined> = {
+    'spaces.tab': spacesTab,
+    'profile.tab': profileTab,
+    'profile.follow_view': followView,
+    'profile.follow_sort': profileControls.follow_sort,
+    'space_detail.subtab': spaceDetailActiveSubtab,
+    'space_detail.topic': spaceDetailTopicSlug,
+    'space_detail.space': spaceDetailSpaceSlug,
+    'leaderboard.range': leaderboardControls.range,
+    'search.tab': searchControls.tab,
+    'search.post_scope': searchControls.post_scope,
+    'member_directory.status': memberDirectory.status,
+    'member_directory.sort_by': memberDirectory.sort_by,
+    'moderation.status': moderationControls.status,
+    'course_list.tab': courseList.tab,
+    'course_list.topic': courseList.topic_slug,
+    'course_list.sort_by': courseList.sort_by,
+    'course_students.sort_by': courseStudents.sort_by,
+  };
+  const followedState = (appzet: { default_props_override?: unknown } | undefined, key: 'active_state' | 'sort_state') => {
+    const name = (appzet?.default_props_override as Record<string, unknown> | null | undefined)?.[key];
+    return typeof name === 'string' ? namedState[name] : undefined;
+  };
   const requestedAppzet = catalogIndex.appzetBySlug.get(appzetSlug);
   // A placement that rebinds the DS isn't governed by feedControls, so it keeps the timeline layout.
   const placementDsForVariant =
@@ -235,6 +260,14 @@ export function PlacementRenderer({
           // The label is state, and no field_mapping can bind state.
           ...(baseAppzet.slug === 'fc-comment-sort'
             ? { label: commentSortLabel(postDetailControls.comment_sort) }
+            : {}),
+          ...(followedState(baseAppzet, 'sort_state') !== undefined
+            ? {
+                sort_label: followSortLabel(
+                  followedState(baseAppzet, 'sort_state') as string,
+                  (baseAppzet.actions as Record<string, unknown> | null | undefined)?.['on_tap_sort'],
+                ),
+              }
             : {}),
           ...(baseAppzet.slug === 'fc-members-toolbar'
             ? {
@@ -1496,7 +1529,7 @@ export function PlacementRenderer({
               appzet.slug === 'fc-moderation-tabs' ? moderationControls.status :
               appzet.slug === 'fc-courses-tabs' ? courseList.tab :
               appzet.slug === 'fc-courses-topics' ? courseList.topic_slug :
-              undefined
+              followedState(appzet, 'active_state')
             }
             activeChildValues={
               appzet.slug === 'fc-add-document-topics' ? draftTopicValues : undefined
@@ -1756,7 +1789,7 @@ export function PlacementRenderer({
               appzet.slug === 'fc-moderation-tabs' ? moderationControls.status :
               appzet.slug === 'fc-courses-tabs' ? courseList.tab :
               appzet.slug === 'fc-courses-topics' ? courseList.topic_slug :
-                undefined
+                followedState(appzet, 'active_state')
               }
               activeChildValues={
                 appzet.slug === 'fc-add-document-topics' ? draftTopicValues : undefined

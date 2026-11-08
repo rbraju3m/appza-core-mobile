@@ -14713,3 +14713,185 @@ button.appza-ct-reply-count {
   border: 1px solid var(--appza-button-bg-color, #4a5fdf) !important;
   color: var(--appza-button-bg-color, #4a5fdf) !important;
 }
+
+/* tabs — learns from fc-search-tabs. The lit tab carries data-active (from the state its AppZet names). */
+.appza-renderer-ss[data-slug="tabs"] {
+  display: flex;
+  align-items: stretch;
+  gap: var(--appza-gap, 0px);
+  width: 100%;
+  box-sizing: border-box;
+  margin: var(--appza-row-padding, 0);
+  background: var(--appza-track-bg-color, #e9eaec);
+  border-radius: var(--appza-track-radius, 10px);
+  padding: var(--appza-track-padding, 4px);
+}
+.appza-renderer-ss[data-slug="tabs"] > * {
+  flex: 1 1 0;
+  min-width: 0;
+  position: relative;
+}
+.appza-renderer-ss[data-slug="tabs"] ion-button {
+  --background: transparent;
+  --background-hover: transparent;
+  --background-activated: transparent;
+  --box-shadow: none;
+  --border-radius: var(--appza-tab-radius, 8px);
+  --padding-start: 4px;
+  --padding-end: 4px;
+  --color: var(--appza-tab-text-color, var(--appza-theme-muted, #525866));
+  margin: 0;
+  width: 100%;
+  height: var(--appza-tab-height, 36px);
+  font-size: var(--appza-font-size, 15px);
+  font-weight: var(--appza-font-weight, 600);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.appza-renderer-ss[data-slug="tabs"] ion-button::part(native) {
+  color: var(--appza-tab-text-color, var(--appza-theme-muted, #525866));
+  background: transparent;
+}
+.appza-renderer-ss[data-slug="tabs"] [data-active="true"] ion-button {
+  --background: var(--appza-active-bg-color, var(--appza-theme-surface, #ffffff));
+  --color: var(--appza-active-color, var(--appza-theme-heading, #0e121b)) !important;
+}
+.appza-renderer-ss[data-slug="tabs"] [data-active="true"] ion-button::part(native) {
+  color: var(--appza-active-color, var(--appza-theme-heading, #0e121b)) !important;
+  background: var(--appza-active-bg-color, var(--appza-theme-surface, #ffffff));
+  box-shadow: 0 1px 2px rgba(13, 17, 26, 0.12);
+}
+/* tabs-outlined — learns from fc-search-scope-tabs. */
+.appza-renderer-ss[data-slug="tabs"][data-layout="tabs-outlined"] {
+  background: transparent;
+  padding: 0;
+  gap: var(--appza-gap, 8px);
+}
+.appza-renderer-ss[data-slug="tabs"][data-layout="tabs-outlined"] ion-button {
+  --background: var(--appza-tab-bg-color, var(--appza-theme-surface, #ffffff));
+  --border-width: 1px;
+  --border-style: solid;
+  --border-color: var(--appza-tab-border-color, #cdd0d5);
+  --color: var(--appza-tab-text-color, var(--appza-theme-heading, #0e121b));
+  height: var(--appza-tab-height, 44px);
+}
+.appza-renderer-ss[data-slug="tabs"][data-layout="tabs-outlined"] ion-button::part(native) {
+  background: var(--appza-tab-bg-color, var(--appza-theme-surface, #ffffff));
+  border: 1px solid var(--appza-tab-border-color, #cdd0d5);
+  color: var(--appza-tab-text-color, var(--appza-theme-heading, #0e121b));
+}
+.appza-renderer-ss[data-slug="tabs"][data-layout="tabs-outlined"] [data-active="true"] ion-button::part(native) {
+  color: var(--appza-active-color, #2a5cff) !important;
+  background: var(--appza-active-bg-color, #dbe7ff);
+  border-color: var(--appza-active-border-color, #2a5cff);
+  box-shadow: none;
+}
+
+/* list-toolbar — learns from fc-members-toolbar. */
+.appza-renderer-ss[data-slug="list-toolbar"] {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: stretch;
+  column-gap: 0;
+  padding: var(--appza-row-padding, 16px 14px 12px);
+  background: var(--appza-row-bg-color, var(--appza-theme-surface, #ffffff));
+}
+.appza-renderer-ss[data-slug="list-toolbar"] > [data-piece="search-icon"] {
+  display: flex;
+  align-items: center;
+  padding: 0 4px 0 8px;
+  background: var(--appza-search-bg-color, #ebebeb);
+  border: 1px solid var(--appza-search-border-color, #6b6b6b);
+  border-right: 0;
+  border-radius: var(--appza-search-radius, 5px) 0 0 var(--appza-search-radius, 5px);
+  height: var(--appza-search-height, 34px);
+  box-sizing: border-box;
+}
+.appza-renderer-ss[data-slug="list-toolbar"] > [data-piece="search-icon"] ion-icon {
+  font-size: 20px;
+  color: var(--appza-search-icon-color, #3a3a3a);
+}
+.appza-renderer-ss[data-slug="list-toolbar"] > [data-piece="search"] {
+  grid-column: 2;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  background: var(--appza-search-bg-color, #ebebeb);
+  border: 1px solid var(--appza-search-border-color, #6b6b6b);
+  border-left: 0;
+  border-radius: 0 var(--appza-search-radius, 5px) var(--appza-search-radius, 5px) 0;
+  height: var(--appza-search-height, 34px);
+  box-sizing: border-box;
+}
+/* No glyph: the field takes the whole box. */
+.appza-renderer-ss[data-slug="list-toolbar"]:not(:has(> [data-piece="search-icon"])) > [data-piece="search"] {
+  grid-column: 1 / 3;
+  border-left: 1px solid var(--appza-search-border-color, #6b6b6b);
+  border-radius: var(--appza-search-radius, 5px);
+  padding-left: 8px;
+}
+.appza-renderer-ss[data-slug="list-toolbar"] ion-input {
+  --background: transparent;
+  --color: var(--appza-search-text-color, var(--appza-theme-heading, #1f2937));
+  --placeholder-color: var(--appza-theme-muted, #6b6b6b);
+  --placeholder-opacity: 1;
+  --padding-start: 2px;
+  --padding-end: 6px;
+  --border-width: 0;
+  --highlight-height: 0;
+  --min-height: 0;
+  font-size: 15px;
+  margin: 0;
+}
+.appza-renderer-ss[data-slug="list-toolbar"] > [data-piece="sort"] {
+  grid-column: 3;
+  margin-left: var(--appza-gap, 8px);
+  display: flex;
+  align-items: center;
+}
+.appza-renderer-ss[data-slug="list-toolbar"] > [data-piece="sort"] ion-button {
+  margin: 0;
+  height: var(--appza-search-height, 34px);
+  min-width: 120px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 15px;
+  font-weight: 400;
+  --background: var(--appza-sort-bg-color, #e4e4e4);
+  --color: var(--appza-sort-text-color, var(--appza-theme-muted, #6b6b6b));
+  --border-radius: var(--appza-search-radius, 5px);
+  --box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --padding-start: 14px;
+  --padding-end: 12px;
+}
+.appza-renderer-ss[data-slug="list-toolbar"] > [data-piece="sort"] ion-button::part(native) {
+  color: var(--appza-sort-text-color, var(--appza-theme-muted, #6b6b6b));
+}
+
+/* chip-list — learns from fc-space-topics and fc-feed-links: an optional heading over one chip per entry. */
+.appza-renderer-ss[data-slug="chip-list"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--appza-gap, 8px);
+  padding: var(--appza-row-padding, 8px 2px 4px);
+}
+.appza-renderer-ss[data-slug="chip-list"] > [data-piece="heading"] {
+  flex-basis: 100%;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--appza-heading-color, var(--appza-theme-heading, #111827));
+}
+.appza-renderer-ss[data-slug="chip-list"] ion-chip {
+  margin: 0;
+  --background: var(--appza-chip-bg-color, #f1f2f4);
+  --color: var(--appza-chip-text-color, var(--appza-theme-heading, #1f2937));
+  border: 1px solid transparent;
+  border-radius: var(--appza-chip-radius, 16px);
+  font-weight: var(--appza-font-weight, 500);
+}
+.appza-renderer-ss[data-slug="chip-list"] [data-active="true"] ion-chip {
+  --background: var(--appza-active-bg-color, #dbe7ff);
+  --color: var(--appza-active-color, #1a54d6);
+  border-color: var(--appza-active-border-color, #1a54d6);
+}

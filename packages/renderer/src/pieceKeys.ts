@@ -112,8 +112,8 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
   ],
   "chip-list": [
     [
-      "ion-list",
-      "list"
+      "ion-text",
+      "heading"
     ],
     [
       "ion-chip",
@@ -2760,6 +2760,20 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
       "chip"
     ]
   ],
+  "list-toolbar": [
+    [
+      "ion-icon",
+      "search-icon"
+    ],
+    [
+      "ion-input",
+      "search"
+    ],
+    [
+      "ion-button",
+      "sort"
+    ]
+  ],
   "media-tile": [
     [
       "ion-thumbnail",
@@ -3066,6 +3080,12 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
     [
       "ion-button",
       "close"
+    ]
+  ],
+  "tabs": [
+    [
+      "ion-button",
+      "tab"
     ]
   ]
 };
