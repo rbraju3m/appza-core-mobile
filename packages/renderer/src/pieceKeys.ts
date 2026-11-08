@@ -70,6 +70,36 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
       "note"
     ]
   ],
+  "banner": [
+    [
+      "ion-img",
+      "image"
+    ],
+    [
+      "appza-video-embed",
+      "video"
+    ],
+    [
+      "ion-text",
+      "title"
+    ],
+    [
+      "appza-rich-text",
+      "description"
+    ],
+    [
+      "ion-button",
+      "cta-1"
+    ],
+    [
+      "ion-button",
+      "cta-2"
+    ],
+    [
+      "ion-button",
+      "close"
+    ]
+  ],
   "bottom-tab-nav": [
     [
       "ion-button",
@@ -90,6 +120,12 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
     [
       "ion-button",
       "tab5"
+    ]
+  ],
+  "button": [
+    [
+      "ion-button",
+      "button"
     ]
   ],
   "chat-appbar-shell": [
@@ -216,6 +252,16 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
       "lesson"
     ]
   ],
+  "cover": [
+    [
+      "ion-img",
+      "image"
+    ],
+    [
+      "ion-text",
+      "overlay"
+    ]
+  ],
   "create-post-appbar-shell": [
     [
       "ion-button",
@@ -326,6 +372,12 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
     [
       "ion-button",
       "secondary-action"
+    ]
+  ],
+  "fab": [
+    [
+      "ion-button",
+      "button"
     ]
   ],
   "fc-add-document-fields": [
@@ -2788,6 +2840,24 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
       "badge"
     ]
   ],
+  "menu-row": [
+    [
+      "ion-button",
+      "row"
+    ],
+    [
+      "ion-icon",
+      "icon"
+    ],
+    [
+      "ion-text",
+      "label"
+    ],
+    [
+      "ion-icon",
+      "chevron"
+    ]
+  ],
   "my-beautiful-post-card": [
     [
       "ion-avatar",
@@ -3072,6 +3142,36 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
       "review"
     ]
   ],
+  "person-row": [
+    [
+      "ion-text",
+      "heading"
+    ],
+    [
+      "ion-avatar",
+      "avatar"
+    ],
+    [
+      "ion-text",
+      "name"
+    ],
+    [
+      "ion-text",
+      "handle"
+    ],
+    [
+      "ion-text",
+      "byline"
+    ],
+    [
+      "ion-button",
+      "action"
+    ],
+    [
+      "ion-button",
+      "secondary-action"
+    ]
+  ],
   "preview-appbar-shell": [
     [
       "ion-text",
@@ -3080,6 +3180,12 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
     [
       "ion-button",
       "close"
+    ]
+  ],
+  "section-heading": [
+    [
+      "ion-text",
+      "text"
     ]
   ],
   "tabs": [

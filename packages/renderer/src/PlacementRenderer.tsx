@@ -1471,6 +1471,7 @@ export function PlacementRenderer({
         <div
           className={wrapperClass}
           data-slug={appzet.slug}
+          data-block={ss?.slug}
           data-appza-placement-key={placementKey}
           data-appza-can-submit={
             appzet.slug === 'fc-add-document-appbar'
@@ -1759,6 +1760,7 @@ export function PlacementRenderer({
           <div
             className={wrapperClass}
             data-slug={appzet.slug}
+            data-block={ss?.slug}
             data-appza-item-id={itemIdAttr}
             data-row-variant={rowVariantAttr}
             style={spacingStyle(spacing)}

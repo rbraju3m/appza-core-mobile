@@ -14895,3 +14895,349 @@ button.appza-ct-reply-count {
   --color: var(--appza-active-color, #1a54d6);
   border-color: var(--appza-active-border-color, #1a54d6);
 }
+
+/* person-row — learns from fc-follow-row and fc-course-instructor. Both buttons share one grid area. */
+.appza-renderer-ss[data-slug="person-row"] {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "heading heading heading"
+    "avatar  name    action"
+    "avatar  handle  action"
+    "avatar  byline  action";
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 1px;
+  padding: var(--appza-row-padding, 14px 16px);
+  background: var(--appza-row-bg-color, var(--appza-theme-surface, #ffffff));
+  border-bottom: 1px solid var(--appza-divider-color, #ececed);
+  min-width: 0;
+}
+.appza-renderer-ss[data-slug="person-row"] ion-text {
+  display: block;
+}
+.appza-renderer-ss[data-slug="person-row"] > [data-piece="heading"] {
+  grid-area: heading;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--appza-heading-color, var(--appza-theme-heading, #111827));
+}
+.appza-renderer-ss[data-slug="person-row"] > [data-piece="avatar"] {
+  grid-area: avatar;
+}
+.appza-renderer-ss[data-slug="person-row"] > [data-piece="avatar"] ion-avatar {
+  width: var(--appza-avatar-size, 48px);
+  height: var(--appza-avatar-size, 48px);
+}
+.appza-renderer-ss[data-slug="person-row"] > [data-piece="name"] {
+  grid-area: name;
+  font-size: var(--appza-name-size, 1rem);
+  font-weight: var(--appza-name-weight, 600);
+  color: var(--appza-name-color, var(--appza-theme-heading, #111827));
+  line-height: 1.3;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-renderer-ss[data-slug="person-row"] > [data-piece="handle"] {
+  grid-area: handle;
+  font-size: var(--appza-handle-size, 0.9rem);
+  color: var(--appza-handle-color, var(--appza-theme-muted, #9ca3af));
+  line-height: 1.3;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appza-renderer-ss[data-slug="person-row"] > [data-piece="byline"] {
+  grid-area: byline;
+  font-size: var(--appza-byline-size, 0.85rem);
+  color: var(--appza-byline-color, var(--appza-theme-muted, #9ca3af));
+  line-height: 1.3;
+}
+.appza-renderer-ss[data-slug="person-row"] > [data-piece="action"],
+.appza-renderer-ss[data-slug="person-row"] > [data-piece="secondary-action"] {
+  grid-area: action;
+  justify-self: end;
+}
+.appza-renderer-ss[data-slug="person-row"] > [data-piece="action"] ion-button,
+.appza-renderer-ss[data-slug="person-row"] > [data-piece="secondary-action"] ion-button {
+  --background: transparent;
+  --background-hover: transparent;
+  --background-activated: transparent;
+  --color: var(--appza-button-color, var(--appza-theme-heading, #111827));
+  --border-width: 1px;
+  --border-style: solid;
+  --border-color: var(--appza-button-border-color, var(--appza-theme-border, #d1d5db));
+  --border-radius: var(--appza-button-radius, 8px);
+  --box-shadow: none;
+  --padding-start: 14px;
+  --padding-end: 14px;
+  height: 36px;
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.appza-renderer-ss[data-slug="person-row"] > [data-piece="action"] ion-button::part(native),
+.appza-renderer-ss[data-slug="person-row"] > [data-piece="secondary-action"] ion-button::part(native) {
+  border: 1px solid var(--appza-button-border-color, var(--appza-theme-border, #d1d5db));
+  border-radius: var(--appza-button-radius, 8px);
+  color: var(--appza-button-color, var(--appza-theme-heading, #111827));
+}
+
+/* menu-row — learns from fc-profile-link-row. The row piece is an invisible button over the whole row. */
+.appza-renderer-ss[data-slug="menu-row"] {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--appza-row-gap, 12px);
+  padding: var(--appza-row-padding, 14px 16px);
+  background: var(--appza-row-bg-color, var(--appza-theme-surface, #ffffff));
+  border-bottom: 1px solid var(--appza-divider-color, var(--appza-theme-border, #e1e4eb));
+}
+.appza-renderer-ss[data-slug="menu-row"] > [data-piece="row"] {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+}
+.appza-renderer-ss[data-slug="menu-row"] > [data-piece="row"] ion-button {
+  border: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  font-size: 0;
+  --background: transparent;
+  --background-hover: rgba(13, 17, 26, 0.03);
+  --background-activated: rgba(13, 17, 26, 0.06);
+  --box-shadow: none;
+  --border-radius: 0;
+  --padding-start: 0;
+  --padding-end: 0;
+}
+.appza-renderer-ss[data-slug="menu-row"] > [data-piece="row"] ion-button::part(native) {
+  border: 0;
+  background: transparent;
+  height: 100%;
+}
+.appza-renderer-ss[data-slug="menu-row"] > [data-piece="icon"],
+.appza-renderer-ss[data-slug="menu-row"] > [data-piece="label"],
+.appza-renderer-ss[data-slug="menu-row"] > [data-piece="chevron"] {
+  position: relative;
+  pointer-events: none;
+}
+.appza-renderer-ss[data-slug="menu-row"] > [data-piece="icon"],
+.appza-renderer-ss[data-slug="menu-row"] > [data-piece="chevron"] {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.appza-renderer-ss[data-slug="menu-row"] > [data-piece="icon"] ion-icon {
+  font-size: var(--appza-icon-size, 20px);
+  color: var(--appza-icon-color, var(--appza-theme-muted, #525866));
+}
+.appza-renderer-ss[data-slug="menu-row"] > [data-piece="label"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.appza-renderer-ss[data-slug="menu-row"] > [data-piece="label"] ion-text {
+  display: block;
+  color: var(--appza-label-color, var(--appza-theme-heading, #0e121b));
+  font-size: var(--appza-label-size, 15px);
+  font-weight: var(--appza-label-weight, 600);
+  line-height: 1.35;
+}
+.appza-renderer-ss[data-slug="menu-row"] > [data-piece="chevron"] ion-icon {
+  font-size: var(--appza-chevron-size, 16px);
+  color: var(--appza-chevron-color, #a2a3a7);
+}
+
+/* button — learns from fc-save-button. */
+.appza-renderer-ss[data-slug="button"] {
+  display: block;
+  padding: var(--appza-row-padding, 10px 16px);
+  background: var(--appza-row-bg-color, transparent);
+}
+.appza-renderer-ss[data-slug="button"] ion-button {
+  margin: 0;
+  width: 100%;
+  height: var(--appza-button-height, 44px);
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  --background: var(--appza-button-bg-color, #1d4ed8);
+  --background-activated: #1e40af;
+  --background-hover: #1e40af;
+  --color: var(--appza-button-text-color, #ffffff);
+  --border-radius: var(--appza-button-radius, 8px);
+  --box-shadow: none;
+}
+.appza-renderer-ss[data-slug="button"] ion-button::part(native) {
+  color: var(--appza-button-text-color, #ffffff);
+}
+.appza-renderer-ss[data-slug="button"] ion-button ion-icon {
+  margin-right: 6px;
+}
+
+/* fab — learns from fc-document-fab and fc-chat-home-fab. Pinned to the screen's corner. */
+.appza-renderer-appzet[data-block="fab"] {
+  position: fixed;
+  right: var(--appza-fab-offset-end, 20px);
+  bottom: var(--appza-fab-offset-bottom, 28px);
+  z-index: 20;
+  padding: 0;
+}
+.appza-renderer-ss[data-slug="fab"] ion-button {
+  border: 0;
+  color: var(--appza-fab-icon-color, #ffffff);
+  --background: var(--appza-fab-bg-color, #3b5bdb);
+  --background-hover: var(--appza-fab-bg-color, #3b5bdb);
+  --background-activated: #2f4bc0;
+  --color: var(--appza-fab-icon-color, #ffffff);
+  --border-radius: 50%;
+  --box-shadow: var(--appza-fab-shadow, 0 6px 16px rgba(43, 76, 195, 0.35));
+  --padding-start: 0;
+  --padding-end: 0;
+  width: var(--appza-fab-size, 56px);
+  height: var(--appza-fab-size, 56px);
+  margin: 0;
+}
+.appza-renderer-ss[data-slug="fab"] ion-button::part(native) {
+  border: 0;
+  background: var(--appza-fab-bg-color, #3b5bdb);
+  border-radius: 50%;
+}
+.appza-renderer-ss[data-slug="fab"] ion-button ion-icon {
+  font-size: 26px;
+  color: var(--appza-fab-icon-color, #ffffff);
+}
+
+/* banner — learns from fc-feed-banner. Media runs edge to edge; the buttons share a row. */
+.appza-renderer-ss[data-slug="banner"] {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px;
+  margin: 8px 0;
+  background: var(--appza-card-bg-color, var(--appza-theme-surface, #ffffff));
+  border-radius: var(--appza-card-radius, 12px);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+.appza-renderer-ss[data-slug="banner"] > [data-piece="image"],
+.appza-renderer-ss[data-slug="banner"] > [data-piece="video"],
+.appza-renderer-ss[data-slug="banner"] > [data-piece="title"],
+.appza-renderer-ss[data-slug="banner"] > [data-piece="description"] {
+  flex: 1 0 100%;
+}
+.appza-renderer-ss[data-slug="banner"] > [data-piece="image"],
+.appza-renderer-ss[data-slug="banner"] > [data-piece="video"] {
+  margin: -14px -14px 6px;
+}
+.appza-renderer-ss[data-slug="banner"] > [data-piece="image"] ion-img {
+  display: block;
+  width: 100%;
+}
+.appza-renderer-ss[data-slug="banner"] > [data-piece="title"] {
+  margin-top: 4px;
+}
+.appza-renderer-ss[data-slug="banner"] > [data-piece="description"] {
+  color: var(--appza-body-color, #475569);
+  font-size: var(--appza-body-size, 0.9rem);
+  line-height: 1.4;
+}
+.appza-renderer-ss[data-slug="banner"] > [data-piece="cta-1"],
+.appza-renderer-ss[data-slug="banner"] > [data-piece="cta-2"] {
+  flex: 1 1 calc(50% - 4px);
+  min-width: 0;
+}
+.appza-renderer-ss[data-slug="banner"] > [data-piece="cta-1"] ion-button,
+.appza-renderer-ss[data-slug="banner"] > [data-piece="cta-2"] ion-button {
+  width: 100%;
+  margin: 0;
+  min-height: 40px;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  --border-radius: 6px;
+  --box-shadow: none;
+  --border-width: 1px;
+}
+.appza-renderer-ss[data-slug="banner"] > [data-piece="close"] {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+}
+.appza-renderer-ss[data-slug="banner"] > [data-piece="close"] ion-button {
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  --border-radius: 999px;
+  --background: rgba(255, 255, 255, 0.92);
+  --color: #0f172a;
+  --box-shadow: none;
+  font-size: 0.8rem;
+}
+
+/* cover — learns from fc-space-cover. */
+.appza-renderer-ss[data-slug="cover"] {
+  position: relative;
+  display: block;
+  padding: var(--appza-row-padding, 12px 16px 0);
+  background: var(--appza-row-bg-color, #f3f4f6);
+}
+.appza-renderer-ss[data-slug="cover"] ion-img {
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--appza-aspect-ratio, 16 / 9);
+  height: var(--appza-height, auto);
+  object-fit: cover;
+  border-radius: var(--appza-image-radius, 10px);
+  overflow: hidden;
+}
+.appza-renderer-ss[data-slug="cover"] > [data-piece="image"] {
+  position: relative;
+}
+.appza-renderer-ss[data-slug="cover"] > [data-piece="image"]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--appza-image-radius, 10px);
+  pointer-events: none;
+  background: var(--appza-overlay-gradient, none);
+}
+.appza-renderer-ss[data-slug="cover"] > [data-piece="overlay"] {
+  position: absolute;
+  left: 32px;
+  right: 32px;
+  bottom: 12px;
+  z-index: 2;
+  pointer-events: none;
+  color: var(--appza-overlay-text-color, #ffffff);
+  font-weight: 600;
+  font-size: var(--appza-overlay-size, 1.25rem);
+  line-height: 1.2;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* section-heading — learns from fc-lesson-discussion-heading. */
+.appza-renderer-ss[data-slug="section-heading"] {
+  padding: var(--appza-row-padding, 8px 4px 0);
+}
+.appza-renderer-ss[data-slug="section-heading"] ion-text {
+  display: block;
+  font-size: var(--appza-text-size, 19px);
+  font-weight: 700;
+  color: var(--appza-text-color, var(--appza-theme-heading, #000000));
+}
