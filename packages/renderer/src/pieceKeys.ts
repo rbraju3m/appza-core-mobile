@@ -156,6 +156,16 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
       "chip"
     ]
   ],
+  "close-appbar": [
+    [
+      "ion-text",
+      "title"
+    ],
+    [
+      "ion-button",
+      "close"
+    ]
+  ],
   "course-cta": [
     [
       "ion-button",
@@ -274,6 +284,12 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
     [
       "ion-button",
       "cta"
+    ]
+  ],
+  "details-view": [
+    [
+      "appza-detail-cards",
+      "cards"
     ]
   ],
   "drawer-shell": [
@@ -2726,6 +2742,20 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
       "visibility"
     ]
   ],
+  "form-appbar": [
+    [
+      "ion-button",
+      "cancel"
+    ],
+    [
+      "ion-text",
+      "title"
+    ],
+    [
+      "ion-button",
+      "submit"
+    ]
+  ],
   "lesson-body": [
     [
       "appza-video-embed",
@@ -3142,6 +3172,44 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
       "review"
     ]
   ],
+  "password-form": [
+    [
+      "ion-text",
+      "heading"
+    ],
+    [
+      "ion-text",
+      "description"
+    ],
+    [
+      "ion-label",
+      "current-label"
+    ],
+    [
+      "ion-input",
+      "current"
+    ],
+    [
+      "ion-label",
+      "new-label"
+    ],
+    [
+      "ion-input",
+      "new"
+    ],
+    [
+      "ion-label",
+      "confirm-label"
+    ],
+    [
+      "ion-input",
+      "confirm"
+    ],
+    [
+      "ion-button",
+      "save"
+    ]
+  ],
   "person-row": [
     [
       "ion-text",
@@ -3182,10 +3250,198 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
       "close"
     ]
   ],
+  "profile-about": [
+    [
+      "ion-text",
+      "heading"
+    ],
+    [
+      "ion-text",
+      "headline"
+    ],
+    [
+      "appza-rich-text",
+      "bio"
+    ],
+    [
+      "ion-text",
+      "stats"
+    ],
+    [
+      "ion-button",
+      "joined"
+    ],
+    [
+      "ion-button",
+      "last-seen"
+    ],
+    [
+      "ion-button",
+      "website"
+    ]
+  ],
+  "profile-form": [
+    [
+      "ion-label",
+      "first-name-label"
+    ],
+    [
+      "ion-input",
+      "first-name"
+    ],
+    [
+      "ion-label",
+      "last-name-label"
+    ],
+    [
+      "ion-input",
+      "last-name"
+    ],
+    [
+      "ion-label",
+      "email-label"
+    ],
+    [
+      "ion-input",
+      "email"
+    ],
+    [
+      "ion-label",
+      "website-label"
+    ],
+    [
+      "ion-input",
+      "website"
+    ],
+    [
+      "ion-label",
+      "bio-label"
+    ],
+    [
+      "ion-textarea",
+      "bio"
+    ],
+    [
+      "ion-label",
+      "headline-label"
+    ],
+    [
+      "ion-input",
+      "headline"
+    ]
+  ],
+  "profile-header": [
+    [
+      "ion-img",
+      "cover"
+    ],
+    [
+      "ion-avatar",
+      "avatar"
+    ],
+    [
+      "ion-text",
+      "name"
+    ],
+    [
+      "ion-text",
+      "subtitle"
+    ],
+    [
+      "ion-text",
+      "handle"
+    ],
+    [
+      "ion-icon",
+      "verified"
+    ],
+    [
+      "ion-button",
+      "stat-1"
+    ],
+    [
+      "ion-text",
+      "stat-1-label"
+    ],
+    [
+      "ion-button",
+      "stat-2"
+    ],
+    [
+      "ion-text",
+      "stat-2-label"
+    ],
+    [
+      "ion-button",
+      "stat-3"
+    ],
+    [
+      "ion-text",
+      "stat-3-label"
+    ]
+  ],
   "section-heading": [
     [
       "ion-text",
       "text"
+    ]
+  ],
+  "signin-footer": [
+    [
+      "ion-text",
+      "domain"
+    ],
+    [
+      "ion-text",
+      "note"
+    ]
+  ],
+  "signin-form": [
+    [
+      "ion-label",
+      "username-label"
+    ],
+    [
+      "ion-input",
+      "username"
+    ],
+    [
+      "ion-label",
+      "password-label"
+    ],
+    [
+      "ion-input",
+      "password"
+    ],
+    [
+      "ion-button",
+      "signin"
+    ],
+    [
+      "ion-text",
+      "forgot-password"
+    ],
+    [
+      "ion-text",
+      "divider"
+    ],
+    [
+      "ion-button",
+      "other-signin"
+    ]
+  ],
+  "signin-header": [
+    [
+      "ion-img",
+      "logo"
+    ],
+    [
+      "ion-text",
+      "heading"
+    ],
+    [
+      "ion-text",
+      "subtitle"
     ]
   ],
   "tabs": [

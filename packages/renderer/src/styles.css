@@ -15241,3 +15241,501 @@ button.appza-ct-reply-count {
   font-weight: 700;
   color: var(--appza-text-color, var(--appza-theme-heading, #000000));
 }
+
+/* signin-header — learns from fc-signin-header. */
+.appza-renderer-ss[data-slug="signin-header"] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.appza-renderer-ss[data-slug="signin-header"] ion-text {
+  display: block;
+}
+.appza-renderer-ss[data-slug="signin-header"] > [data-piece="logo"] {
+  width: var(--appza-logo-size, 64px);
+  height: var(--appza-logo-size, 64px);
+  margin-bottom: 16px;
+}
+.appza-renderer-ss[data-slug="signin-header"] > [data-piece="logo"] ion-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 50%;
+}
+.appza-renderer-ss[data-slug="signin-header"] > [data-piece="heading"] {
+  font-size: var(--appza-heading-size, 1.15rem);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--appza-heading-color, var(--appza-theme-heading, #111827));
+}
+.appza-renderer-ss[data-slug="signin-header"] > [data-piece="subtitle"] {
+  font-size: var(--appza-subtitle-size, 0.9rem);
+  line-height: 1.4;
+  color: var(--appza-subtitle-color, var(--appza-theme-muted, #6b7280));
+}
+
+/* signin-form — learns from fc-signin-info. */
+.appza-renderer-ss[data-slug="signin-form"] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+  max-width: 340px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: var(--appza-card-padding, 24px 20px);
+  background: var(--appza-card-bg-color, var(--appza-theme-surface, #ffffff));
+}
+.appza-renderer-ss[data-slug="signin-form"] > [data-piece="username-label"],
+.appza-renderer-ss[data-slug="signin-form"] > [data-piece="password-label"] {
+  margin-bottom: -6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--appza-label-color, var(--appza-theme-heading, #111827));
+}
+.appza-renderer-ss[data-slug="signin-form"] > [data-piece="username"] ion-input,
+.appza-renderer-ss[data-slug="signin-form"] > [data-piece="password"] ion-input {
+  --background: var(--appza-theme-surface, #ffffff);
+  --color: var(--appza-theme-heading, #0f172a);
+  --placeholder-color: var(--appza-theme-muted, #9ca3af);
+  --placeholder-opacity: 1;
+  --padding-start: 14px;
+  --padding-end: 14px;
+  --highlight-height: 0;
+  border: 1px solid var(--appza-field-border-color, var(--appza-theme-border, #d1d5db));
+  border-radius: var(--appza-field-radius, 6px);
+  min-height: 46px;
+  font-size: 0.95rem;
+}
+.appza-renderer-ss[data-slug="signin-form"] > [data-piece="username"] ion-input:focus-within,
+.appza-renderer-ss[data-slug="signin-form"] > [data-piece="password"] ion-input:focus-within {
+  border-color: var(--appza-field-focus-color, #2456f0);
+}
+.appza-renderer-ss[data-slug="signin-form"] > [data-piece="forgot-password"] {
+  text-align: right;
+  margin-top: -4px;
+  cursor: pointer;
+}
+.appza-renderer-ss[data-slug="signin-form"] > [data-piece="forgot-password"] ion-text p {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--appza-forgot-color, #dc2626);
+}
+.appza-renderer-ss[data-slug="signin-form"] > [data-piece="signin"] ion-button,
+.appza-renderer-ss[data-slug="signin-form"] > [data-piece="other-signin"] ion-button {
+  display: block;
+  width: 100%;
+  height: 48px;
+  margin: 0;
+  --border-radius: var(--appza-button-radius, 8px);
+  --box-shadow: none;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.appza-renderer-ss[data-slug="signin-form"] > [data-piece="divider"] {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 4px;
+}
+.appza-renderer-ss[data-slug="signin-form"] > [data-piece="divider"]::before,
+.appza-renderer-ss[data-slug="signin-form"] > [data-piece="divider"]::after {
+  content: '';
+  height: 1px;
+  background: var(--appza-theme-border, #d1d5db);
+}
+.appza-renderer-ss[data-slug="signin-form"] > [data-piece="divider"] ion-text p {
+  margin: 0;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  color: var(--appza-theme-muted, #6b7280);
+}
+.appza-renderer-ss[data-slug="signin-form"] > [data-piece="other-signin"] ion-button ion-icon {
+  font-size: 22px;
+  margin-inline-end: 10px;
+}
+
+/* signin-footer — learns from fc-signin-domain. */
+.appza-renderer-ss[data-slug="signin-footer"] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: var(--appza-row-padding, 24px 0 0);
+  text-align: center;
+}
+.appza-renderer-ss[data-slug="signin-footer"] ion-text p {
+  margin: 0;
+}
+.appza-renderer-ss[data-slug="signin-footer"] > [data-piece="domain"] {
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--appza-domain-color, #2456f0);
+}
+.appza-renderer-ss[data-slug="signin-footer"] > [data-piece="note"] {
+  font-size: 0.85rem;
+  color: var(--appza-note-color, var(--appza-theme-heading, #111827));
+}
+
+/* password-form — learns from fc-profile-password. */
+.appza-renderer-ss[data-slug="password-form"] {
+  display: block;
+  margin-top: 12px;
+  padding: 16px;
+  background: var(--appza-card-bg-color, #ffffff);
+  border-radius: var(--appza-card-radius, 10px);
+}
+.appza-renderer-ss[data-slug="password-form"] ion-text,
+.appza-renderer-ss[data-slug="password-form"] ion-label {
+  display: block;
+}
+.appza-renderer-ss[data-slug="password-form"] > [data-piece="heading"] {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--appza-theme-heading, #0f172a);
+}
+.appza-renderer-ss[data-slug="password-form"] > [data-piece="description"] {
+  margin-top: 4px;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--appza-description-color, var(--appza-theme-muted, #6b7280));
+}
+.appza-renderer-ss[data-slug="password-form"] > [data-piece="current-label"],
+.appza-renderer-ss[data-slug="password-form"] > [data-piece="new-label"],
+.appza-renderer-ss[data-slug="password-form"] > [data-piece="confirm-label"] {
+  margin: 16px 0 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--appza-label-color, var(--appza-theme-body, #374151));
+}
+.appza-renderer-ss[data-slug="password-form"] ion-input,
+.appza-renderer-ss[data-slug="profile-form"] ion-input,
+.appza-renderer-ss[data-slug="profile-form"] ion-textarea {
+  --background: #ffffff;
+  --color: var(--appza-theme-heading, #111827);
+  --placeholder-color: var(--appza-theme-muted, #9ca3af);
+  --padding-start: 12px;
+  --padding-end: 12px;
+  font-size: 0.92rem;
+  border: 1px solid var(--appza-field-border-color, var(--appza-theme-border, #d1d5db));
+  border-radius: var(--appza-field-radius, 8px);
+  min-height: 44px;
+}
+.appza-renderer-ss[data-slug="password-form"] > [data-piece="save"] ion-button {
+  width: 100%;
+  height: 44px;
+  margin: 16px 0 0;
+  --border-radius: 8px;
+  --box-shadow: none;
+  --background: var(--appza-save-bg-color, var(--appza-theme-accent, #4c5fdf));
+  --color: var(--appza-save-text-color, #ffffff);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* profile-form — learns from fc-basic-profile-information. */
+.appza-renderer-ss[data-slug="profile-form"] {
+  display: block;
+  padding: var(--appza-row-padding, 16px 16px 24px);
+  background: var(--appza-row-bg-color, #ffffff);
+}
+.appza-renderer-ss[data-slug="profile-form"] ion-label {
+  display: block;
+  margin: 16px 0 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--appza-label-color, #374151);
+}
+.appza-renderer-ss[data-slug="profile-form"] > [data-piece="first-name-label"] ion-label {
+  margin-top: 0;
+}
+.appza-renderer-ss[data-slug="profile-form"] ion-input.input-readonly {
+  --background: #f3f4f6;
+  --color: #6b7280;
+  border-color: #e5e7eb;
+}
+
+/* details-view — learns from fc-profile-details-view; the primitive draws the cards. */
+.appza-renderer-ss[data-slug="details-view"] {
+  display: block;
+  padding: var(--appza-row-padding, 0);
+}
+.appza-renderer-ss[data-slug="details-view"]:not(:has(> *)) {
+  display: none;
+}
+
+/* profile-header — learns from fc-basic-profile. */
+.appza-renderer-ss[data-slug="profile-header"] {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px 1fr 1fr 1fr 16px;
+  grid-template-areas:
+    "cover cover cover cover cover"
+    ". name name verify ."
+    ". subttl subttl subttl ."
+    ". handle handle handle ."
+    ". s1num s2num s3num ."
+    ". s1lbl s2lbl s3lbl .";
+  grid-template-rows: var(--appza-cover-height, 128px) auto auto auto auto auto;
+  padding-bottom: 14px;
+  margin-bottom: 8px;
+  background-color: var(--appza-card-bg-color, var(--appza-theme-surface, #ffffff));
+  background-image: linear-gradient(135deg, var(--appza-cover-start-color, #e2e8f0), var(--appza-cover-end-color, #cbd5e1));
+  background-size: 100% var(--appza-cover-height, 128px);
+  background-repeat: no-repeat;
+}
+.appza-renderer-ss[data-slug="profile-header"] ion-text {
+  display: block;
+}
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece="cover"] {
+  grid-area: cover;
+  height: var(--appza-cover-height, 128px);
+  overflow: hidden;
+}
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece="cover"] ion-img {
+  display: block;
+  width: 100%;
+  height: var(--appza-cover-height, 128px);
+  object-fit: cover;
+}
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece="avatar"] {
+  position: absolute;
+  left: 16px;
+  top: calc(var(--appza-cover-height, 128px) - 38px);
+  width: var(--appza-avatar-size, 76px);
+  height: var(--appza-avatar-size, 76px);
+  border-radius: 50%;
+  border: 3px solid var(--appza-avatar-ring-color, #ffffff);
+  overflow: hidden;
+  background: #e5e7eb;
+  z-index: 2;
+}
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece="avatar"] ion-avatar {
+  width: 100%;
+  height: 100%;
+}
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece="name"],
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece="subtitle"],
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece="handle"] {
+  padding-left: 92px;
+  justify-self: start;
+}
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece="name"] {
+  grid-area: name;
+  align-self: end;
+  font-size: var(--appza-name-size, 1.15rem);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--appza-name-color, var(--appza-theme-heading, #0f172a));
+}
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece="subtitle"] {
+  grid-area: subttl;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--appza-subtitle-color, var(--appza-theme-accent, #2563eb));
+}
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece="handle"] {
+  grid-area: handle;
+  padding-bottom: 10px;
+  font-size: 0.85rem;
+  color: var(--appza-handle-color, var(--appza-theme-muted, #6b7280));
+}
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece="verified"] {
+  grid-area: verify;
+  align-self: end;
+  justify-self: start;
+  padding-bottom: 2px;
+  font-size: 1rem;
+  color: var(--appza-verified-color, var(--appza-theme-accent, #2563eb));
+}
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece="stat-1"] { grid-area: s1num; }
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece="stat-2"] { grid-area: s2num; }
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece="stat-3"] { grid-area: s3num; }
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece="stat-1-label"] { grid-area: s1lbl; }
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece="stat-2-label"] { grid-area: s2lbl; }
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece="stat-3-label"] { grid-area: s3lbl; }
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece^="stat-"] {
+  display: flex;
+  justify-content: center;
+  text-align: center;
+}
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece^="stat-"] ion-button {
+  margin: 0;
+  height: 22px;
+  min-height: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+  --background: transparent;
+  --box-shadow: none;
+  --padding-start: 0;
+  --padding-end: 0;
+  --color: var(--appza-count-color, var(--appza-theme-heading, #0f172a));
+}
+.appza-renderer-ss[data-slug="profile-header"] > [data-piece$="-label"] {
+  font-size: 0.8rem;
+  line-height: 1.2;
+  color: var(--appza-count-label-color, var(--appza-theme-muted, #6b7280));
+}
+
+/* profile-about — learns from fc-profile-about. */
+.appza-renderer-ss[data-slug="profile-about"] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin-top: 8px;
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--appza-card-bg-color, #ffffff);
+}
+.appza-renderer-ss[data-slug="profile-about"] ion-text {
+  display: block;
+}
+.appza-renderer-ss[data-slug="profile-about"] > [data-piece="heading"] {
+  margin-bottom: 8px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--appza-heading-color, var(--appza-theme-heading, #0f172a));
+}
+.appza-renderer-ss[data-slug="profile-about"] > [data-piece="headline"] {
+  margin-bottom: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--appza-headline-color, var(--appza-theme-heading, #0f172a));
+}
+.appza-renderer-ss[data-slug="profile-about"] > [data-piece="bio"] {
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--appza-bio-color, var(--appza-theme-body, #374151));
+}
+.appza-renderer-ss[data-slug="profile-about"] > [data-piece="stats"] {
+  margin-top: 12px;
+  font-size: 0.82rem;
+  color: var(--appza-stats-color, var(--appza-theme-muted, #6b7280));
+}
+.appza-renderer-ss[data-slug="profile-about"] > [data-piece="joined"] {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #eef0f4;
+}
+.appza-renderer-ss[data-slug="profile-about"] > [data-piece="joined"],
+.appza-renderer-ss[data-slug="profile-about"] > [data-piece="last-seen"],
+.appza-renderer-ss[data-slug="profile-about"] > [data-piece="website"] {
+  display: flex;
+  justify-content: flex-start;
+}
+.appza-renderer-ss[data-slug="profile-about"] > [data-piece="joined"] ion-button,
+.appza-renderer-ss[data-slug="profile-about"] > [data-piece="last-seen"] ion-button,
+.appza-renderer-ss[data-slug="profile-about"] > [data-piece="website"] ion-button {
+  width: auto;
+  height: 30px;
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  --background: transparent;
+  --box-shadow: none;
+  --padding-start: 0;
+  --padding-end: 0;
+  --color: var(--appza-meta-text-color, var(--appza-theme-body, #374151));
+}
+.appza-renderer-ss[data-slug="profile-about"] > [data-piece="website"] ion-button {
+  --color: var(--appza-website-text-color, #1d4ed8);
+  font-weight: 500;
+}
+.appza-renderer-ss[data-slug="profile-about"] > [data-piece] ion-button ion-icon {
+  font-size: 16px;
+  margin: 0 8px 0 0;
+  color: var(--appza-detail-icon-color, var(--appza-theme-accent, #2563eb));
+}
+
+/* form-appbar — learns from add-document-appbar-shell and create-post-appbar-shell. */
+.appza-renderer-ss[data-slug="form-appbar"] {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+}
+.appza-renderer-ss[data-slug="form-appbar"] ion-button {
+  margin: 0;
+  height: 34px;
+  --background: transparent;
+  --box-shadow: none;
+  --padding-start: 4px;
+  --padding-end: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: none;
+}
+.appza-renderer-ss[data-slug="form-appbar"] ion-button::part(native) {
+  border: 0;
+  background: transparent;
+}
+.appza-renderer-ss[data-slug="form-appbar"] > [data-piece="cancel"] {
+  grid-column: 1;
+  justify-self: start;
+}
+.appza-renderer-ss[data-slug="form-appbar"] > [data-piece="cancel"] ion-button {
+  --color: var(--appza-cancel-color, #3c4657);
+}
+.appza-renderer-ss[data-slug="form-appbar"] > [data-piece="title"] {
+  grid-column: 2;
+  text-align: center;
+}
+.appza-renderer-ss[data-slug="form-appbar"] > [data-piece="title"] ion-text {
+  display: block;
+  font-size: var(--appza-title-size, 0.95rem);
+  font-weight: 700;
+  color: var(--appza-title-color, var(--appza-theme-heading, #111827));
+}
+.appza-renderer-ss[data-slug="form-appbar"] > [data-piece="submit"] {
+  grid-column: 3;
+  justify-self: end;
+}
+.appza-renderer-ss[data-slug="form-appbar"] > [data-piece="submit"] ion-button {
+  --color: var(--appza-submit-color, var(--appza-theme-accent, #2b6cf6));
+}
+
+/* close-appbar — learns from preview-appbar-shell. */
+.appza-renderer-ss[data-slug="close-appbar"] {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: var(--appza-bar-padding, 6px 12px);
+  background: var(--appza-bar-bg-color, var(--appza-theme-surface, #ffffff));
+}
+.appza-renderer-ss[data-slug="close-appbar"] > [data-piece="title"] {
+  grid-column: 2;
+  justify-self: center;
+  font-size: var(--appza-title-size, 1rem);
+  font-weight: var(--appza-title-weight, 600);
+  color: var(--appza-title-color, var(--appza-theme-heading, #111827));
+}
+.appza-renderer-ss[data-slug="close-appbar"] > [data-piece="close"] {
+  grid-column: 3;
+  justify-self: end;
+}
+.appza-renderer-ss[data-slug="close-appbar"] > [data-piece="close"] ion-button {
+  margin: 0;
+  --background: transparent;
+  --box-shadow: none;
+  --padding-start: 4px;
+  --padding-end: 4px;
+  --color: var(--appza-close-color, var(--appza-theme-heading, #111827));
+  font-size: var(--appza-close-size, 1rem);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
