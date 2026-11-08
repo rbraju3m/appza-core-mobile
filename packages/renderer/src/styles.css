@@ -14021,3 +14021,254 @@ button.appza-ct-reply-count {
 .appza-ct-inline-edit {
   grid-column: 1 / -1;
 }
+
+/* ===================================================================================================
+ * Shared base blocks (R3 of D121). Any integration's AppZets ride these. Each learns its look from the
+ * FC block named beside it, which is never changed. Styled by piece NAME only (never data-child-index),
+ * so no shared block is position-locked; every variable is a `style` setting of the block.
+ * =================================================================================================== */
+
+/* entity-card — learns from fc-course-card. Pieces sit in grid rows by name, whatever their order. */
+.appza-renderer-appzet-list[data-block="entity-card"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--appza-card-gap, 14px);
+}
+.appza-renderer-ss[data-slug="entity-card"] {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  background: var(--appza-card-bg-color, var(--appza-theme-surface, #ffffff));
+  border-radius: var(--appza-card-radius, calc(4px * var(--appza-theme-radius-scale, 1)));
+  overflow: hidden;
+  box-shadow: var(--appza-card-shadow, 0 1px 3px rgba(0, 0, 0, 0.16));
+  padding-bottom: 14px;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="image"],
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="placeholder"] {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  width: 100%;
+  aspect-ratio: var(--appza-cover-ratio, 15 / 8);
+  overflow: hidden;
+  background: var(--appza-cover-bg-color, #dcdcdc);
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="image"] {
+  position: relative;
+  z-index: 1;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="image"] ion-img,
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="image"] img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="placeholder"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="placeholder"] ion-icon {
+  font-size: 72px;
+  color: var(--appza-placeholder-icon-color, var(--appza-theme-heading, #1f2937));
+  --ionicon-stroke-width: 20px;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="badge"] {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  align-self: start;
+  justify-self: start;
+  margin: 8px;
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="badge"] ion-button {
+  --background: var(--appza-badge-bg-color, rgba(55, 55, 55, 0.72)) !important;
+  --color: var(--appza-badge-text-color, #ffffff) !important;
+  --border-radius: 4px !important;
+  --box-shadow: none !important;
+  --padding-start: 6px !important;
+  --padding-end: 8px !important;
+  width: auto !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  margin: 0 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="badge"] ion-button::part(native) {
+  color: var(--appza-badge-text-color, #ffffff) !important;
+  border: 0 !important;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="badge"] ion-icon {
+  font-size: 14px;
+  margin-right: 4px;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="title"] {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  padding: 16px 14px 0;
+  font-size: var(--appza-title-size, 16px);
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--appza-title-color, var(--appza-theme-heading, #111827));
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="subtitle"] {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  padding: 4px 14px 0;
+  font-size: 14px;
+  color: var(--appza-subtitle-color, var(--appza-theme-muted, #6b7280));
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="meta"] {
+  grid-column: 1;
+  grid-row: 4;
+  padding: 10px 0 0 14px;
+  font-size: 14px;
+  color: var(--appza-meta-color, var(--appza-theme-body, #4b5563));
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="meta-end"] {
+  grid-column: 2;
+  grid-row: 4;
+  justify-self: end;
+  padding: 10px 14px 0 0;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="meta-end"] ion-button {
+  --background: transparent !important;
+  --box-shadow: none !important;
+  --padding-start: 0 !important;
+  --padding-end: 0 !important;
+  --color: var(--appza-meta-color, var(--appza-theme-body, #4b5563)) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="meta-end"] ion-icon {
+  font-size: 18px;
+  margin-left: 0;
+  margin-right: 6px;
+  color: var(--appza-meta-color, var(--appza-theme-muted, #6b7280));
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="description"] {
+  grid-column: 1 / -1;
+  grid-row: 5;
+  padding: 10px 14px 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--appza-meta-color, var(--appza-theme-body, #4b5563));
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="progress"] {
+  grid-column: 1 / -1;
+  grid-row: 6;
+  padding: 12px 14px 0;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="progress"] ion-progress-bar {
+  --progress-background: var(--appza-progress-color, var(--appza-theme-accent, #1a54d6));
+  height: 6px;
+  border-radius: 3px;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="action"],
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="secondary-action"] {
+  grid-column: 1 / -1;
+  padding: 14px 14px 0;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="action"] {
+  grid-row: 7;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="secondary-action"] {
+  grid-row: 8;
+  padding-top: 10px;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="action"] ion-button,
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="secondary-action"] ion-button {
+  width: 100% !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  margin: 0 !important;
+  --border-radius: 3px !important;
+  --box-shadow: 0 2px 3px rgba(0, 0, 0, 0.22) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: uppercase !important;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="action"] ion-button:not(.ion-color) {
+  --background: var(--appza-button-bg-color, #e8e8e8) !important;
+  --background-activated: #d4d4d4 !important;
+  --color: var(--appza-button-text-color, var(--appza-theme-heading, #1f2937)) !important;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="action"] ion-button:not(.ion-color)::part(native) {
+  border: 0 !important;
+  color: var(--appza-button-text-color, var(--appza-theme-heading, #1f2937)) !important;
+}
+/* With the `color` setting (an Ionic colour) the button wears that colour, unless a button colour is set. Ionic draws
+ * a coloured button from its own colour inside the shadow, so the override goes on the native part. */
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="action"] ion-button.ion-color::part(native) {
+  border: 0 !important;
+  background: var(--appza-button-bg-color, var(--ion-color-base)) !important;
+  color: var(--appza-button-text-color, var(--ion-color-contrast)) !important;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="secondary-action"] ion-button {
+  --background: var(--appza-secondary-button-bg-color, var(--appza-theme-accent, #1a54d6)) !important;
+  --color: var(--appza-secondary-button-text-color, #ffffff) !important;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="secondary-action"] ion-button::part(native) {
+  border: 0 !important;
+  color: var(--appza-secondary-button-text-color, #ffffff) !important;
+}
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="action"] ion-icon,
+.appza-renderer-ss[data-slug="entity-card"] > [data-piece="secondary-action"] ion-icon {
+  font-size: 18px;
+  margin-right: 6px;
+}
+/* entity-card-compact: the same pieces, cover off by default, tighter. */
+.appza-renderer-ss[data-slug="entity-card"][data-layout="entity-card-compact"] {
+  padding-bottom: 12px;
+}
+.appza-renderer-ss[data-slug="entity-card"][data-layout="entity-card-compact"] > [data-piece="title"] {
+  padding-top: 12px;
+}
+
+/* empty-state — learns from fc-documents-empty. */
+.appza-renderer-ss[data-slug="empty-state"] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--appza-row-padding, 72px 40px 0);
+  gap: 6px;
+}
+.appza-renderer-ss[data-slug="empty-state"] > [data-piece="icon"] {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--appza-icon-circle-color, #e6e8ec);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+.appza-renderer-ss[data-slug="empty-state"] > [data-piece="icon"] ion-icon {
+  font-size: 24px;
+  color: var(--appza-icon-color, var(--appza-theme-muted, #6b7280));
+}
+.appza-renderer-ss[data-slug="empty-state"] > [data-piece="title"] ion-text {
+  display: block;
+  font-size: var(--appza-title-size, calc(1.15rem * var(--appza-theme-text-scale, 1)));
+  font-weight: 700;
+  color: var(--appza-title-color, var(--appza-theme-heading, #111827));
+}
+.appza-renderer-ss[data-slug="empty-state"] > [data-piece="message"] ion-text {
+  display: block;
+  font-size: var(--appza-message-size, calc(0.95rem * var(--appza-theme-text-scale, 1)));
+  color: var(--appza-message-color, var(--appza-theme-muted, #6b7280));
+  line-height: 1.45;
+}

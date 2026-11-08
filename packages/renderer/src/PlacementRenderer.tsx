@@ -950,7 +950,7 @@ export function PlacementRenderer({
   const hiddenIndices = computeHiddenIndices(ss, appzet);
   // `data.*` clauses resolve to undefined here: there is no row.
   const singlePathHidden = useMemo(() => {
-    const dataHidden = computeDataHiddenIndices(readChildren(ss), null);
+    const dataHidden = computeDataHiddenIndices(readChildren(ss), null, baseChildOverrides);
     if (dataHidden.size === 0) return hiddenIndices;
     return new Set<number>([...hiddenIndices, ...dataHidden]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1636,6 +1636,7 @@ export function PlacementRenderer({
       <div
         className="appza-renderer-appzet-list"
         data-slug={appzet.slug}
+        data-block={ss?.slug}
         data-appza-placement-key={placementKey}
         data-view-mode={listViewMode}
         data-appza-loading={drawingWhileLoading ? 'true' : undefined}
@@ -1690,7 +1691,7 @@ export function PlacementRenderer({
         if (appzet.slug === 'fc-member-card') {
           itemOverrides = applyMemberCardTransforms(itemOverrides, appzet, enrichedItem);
         }
-        const dataHidden = computeDataHiddenIndices(effChildren, enrichedItem);
+        const dataHidden = computeDataHiddenIndices(effChildren, enrichedItem, itemOverrides);
         const effectiveHidden =
           dataHidden.size === 0
             ? hiddenIndices
@@ -2536,15 +2537,20 @@ function computeChildOpenUrls(children: SSChild[], item: unknown): Record<number
   return out;
 }
 
-/** Unparseable clauses fail open (child shown). */
-function computeDataHiddenIndices(children: SSChild[], item: unknown): Set<number> {
+/**
+ * Unparseable clauses fail open (child shown). `piece.<prop>` reads the piece's own value after settings and the
+ * AppZet's field mapping, so a shared block can hide what an integration left empty without naming its fields.
+ */
+function computeDataHiddenIndices(children: SSChild[], item: unknown, overrides?: ChildOverrides): Set<number> {
   const hidden = new Set<number>();
   for (let i = 0; i < children.length; i++) {
     const vw = children[i]?.visible_when;
     if (!vw) continue;
-    const holds = Array.isArray(vw)
-      ? vw.every((clause) => evaluateVisibleWhen(clause, item))
-      : evaluateVisibleWhen(vw, item);
+    const check = (clause: VisibleWhenClause) =>
+      clause.binding.startsWith('piece.')
+        ? evaluateVisibleWhen(clause, item, overrides?.[i]?.[clause.binding.slice('piece.'.length)])
+        : evaluateVisibleWhen(clause, item);
+    const holds = Array.isArray(vw) ? vw.every(check) : check(vw);
     if (!holds) hidden.add(i);
   }
   return hidden;
@@ -2571,9 +2577,11 @@ function followSortLabel(value: string, action: unknown): string {
   return value;
 }
 
-function evaluateVisibleWhen(vw: VisibleWhenClause, item: unknown): boolean {
+function evaluateVisibleWhen(vw: VisibleWhenClause, item: unknown, pieceValue?: unknown): boolean {
   // readDataPath only walks `data.`, so the prefix is swapped, not stripped (stripping fails `== true` closed); `state.*` reads a flat bag.
-  const resolved = vw.binding.startsWith('settings.')
+  const resolved = vw.binding.startsWith('piece.')
+    ? pieceValue
+    : vw.binding.startsWith('settings.')
     ? readDataPath(getFcRuntimeSettings(), vw.binding.replace(/^settings\./, 'data.'))
     : vw.binding.startsWith('state.')
       ? childStateBag()[vw.binding.slice('state.'.length)]

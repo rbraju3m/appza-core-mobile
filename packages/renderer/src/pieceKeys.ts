@@ -182,44 +182,68 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
       "link5"
     ]
   ],
+  "empty-state": [
+    [
+      "ion-icon",
+      "icon"
+    ],
+    [
+      "ion-text",
+      "title"
+    ],
+    [
+      "ion-text",
+      "message"
+    ]
+  ],
   "entity-card": [
     [
       "ion-card",
-      "card"
+      "surface"
     ],
     [
       "ion-img",
-      "img"
+      "image"
     ],
     [
       "ion-text",
-      "text"
+      "title"
     ],
     [
       "ion-text",
-      "text-2"
+      "subtitle"
     ],
     [
       "ion-button",
-      "color"
-    ]
-  ],
-  "entity-card-compact": [
-    [
-      "ion-card",
-      "card"
+      "action"
     ],
     [
-      "ion-text",
-      "text-2"
-    ],
-    [
-      "ion-text",
-      "text"
+      "ion-icon",
+      "placeholder"
     ],
     [
       "ion-button",
-      "button"
+      "badge"
+    ],
+    [
+      "ion-text",
+      "meta"
+    ],
+    [
+      "ion-button",
+      "meta-end"
+    ],
+    [
+      "ion-text",
+      "description"
+    ],
+    [
+      "ion-progress-bar",
+      "progress"
+    ],
+    [
+      "ion-button",
+      "secondary-action"
     ]
   ],
   "fc-add-document-fields": [
