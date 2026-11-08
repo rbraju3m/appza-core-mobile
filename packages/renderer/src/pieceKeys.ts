@@ -56,6 +56,12 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
       "more"
     ]
   ],
+  "audio-row": [
+    [
+      "appza-audio-player",
+      "player"
+    ]
+  ],
   "avatar-block": [
     [
       "ion-avatar",
@@ -164,6 +170,42 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
     [
       "ion-button",
       "close"
+    ]
+  ],
+  "comment-composer": [
+    [
+      "appza-comment-composer",
+      "composer"
+    ]
+  ],
+  "comment-row": [
+    [
+      "ion-avatar",
+      "avatar"
+    ],
+    [
+      "ion-text",
+      "name"
+    ],
+    [
+      "ion-text",
+      "time"
+    ],
+    [
+      "appza-rich-text",
+      "body"
+    ],
+    [
+      "ion-button",
+      "reply"
+    ],
+    [
+      "ion-button",
+      "like"
+    ],
+    [
+      "ion-text",
+      "replies"
     ]
   ],
   "course-cta": [
@@ -2858,16 +2900,8 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
   ],
   "media-tile": [
     [
-      "ion-thumbnail",
-      "thumbnail"
-    ],
-    [
-      "ion-text",
-      "text"
-    ],
-    [
-      "ion-badge",
-      "badge"
+      "appza-media-tile",
+      "tile"
     ]
   ],
   "menu-row": [
