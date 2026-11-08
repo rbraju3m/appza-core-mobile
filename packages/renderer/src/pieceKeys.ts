@@ -120,6 +120,44 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
       "chip"
     ]
   ],
+  "course-cta": [
+    [
+      "ion-button",
+      "enroll"
+    ],
+    [
+      "ion-button",
+      "start"
+    ],
+    [
+      "ion-button",
+      "continue"
+    ],
+    [
+      "ion-button",
+      "review"
+    ],
+    [
+      "ion-button",
+      "locked"
+    ],
+    [
+      "ion-text",
+      "locked-note"
+    ],
+    [
+      "ion-text",
+      "price-title"
+    ],
+    [
+      "ion-text",
+      "price"
+    ],
+    [
+      "ion-button",
+      "buy"
+    ]
+  ],
   "course-detail-appbar-shell": [
     [
       "ion-button",
@@ -132,6 +170,50 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
     [
       "ion-button",
       "students"
+    ]
+  ],
+  "course-detail-header": [
+    [
+      "ion-text",
+      "title"
+    ],
+    [
+      "ion-text",
+      "meta"
+    ],
+    [
+      "ion-text",
+      "description-heading"
+    ],
+    [
+      "ion-text",
+      "description"
+    ],
+    [
+      "ion-text",
+      "content-heading"
+    ]
+  ],
+  "course-section": [
+    [
+      "ion-text",
+      "title"
+    ],
+    [
+      "ion-text",
+      "meta"
+    ],
+    [
+      "ion-button",
+      "collapsed"
+    ],
+    [
+      "ion-button",
+      "expanded"
+    ],
+    [
+      "ion-button",
+      "lesson"
     ]
   ],
   "create-post-appbar-shell": [
@@ -2590,6 +2672,70 @@ export const PIECE_KEYS: Record<string, ReadonlyArray<readonly [string, string]>
     [
       "ion-button",
       "visibility"
+    ]
+  ],
+  "lesson-body": [
+    [
+      "appza-video-embed",
+      "video"
+    ],
+    [
+      "appza-rich-text",
+      "content"
+    ],
+    [
+      "ion-icon",
+      "lock-icon"
+    ],
+    [
+      "ion-text",
+      "lock-title"
+    ],
+    [
+      "ion-text",
+      "lock-message"
+    ],
+    [
+      "ion-button",
+      "back"
+    ]
+  ],
+  "lesson-header": [
+    [
+      "ion-text",
+      "position"
+    ],
+    [
+      "ion-button",
+      "prev"
+    ],
+    [
+      "ion-button",
+      "prev-off"
+    ],
+    [
+      "ion-button",
+      "next"
+    ],
+    [
+      "ion-button",
+      "next-off"
+    ],
+    [
+      "ion-text",
+      "title"
+    ],
+    [
+      "ion-button",
+      "start"
+    ],
+    [
+      "ion-button",
+      "complete"
+    ],
+    [
+      "ion-button",
+      "completed"
     ]
   ],
   "list-row": [

@@ -2539,16 +2539,28 @@ function computeChildOpenUrls(children: SSChild[], item: unknown): Record<number
 
 /**
  * Unparseable clauses fail open (child shown). `piece.<prop>` reads the piece's own value after settings and the
- * AppZet's field mapping, so a shared block can hide what an integration left empty without naming its fields.
+ * AppZet's field mapping, so a shared block can hide what an integration left empty without naming its fields;
+ * `piece.<key>.<prop>` reads a sibling piece's the same way (a heading that draws only with its text).
  */
 function computeDataHiddenIndices(children: SSChild[], item: unknown, overrides?: ChildOverrides): Set<number> {
   const hidden = new Set<number>();
+  const indexOfKey = new Map<string, number>();
+  children.forEach((c, i) => {
+    const key = (c as { key?: unknown } | undefined)?.key;
+    if (typeof key === 'string' && !indexOfKey.has(key)) indexOfKey.set(key, i);
+  });
+  const pieceValue = (own: number, path: string): unknown => {
+    const dot = path.indexOf('.');
+    if (dot === -1) return overrides?.[own]?.[path];
+    const at = indexOfKey.get(path.slice(0, dot));
+    return at === undefined ? undefined : overrides?.[at]?.[path.slice(dot + 1)];
+  };
   for (let i = 0; i < children.length; i++) {
     const vw = children[i]?.visible_when;
     if (!vw) continue;
     const check = (clause: VisibleWhenClause) =>
       clause.binding.startsWith('piece.')
-        ? evaluateVisibleWhen(clause, item, overrides?.[i]?.[clause.binding.slice('piece.'.length)])
+        ? evaluateVisibleWhen(clause, item, pieceValue(i, clause.binding.slice('piece.'.length)))
         : evaluateVisibleWhen(clause, item);
     const holds = Array.isArray(vw) ? vw.every(check) : check(vw);
     if (!holds) hidden.add(i);
