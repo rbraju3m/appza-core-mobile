@@ -36,9 +36,9 @@ type TopBarProps = {
 };
 
 const UI_MODES: Array<{ value: UiMode; label: string; title: string }> = [
-  { value: 'edit', label: 'Edit', title: 'Design mode — click any element to select it and edit its properties on the right.' },
-  { value: 'drag', label: 'Drag', title: 'Layout mode — add, remove and reorder components on this screen. Nothing on the screen fires.' },
-  { value: 'app', label: 'App', title: 'Runtime mode — clicks fire real actions (navigate, open links). Same behavior as the mobile app.' },
+  { value: 'edit', label: 'Design', title: 'Click anything on the phone to change how it looks on the right.' },
+  { value: 'drag', label: 'Arrange', title: 'Add, remove and reorder blocks on this page. Taps on the phone do nothing here.' },
+  { value: 'app', label: 'Try it', title: 'Use the app as your members do: taps open pages and links.' },
 ];
 
 const PREVIEW_MODES: Array<{ value: PreviewMode; label: string; title: string }> = [

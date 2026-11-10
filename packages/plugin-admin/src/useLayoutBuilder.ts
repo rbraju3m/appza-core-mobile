@@ -46,6 +46,7 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
   const [presentKeys, setPresentKeys] = useState<Set<string>>(new Set());
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [dragLabel, setDragLabel] = useState<string | null>(null);
+  const [removed, setRemoved] = useState<{ id: string; item: LayoutItem; index: number; slug: string } | null>(null);
   const pointerY = useRef(0);
   const stopTracking = useRef<(() => void) | null>(null);
 
@@ -145,12 +146,26 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
 
   const remove = useCallback(
     (key: string) => {
-      if (!draft) return;
+      if (!draft || !id) return;
+      const index = draft.items.findIndex((i) => i.key === key);
+      if (index < 0) return;
+      setRemoved({ id, item: draft.items[index]!, index, slug: rowsOf(draft).find((r) => r.key === key)?.appzet_slug ?? '' });
       setItems(draft.items.filter((i) => i.key !== key));
       if (selectedKey === key) setSelectedKey(null);
     },
-    [draft, selectedKey, setItems],
+    [draft, id, selectedKey, setItems],
   );
+
+  // Puts the last removed block back where it was, keeping any edits made since.
+  const undoRemove = useCallback(() => {
+    if (!removed || !draft || removed.id !== id) return;
+    setRemoved(null);
+    if (draft.items.some((i) => i.key === removed.item.key)) return;
+    const items = [...draft.items];
+    items.splice(Math.min(removed.index, items.length), 0, removed.item);
+    setItems(items);
+  }, [removed, draft, id, setItems]);
+  const dismissRemoved = useCallback(() => setRemoved(null), []);
 
   // Pointer inside a row wins; between rows of the list, the nearest row; elsewhere nothing.
   const collision: CollisionDetection = useCallback((args) => {
@@ -254,6 +269,9 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
     setItems,
     add,
     remove,
+    removed: removed && removed.id === id ? removed : null,
+    undoRemove,
+    dismissRemoved,
     save,
     discard,
     keepMine,

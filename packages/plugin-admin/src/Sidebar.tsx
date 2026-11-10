@@ -23,6 +23,8 @@ type SidebarProps = {
   onSelectAppzet?: (slug: string) => void;
   /** Drag mode's builder (D110) replaces the component list. */
   builderPanel?: React.ReactNode;
+  /** App bar, bottom tabs and drawer; shown under the Global tab in Design and Arrange. */
+  globalPanel?: React.ReactNode;
   builderTab?: SidebarTab;
   onSelectBuilderTab?: (tab: SidebarTab) => void;
   /** Edit rows draw a live preview when given. */
@@ -42,6 +44,7 @@ export function Sidebar({
   selectedAppzetSlug,
   onSelectAppzet,
   builderPanel,
+  globalPanel,
   builderTab = 'screen',
   onSelectBuilderTab,
   catalogIndex,
@@ -140,21 +143,23 @@ export function Sidebar({
 
   return (
     <aside className="appza-sidebar" style={{ position: 'relative' }}>
-      {builderPanel ? (
-        <>
-          <div className="appza-sidebar-tabs">
-            <button className="appza-sidebar-tab" data-active={builderTab === 'global'} type="button" onClick={() => onSelectBuilderTab?.('global')}>
-              Global
-            </button>
-            <button className="appza-sidebar-tab" data-active={builderTab === 'screen'} type="button" onClick={() => onSelectBuilderTab?.('screen')}>
-              Screen
-            </button>
-          </div>
-          <div className="appza-sidebar-content">{builderPanel}</div>
-        </>
+      {globalPanel && (
+        <div className="appza-sidebar-tabs">
+          <button className="appza-sidebar-tab" data-active={builderTab === 'global'} type="button" onClick={() => onSelectBuilderTab?.('global')}>
+            Global
+          </button>
+          <button className="appza-sidebar-tab" data-active={builderTab === 'screen'} type="button" onClick={() => onSelectBuilderTab?.('screen')}>
+            Screen
+          </button>
+        </div>
+      )}
+      {globalPanel && builderTab === 'global' ? (
+        <div className="appza-sidebar-content">{globalPanel}</div>
+      ) : builderPanel ? (
+        <div className="appza-sidebar-content">{builderPanel}</div>
       ) : mode === 'app' ? (
         <div className="appza-sidebar-content">
-          <div className="appza-sidebar-empty">App mode runs the app as a member sees it. Switch to Edit or Drag to change a screen.</div>
+          <div className="appza-sidebar-empty">Try it runs the app as a member sees it. Switch to Design or Arrange to change a page.</div>
         </div>
       ) : (
       <>

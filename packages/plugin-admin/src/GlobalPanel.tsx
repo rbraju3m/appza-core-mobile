@@ -5,6 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { iconNames, type CatalogIndex, type DrawerMenuItem } from '@appza/renderer';
 import type { AppZet, Catalog } from '@appza/schemas';
 import { Thumbnail } from './BuilderPanel';
+import { IconPicker } from './IconPicker';
 import { selectedSlug, type ChromeBuilder, type ChromeDraft, type ChromeItem } from './useChromeBuilder';
 
 type GlobalPanelProps = {
@@ -243,11 +244,6 @@ function DrawerMenu({ chrome, draft, catalog }: { chrome: ChromeBuilder; draft: 
           </ul>
         </SortableContext>
       </DndContext>
-      <datalist id="appza-icon-names">
-        {iconNames.map((n) => (
-          <option key={n} value={n} />
-        ))}
-      </datalist>
     </div>
   );
 }
@@ -314,17 +310,11 @@ function MenuRow({ item, fallbackLabel, fallbackIcon, open, first, last, onToggl
               onChange={(e) => onChange({ label: e.target.value })}
             />
           </label>
-          <label>
+          <div className="appza-global-field">
             <span>Icon</span>
-            <input
-              type="text"
-              list="appza-icon-names"
-              value={item.icon ?? ''}
-              placeholder={fallbackIcon || 'none'}
-              onChange={(e) => onChange({ icon: e.target.value.trim().toLowerCase() })}
-            />
-          </label>
-          {icon !== '' && !isIcon(icon) && <span className="appza-global-note is-warn">Not a known icon.</span>}
+            <IconPicker value={icon || undefined} onChange={(v) => onChange({ icon: v ?? '' })} />
+          </div>
+          {icon === '' && fallbackIcon && <span className="appza-global-note">Empty uses the page's own icon ({fallbackIcon}).</span>}
         </div>
       )}
     </li>

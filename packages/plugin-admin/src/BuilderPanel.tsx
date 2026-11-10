@@ -30,6 +30,7 @@ type BuilderPanelProps = {
   onSelectKey: (key: string | null) => void;
   presentKeys: ReadonlySet<string>;
   onChangeItems: (items: LayoutItem[]) => void;
+  onRemove: (key: string) => void;
   onAdd: (slug: string, layout?: string) => void;
   onKeepMine: () => void;
   onAddNew: () => void;
@@ -82,10 +83,6 @@ function PlacementList(p: WithDraft) {
     const byKey = new Map(p.draft.items.map((it) => [it.key, it]));
     p.onChangeItems([...next, ...footer.map((r) => r.key)].map((k) => byKey.get(k)!));
   };
-  const remove = (key: string) => {
-    p.onChangeItems(p.draft.items.filter((it) => it.key !== key));
-    if (p.selectedKey === key) p.onSelectKey(null);
-  };
   const setVisibility = (key: string, v: Visibility | '') => {
     p.onChangeItems(
       p.draft.items.map((it) => {
@@ -108,7 +105,7 @@ function PlacementList(p: WithDraft) {
     present: p.presentKeys.has(r.key),
     selected: p.selectedKey === r.key,
     onSelect: () => p.onSelectKey(p.selectedKey === r.key ? null : r.key),
-    onRemove: () => remove(r.key),
+    onRemove: () => p.onRemove(r.key),
     onVisibility: (v: Visibility | '') => setVisibility(r.key, v),
     onLayout: (l: string) => setLayout(r.key, r.appzet_slug, l),
   });
@@ -139,6 +136,12 @@ function PlacementList(p: WithDraft) {
             ))}
           </ul>
         </>
+      )}
+      {rows.some((r) => !p.presentKeys.has(r.key)) && (
+        <p className="appza-builder-note">
+          <span className="appza-builder-chip is-hidden">Hidden now</span> means the block is on this page but not showing
+          with the current sample, for example because it is for signed-in members only. Sign in under Try it to see it.
+        </p>
       )}
     </section>
   );

@@ -850,11 +850,16 @@ export function App() {
     onSaved: () => pull(templateSlug, true),
   });
   const chrome = useChromeBuilder({
-    active: uiMode === 'drag' && builderTab === 'global',
+    active: uiMode !== 'app' && builderTab === 'global',
     template: catalog?.template?.slug ?? templateSlug,
     screen: currentScreen?.app_map_screen_slug ?? null,
     onSaved: () => pull(templateSlug, true),
   });
+  useEffect(() => {
+    if (!builder.removed) return;
+    const t = window.setTimeout(builder.dismissRemoved, 5000);
+    return () => window.clearTimeout(t);
+  }, [builder.removed, builder.dismissRemoved]);
   const layoutOverlay = useCallback((c: unknown) => chrome.overlay(builder.overlay(c)), [chrome.overlay, builder.overlay]);
   const dndSensors = useSensors(
     // A small travel threshold keeps Add buttons and row clicks working.
@@ -1868,9 +1873,8 @@ export function App() {
         <Sidebar
           builderTab={builderTab}
           onSelectBuilderTab={setBuilderTab}
-          builderPanel={
-            uiMode === 'drag' && catalog && catalogIndex ? (
-              builderTab === 'global' ? (
+          globalPanel={
+            uiMode !== 'app' && catalog && catalogIndex ? (
               <GlobalPanel
                 chrome={chrome}
                 catalog={catalog}
@@ -1879,7 +1883,10 @@ export function App() {
                 screen={currentScreen?.app_map_screen_slug ?? null}
                 screenName={currentScreen?.app_map_screen_slug ?? null}
               />
-              ) : (
+            ) : undefined
+          }
+          builderPanel={
+            uiMode === 'drag' && catalog && catalogIndex ? (
               <BuilderPanel
                 draft={builder.draft}
                 loading={builder.loading}
@@ -1892,12 +1899,12 @@ export function App() {
                 onSelectKey={builder.setSelectedKey}
                 presentKeys={builder.presentKeys}
                 onChangeItems={builder.setItems}
+                onRemove={builder.remove}
                 onAdd={(slug, layout) => builder.add(slug, undefined, layout)}
                 onKeepMine={() => void builder.keepMine()}
                 onAddNew={builder.addNew}
                 onReset={() => void builder.reset()}
               />
-              )
             ) : undefined
           }
           mode={uiMode}
@@ -2370,6 +2377,12 @@ export function App() {
         {builder.dragLabel ? <div className="appza-drag-ghost">{builder.dragLabel}</div> : null}
       </DragOverlay>
       </DndContext>
+      {uiMode === 'drag' && builder.removed && (
+        <div className="appza-undo-toast" role="status">
+          <span>Removed {appzetBySlug.get(builder.removed.slug)?.name ?? 'block'}</span>
+          <button type="button" onClick={builder.undoRemove}>Undo</button>
+        </div>
+      )}
 
       {/* Hidden until the first-mount check so it doesn't flash. */}
       {onboardingChecked && (

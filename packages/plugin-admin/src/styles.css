@@ -3165,3 +3165,46 @@ body {
     transition: none;
   }
 }
+
+.appza-global-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.appza-global-field > span {
+  width: 36px;
+}
+.appza-global-field .appza-icon-picker {
+  flex: 1;
+  min-width: 0;
+}
+.appza-builder-note {
+  margin: 8px 10px 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--appza-text-muted);
+}
+.appza-undo-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: #111827;
+  color: #fff;
+  font-size: 0.85rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+.appza-undo-toast button {
+  border: 0;
+  background: none;
+  color: #93c5fd;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
