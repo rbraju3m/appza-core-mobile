@@ -16,6 +16,10 @@ export type AppzaCoreConfig = {
     tourSeen?: string;
     coreConnection?: string;
     syncPage?: string;
+    /** Friendly v2 P5: the "Viewing as" switch, and core's route that revokes Me's application password. */
+    previewViewer?: string;
+    previewViewerMe?: string;
+    appPasswords?: string;
   };
   restNonce?: string;
   defaultTemplate?: string;

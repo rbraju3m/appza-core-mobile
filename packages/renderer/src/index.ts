@@ -564,7 +564,7 @@ export {
   type MediaViewerItem,
   type MediaViewerPresentation,
 } from './MediaViewer';
-export { setAuthHeaderProvider, getAuthHeader } from './authHeader';
+export { setAuthHeaderProvider, getAuthHeader, setProxyHeadersProvider, proxyRequestHeaders } from './authHeader';
 export { setExternalOpener, openExternal } from './externalLink';
 export { useBackDismiss, dismissTopOverlay } from './backStack';
 export { OverlayDesignStyle, overlayDesignCss } from './OverlayDesign';

@@ -3208,3 +3208,128 @@ body {
   font-weight: 600;
   cursor: pointer;
 }
+
+/* Friendly v2 P5: "Viewing as" and the tablet frame (768 × 1024 inside a 10px bezel). */
+/* One row, always (owner, 2026-11-10): nothing wraps. Labels go first; below 1600px Simple / Advanced, Content and
+   Template move under ⋯ More, the same controls in a drop-down. */
+.appza-topbar {
+  position: relative;
+}
+.appza-topbar,
+.appza-topbar-actions {
+  flex-wrap: nowrap;
+}
+.appza-topbar-actions {
+  min-width: 0;
+}
+.appza-topbar-screen {
+  min-width: 130px;
+}
+.appza-topbar-mode,
+.appza-topbar-template,
+.appza-topbar-layout {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+/* Same height as the segmented buttons beside it; beats `.wp-core-ui select`. */
+.appza-topbar .appza-topbar-viewas {
+  min-width: 0;
+  min-height: 0;
+  height: 30px;
+  line-height: 1.2;
+  width: auto;
+  max-width: 150px;
+  padding: 2px 24px 2px 8px;
+  font-size: 0.85rem;
+}
+.appza-topbar-extras-wrap {
+  display: contents;
+}
+.appza-topbar-extras {
+  display: contents;
+}
+.appza-topbar-more-btn {
+  display: none;
+  padding: 4px 10px;
+  font-size: 1rem;
+  line-height: 1;
+  min-width: 34px;
+}
+@container (max-width: 1900px) {
+  .appza-topbar-screen-label,
+  .appza-topbar-mode-label:not(.appza-topbar-viewas-label),
+  .appza-topbar-template > span {
+    display: none;
+  }
+  .appza-topbar-mode,
+  .appza-topbar-template {
+    margin-right: 4px;
+  }
+  .appza-topbar-template select {
+    width: 170px;
+  }
+  .appza-topbar-screen {
+    margin-left: 8px;
+    flex-basis: 140px;
+  }
+  .appza-topbar-screen .appza-select {
+    min-width: 0;
+  }
+  /* "● 2" — the tooltip says unsaved. */
+  .appza-topbar-unsaved-word {
+    display: none;
+  }
+}
+@container (max-width: 1600px) {
+  .appza-topbar-viewas-label {
+    display: none;
+  }
+  .appza-topbar-extras-wrap {
+    display: block;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .appza-topbar-more-btn {
+    display: inline-block;
+  }
+  .appza-topbar-extras {
+    display: none;
+  }
+  .appza-topbar-extras[data-open='true'] {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 1000;
+    padding: 12px;
+    background: var(--appza-bg);
+    border: 1px solid var(--appza-border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  }
+  /* In the drop-down there is room for the words again. */
+  .appza-topbar .appza-topbar-extras .appza-topbar-mode-label,
+  .appza-topbar .appza-topbar-extras .appza-topbar-template > span {
+    display: inline;
+    min-width: 64px;
+  }
+  .appza-topbar .appza-topbar-extras .appza-topbar-template select {
+    width: 200px;
+  }
+  .appza-topbar .appza-topbar-extras .appza-topbar-mode,
+  .appza-topbar .appza-topbar-extras .appza-topbar-template {
+    margin-right: 0;
+  }
+}
+.appza-center[data-device='tablet'] .appza-device-frame {
+  width: 788px;
+  height: 1044px;
+  border-radius: 28px;
+  flex-shrink: 0;
+}
+.appza-center[data-device='tablet'] .appza-device-viewport {
+  border-radius: 20px;
+}

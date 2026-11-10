@@ -14,7 +14,7 @@ import { getCourseLessonControls } from './courseLessonControls';
 import { getPostDetailControls } from './postDetailControls';
 import { getModerationControls } from './moderationControls';
 import { getViewer } from './viewer';
-import { getAuthHeader } from './authHeader';
+import { proxyRequestHeaders } from './authHeader';
 
 type FetchState = {
   items: unknown[];
@@ -173,11 +173,12 @@ function buildProxyUrl(
 const inFlight = new Map<string, Promise<string>>();
 
 function fetchProxyText(url: string, headers: Record<string, string>): Promise<string> {
-  const key = `${headers.Authorization ?? ''}\n${url}`;
+  const key = `${headers.Authorization ?? ''}|${headers['X-Appza-View-As'] ?? ''}\n${url}`;
   const joined = inFlight.get(key);
   if (joined) return joined;
   // 'omit': a wp-admin cookie beats the app password in WP core, then fails the nonce check and drops to guest.
-  const request = fetch(url, { headers, credentials: 'omit' })
+  // A nonce (the builder's "Viewing as: Member") needs the cookie it was issued for, and comes with no password.
+  const request = fetch(url, { headers, credentials: headers['X-WP-Nonce'] ? 'same-origin' : 'omit' })
     .then(async (res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.text();
@@ -199,10 +200,7 @@ export async function fetchDataSourceOnce(
   params?: Record<string, unknown>,
   opts?: { bypassCache?: boolean },
 ): Promise<unknown> {
-  const authHeader =
-    getAuthHeader();
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  if (authHeader) headers.Authorization = authHeader;
+  const headers = proxyRequestHeaders();
   return fetchProxyJson(buildProxyUrl(slug, params, opts?.bypassCache === true), headers);
 }
 
@@ -268,9 +266,7 @@ export function useDataSource(
     }
     let cancelled = false;
     setState((s) => ({ ...s, loading: true, error: null }));
-    const authHeader = getAuthHeader();
-    const headers: Record<string, string> = { Accept: 'application/json' };
-    if (authHeader) headers.Authorization = authHeader;
+    const headers = proxyRequestHeaders();
     // Set after post.create so AppZets mounting after the refresh event still bypass the cache.
     const forceRefreshUntil = (typeof window !== 'undefined'
       ? (window as unknown as { __appzaForceRefreshUntil?: number }).__appzaForceRefreshUntil
@@ -386,9 +382,7 @@ export function useDataSourcePaged(
     setLoading(true);
     setError(null);
 
-    const authHeader = getAuthHeader();
-    const headers: Record<string, string> = { Accept: 'application/json' };
-    if (authHeader) headers.Authorization = authHeader;
+    const headers = proxyRequestHeaders();
 
     const mergedParams: Record<string, unknown> = {
       ...(extraParams ?? {}),

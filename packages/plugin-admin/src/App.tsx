@@ -28,6 +28,7 @@ import {
   setCatalogGlobal,
   setFcRuntimeSettings,
   setViewer,
+  setProxyHeadersProvider,
   canBrowseAsGuest,
   PollVotersSheet,
   openPollVotersSheet,
@@ -207,6 +208,21 @@ import {
   type PostMenuItem,
   type ViewModeOption,
 } from '@appza/renderer';
+import {
+  type DeviceSize,
+  type ViewAs,
+  type Viewers,
+  fetchViewers,
+  memberMayRun,
+  memberProxyHeaders,
+  MEMBER_BLOCKED_MESSAGE,
+  readDevice,
+  readMemberView,
+  revokeAppPassword,
+  signInAsMe,
+  writeDevice,
+  writeMemberView,
+} from './viewAs';
 import { drawerMenuItems, screenAppbarPlacements, screenPlacements } from '@appza/renderer';
 import { setAuthHeaderProvider } from '@appza/renderer';
 
@@ -323,6 +339,20 @@ export function App() {
   // Guards the prefill so a memo re-compute doesn't overwrite user edits; nav.push clears it.
   const screenPrefilledRef = useRef<Record<string, true>>({});
   const [auth, setAuthState] = useState<StoredAuth | null>(() => readStoredAuth());
+  // P5: Member reads as the plug-in's sample member; any real sign-in (Me or the form) turns it off.
+  const [memberView, setMemberViewState] = useState<boolean>(() => readMemberView() && !readStoredAuth());
+  const setMemberView = useCallback((on: boolean) => {
+    writeMemberView(on);
+    setMemberViewState(on);
+  }, []);
+  const [viewers, setViewers] = useState<Viewers | null>(null);
+  const [device, setDeviceState] = useState<DeviceSize>(() => readDevice());
+  const setDevice = useCallback((d: DeviceSize) => {
+    writeDevice(d);
+    setDeviceState(d);
+  }, []);
+  const [viewAsBusy, setViewAsBusy] = useState(false);
+  const lastReaderRef = useRef<string | null>(null);
   const setAuth = useCallback((a: StoredAuth | null) => {
     writeStoredAuth(a);
     setAuthState(a);
@@ -1116,6 +1146,10 @@ export function App() {
 
   const dispatchAction = useCallback<ActionDispatch>(
     (inv: ActionInvocation) => {
+      if (memberView && !auth && !memberMayRun(inv.action_slug)) {
+        showMenuInfo(MEMBER_BLOCKED_MESSAGE);
+        return;
+      }
       handleAppModeAction(inv, {
         requireAuthOrLogin,
         catalog: catalog ?? null,
@@ -1144,7 +1178,7 @@ export function App() {
       });
     },
     [
-      catalog, selectedScreenId, auth, setAuth, uiMode,
+      catalog, selectedScreenId, auth, setAuth, uiMode, memberView,
       openImagePicker, openAudioPicker, openDocumentPicker, pendingImages, clearPendingImages,
       attachVideo, pendingVideo, clearPendingVideo,
       openDeleteConfirm, openCommentPanel,
@@ -1434,17 +1468,69 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    void fetchViewers().then(setViewers);
+  }, []);
+
+  useEffect(() => {
+    if (auth && memberView) setMemberView(false);
+  }, [auth, memberView, setMemberView]);
+
+  useEffect(() => {
+    const member = !auth && memberView ? viewers?.member ?? null : null;
+    currentProxyHeaders = member ? memberProxyHeaders() : {};
+    const g = window as unknown as { __appzaCurrentUserId?: number };
+    if (member) g.__appzaCurrentUserId = member.user_id;
+    else if (!auth) delete g.__appzaCurrentUserId;
     setViewer({
-      is_logged_in: !!auth,
-      user_id: auth && typeof auth.user_id === 'number' ? auth.user_id : null,
+      is_logged_in: !!auth || !!member,
+      user_id: auth && typeof auth.user_id === 'number' ? auth.user_id : member ? member.user_id : null,
     });
-  }, [auth]);
+    // Every read is per viewer: re-run them when the reader actually changes (not on first load).
+    const reader = auth ? `auth:${auth.username}` : member ? `member:${member.user_id}` : 'guest';
+    if (lastReaderRef.current !== null && lastReaderRef.current !== reader) {
+      window.dispatchEvent(new Event('appza:refresh-data'));
+    }
+    lastReaderRef.current = reader;
+  }, [auth, memberView, viewers]);
+
+  // What the switch reads: Me is a sign-in this switch made; any other sign-in is "someone" by name.
+  const viewAs: ViewAs | 'signed-in' = auth ? (auth.via === 'me' ? 'me' : 'signed-in') : memberView ? 'member' : 'guest';
+  const pickViewAs = useCallback(
+    async (next: ViewAs) => {
+      if (next === viewAs || viewAsBusy) return;
+      setAuthMessage(null);
+      if (next === 'me') {
+        setViewAsBusy(true);
+        try {
+          const me = await signInAsMe();
+          if (auth) revokeAppPassword(auth);
+          setMemberView(false);
+          setAuth({ ...me, via: 'me' });
+        } catch (e) {
+          setAuthMessage(e instanceof Error ? e.message : String(e));
+          return;
+        } finally {
+          setViewAsBusy(false);
+        }
+      } else {
+        if (auth) {
+          revokeAppPassword(auth);
+          setAuth(null);
+        }
+        setMemberView(next === 'member');
+      }
+      // The picker payload and the draft are per viewer, as on sign-out.
+      clearPostSpaceCache();
+      resetPostDraft();
+    },
+    [viewAs, viewAsBusy, auth, setAuth, setMemberView],
+  );
 
   // Force login in App mode unless the site allows guest browsing (settings are applied with the envelope, before this runs).
   useEffect(() => {
     if (uiMode !== 'app') return;
     if (!catalog) return;
-    if (auth) return;
+    if (auth || memberView) return;
     if (canBrowseAsGuest()) return;
     const login = catalog.template_screens?.find(
       (s) => s.app_map_screen_slug === 'login-page',
@@ -1453,7 +1539,7 @@ export function App() {
       setScreenStack([]);
       setSelectedScreenId(login.id);
     }
-  }, [uiMode, catalog, auth, selectedScreenId]);
+  }, [uiMode, catalog, auth, memberView, selectedScreenId]);
 
   const bottomPanel = useMemo(() => {
     if (!bottomTab || !envelope) return null;
@@ -1556,6 +1642,13 @@ export function App() {
         onPreviewModeChange={setPreviewMode}
         onBuildApp={() => setBuildAppOpen(true)}
         uiMode={uiMode}
+        viewAs={viewAs}
+        viewAsName={auth ? auth.display_name || auth.username : null}
+        viewers={viewers}
+        viewAsBusy={viewAsBusy}
+        onViewAsChange={(v) => void pickViewAs(v)}
+        device={device}
+        onDeviceChange={setDevice}
         dirtyCount={builder.dirtyCount + chrome.dirtyCount}
         saving={builder.saving || chrome.saving}
         onSaveLayout={() => void builder.save().then(chrome.save)}
@@ -1932,6 +2025,7 @@ export function App() {
 
         <main
           className={`appza-center${uiMode === 'app' ? ' appza-center-app-mode' : ''}`}
+          data-device={device}
           onClick={
             uiMode === 'edit'
               ? (e) => {
@@ -2777,6 +2871,9 @@ const AUTH_STORAGE_KEY = 'appza:auth';
 
 let currentAuthHeader: string | undefined;
 setAuthHeaderProvider(() => currentAuthHeader);
+// P5: Member's proxy headers; empty for everyone else.
+let currentProxyHeaders: Record<string, string> = {};
+setProxyHeadersProvider(() => currentProxyHeaders);
 
 type StoredAuth = {
   username: string;
@@ -2786,6 +2883,8 @@ type StoredAuth = {
   display_name?: string;
   avatar?: string;
   user_id?: number;
+  /** P5: made by the "Viewing as: Me" switch, not the sign-in form. */
+  via?: 'me';
 };
 
 function readStoredAuth(): StoredAuth | null {
