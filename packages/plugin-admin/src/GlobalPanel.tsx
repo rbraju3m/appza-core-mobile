@@ -6,6 +6,7 @@ import { iconNames, type CatalogIndex, type DrawerMenuItem } from '@appza/render
 import type { AppZet, Catalog } from '@appza/schemas';
 import { Thumbnail } from './BuilderPanel';
 import { IconPicker } from './IconPicker';
+import { ConfirmButton, revertQuestion } from './ConfirmButton';
 import { selectedSlug, type ChromeBuilder, type ChromeDraft, type ChromeItem } from './useChromeBuilder';
 
 type GlobalPanelProps = {
@@ -174,12 +175,25 @@ function DriftAndReset({ chrome, draft }: { chrome: ChromeBuilder; draft: Chrome
     );
   }
   if (draft.baseVersion === null) return null;
+  if (draft.revert) return <p className="appza-global-note">Back to the original design when you save.</p>;
   return (
-    <button type="button" className="appza-btn appza-global-clear" onClick={() => void chrome.reset(draft)}>
-      Back to original
-    </button>
+    <ConfirmButton
+      className="appza-btn appza-global-clear"
+      label="Back to original"
+      question={revertQuestion(partName(draft))}
+      confirmLabel="Go back"
+      onConfirm={() => chrome.revert(draft)}
+    />
   );
 }
+
+const PART_NAME: Record<string, string> = {
+  appbar: 'the app bar',
+  nav: 'the bottom nav',
+  drawer: 'the drawer',
+  'drawer-menu': 'the drawer menu',
+};
+const partName = (d: ChromeDraft) => (d.screen && d.part === 'appbar' ? "this screen's app bar" : PART_NAME[d.part] ?? d.part);
 
 function DrawerMenu({ chrome, draft, catalog }: { chrome: ChromeBuilder; draft: ChromeDraft; catalog: Catalog }) {
   const [openSlug, setOpenSlug] = useState<string | null>(null);

@@ -3352,3 +3352,24 @@ body {
   font-size: 16px;
   line-height: 1;
 }
+
+/* Ask first, in the page (P3c): the question replaces the button, its two answers below. */
+.appza-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+.appza-confirm-actions {
+  display: flex;
+  gap: 6px;
+}
+.appza-props-panel-footer:has(.appza-confirm) .appza-props-scope-hint {
+  display: none;
+}
+.appza-switch-unsaved {
+  color: #991b1b;
+  font-weight: 600;
+}

@@ -2,6 +2,7 @@ import type { LayoutStyle } from '@appza/schemas';
 import type { SelectedPrimitive } from './DeviceFrame';
 import { LayoutEditor } from './LayoutEditor';
 import { stableJson, type DraftHandle } from './useCustomizationDrafts';
+import { ConfirmButton, revertQuestion } from './ConfirmButton';
 
 type Props = {
   selection: SelectedPrimitive;
@@ -58,14 +59,15 @@ export function PrimitivePanel({ selection, layout, savedLayout, savedRow, draft
 
       <footer className="appza-props-panel-footer">
         <span className="appza-props-scope-hint">Saved from the top bar.</span>
-        <button
+        <ConfirmButton
           className="appza-btn appza-btn-danger"
-          onClick={revert}
+          label="Back to original"
+          question={revertQuestion(selection.primitiveSlug)}
+          confirmLabel="Go back"
+          onConfirm={revert}
           disabled={!canRevert}
           title="Go back to how this part was designed (saved with your other changes)"
-        >
-          Back to original
-        </button>
+        />
       </footer>
     </aside>
   );

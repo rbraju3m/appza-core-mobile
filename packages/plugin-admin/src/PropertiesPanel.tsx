@@ -5,6 +5,7 @@ import { IconPicker } from './IconPicker';
 import { useAdvanced } from './advanced';
 import { DesignTab, type AppZetDesign, type DesignFocus, type DesignPart } from './DesignTab';
 import { stableJson, type DraftHandle } from './useCustomizationDrafts';
+import { ConfirmButton, revertQuestion } from './ConfirmButton';
 
 type Props = {
   appzet: AppZet;
@@ -491,14 +492,15 @@ export function PropertiesPanel({
       ) : (
       <footer className="appza-props-panel-footer">
         <span className="appza-props-scope-hint">Saved from the top bar.</span>
-        <button
+        <ConfirmButton
           className="appza-btn appza-btn-danger"
-          onClick={revert}
+          label="Back to original"
+          question={revertQuestion(appzet.name)}
+          confirmLabel="Go back"
+          onConfirm={revert}
           disabled={!canRevert}
           title="Go back to how this block was designed (saved with your other changes)"
-        >
-          Back to original
-        </button>
+        />
       </footer>
       )}
     </aside>

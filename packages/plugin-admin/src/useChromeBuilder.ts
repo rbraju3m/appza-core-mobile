@@ -14,6 +14,8 @@ export type ChromeDraft = {
   saved: unknown[] | null;
   items: unknown[];
   dirty: boolean;
+  /** "Back to original" is staged: Save deletes the site's row (P3c). `items` then shows Core's. */
+  revert?: boolean;
 };
 
 export type ChromeItem = { key: string; appzet_slug?: string; layout?: string };
@@ -112,7 +114,20 @@ export function useChromeBuilder({ active, template, screen, onSaved, onEdit }: 
       setSaveError(null);
       const id = chromeId(d.template, d.screen, d.part);
       onEdit?.(`chrome:${id}`);
-      setDrafts((all) => (all[id] ? { ...all, [id]: { ...all[id]!, items, dirty: true } } : all));
+      setDrafts((all) => (all[id] ? { ...all, [id]: { ...all[id]!, items, dirty: true, revert: false } } : all));
+    },
+    [onEdit],
+  );
+
+  /** "Back to original" as an unsaved change: the phone shows Core's at once, Undo takes it back, Save writes it. */
+  const revert = useCallback(
+    (d: ChromeDraft) => {
+      setSaveError(null);
+      const id = chromeId(d.template, d.screen, d.part);
+      onEdit?.(`chrome:${id}`);
+      setDrafts((all) =>
+        all[id] ? { ...all, [id]: { ...all[id]!, items: initialItems(d.part, d.core, null), dirty: true, revert: true } } : all,
+      );
     },
     [onEdit],
   );
@@ -129,16 +144,15 @@ export function useChromeBuilder({ active, template, screen, onSaved, onEdit }: 
 
   const dirty = Object.values(drafts).filter((d) => d.dirty);
 
-  /** The unsaved app bar / tabs / drawer parts, for the top bar's one Save. */
+  /** The unsaved app bar / tabs / drawer parts, for the top bar's one Save. A staged revert deletes the row. */
   const pending = useCallback(
     (): LayoutSave[] =>
       Object.values(drafts)
         .filter((d) => d.dirty)
-        .map((d) => ({
-          template: d.template,
-          screen: d.screen,
-          part: d.part,
-          items:
+        .map((d): LayoutSave => {
+          const at = { template: d.template, screen: d.screen, part: d.part, base_version: d.baseVersion };
+          if (d.revert) return { ...at, remove: true };
+          const items =
             d.part === 'drawer-menu'
               ? (d.items as DrawerMenuItem[]).map(({ screen_slug, hidden, label, icon }) => ({
                   screen_slug,
@@ -146,9 +160,9 @@ export function useChromeBuilder({ active, template, screen, onSaved, onEdit }: 
                   ...(label?.trim() ? { label: label.trim() } : {}),
                   ...(icon?.trim() ? { icon: icon.trim() } : {}),
                 }))
-              : d.items,
-          base_version: d.baseVersion,
-        })),
+              : d.items;
+          return { ...at, items };
+        }),
     [drafts],
   );
 
@@ -158,9 +172,9 @@ export function useChromeBuilder({ active, template, screen, onSaved, onEdit }: 
     await Promise.all(Object.values(drafts).filter((d) => d.dirty).map((d) => reload(d.template, d.screen, d.part)));
   }, [drafts, reload]);
 
-  /** The unsaved parts' items, for Undo (P3b). Same identity while nothing changes. */
+  /** The unsaved parts, for Undo (P3b): the draft itself, which is a new object only when it changes. */
   const edits = useMemo(
-    () => Object.fromEntries(Object.entries(drafts).filter(([, d]) => d.dirty).map(([k, d]) => [k, d.items as unknown])),
+    () => Object.fromEntries(Object.entries(drafts).filter(([, d]) => d.dirty).map(([k, d]) => [k, d as unknown])),
     [drafts],
   );
 
@@ -171,8 +185,8 @@ export function useChromeBuilder({ active, template, screen, onSaved, onEdit }: 
       Object.fromEntries(
         Object.entries(all).map(([k, d]) =>
           k in target
-            ? [k, { ...d, items: target[k] as unknown[], dirty: true }]
-            : [k, d.dirty ? { ...d, items: initialItems(d.part, d.core, d.saved), dirty: false } : d],
+            ? [k, { ...d, items: (target[k] as ChromeDraft).items, revert: (target[k] as ChromeDraft).revert, dirty: true }]
+            : [k, d.dirty ? { ...d, items: initialItems(d.part, d.core, d.saved), dirty: false, revert: false } : d],
         ),
       ),
     );
@@ -182,7 +196,7 @@ export function useChromeBuilder({ active, template, screen, onSaved, onEdit }: 
     setSaveError(null);
     setDrafts((all) =>
       Object.fromEntries(
-        Object.entries(all).map(([k, d]) => [k, d.dirty ? { ...d, items: initialItems(d.part, d.core, d.saved), dirty: false } : d]),
+        Object.entries(all).map(([k, d]) => [k, d.dirty ? { ...d, items: initialItems(d.part, d.core, d.saved), dirty: false, revert: false } : d]),
       ),
     );
   }, []);
@@ -226,7 +240,7 @@ export function useChromeBuilder({ active, template, screen, onSaved, onEdit }: 
     [drafts],
   );
 
-  return { get, loadError, saveError, dirtyCount: dirty.length, setItems, select, pending, afterSave, edits, restoreEdits, discard, reset, keepMine, overlay };
+  return { get, loadError, saveError, dirtyCount: dirty.length, setItems, select, revert, pending, afterSave, edits, restoreEdits, discard, reset, keepMine, overlay };
 }
 
 export type ChromeBuilder = ReturnType<typeof useChromeBuilder>;

@@ -580,6 +580,8 @@ export function App() {
       await saveSiteTemplate(slug);
       setTemplateSaved(true);
       setPendingTemplate(null);
+      // Unsaved changes belong to the old look; the switch was confirmed knowing that.
+      discardAll();
       setTemplateSlug(slug);
       setSelectedAppzetSlug(null);
       await pull(slug);
@@ -969,6 +971,17 @@ export function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [builder.pending, chrome.pending, builder.afterSave, chrome.afterSave, drafts, templateSlug]);
+  // Leaving with unsaved changes (closing the tab, a wp-admin link, reload) asks first (P3c).
+  useEffect(() => {
+    if (unsavedCount === 0) return;
+    const onLeave = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onLeave);
+    return () => window.removeEventListener('beforeunload', onLeave);
+  }, [unsavedCount]);
+
   const discardAll = useCallback(() => {
     setSaveAllError(null);
     builder.discard();
@@ -2509,6 +2522,11 @@ export function App() {
                 Switch your app to {templateOptions.find((t) => t.slug === pendingTemplate)?.name ?? pendingTemplate}?
               </h2>
               <p className="appza-onboard-subtitle">The builder and your next app build will use this look.</p>
+              {unsavedCount > 0 && (
+                <p className="appza-onboard-subtitle appza-switch-unsaved" role="alert">
+                  You have {unsavedCount} unsaved {unsavedCount === 1 ? 'change' : 'changes'}. Switching drops {unsavedCount === 1 ? 'it' : 'them'}; Save first to keep {unsavedCount === 1 ? 'it' : 'them'}.
+                </p>
+              )}
             </div>
             {switchProblem && <div className="appza-onboard-status appza-onboard-error">{switchProblem}</div>}
             <div className="appza-onboard-footer">
