@@ -4,6 +4,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities';
 import { ActionProvider, PlacementRenderer, type CatalogIndex } from '@appza/renderer';
 import type { AppZet, Catalog } from '@appza/schemas';
+import { ConfirmButton, revertQuestion } from './ConfirmButton';
 import {
   VISIBILITY_LABEL,
   mainKeys,
@@ -35,6 +36,8 @@ type BuilderPanelProps = {
   onKeepMine: () => void;
   onAddNew: () => void;
   onReset: () => void;
+  /** "Back to original": staged, saved from the top bar (P3c). */
+  onRevert: () => void;
 };
 
 export function BuilderPanel(props: BuilderPanelProps) {
@@ -61,7 +64,7 @@ export function BuilderPanel(props: BuilderPanelProps) {
       {props.saveError && <div className="appza-builder-error" role="alert">{props.saveError}</div>}
       <PlacementList {...props} draft={draft} appzetBySlug={appzetBySlug} />
       <Library {...props} draft={draft} appzetBySlug={appzetBySlug} />
-      <ResetRow draft={draft} onReset={props.onReset} />
+      <ResetRow draft={draft} onRevert={props.onRevert} />
     </div>
   );
 }
@@ -432,19 +435,14 @@ class ThumbBoundary extends Component<{ fallback: ReactNode; children: ReactNode
   }
 }
 
-function ResetRow({ draft, onReset }: { draft: ScreenDraft; onReset: () => void }) {
-  const [asking, setAsking] = useState(false);
+function ResetRow({ draft, onRevert }: { draft: ScreenDraft; onRevert: () => void }) {
   if (draft.baseVersion === null) return null;
   return (
     <div className="appza-builder-reset">
-      {asking ? (
-        <>
-          <span>Drop your changes to this page and go back to its original design?</span>
-          <button type="button" className="appza-btn" onClick={() => { setAsking(false); onReset(); }}>Reset</button>
-          <button type="button" className="appza-btn" onClick={() => setAsking(false)}>Cancel</button>
-        </>
+      {draft.revert ? (
+        <span>Back to the original design when you save.</span>
       ) : (
-        <button type="button" className="appza-btn" onClick={() => setAsking(true)}>Back to original</button>
+        <ConfirmButton label="Back to original" question={revertQuestion('this page')} confirmLabel="Go back" onConfirm={onRevert} />
       )}
     </div>
   );

@@ -80,10 +80,21 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
       if (!id) return;
       setSaveError(null);
       onEdit?.(`layout:${id}`);
-      setDrafts((all) => (all[id] ? { ...all, [id]: { ...all[id]!, items, dirty: true } } : all));
+      setDrafts((all) => (all[id] ? { ...all, [id]: { ...all[id]!, items, dirty: true, revert: false } } : all));
     },
     [id, onEdit],
   );
+
+  /** "Back to original" for this page as an unsaved change: shown at once, undoable, written by Save. */
+  const revert = useCallback(() => {
+    if (!id) return;
+    setSaveError(null);
+    onEdit?.(`layout:${id}`);
+    setDrafts((all) =>
+      all[id] ? { ...all, [id]: { ...all[id]!, items: all[id]!.core.map((c) => ({ key: c.key })), dirty: true, revert: true } } : all,
+    );
+    setSelectedKey(null);
+  }, [id, onEdit]);
 
   const add = useCallback(
     (slug: string, index?: number, layout?: string) => {
@@ -106,7 +117,12 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
     (): LayoutSave[] =>
       Object.values(drafts)
         .filter((d) => d.dirty)
-        .map((d) => ({ template: d.template, screen: d.screen, part: 'body', items: d.items, base_version: d.baseVersion })),
+        .map(
+          (d): LayoutSave =>
+            d.revert
+              ? { template: d.template, screen: d.screen, part: 'body', remove: true, base_version: d.baseVersion }
+              : { template: d.template, screen: d.screen, part: 'body', items: d.items, base_version: d.baseVersion },
+        ),
     [drafts],
   );
 
@@ -116,9 +132,9 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
     await Promise.all(Object.values(drafts).filter((d) => d.dirty).map((d) => reload(d.template, d.screen)));
   }, [drafts, reload]);
 
-  /** The unsaved pages' items, for Undo (P3b). Same identity while nothing changes. */
+  /** The unsaved pages, for Undo (P3b): the draft itself, which is a new object only when it changes. */
   const edits = useMemo(
-    () => Object.fromEntries(Object.entries(drafts).filter(([, d]) => d.dirty).map(([k, d]) => [k, d.items as unknown])),
+    () => Object.fromEntries(Object.entries(drafts).filter(([, d]) => d.dirty).map(([k, d]) => [k, d as unknown])),
     [drafts],
   );
 
@@ -129,8 +145,8 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
       Object.fromEntries(
         Object.entries(all).map(([k, d]) =>
           k in target
-            ? [k, { ...d, items: target[k] as LayoutItem[], dirty: true }]
-            : [k, d.dirty ? { ...d, items: d.saved ?? d.core.map((c) => ({ key: c.key })), dirty: false } : d],
+            ? [k, { ...d, items: (target[k] as ScreenDraft).items, revert: (target[k] as ScreenDraft).revert, dirty: true }]
+            : [k, d.dirty ? { ...d, items: d.saved ?? d.core.map((c) => ({ key: c.key })), dirty: false, revert: false } : d],
         ),
       ),
     );
@@ -140,7 +156,7 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
     setSaveError(null);
     setDrafts((all) =>
       Object.fromEntries(
-        Object.entries(all).map(([k, d]) => [k, d.dirty ? { ...d, items: d.saved ?? d.core.map((c) => ({ key: c.key })), dirty: false } : d]),
+        Object.entries(all).map(([k, d]) => [k, d.dirty ? { ...d, items: d.saved ?? d.core.map((c) => ({ key: c.key })), dirty: false, revert: false } : d]),
       ),
     );
   }, []);
@@ -295,6 +311,7 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
     afterSave,
     edits,
     restoreEdits,
+    revert,
     discard,
     keepMine,
     addNew,

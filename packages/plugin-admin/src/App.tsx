@@ -2029,6 +2029,7 @@ export function App() {
                 onKeepMine={() => void builder.keepMine()}
                 onAddNew={builder.addNew}
                 onReset={() => void builder.reset()}
+                onRevert={builder.revert}
               />
             ) : undefined
           }

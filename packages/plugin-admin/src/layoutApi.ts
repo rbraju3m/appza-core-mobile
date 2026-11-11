@@ -31,6 +31,8 @@ export type ScreenDraft = {
   saved: LayoutItem[] | null;
   items: LayoutItem[];
   dirty: boolean;
+  /** "Back to original" is staged: Save deletes the site's row (P3c). `items` then shows Core's. */
+  revert?: boolean;
 };
 
 export const VISIBILITY_LABEL: Record<Visibility, string> = {
