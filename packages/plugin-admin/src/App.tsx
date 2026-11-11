@@ -243,6 +243,7 @@ import { GlobalPanel } from './GlobalPanel';
 import { patchItem, saveBuilder } from './layoutApi';
 import { useChromeBuilder } from './useChromeBuilder';
 import { draftHandle, hasSavedRow, useCustomizationDrafts } from './useCustomizationDrafts';
+import { useBuilderHistory, useUndoKeys } from './useBuilderHistory';
 import { mainKeys, rowsOf } from './layoutApi';
 import { OverridesPanel } from './OverridesPanel';
 import { designFor, partHighlight, partsForPick, pieceLabel, useDesignIndex, type DesignFocus } from './DesignTab';
@@ -482,7 +483,8 @@ export function App() {
     }
   }, [auth]);
   // Unsaved block settings, piece layouts and theme, drawn over the saved ones; the top bar saves them (P3).
-  const drafts = useCustomizationDrafts();
+  const history = useBuilderHistory();
+  const drafts = useCustomizationDrafts(history.record);
   const [savingAll, setSavingAll] = useState(false);
   const [saveAllError, setSaveAllError] = useState<string | null>(null);
 
@@ -872,13 +874,25 @@ export function App() {
     screen: currentScreen?.app_map_screen_slug ?? null,
     appzetBySlug,
     onSaved: () => pull(templateSlug, true),
+    onEdit: history.record,
   });
   const chrome = useChromeBuilder({
     active: uiMode !== 'app' && builderTab === 'global',
     template: catalog?.template?.slug ?? templateSlug,
     screen: currentScreen?.app_map_screen_slug ?? null,
     onSaved: () => pull(templateSlug, true),
+    onEdit: history.record,
   });
+  // Undo / Redo over all three stores (P3b).
+  history.bind({
+    snapshot: () => ({ layout: builder.edits, chrome: chrome.edits, custom: drafts.all }),
+    restore: (s) => {
+      builder.restoreEdits(s.layout ?? {});
+      chrome.restoreEdits(s.chrome ?? {});
+      drafts.restore(s.custom ?? {});
+    },
+  });
+  useUndoKeys(history, true);
   useEffect(() => {
     if (!builder.removed) return;
     const t = window.setTimeout(builder.dismissRemoved, 5000);
@@ -946,6 +960,8 @@ export function App() {
       await Promise.all([builder.afterSave(), chrome.afterSave(), pull(templateSlug, true)]);
       // After the pull: the saved values are in place, so the phone doesn't flash the old ones.
       drafts.discard();
+      // No Undo past a Save (owner, 2026-11-11).
+      history.clear();
     } catch (e) {
       setSaveAllError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -958,7 +974,8 @@ export function App() {
     builder.discard();
     chrome.discard();
     drafts.discard();
-  }, [builder.discard, chrome.discard, drafts.discard]);
+    history.clear();
+  }, [builder.discard, chrome.discard, drafts.discard, history.clear]);
 
   useEffect(() => {
     if (uiMode !== 'drag' || !builder.selectedKey) return;
@@ -1652,6 +1669,10 @@ export function App() {
         saving={savingAll}
         onSaveLayout={() => void saveAll()}
         onDiscardLayout={discardAll}
+        canUndo={history.canUndo}
+        canRedo={history.canRedo}
+        onUndo={history.undo}
+        onRedo={history.redo}
         onUiModeChange={(m) => {
           setUiMode(m);
           if (m === 'drag') {

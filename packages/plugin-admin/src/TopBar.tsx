@@ -43,6 +43,10 @@ type TopBarProps = {
   saving: boolean;
   onSaveLayout: () => void;
   onDiscardLayout: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
 };
 
 const UI_MODES: Array<{ value: UiMode; label: string; title: string }> = [
@@ -99,6 +103,10 @@ export function TopBar({
   saving,
   onSaveLayout,
   onDiscardLayout,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }: TopBarProps) {
   const [advanced, setAdvanced] = useAdvanced();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -219,15 +227,23 @@ export function TopBar({
           </div>
         </div>
 
-        {(dirtyCount > 0 || saving) && (
-          <div className="appza-topbar-layout" role="group" aria-label="Unsaved layout">
-            <span className="appza-topbar-unsaved" title="Layout changes not saved yet">
-              ● {dirtyCount}<span className="appza-topbar-unsaved-word"> unsaved</span>
-            </span>
-            <button type="button" className="appza-btn" onClick={onDiscardLayout} disabled={saving}>
+        {(dirtyCount > 0 || saving || canRedo) && (
+          <div className="appza-topbar-layout" role="group" aria-label="Unsaved changes">
+            {dirtyCount > 0 && (
+              <span className="appza-topbar-unsaved" title="Changes not saved yet">
+                ● {dirtyCount}<span className="appza-topbar-unsaved-word"> unsaved</span>
+              </span>
+            )}
+            <button type="button" className="appza-btn appza-topbar-history" onClick={onUndo} disabled={!canUndo || saving} title="Undo (Ctrl+Z)" aria-label="Undo">
+              ↶
+            </button>
+            <button type="button" className="appza-btn appza-topbar-history" onClick={onRedo} disabled={!canRedo || saving} title="Redo (Ctrl+Shift+Z)" aria-label="Redo">
+              ↷
+            </button>
+            <button type="button" className="appza-btn" onClick={onDiscardLayout} disabled={saving || dirtyCount === 0}>
               Discard
             </button>
-            <button type="button" className="appza-btn appza-btn-primary" onClick={onSaveLayout} disabled={saving}>
+            <button type="button" className="appza-btn appza-btn-primary" onClick={onSaveLayout} disabled={saving || dirtyCount === 0}>
               {saving ? 'Saving…' : 'Save'}
             </button>
           </div>

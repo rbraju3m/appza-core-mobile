@@ -3343,3 +3343,12 @@ body {
   gap: 12px;
   justify-content: space-between;
 }
+
+/* Undo / Redo in the unsaved group (P3b): icon-sized, so the top bar stays one row. */
+.appza-topbar-history {
+  min-width: 0;
+  padding-left: 8px;
+  padding-right: 8px;
+  font-size: 16px;
+  line-height: 1;
+}

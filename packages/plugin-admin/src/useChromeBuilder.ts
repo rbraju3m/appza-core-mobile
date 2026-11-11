@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { isRecord, screenLayoutKey, type DrawerMenuItem } from '@appza/renderer';
 import { loadPart, newSiteKey, resetPart, savePart, type LayoutPart, type LayoutSave } from './layoutApi';
 
@@ -61,9 +61,11 @@ type Options = {
   template: string;
   screen: string | null;
   onSaved: () => void;
+  /** Called just before a user's edit changes a part (Undo's step, P3b). */
+  onEdit?: (thing: string) => void;
 };
 
-export function useChromeBuilder({ active, template, screen, onSaved }: Options) {
+export function useChromeBuilder({ active, template, screen, onSaved, onEdit }: Options) {
   const [drafts, setDrafts] = useState<Record<string, ChromeDraft>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -105,11 +107,15 @@ export function useChromeBuilder({ active, template, screen, onSaved }: Options)
     [drafts, template],
   );
 
-  const setItems = useCallback((d: ChromeDraft, items: unknown[]) => {
-    setSaveError(null);
-    const id = chromeId(d.template, d.screen, d.part);
-    setDrafts((all) => (all[id] ? { ...all, [id]: { ...all[id]!, items, dirty: true } } : all));
-  }, []);
+  const setItems = useCallback(
+    (d: ChromeDraft, items: unknown[]) => {
+      setSaveError(null);
+      const id = chromeId(d.template, d.screen, d.part);
+      onEdit?.(`chrome:${id}`);
+      setDrafts((all) => (all[id] ? { ...all, [id]: { ...all[id]!, items, dirty: true } } : all));
+    },
+    [onEdit],
+  );
 
   /** A slug Core placed keeps Core's key; anything else is the site's own row. Null empties the list. */
   const select = useCallback(
@@ -151,6 +157,26 @@ export function useChromeBuilder({ active, template, screen, onSaved }: Options)
     setSaveError(null);
     await Promise.all(Object.values(drafts).filter((d) => d.dirty).map((d) => reload(d.template, d.screen, d.part)));
   }, [drafts, reload]);
+
+  /** The unsaved parts' items, for Undo (P3b). Same identity while nothing changes. */
+  const edits = useMemo(
+    () => Object.fromEntries(Object.entries(drafts).filter(([, d]) => d.dirty).map(([k, d]) => [k, d.items as unknown])),
+    [drafts],
+  );
+
+  /** Puts the parts back as `edits` had them; a part not in it goes back to what is saved. */
+  const restoreEdits = useCallback((target: Record<string, unknown>) => {
+    setSaveError(null);
+    setDrafts((all) =>
+      Object.fromEntries(
+        Object.entries(all).map(([k, d]) =>
+          k in target
+            ? [k, { ...d, items: target[k] as unknown[], dirty: true }]
+            : [k, d.dirty ? { ...d, items: initialItems(d.part, d.core, d.saved), dirty: false } : d],
+        ),
+      ),
+    );
+  }, []);
 
   const discard = useCallback(() => {
     setSaveError(null);
@@ -200,7 +226,7 @@ export function useChromeBuilder({ active, template, screen, onSaved }: Options)
     [drafts],
   );
 
-  return { get, loadError, saveError, dirtyCount: dirty.length, setItems, select, pending, afterSave, discard, reset, keepMine, overlay };
+  return { get, loadError, saveError, dirtyCount: dirty.length, setItems, select, pending, afterSave, edits, restoreEdits, discard, reset, keepMine, overlay };
 }
 
 export type ChromeBuilder = ReturnType<typeof useChromeBuilder>;

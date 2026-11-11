@@ -48,7 +48,8 @@ export function hasSavedRow(customizations: unknown, t: CustomizationTarget): bo
   return isRecord(target) && t.target_column in target;
 }
 
-export function useCustomizationDrafts() {
+/** `onEdit` is called just before a user's edit changes a draft (Undo's step, P3b). */
+export function useCustomizationDrafts(onEdit?: (thing: string) => void) {
   const [drafts, setDrafts] = useState<Record<string, CustomizationDraft>>({});
 
   const stateOf = useCallback(
@@ -62,27 +63,33 @@ export function useCustomizationDrafts() {
   /** Setting the value a draft already has changes nothing (no re-render, no loop with the panel). */
   const set = useCallback((t: CustomizationTarget, value: unknown) => {
     const id = idOf(t);
+    onEdit?.(`custom:${id}`);
     setDrafts((all) => {
       const prev = all[id];
       if (prev && !prev.remove && stableJson(prev.value) === stableJson(value)) return all;
       return { ...all, [id]: { ...targetOf(t), value } };
     });
-  }, []);
+  }, [onEdit]);
 
-  const remove = useCallback((t: CustomizationTarget) => {
-    const id = idOf(t);
-    setDrafts((all) => (all[id]?.remove ? all : { ...all, [id]: { ...targetOf(t), remove: true } }));
-  }, []);
+  const remove = useCallback(
+    (t: CustomizationTarget) => {
+      const id = idOf(t);
+      onEdit?.(`custom:${id}`);
+      setDrafts((all) => (all[id]?.remove ? all : { ...all, [id]: { ...targetOf(t), remove: true } }));
+    },
+    [onEdit],
+  );
 
   const clear = useCallback((t: CustomizationTarget) => {
     const id = idOf(t);
+    onEdit?.(`custom:${id}`);
     setDrafts((all) => {
       if (!(id in all)) return all;
       const next = { ...all };
       delete next[id];
       return next;
     });
-  }, []);
+  }, [onEdit]);
 
   const discard = useCallback(() => setDrafts((all) => (Object.keys(all).length ? {} : all)), []);
 
@@ -116,10 +123,13 @@ export function useCustomizationDrafts() {
     [drafts],
   );
 
+  /** Undo (P3b): every draft as it is, and back to a set of them. */
+  const restore = useCallback((all: Record<string, unknown>) => setDrafts(all as Record<string, CustomizationDraft>), []);
+
   const count = Object.keys(drafts).length;
   return useMemo(
-    () => ({ count, stateOf, set, remove, clear, discard, overlay, payload }),
-    [count, stateOf, set, remove, clear, discard, overlay, payload],
+    () => ({ all: drafts as Record<string, unknown>, count, stateOf, set, remove, clear, discard, restore, overlay, payload }),
+    [drafts, count, stateOf, set, remove, clear, discard, restore, overlay, payload],
   );
 }
 

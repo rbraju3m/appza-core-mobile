@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   closestCenter,
   pointerWithin,
@@ -33,11 +33,13 @@ type Options = {
   appzetBySlug: Map<string, AppZet>;
   /** Re-pull the bootstrap after a write so every mode shows the saved layout. */
   onSaved: () => void;
+  /** Called just before a user's edit changes a page (Undo's step, P3b). */
+  onEdit?: (thing: string) => void;
 };
 
 const deviceViewport = () => document.querySelector('.appza-center .appza-device-viewport');
 
-export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSaved }: Options) {
+export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSaved, onEdit }: Options) {
   const [drafts, setDrafts] = useState<Record<string, ScreenDraft>>({});
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -77,9 +79,10 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
     (items: LayoutItem[]) => {
       if (!id) return;
       setSaveError(null);
+      onEdit?.(`layout:${id}`);
       setDrafts((all) => (all[id] ? { ...all, [id]: { ...all[id]!, items, dirty: true } } : all));
     },
-    [id],
+    [id, onEdit],
   );
 
   const add = useCallback(
@@ -112,6 +115,26 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
     setSaveError(null);
     await Promise.all(Object.values(drafts).filter((d) => d.dirty).map((d) => reload(d.template, d.screen)));
   }, [drafts, reload]);
+
+  /** The unsaved pages' items, for Undo (P3b). Same identity while nothing changes. */
+  const edits = useMemo(
+    () => Object.fromEntries(Object.entries(drafts).filter(([, d]) => d.dirty).map(([k, d]) => [k, d.items as unknown])),
+    [drafts],
+  );
+
+  /** Puts the pages back as `edits` had them; a page not in it goes back to what is saved. */
+  const restoreEdits = useCallback((target: Record<string, unknown>) => {
+    setSaveError(null);
+    setDrafts((all) =>
+      Object.fromEntries(
+        Object.entries(all).map(([k, d]) =>
+          k in target
+            ? [k, { ...d, items: target[k] as LayoutItem[], dirty: true }]
+            : [k, d.dirty ? { ...d, items: d.saved ?? d.core.map((c) => ({ key: c.key })), dirty: false } : d],
+        ),
+      ),
+    );
+  }, []);
 
   const discard = useCallback(() => {
     setSaveError(null);
@@ -270,6 +293,8 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
     dismissRemoved,
     pending,
     afterSave,
+    edits,
+    restoreEdits,
     discard,
     keepMine,
     addNew,
