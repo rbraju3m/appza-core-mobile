@@ -3324,6 +3324,51 @@ body {
     margin-right: 0;
   }
 }
+/* With Save / Discard in the bar there is less room: the extras fold into ⋯ from 1900px (P1a). */
+@container (max-width: 1900px) {
+  .appza-topbar[data-dirty='true'] .appza-topbar-viewas-label {
+    display: none;
+  }
+  .appza-topbar[data-dirty='true'] .appza-topbar-extras-wrap {
+    display: block;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .appza-topbar[data-dirty='true'] .appza-topbar-more-btn {
+    display: inline-block;
+  }
+  .appza-topbar[data-dirty='true'] .appza-topbar-extras {
+    display: none;
+  }
+  .appza-topbar[data-dirty='true'] .appza-topbar-extras[data-open='true'] {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 1000;
+    padding: 12px;
+    background: var(--appza-bg);
+    border: 1px solid var(--appza-border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  }
+  /* In the drop-down there is room for the words again. */
+  .appza-topbar[data-dirty='true'] .appza-topbar-extras .appza-topbar-mode-label,
+  .appza-topbar[data-dirty='true'] .appza-topbar-extras .appza-topbar-template > span {
+    display: inline;
+    min-width: 64px;
+  }
+  .appza-topbar[data-dirty='true'] .appza-topbar-extras .appza-topbar-template select {
+    width: 200px;
+  }
+  .appza-topbar[data-dirty='true'] .appza-topbar-extras .appza-topbar-mode,
+  .appza-topbar[data-dirty='true'] .appza-topbar-extras .appza-topbar-template {
+    margin-right: 0;
+  }
+}
 .appza-center[data-device='tablet'] .appza-device-frame {
   width: 788px;
   height: 1044px;
@@ -3372,4 +3417,185 @@ body {
 .appza-switch-unsaved {
   color: #991b1b;
   font-weight: 600;
+}
+
+/* Full-screen editing (P1a): the builder takes the whole window, WP admin chrome hidden. */
+.appza-topbar-fullscreen-btn {
+  min-width: 0;
+  padding: 4px 8px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+html.appza-fullscreen #wpadminbar,
+html.appza-fullscreen #adminmenumain,
+html.appza-fullscreen #wpfooter {
+  display: none !important;
+}
+html.appza-fullscreen .appza-core-app-host {
+  top: 0 !important;
+  left: 0 !important;
+  z-index: 100000;
+}
+
+/* Tutorial video (P1b). */
+.appza-video-frame {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #000;
+}
+.appza-video-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* "How to get your app" (P1e): the opening modal's first page, v1's two columns. */
+.appza-demo-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  padding: 8px 20px 24px;
+}
+.appza-demo-body[data-video='true'] {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+}
+.appza-demo-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--appza-border);
+  border-radius: 10px;
+  min-width: 0;
+}
+.appza-demo-panel .appza-video-frame {
+  width: 100%;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.appza-demo-title {
+  align-self: flex-start;
+  margin: 0;
+  font-size: 1rem;
+}
+.appza-demo-qrs {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+}
+.appza-demo-store {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+.appza-demo-qr {
+  width: 180px;
+  height: 180px;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid var(--appza-border);
+  border-radius: 8px;
+}
+.appza-demo-qr img,
+.appza-demo-qr-blank {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.appza-demo-hint,
+.appza-demo-soon {
+  margin: 0;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--appza-text-muted, #6b7280);
+  max-width: 380px;
+}
+.appza-demo-soon {
+  padding: 40px 0;
+}
+.appza-demo-address {
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--appza-bg-muted, #f3f4f6);
+  font-size: 0.875rem;
+  word-break: break-all;
+}
+
+/* The opening modal's first page (P1e). */
+.appza-onboard-card-intro {
+  width: min(1040px, calc(100% - 32px));
+}
+.appza-onboard-card-intro .appza-demo-body {
+  padding: 0;
+}
+.appza-onboard-dontshow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+  font-size: 0.875rem;
+  color: var(--appza-text-muted, #6b7280);
+  cursor: pointer;
+}
+
+/* The bar folded itself (TopBar useOverflowFold): the 1600px rules, whatever the width. */
+.appza-topbar[data-fold] .appza-topbar-viewas-label {
+  display: none;
+}
+.appza-topbar[data-fold] .appza-topbar-extras-wrap {
+  display: block;
+  position: relative;
+  flex-shrink: 0;
+}
+.appza-topbar[data-fold] .appza-topbar-more-btn {
+  display: inline-block;
+}
+.appza-topbar[data-fold] .appza-topbar-extras {
+  display: none;
+}
+.appza-topbar[data-fold] .appza-topbar-extras[data-open='true'] {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 1000;
+  padding: 12px;
+  background: var(--appza-bg);
+  border: 1px solid var(--appza-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+/* In the drop-down there is room for the words again. */
+.appza-topbar[data-fold] .appza-topbar-extras .appza-topbar-mode-label,
+.appza-topbar[data-fold] .appza-topbar-extras .appza-topbar-template > span {
+  display: inline;
+  min-width: 64px;
+}
+.appza-topbar[data-fold] .appza-topbar-extras .appza-topbar-template select {
+  width: 200px;
+}
+.appza-topbar[data-fold] .appza-topbar-extras .appza-topbar-mode,
+.appza-topbar[data-fold] .appza-topbar-extras .appza-topbar-template {
+  margin-right: 0;
+}
+.appza-topbar[data-fold='2'] .appza-topbar-logo {
+  display: none;
+}
+.appza-topbar .appza-btn {
+  white-space: nowrap;
+}
+.appza-topbar[data-fold='2'] .appza-topbar-screen {
+  flex-basis: 100px;
+  margin-left: 0;
 }

@@ -200,6 +200,7 @@ import {
 import { drawerMenuItems, screenAppbarPlacements, screenPlacements } from '@appza/renderer';
 import { setAuthHeaderProvider, setExternalOpener, openExternal, useBackDismiss, dismissTopOverlay } from '@appza/renderer';
 import { App as CapApp } from '@capacitor/app';
+import { SITE_URL, TEMPLATE } from './site';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { SecureStorage } from '@aparajita/capacitor-secure-storage';
@@ -210,8 +211,6 @@ import {
   type TemplateScreen,
 } from '@appza/schemas';
 
-const SITE_URL = (import.meta.env.VITE_APPZA_SITE_URL as string | undefined) ?? (import.meta.env.DEV ? 'http://tutor-lms-mobile.local' : '');
-const TEMPLATE = (import.meta.env.VITE_APPZA_TEMPLATE as string | undefined) ?? 'fluent-community-default';
 
 type FetchState =
   | { kind: 'loading' }

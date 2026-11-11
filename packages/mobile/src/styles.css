@@ -214,3 +214,99 @@ body {
 .appza-pull-icon.is-spinning {
   animation: appza-spin 0.6s linear infinite;
 }
+
+/* Demo build (P1e): connect screen, the Demo tab, its sheet. */
+.appza-demo-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+  padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
+  background: #fff;
+  color: #111827;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+.appza-demo-heading {
+  margin: 0;
+  font-size: 1.6rem;
+}
+.appza-demo-text {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #4b5563;
+}
+.appza-demo-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.appza-demo-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.appza-demo-input {
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+.appza-demo-error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+.appza-demo-primary,
+.appza-demo-ghost {
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.appza-demo-primary {
+  border: 0;
+  background: #f97316;
+  color: #fff;
+}
+.appza-demo-primary:disabled {
+  opacity: 0.5;
+}
+.appza-demo-ghost {
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #111827;
+}
+.appza-demo-badge {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  z-index: 99990;
+  padding: 10px 6px;
+  border: 0;
+  border-radius: 8px 0 0 8px;
+  background: rgba(17, 24, 39, 0.75);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  writing-mode: vertical-rl;
+}
+.appza-demo-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99991;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.45);
+}
+.appza-demo-sheet {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  border-radius: 16px 16px 0 0;
+  background: #fff;
+  color: #111827;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}

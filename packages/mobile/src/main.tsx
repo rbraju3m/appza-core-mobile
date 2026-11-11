@@ -10,10 +10,10 @@ import '@appza/renderer/styles.css';
 import './styles.css';
 
 import { App, loadStoredAuth } from './App';
+import { DemoShell } from './DemoShell';
+import { IS_DEMO, SITE_URL } from './site';
 
 // Catalog endpoints are root-relative; on Android the origin is https://localhost, so /wp-json would hit Capacitor's static server and get index.html.
-const SITE_URL =
-  (import.meta.env.VITE_APPZA_SITE_URL as string | undefined) ?? (import.meta.env.DEV ? 'http://tutor-lms-mobile.local' : '');
 // Tunnel workarounds (loca.lt header, img→blob, sw.js): dev, or a build with VITE_APPZA_TUNNEL_SHIMS=1.
 const TUNNEL_SHIMS = import.meta.env.DEV || (import.meta.env.VITE_APPZA_TUNNEL_SHIMS as string | undefined) === '1';
 {
@@ -203,7 +203,7 @@ if (!container) throw new Error('Root container #root not found');
 void loadStoredAuth().finally(() => {
   createRoot(container).render(
     <StrictMode>
-      <App />
+      {IS_DEMO ? <DemoShell /> : <App />}
     </StrictMode>,
   );
 });

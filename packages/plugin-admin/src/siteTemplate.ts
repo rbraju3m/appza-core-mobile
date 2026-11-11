@@ -43,6 +43,10 @@ export function saveSiteTemplate(slug: string): Promise<{ template: string; save
   return call(wp().endpoints.siteTemplate, 'Saving your app\'s design', { method: 'POST', body: JSON.stringify({ template: slug }) });
 }
 
+export async function saveIntroHidden(hidden: boolean): Promise<void> {
+  await call(wp().endpoints.introHidden, 'Saving your choice', { method: 'POST', body: JSON.stringify({ hidden }) });
+}
+
 export async function markTourSeen(): Promise<void> {
   await call(wp().endpoints.tourSeen, 'Saving the tour', { method: 'POST' });
 }

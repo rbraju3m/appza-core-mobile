@@ -5,12 +5,16 @@ import {
   loadTemplateCards,
   readConnection,
   saveConnection,
+  saveIntroHidden,
   saveSiteTemplate,
   syncTemplate,
   type CoreConnection,
   type TemplateCard,
 } from './siteTemplate';
+import { setCoreExtras } from './coreExtras';
+import { HowToGetYourApp } from './HowToGetYourApp';
 
+// P1e: opens on "How to get your app" (every visit unless this user hid it), then the set-up steps.
 // Friendly v2 P2: the first run. Connect (only when APPZA can't be reached) → your platform → pick a look; the tour
 // follows in the builder. The "Apps" pill reopens it; there, choosing another look asks first (owner, C).
 
@@ -25,11 +29,13 @@ type SourceIntegration = {
   is_disable: boolean;
 };
 
-type Step = 'loading' | 'connect' | 'platform' | 'look' | 'finishing';
+type Step = 'intro' | 'loading' | 'connect' | 'platform' | 'look' | 'finishing';
 
 type Props = {
   /** True when the site has never chosen a platform or a look. */
   firstRun: boolean;
+  /** 'intro' opens on "How to get your app"; 'setup' goes straight to the set-up steps. */
+  startAt?: 'intro' | 'setup';
   /** The template the builder shows now. */
   currentTemplate: string;
   onClose: () => void;
@@ -37,8 +43,14 @@ type Props = {
   onFinished: (template: string) => void;
 };
 
-export function OnboardingModal({ firstRun, currentTemplate, onClose, onFinished }: Props) {
-  const [step, setStep] = useState<Step>('loading');
+export function OnboardingModal({ firstRun, startAt = 'intro', currentTemplate, onClose, onFinished }: Props) {
+  const [step, setStep] = useState<Step>(startAt === 'intro' ? 'intro' : 'loading');
+  // Where Next on the intro page goes, once the platforms have loaded.
+  const [afterIntro, setAfterIntro] = useState<'platform' | 'connect' | null>(null);
+  const [introHidden, setIntroHidden] = useState(() => {
+    const v = window.appzaCoreConfig?.introHidden;
+    return v === true || v === '1';
+  });
   const [rows, setRows] = useState<SourceIntegration[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [cards, setCards] = useState<TemplateCard[]>([]);
@@ -67,12 +79,13 @@ export function OnboardingModal({ firstRun, currentTemplate, onClose, onFinished
     const listBody = await listRes.json();
     const activeBody = await activeRes.json();
     setRows(Array.isArray(listBody?.source_integrations) ? listBody.source_integrations : []);
+    setCoreExtras(listBody);
     setSelected(new Set(Array.isArray(activeBody?.slugs) ? (activeBody.slugs as string[]) : []));
     return true;
   }
 
   async function openConnect() {
-    setStep('connect');
+    setStep((s) => (s === 'intro' ? s : 'connect'));
     try {
       const c = await readConnection();
       setConnection(c);
@@ -88,12 +101,14 @@ export function OnboardingModal({ firstRun, currentTemplate, onClose, onFinished
       try {
         const ok = await loadPlatforms();
         if (cancelled) return;
-        if (ok) setStep('platform');
+        setAfterIntro(ok ? 'platform' : 'connect');
+        if (ok) setStep((s) => (s === 'intro' ? s : 'platform'));
         else await openConnect();
       } catch (err) {
         if (!cancelled) {
           setProblem(caughtProblem(err, 'Loading the apps you can build'));
-          setStep('platform');
+          setAfterIntro('platform');
+          setStep((s) => (s === 'intro' ? s : 'platform'));
         }
       }
     })();
@@ -174,25 +189,37 @@ export function OnboardingModal({ firstRun, currentTemplate, onClose, onFinished
     }
   }
 
+  function toggleIntroHidden(hidden: boolean) {
+    setIntroHidden(hidden);
+    if (window.appzaCoreConfig) window.appzaCoreConfig.introHidden = hidden;
+    saveIntroHidden(hidden).catch((err) => {
+      setIntroHidden(!hidden);
+      setProblem(caughtProblem(err, 'Saving your choice'));
+    });
+  }
+
   const pickedName = cards.find((t) => t.slug === picked)?.name ?? picked ?? '';
   const onLook = step === 'look' || step === 'finishing';
 
   return (
     <div className="appza-onboard-overlay" role="dialog" aria-modal="true" aria-label="Set up your app">
-      <div className="appza-onboard-card appza-onboard-card-wide">
+      <div className={`appza-onboard-card appza-onboard-card-wide${step === 'intro' ? ' appza-onboard-card-intro' : ''}`}>
         <div className="appza-onboard-header">
-          {(step === 'platform' || onLook) && (
+          {(step === 'intro' || step === 'platform' || onLook) && (
             <ol className="appza-onboard-steps" aria-label="Steps">
-              <li data-state={onLook ? 'done' : 'now'}>Your platform</li>
+              <li data-state={step === 'intro' ? 'now' : 'done'}>How to get your app</li>
+              <li data-state={onLook ? 'done' : step === 'intro' ? 'next' : 'now'}>Your platform</li>
               <li data-state={onLook ? 'now' : 'next'}>Pick a look</li>
               <li data-state="next">Quick tour</li>
             </ol>
           )}
           <h2 className="appza-onboard-title">
-            {step === 'connect' ? 'Connect to APPZA' : onLook ? 'Pick a look for your app' : firstRun ? "Let's build your app" : 'Your platform'}
+            {step === 'intro' ? 'How to get your app' : step === 'connect' ? 'Connect to APPZA' : onLook ? 'Pick a look for your app' : firstRun ? "Let's build your app" : 'Your platform'}
           </h2>
           <p className="appza-onboard-subtitle">
-            {step === 'connect'
+            {step === 'intro'
+              ? 'Try your app on your phone with the APPZA demo app, then set it up in a few steps.'
+              : step === 'connect'
               ? "This site could not reach APPZA, where your app's designs come from. Check the address below."
               : onLook
               ? 'You can change any colour, text or setting afterwards.'
@@ -201,6 +228,7 @@ export function OnboardingModal({ firstRun, currentTemplate, onClose, onFinished
         </div>
 
         <div className="appza-onboard-body">
+          {step === 'intro' && <HowToGetYourApp />}
           {step === 'loading' && <div className="appza-onboard-status">Loading…</div>}
 
           {step === 'connect' && (
@@ -299,6 +327,17 @@ export function OnboardingModal({ firstRun, currentTemplate, onClose, onFinished
         {problem && <div className="appza-onboard-status appza-onboard-error">{problem}</div>}
 
         <div className="appza-onboard-footer">
+          {step === 'intro' && (
+            <label className="appza-onboard-dontshow">
+              <input type="checkbox" checked={introHidden} onChange={(e) => toggleIntroHidden(e.target.checked)} />
+              Don’t show this again
+            </label>
+          )}
+          {step === 'platform' && startAt === 'intro' && (
+            <button type="button" className="appza-onboard-btn appza-onboard-btn-ghost" onClick={() => setStep('intro')} disabled={busy}>
+              Back
+            </button>
+          )}
           {step === 'look' ? (
             <button type="button" className="appza-onboard-btn appza-onboard-btn-ghost" onClick={() => setStep('platform')} disabled={busy}>
               Back
@@ -306,6 +345,17 @@ export function OnboardingModal({ firstRun, currentTemplate, onClose, onFinished
           ) : (
             <button type="button" className="appza-onboard-btn appza-onboard-btn-ghost" onClick={onClose} disabled={busy}>
               {firstRun ? 'Later' : 'Close'}
+            </button>
+          )}
+          {step === 'intro' && (
+            <button
+              type="button"
+              className="appza-onboard-btn appza-onboard-btn-primary"
+              onClick={() => afterIntro && setStep(afterIntro)}
+              disabled={!afterIntro}
+              autoFocus
+            >
+              {afterIntro ? 'Next' : 'Loading…'}
             </button>
           )}
           {step === 'connect' && (

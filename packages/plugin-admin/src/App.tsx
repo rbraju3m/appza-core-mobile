@@ -290,6 +290,8 @@ export function App() {
     window.appzaCoreConfig?.defaultTemplate ?? DEFAULT_TEMPLATE,
   );
   const [onboardingOpen, setOnboardingOpen] = useState(false);
+  // Apps and the opening modal start on "How to get your app"; the set-up prompts go straight to the steps.
+  const [onboardingStart, setOnboardingStart] = useState<'intro' | 'setup'>('intro');
   // Friendly v2 P2: first run. null = not checked yet; the wizard opens when the site has no platform.
   const [platformCount, setPlatformCount] = useState<number | null>(null);
   const [templateSaved, setTemplateSaved] = useState(() => configFlag(window.appzaCoreConfig?.templateSaved));
@@ -534,7 +536,10 @@ export function App() {
         if (cancelled) return;
         const slugs = Array.isArray(body?.slugs) ? body.slugs : [];
         setPlatformCount(slugs.length);
-        if (slugs.length === 0) setOnboardingOpen(true);
+        if (slugs.length === 0 || !configFlag(window.appzaCoreConfig?.introHidden)) {
+          setOnboardingStart('intro');
+          setOnboardingOpen(true);
+        }
       })
       .catch(() => {
         /* ignore — wizard can still be opened manually */
@@ -2081,7 +2086,7 @@ export function App() {
                 <button type="button" className="appza-btn appza-btn-primary" onClick={() => void getDesignsFirstTime(templateSlug)}>
                   Try again
                 </button>
-                <button type="button" className="appza-btn" onClick={() => setOnboardingOpen(true)}>
+                <button type="button" className="appza-btn" onClick={() => { setOnboardingStart('setup'); setOnboardingOpen(true); }}>
                   Check connection
                 </button>
               </div>
@@ -2090,7 +2095,7 @@ export function App() {
             <div className="appza-first-run">
               <p>Choose your platform and a look to see your app here.</p>
               <div className="appza-first-run-actions">
-                <button type="button" className="appza-btn appza-btn-primary" onClick={() => setOnboardingOpen(true)}>
+                <button type="button" className="appza-btn appza-btn-primary" onClick={() => { setOnboardingStart('setup'); setOnboardingOpen(true); }}>
                   Set up your app
                 </button>
               </div>
@@ -2481,7 +2486,10 @@ export function App() {
         <button
           type="button"
           className="appza-onboard-reopen"
-          onClick={() => setOnboardingOpen(true)}
+          onClick={() => {
+            setOnboardingStart('intro');
+            setOnboardingOpen(true);
+          }}
           title="Select App"
         >
           Apps
@@ -2491,6 +2499,7 @@ export function App() {
       {onboardingOpen && (
         <OnboardingModal
           firstRun={!platformCount && !templateSaved}
+          startAt={onboardingStart}
           currentTemplate={templateSlug}
           onClose={() => {
             setOnboardingOpen(false);

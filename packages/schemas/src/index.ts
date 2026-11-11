@@ -15,5 +15,6 @@ export {
 } from './catalog';
 export { LayoutStyleSchema, type LayoutStyle } from './layoutStyle';
 export { type AppzaCoreConfig, type PreviewMode } from './coreConfig';
+export { DEMO_CONNECT_SCHEME, demoConnectLink, parseSiteAddress } from './demoConnect';
 // Side-effect import: the global `Window.appzaCoreConfig` augmentation.
 import './augmentations';

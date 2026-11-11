@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { AppMap, TemplateScreen } from '@appza/schemas';
 import type { PreviewMode, UiMode } from './App';
 import { useAdvanced } from './advanced';
@@ -72,6 +72,68 @@ const PREVIEW_MODES: Array<{ value: PreviewMode; label: string; title: string }>
   { value: 'real', label: 'Real', title: 'Only your site\'s real content; empty where there is none.' },
 ];
 
+// The class hides the WP admin chrome even when the browser refuses full screen; leaving browser full screen (Esc)
+// turns both off.
+function useFullScreen(): [boolean, () => void] {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    document.documentElement.classList.toggle('appza-fullscreen', on);
+    return () => document.documentElement.classList.remove('appza-fullscreen');
+  }, [on]);
+  useEffect(() => {
+    const onChange = () => {
+      if (!document.fullscreenElement) setOn(false);
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+  const toggle = () => {
+    if (on) {
+      setOn(false);
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      return;
+    }
+    setOn(true);
+    document.documentElement.requestFullscreen?.().catch(() => {});
+  };
+  return [on, toggle];
+}
+
+// Safety net for the one-row rule: if the bar still spills (wider fonts, zoom), step 1 folds the extras into ⋯ and
+// step 2 also hides the logo. A step undoes only once the bar is clearly wider than when it was taken: no flicker.
+function useOverflowFold(bar: React.RefObject<HTMLElement>, contentKey: string): 0 | 1 | 2 {
+  const [level, setLevel] = useState<0 | 1 | 2>(0);
+  const takenAt = useRef<number[]>([]);
+  useEffect(() => setLevel(0), [contentKey]);
+  useLayoutEffect(() => {
+    const el = bar.current;
+    if (!el) return;
+    const evaluate = () => {
+      const kids = [...el.children].filter((c) => (c as HTMLElement).offsetParent !== null) as HTMLElement[];
+      const first = kids[0]?.getBoundingClientRect();
+      const last = kids[kids.length - 1]?.getBoundingClientRect();
+      const lastBtn = el.querySelector('.appza-topbar-actions > :last-child')?.getBoundingClientRect();
+      const spills =
+        el.scrollWidth > el.clientWidth + 1 ||
+        (!!first && !!last && Math.abs(last.top - first.top) > first.height / 2) ||
+        (!!lastBtn && lastBtn.right > el.getBoundingClientRect().right + 1);
+      setLevel((lv) => {
+        if (spills && lv < 2) {
+          takenAt.current[lv + 1] = el.clientWidth;
+          return (lv + 1) as 1 | 2;
+        }
+        if (!spills && lv > 0 && el.clientWidth > (takenAt.current[lv] ?? 0) + 80) return (lv - 1) as 0 | 1;
+        return lv;
+      });
+    };
+    evaluate();
+    const ro = new ResizeObserver(evaluate);
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
+  return level;
+}
+
 export function TopBar({
   screens,
   appMap,
@@ -110,6 +172,8 @@ export function TopBar({
 }: TopBarProps) {
   const [advanced, setAdvanced] = useAdvanced();
   const [moreOpen, setMoreOpen] = useState(false);
+  const barRef = useRef<HTMLElement>(null);
+  const fold = useOverflowFold(barRef, `${dirtyCount > 0 || saving || canRedo}`);
   const moreRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!moreOpen) return;
@@ -124,6 +188,7 @@ export function TopBar({
       document.removeEventListener('keydown', esc);
     };
   }, [moreOpen]);
+  const [fullScreen, toggleFullScreen] = useFullScreen();
   const nameBySlug = new Map<string, string>();
   if (appMap && Array.isArray(appMap.screens)) {
     for (const s of appMap.screens) {
@@ -141,7 +206,7 @@ export function TopBar({
   const logoUrl = assetsBase ? `${assetsBase.replace(/\/$/, '')}/images/appza-logo.png` : '';
 
   return (
-    <header className="appza-topbar" data-dirty={dirtyCount > 0 || saving ? 'true' : undefined}>
+    <header ref={barRef} className="appza-topbar" data-dirty={dirtyCount > 0 || saving ? 'true' : undefined} data-fold={fold ? String(fold) : undefined}>
       <div className="appza-topbar-logo">
         {logoUrl ? (
           <img src={logoUrl} alt="APPZA" className="appza-topbar-logo-img" />
@@ -382,6 +447,21 @@ export function TopBar({
             {syncMessage.replace(/^! /, '')}
           </div>
         )}
+
+        <button
+          type="button"
+          className="appza-btn appza-topbar-fullscreen-btn"
+          onClick={toggleFullScreen}
+          aria-pressed={fullScreen}
+          title={fullScreen ? 'Exit full screen' : 'Full screen'}
+          aria-label={fullScreen ? 'Exit full screen' : 'Full screen'}
+        >
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            {fullScreen
+              ? <path d="M6 1.5V6H1.5M10 1.5V6h4.5M6 14.5V10H1.5M10 14.5V10h4.5" />
+              : <path d="M1.5 6V1.5H6M14.5 6V1.5H10M1.5 10v4.5H6M14.5 10v4.5H10" />}
+          </svg>
+        </button>
 
         <button
           className="appza-btn appza-btn-primary"

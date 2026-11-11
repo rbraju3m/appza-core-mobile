@@ -31,10 +31,10 @@ android {
     }
     buildTypes {
         debug {
-            manifestPlaceholders = [usesCleartextTraffic: "true"]
+            manifestPlaceholders = [usesCleartextTraffic: "true", demoLinkScheme: "net.appza.nolink"]
         }
         release {
-            manifestPlaceholders = [usesCleartextTraffic: "false"]
+            manifestPlaceholders = [usesCleartextTraffic: "false", demoLinkScheme: "net.appza.nolink"]
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
@@ -45,6 +45,18 @@ android {
             versionNameSuffix "-qa"
             resValue "string", "app_name", "Appza QA"
             resValue "string", "title_activity_main", "Appza QA"
+            matchingFallbacks = ['release']
+            if (signingConfigs.findByName('appza')) {
+                signingConfig signingConfigs.appza
+            }
+        }
+        // The store demo app: no site baked in (build the web part with VITE_APPZA_DEMO=1).
+        demo {
+            initWith release
+            applicationIdSuffix ".demo"
+            resValue "string", "app_name", "APPZA Demo"
+            resValue "string", "title_activity_main", "APPZA Demo"
+            manifestPlaceholders = [usesCleartextTraffic: "false", demoLinkScheme: "appza-demo"]
             matchingFallbacks = ['release']
             if (signingConfigs.findByName('appza')) {
                 signingConfig signingConfigs.appza
