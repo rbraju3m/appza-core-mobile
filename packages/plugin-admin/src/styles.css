@@ -3333,3 +3333,13 @@ body {
 .appza-center[data-device='tablet'] .appza-device-viewport {
   border-radius: 20px;
 }
+
+/* The one Save's failure (P3): nothing was saved, and the bar says what. */
+.appza-save-error {
+  background: #fee2e2;
+  color: #991b1b;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}

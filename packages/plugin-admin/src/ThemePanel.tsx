@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useAdvanced } from './advanced';
-import { Problem, httpProblem } from './errors';
+import { stableJson, type DraftHandle } from './useCustomizationDrafts';
 
 // As Core's Theme editor: main colours + font (color.*, typography.fontFamily), then "Every block" (D118, theme.*).
 // A site stores only what it changes, over the template's own tokens (customization scope `template`, column
@@ -47,47 +47,34 @@ type Props = {
   templateSlug: string;
   /** The template's own tokens, from the snapshot. */
   templateTokens: unknown;
+  /** What the phone shows: saved customizations with the unsaved ones laid over them. */
   customizations: unknown;
-  customizationsEndpoint: string;
-  restNonce: string;
-  /** The site's unsaved tokens, drawn on the device; null = back to what is saved. */
-  onLive: (tokens: Bag | null) => void;
-  onChanged: () => void;
+  savedCustomizations: unknown;
+  /** The site's unsaved tokens; the top bar saves them with everything else (P3). */
+  draft: DraftHandle;
 };
 
-export function ThemePanel({ templateSlug, templateTokens, customizations, customizationsEndpoint, restNonce, onLive, onChanged }: Props) {
+const tokensOf = (customizations: unknown, templateSlug: string) =>
+  asBag(asBag(asBag(asBag(customizations).template)[templateSlug]).tokens);
+
+export function ThemePanel({ templateSlug, templateTokens, customizations, savedCustomizations, draft }: Props) {
   const [advanced] = useAdvanced();
-  const saved = useMemo(() => asBag(asBag(asBag(asBag(customizations).template)[templateSlug]).tokens), [customizations, templateSlug]);
-  const [bag, setBag] = useState<Bag>(saved);
-  const [rowId, setRowId] = useState<number | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const bag = useMemo(() => tokensOf(customizations, templateSlug), [customizations, templateSlug]);
+  const saved = useMemo(() => tokensOf(savedCustomizations, templateSlug), [savedCustomizations, templateSlug]);
+  const savedRow = useMemo(() => 'tokens' in asBag(asBag(asBag(savedCustomizations).template)[templateSlug]), [savedCustomizations, templateSlug]);
   const fromTemplate = asBag(asBag(templateTokens).theme);
   const templateColor = asBag(asBag(templateTokens).color);
   const templateFont = asBag(asBag(templateTokens).typography).fontFamily;
   const theme = asBag(bag.theme);
   const color = asBag(bag.color);
   const font = asBag(bag.typography).fontFamily;
-  const dirty = JSON.stringify(bag) !== JSON.stringify(saved);
 
-  useEffect(() => setBag(saved), [saved]);
-  useEffect(() => {
-    onLive(dirty ? bag : null);
-  }, [bag, dirty]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => () => onLive(null), []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    let live = true;
-    fetch(customizationsEndpoint, { headers: { Accept: 'application/json', 'X-WP-Nonce': restNonce }, credentials: 'same-origin' })
-      .then((r) => r.json())
-      .then((rows: Array<{ id: number; scope: string; target_slug: string | null; target_column: string }>) => {
-        const row = rows.find((x) => x.scope === 'template' && x.target_slug === templateSlug && x.target_column === 'tokens');
-        if (live) setRowId(row ? row.id : null);
-      })
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, [customizationsEndpoint, restNonce, templateSlug, saved]);
+  // Back to what is saved: no draft. Nothing left over a saved row: the row goes on Save.
+  const setBag = (next: Bag) => {
+    if (stableJson(next) === stableJson(saved)) draft.clear();
+    else if (Object.keys(next).length === 0 && savedRow) draft.remove();
+    else draft.set(next);
+  };
 
   // Keys this panel does not show are kept as they are.
   const setIn = (group: Group, key: string, v: string | number | null) => {
@@ -125,31 +112,6 @@ export function ThemePanel({ templateSlug, templateTokens, customizations, custo
     </div>
   );
   const str = (v: unknown) => (typeof v === 'string' ? v : '');
-
-  async function save() {
-    setError(null);
-    setSaving(true);
-    try {
-      const empty = Object.keys(bag).length === 0;
-      const res = empty
-        ? rowId == null
-          ? null
-          : await fetch(`${customizationsEndpoint}/${rowId}`, { method: 'DELETE', headers: { 'X-WP-Nonce': restNonce }, credentials: 'same-origin' })
-        : await fetch(customizationsEndpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-WP-Nonce': restNonce },
-            credentials: 'same-origin',
-            body: JSON.stringify({ scope: 'template', target_slug: templateSlug, target_column: 'tokens', override_value: bag }),
-          });
-      if (res && !res.ok) throw new Problem(await httpProblem(res, 'Saving the colours'));
-      onLive(null);
-      onChanged();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSaving(false);
-    }
-  }
 
   return (
     <div className="appza-theme-panel">
@@ -215,11 +177,7 @@ export function ThemePanel({ templateSlug, templateTokens, customizations, custo
         );
       })}
       {advanced && <div className="appza-design-note">Drawn as --appza-theme-surface, -heading, -body, -muted, -border, -accent, -radius-scale, -text-scale.</div>}
-      {error && <div className="appza-props-panel-error">{error}</div>}
-      <div className="appza-theme-actions">
-        <button type="button" className="appza-btn" onClick={() => setBag(saved)} disabled={!dirty || saving}>Reset</button>
-        <button type="button" className="appza-btn appza-btn-primary" onClick={save} disabled={!dirty || saving}>{saving ? 'Saving…' : 'Save'}</button>
-      </div>
+      {draft.state !== 'none' && <div className="appza-design-note">Not saved yet: Save in the top bar.</div>}
     </div>
   );
 }

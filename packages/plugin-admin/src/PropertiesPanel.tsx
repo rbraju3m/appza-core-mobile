@@ -4,19 +4,19 @@ import { readDataPath, resolveOverridableColumn, useDataSource } from '@appza/re
 import { IconPicker } from './IconPicker';
 import { useAdvanced } from './advanced';
 import { DesignTab, type AppZetDesign, type DesignFocus, type DesignPart } from './DesignTab';
-import { Problem, httpProblem } from './errors';
+import { stableJson, type DraftHandle } from './useCustomizationDrafts';
 
 type Props = {
   appzet: AppZet;
   superstructure: Superstructure | null;
   /** Lets the panel hide slot groups whose runtime data is empty (e.g. CTA 4/5 when the API returns 3). */
   dataSourceSlug?: string | null;
+  /** What the phone shows: saved customizations with the unsaved ones laid over them. */
   customizations: unknown;
-  customizationsEndpoint: string;
-  restNonce: string;
+  savedCustomizations: unknown;
+  /** This block's unsaved "Everywhere" settings; the top bar saves them with everything else (P3). */
+  draft: DraftHandle;
   onClose: () => void;
-  onChanged: () => void;
-  onLivePreview: (mergedOverride: Record<string, unknown> | null) => void;
   /** Drag mode: the panel edits this one placement's props; the draft saves from the top bar. */
   placement?: {
     value: Record<string, unknown>;
@@ -59,11 +59,9 @@ export function PropertiesPanel({
   superstructure,
   dataSourceSlug,
   customizations,
-  customizationsEndpoint,
-  restNonce,
+  savedCustomizations,
+  draft,
   onClose,
-  onChanged,
-  onLivePreview,
   placement,
   scope,
   design,
@@ -88,9 +86,6 @@ export function PropertiesPanel({
   const [options, setOptions] = useState<OptionValues>({});
   const [styleBag, setStyleBag] = useState<Record<string, string>>({});
   const [declared, setDeclared] = useState<Record<string, string>>({});
-  const [existingRowId, setExistingRowId] = useState<number | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [optionsFilter, setOptionsFilter] = useState('');
 
@@ -98,35 +93,30 @@ export function PropertiesPanel({
     setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
 
   // Same resolver as the renderer, so panel and preview agree after a refresh.
-  const everywhereBlob = useMemo<Record<string, unknown>>(() => {
+  const coreJson = JSON.stringify(placement?.coreProps ?? null);
+  const blobOf = (from: unknown): Record<string, unknown> => {
     const catalogBlob = {
       ...((appzet.default_props_override as Record<string, unknown> | null | undefined) ?? {}),
       ...(placement?.coreProps ?? {}),
     };
-    const merged = resolveOverridableColumn(
-      customizations,
-      'appzet',
-      appzet.slug,
-      'default_props_override',
-      catalogBlob,
-    );
-    return merged && typeof merged === 'object' && !Array.isArray(merged)
-      ? (merged as Record<string, unknown>)
-      : {};
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appzet, customizations, JSON.stringify(placement?.coreProps ?? null)]);
+    const merged = resolveOverridableColumn(from, 'appzet', appzet.slug, 'default_props_override', catalogBlob);
+    return merged && typeof merged === 'object' && !Array.isArray(merged) ? (merged as Record<string, unknown>) : {};
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const everywhereBlob = useMemo(() => blobOf(customizations), [appzet, customizations, coreJson]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const savedBlob = useMemo(() => blobOf(savedCustomizations), [appzet, savedCustomizations, coreJson]);
+  const savedRow = useMemo(() => {
+    const scope = isRecord(savedCustomizations) ? savedCustomizations['appzet'] : null;
+    const row = isRecord(scope) ? scope[appzet.slug] : null;
+    return isRecord(row) && 'default_props_override' in row;
+  }, [savedCustomizations, appzet.slug]);
 
   const placementJson = placement ? JSON.stringify(placement.value) : null;
   const overridesBlob = useMemo<Record<string, unknown>>(
     () => (placementJson ? { ...everywhereBlob, ...(JSON.parse(placementJson) as Record<string, unknown>) } : everywhereBlob),
     [everywhereBlob, placementJson],
   );
-
-  const initialSpacing = useMemo<Spacing>(() => {
-    const v = overridesBlob['spacing'];
-    // PHP stores an empty spacing as [].
-    return v && typeof v === 'object' && !Array.isArray(v) ? (v as Spacing) : {};
-  }, [overridesBlob]);
 
   const exposedProps = useMemo<PropertiesSchemaEntry[]>(() => {
     const schema = superstructure?.properties_schema ?? null;
@@ -148,40 +138,38 @@ export function PropertiesPanel({
     () => new Set((designParts ?? []).flatMap((p) => Object.keys(p.vars))),
     [designParts],
   );
-  const initialBag = useMemo<Record<string, string>>(() => {
-    const bag = overridesBlob['_style'];
-    if (!bag || typeof bag !== 'object' || Array.isArray(bag)) return {};
-    return Object.fromEntries(
-      Object.entries(bag as Record<string, unknown>)
-        .filter(([, v]) => typeof v === 'string' || typeof v === 'number')
-        .map(([k, v]) => [k, String(v)]),
-    );
-  }, [overridesBlob]);
-  // Declared names the Options tab does not show (not exposed to the builder) are edited here only.
-  const initialDeclared = useMemo<Record<string, string>>(() => {
-    const out: Record<string, string> = {};
+  // The form a blob shows. The same function reads what the phone shows and what is saved, so the two compare.
+  const formOf = (blob: Record<string, unknown>) => {
+    const sp = blob['spacing'];
+    // PHP stores an empty spacing as [].
+    const spacing: Spacing = sp && typeof sp === 'object' && !Array.isArray(sp) ? (sp as Spacing) : {};
+    const rawBag = blob['_style'];
+    const bag: Record<string, string> =
+      rawBag && typeof rawBag === 'object' && !Array.isArray(rawBag)
+        ? Object.fromEntries(
+            Object.entries(rawBag as Record<string, unknown>)
+              .filter(([, v]) => typeof v === 'string' || typeof v === 'number')
+              .map(([k, v]) => [k, String(v)]),
+          )
+        : {};
+    // Declared names the Options tab does not show (not exposed to the builder) are edited here only.
+    const declared: Record<string, string> = {};
     for (const n of designNames) {
-      const v = overridesBlob[n];
-      if (declaredNames.has(n) && !exposedNames.has(n) && (typeof v === 'string' || typeof v === 'number')) out[n] = String(v);
+      const v = blob[n];
+      if (declaredNames.has(n) && !exposedNames.has(n) && (typeof v === 'string' || typeof v === 'number')) declared[n] = String(v);
     }
-    return out;
-  }, [designNames, declaredNames, exposedNames, overridesBlob]);
-
-  const initialOptions = useMemo<OptionValues>(() => {
-    const out: OptionValues = {};
+    const options: OptionValues = {};
     for (const p of exposedProps) {
-      const stored = overridesBlob[p.name];
-      if (stored !== undefined && isOptionValue(stored)) {
-        out[p.name] = stored;
-      }
+      const stored = blob[p.name];
+      if (stored !== undefined && isOptionValue(stored)) options[p.name] = stored;
     }
-    return out;
-  }, [exposedProps, overridesBlob]);
-
-  useEffect(() => {
-    return () => onLivePreview(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return { spacing, bag, declared, options };
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialForm = useMemo(() => formOf(overridesBlob), [overridesBlob, exposedProps, designNames, declaredNames, exposedNames]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const savedForm = useMemo(() => formOf(savedBlob), [savedBlob, exposedProps, designNames, declaredNames, exposedNames]);
+  const { spacing: initialSpacing, bag: initialBag, declared: initialDeclared, options: initialOptions } = initialForm;
 
   useEffect(() => {
     setStyleBag({ ...initialBag });
@@ -191,36 +179,13 @@ export function PropertiesPanel({
   useEffect(() => {
     setSpacing({ ...initialSpacing });
     setOptions({ ...initialOptions });
-    if (placement) return;
-    fetch(customizationsEndpoint, {
-      headers: { Accept: 'application/json', 'X-WP-Nonce': restNonce },
-      credentials: 'same-origin',
-    })
-      .then((r) => r.json())
-      .then((rows: Array<{ id: number; scope: string; target_slug: string | null; target_column: string }>) => {
-        const match = rows.find(
-          (r) => r.scope === 'appzet' && r.target_slug === appzet.slug && r.target_column === 'default_props_override',
-        );
-        setExistingRowId(match ? match.id : null);
-      })
-      .catch(() => {
-        // Not critical — Save creates a new row anyway.
-      });
-  }, [appzet.slug, initialSpacing, initialOptions, customizationsEndpoint, restNonce]);
+  }, [initialSpacing, initialOptions]);
 
-  const spacingDirty = useMemo(
-    () => JSON.stringify(spacing) !== JSON.stringify(initialSpacing),
-    [spacing, initialSpacing],
-  );
-  const optionsDirty = useMemo(
-    () => JSON.stringify(options) !== JSON.stringify(initialOptions),
-    [options, initialOptions],
-  );
-  const designDirty = useMemo(
-    () => JSON.stringify(styleBag) !== JSON.stringify(initialBag) || JSON.stringify(declared) !== JSON.stringify(initialDeclared),
-    [styleBag, initialBag, declared, initialDeclared],
-  );
-  const dirty = spacingDirty || optionsDirty || designDirty;
+  // A dot on a tab: differs from what is saved (Everywhere), or from Everywhere (Only here).
+  const baseline = placement ? formOf(everywhereBlob) : savedForm;
+  const spacingDirty = stableJson(spacing) !== stableJson(baseline.spacing);
+  const optionsDirty = stableJson(options) !== stableJson(baseline.options);
+  const designDirty = !placement && (stableJson(styleBag) !== stableJson(baseline.bag) || stableJson(declared) !== stableJson(baseline.declared));
 
   // Starts from the persisted view so keys this panel doesn't manage survive the save.
   function composeOverrideValue(
@@ -245,22 +210,20 @@ export function PropertiesPanel({
     return out;
   }
 
-  // A changed baseline (mount, Discard, a save) resets the form on the next render; only an edit after that is the user's.
+  // A changed baseline (mount, Discard, Undo, a save, this panel's own draft coming back) resets the form on the
+  // next render; only an edit after that is the user's.
   const seenInitial = useRef<string | null>(null);
+  const initialKey = stableJson([initialSpacing, initialOptions, initialBag, initialDeclared]);
+  const formKey = stableJson([spacing, options, styleBag, declared]);
+  const savedKey = stableJson([savedForm.spacing, savedForm.options, savedForm.bag, savedForm.declared]);
 
   useEffect(() => {
-    if (placement) {
-      const initial = JSON.stringify([initialSpacing, initialOptions]);
-      if (seenInitial.current !== initial) {
-        seenInitial.current = initial;
-        return;
-      }
-    }
-    if (JSON.stringify(spacing) === JSON.stringify(initialSpacing) &&
-        JSON.stringify(options) === JSON.stringify(initialOptions) && !designDirty) {
-      onLivePreview(null);
+    if (seenInitial.current !== initialKey) {
+      seenInitial.current = initialKey;
       return;
     }
+    // The form shows what the phone already shows.
+    if (formKey === initialKey) return;
     if (placement) {
       // Only what differs from Everywhere is the placement's own.
       const full = composeOverrideValue(spacing, options);
@@ -272,9 +235,10 @@ export function PropertiesPanel({
       placement.onChange(Object.keys(own).length ? own : undefined);
       return;
     }
-    onLivePreview(composeOverrideValue(spacing, options));
+    if (formKey === savedKey) draft.clear();
+    else draft.set(composeOverrideValue(spacing, options));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spacing, options, initialSpacing, initialOptions, styleBag, declared, designDirty]);
+  }, [initialKey, formKey, savedKey]);
 
   const designValue = useMemo<Record<string, string>>(() => {
     const out: Record<string, string> = { ...styleBag, ...declared };
@@ -318,80 +282,9 @@ export function PropertiesPanel({
     });
   }
 
-  async function handleSave() {
-    setError(null);
-    setSaving(true);
-    try {
-      const newValue = composeOverrideValue(spacing, options);
-
-      const response = await fetch(customizationsEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          'X-WP-Nonce': restNonce,
-        },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-          scope: 'appzet',
-          target_slug: appzet.slug,
-          target_column: 'default_props_override',
-          override_value: newValue,
-        }),
-      });
-      if (!response.ok) {
-        throw new Problem(await httpProblem(response, 'Saving'));
-      }
-      onLivePreview(null);
-      onChanged();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleRemove() {
-    if (existingRowId == null) {
-      setSpacing({});
-      setOptions({});
-      setStyleBag({});
-      setDeclared({});
-      onLivePreview(null);
-      return;
-    }
-    setError(null);
-    setSaving(true);
-    try {
-      const response = await fetch(`${customizationsEndpoint}/${existingRowId}`, {
-        method: 'DELETE',
-        headers: { 'X-WP-Nonce': restNonce },
-        credentials: 'same-origin',
-      });
-      if (!response.ok) {
-        throw new Problem(await httpProblem(response, 'Saving'));
-      }
-      setSpacing({});
-      setOptions({});
-      setStyleBag({});
-      setDeclared({});
-      setExistingRowId(null);
-      onLivePreview(null);
-      onChanged();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function handleReset() {
-    setSpacing({ ...initialSpacing });
-    setOptions({ ...initialOptions });
-    setStyleBag({ ...initialBag });
-    setDeclared({ ...initialDeclared });
-    setError(null);
-  }
+  // Back to original: a saved row is deleted on Save; with none, the unsaved change is just dropped.
+  const canRevert = savedRow ? draft.state !== 'remove' : draft.state === 'value';
+  const revert = () => (savedRow ? draft.remove() : draft.clear());
 
   const grouped = useMemo(() => groupOptions(exposedProps), [exposedProps]);
 
@@ -583,8 +476,6 @@ export function PropertiesPanel({
         )}
       </div>
 
-      {error && <div className="appza-props-panel-error">{error}</div>}
-
       {placement ? (
       <footer className="appza-props-panel-footer">
         <span className="appza-props-scope-hint">Saved with the layout, from the top bar.</span>
@@ -599,22 +490,15 @@ export function PropertiesPanel({
       </footer>
       ) : (
       <footer className="appza-props-panel-footer">
+        <span className="appza-props-scope-hint">Saved from the top bar.</span>
         <button
           className="appza-btn appza-btn-danger"
-          onClick={handleRemove}
-          disabled={saving || existingRowId == null}
-          title="Undo every saved change to this block and go back to how it was designed"
+          onClick={revert}
+          disabled={!canRevert}
+          title="Go back to how this block was designed (saved with your other changes)"
         >
           Back to original
         </button>
-        <div className="appza-props-panel-footer-primary">
-          <button className="appza-btn" onClick={handleReset} disabled={!dirty || saving} title="Drop the changes you have not saved">
-            Discard
-          </button>
-          <button className="appza-btn appza-btn-primary" onClick={handleSave} disabled={!dirty || saving}>
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-        </div>
       </footer>
       )}
     </aside>

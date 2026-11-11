@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { isRecord, screenLayoutKey, type DrawerMenuItem } from '@appza/renderer';
-import { loadPart, newSiteKey, resetPart, savePart, type LayoutPart } from './layoutApi';
+import { loadPart, newSiteKey, resetPart, savePart, type LayoutPart, type LayoutSave } from './layoutApi';
 
 /** One Global-tab resource: a chrome list (at most one entry) or the drawer menu. */
 export type ChromeDraft = {
@@ -67,7 +67,6 @@ export function useChromeBuilder({ active, template, screen, onSaved }: Options)
   const [drafts, setDrafts] = useState<Record<string, ChromeDraft>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
 
   const reload = useCallback(async (t: string, s: string | null, part: LayoutPart) => {
     try {
@@ -124,34 +123,34 @@ export function useChromeBuilder({ active, template, screen, onSaved }: Options)
 
   const dirty = Object.values(drafts).filter((d) => d.dirty);
 
-  const save = useCallback(async () => {
-    const pending = Object.values(drafts).filter((d) => d.dirty);
-    if (pending.length === 0) return;
-    setSaving(true);
+  /** The unsaved app bar / tabs / drawer parts, for the top bar's one Save. */
+  const pending = useCallback(
+    (): LayoutSave[] =>
+      Object.values(drafts)
+        .filter((d) => d.dirty)
+        .map((d) => ({
+          template: d.template,
+          screen: d.screen,
+          part: d.part,
+          items:
+            d.part === 'drawer-menu'
+              ? (d.items as DrawerMenuItem[]).map(({ screen_slug, hidden, label, icon }) => ({
+                  screen_slug,
+                  ...(hidden ? { hidden: true } : {}),
+                  ...(label?.trim() ? { label: label.trim() } : {}),
+                  ...(icon?.trim() ? { icon: icon.trim() } : {}),
+                }))
+              : d.items,
+          base_version: d.baseVersion,
+        })),
+    [drafts],
+  );
+
+  /** After a Save: each saved part reloads, for its new version. */
+  const afterSave = useCallback(async () => {
     setSaveError(null);
-    const problems: string[] = [];
-    for (const d of pending) {
-      const items =
-        d.part === 'drawer-menu'
-          ? (d.items as DrawerMenuItem[]).map(({ screen_slug, hidden, label, icon }) => ({
-              screen_slug,
-              ...(hidden ? { hidden: true } : {}),
-              ...(label?.trim() ? { label: label.trim() } : {}),
-              ...(icon?.trim() ? { icon: icon.trim() } : {}),
-            }))
-          : d.items;
-      const r = await savePart(d.template, d.screen, d.part, items, d.baseVersion);
-      if (r.ok) {
-        await reload(d.template, d.screen, d.part);
-        continue;
-      }
-      const detail = r.errors ? Object.entries(r.errors).map(([k, v]) => `${k}: ${v}`).join('; ') : '';
-      problems.push(`${d.part}: ${r.message}${detail ? ` (${detail})` : ''}`);
-    }
-    setSaving(false);
-    if (problems.length) setSaveError(problems.join('\n'));
-    onSaved();
-  }, [drafts, reload, onSaved]);
+    await Promise.all(Object.values(drafts).filter((d) => d.dirty).map((d) => reload(d.template, d.screen, d.part)));
+  }, [drafts, reload]);
 
   const discard = useCallback(() => {
     setSaveError(null);
@@ -201,7 +200,7 @@ export function useChromeBuilder({ active, template, screen, onSaved }: Options)
     [drafts],
   );
 
-  return { get, loadError, saveError, saving, dirtyCount: dirty.length, setItems, select, save, discard, reset, keepMine, overlay };
+  return { get, loadError, saveError, dirtyCount: dirty.length, setItems, select, pending, afterSave, discard, reset, keepMine, overlay };
 }
 
 export type ChromeBuilder = ReturnType<typeof useChromeBuilder>;

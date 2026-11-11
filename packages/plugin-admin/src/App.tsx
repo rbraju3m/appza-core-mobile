@@ -240,8 +240,9 @@ import { BuilderPanel } from './BuilderPanel';
 import { DragCanvas } from './DragCanvas';
 import { useLayoutBuilder } from './useLayoutBuilder';
 import { GlobalPanel } from './GlobalPanel';
-import { patchItem } from './layoutApi';
+import { patchItem, saveBuilder } from './layoutApi';
 import { useChromeBuilder } from './useChromeBuilder';
+import { draftHandle, hasSavedRow, useCustomizationDrafts } from './useCustomizationDrafts';
 import { mainKeys, rowsOf } from './layoutApi';
 import { OverridesPanel } from './OverridesPanel';
 import { designFor, partHighlight, partsForPick, pieceLabel, useDesignIndex, type DesignFocus } from './DesignTab';
@@ -321,7 +322,6 @@ export function App() {
     if (advanced) return;
     setBottomTab((t) => (t === 'overrides' ? null : t));
     setSelectedPrimitive(null);
-    setLivePrimitivePreview(null);
   }, [advanced]); // eslint-disable-line react-hooks/exhaustive-deps
   const [selectedAppzetSlug, setSelectedAppzetSlug] = useState<string | null>(null);
   const [selectedPrimitive, setSelectedPrimitive] = useState<SelectedPrimitive | null>(null);
@@ -481,16 +481,10 @@ export function App() {
       setCommentPanel(null);
     }
   }, [auth]);
-  const [livePreview, setLivePreview] = useState<{
-    slug: string;
-    override: Record<string, unknown>;
-  } | null>(null);
-  // The Themes panel's unsaved "Every block" tokens, drawn over the site's saved ones.
-  const [liveTokens, setLiveTokens] = useState<Record<string, unknown> | null>(null);
-  const [livePrimitivePreview, setLivePrimitivePreview] = useState<{
-    compositeKey: string;
-    layout: LayoutStyle;
-  } | null>(null);
+  // Unsaved block settings, piece layouts and theme, drawn over the saved ones; the top bar saves them (P3).
+  const drafts = useCustomizationDrafts();
+  const [savingAll, setSavingAll] = useState(false);
+  const [saveAllError, setSaveAllError] = useState<string | null>(null);
 
   useEffect(() => {
     pull(templateSlug);
@@ -899,46 +893,9 @@ export function App() {
   const catalogIndex = useMemo(() => (catalog ? indexCatalog(catalog) : null), [catalog]);
 
   const effectiveCustomizations = useMemo(() => {
-    const base = envelope?.customizations;
-    if (!livePreview && !livePrimitivePreview && !liveTokens && uiMode !== 'app') return layoutOverlay(base);
-    const baseRecord =
-      base && typeof base === 'object' && !Array.isArray(base)
-        ? (base as Record<string, unknown>)
-        : {};
-    let out: Record<string, unknown> = { ...baseRecord };
-    if (livePreview) {
-      const scopeRecord =
-        out['appzet'] && typeof out['appzet'] === 'object'
-          ? { ...(out['appzet'] as Record<string, unknown>) }
-          : {};
-      const targetRecord =
-        scopeRecord[livePreview.slug] && typeof scopeRecord[livePreview.slug] === 'object'
-          ? { ...(scopeRecord[livePreview.slug] as Record<string, unknown>) }
-          : {};
-      targetRecord['default_props_override'] = livePreview.override;
-      scopeRecord[livePreview.slug] = targetRecord;
-      out = { ...out, appzet: scopeRecord };
-    }
-    if (liveTokens) {
-      const slug = catalog?.template?.slug ?? templateSlug;
-      const scopeRecord = isRecord(out['template']) ? { ...out['template'] } : {};
-      scopeRecord[slug] = { ...(isRecord(scopeRecord[slug]) ? scopeRecord[slug] : {}), tokens: liveTokens };
-      out = { ...out, template: scopeRecord };
-    }
-    if (livePrimitivePreview) {
-      const scopeRecord =
-        out['appzet_primitive'] && typeof out['appzet_primitive'] === 'object'
-          ? { ...(out['appzet_primitive'] as Record<string, unknown>) }
-          : {};
-      const key = livePrimitivePreview.compositeKey;
-      const targetRecord =
-        scopeRecord[key] && typeof scopeRecord[key] === 'object'
-          ? { ...(scopeRecord[key] as Record<string, unknown>) }
-          : {};
-      targetRecord['layout'] = livePrimitivePreview.layout;
-      scopeRecord[key] = targetRecord;
-      out = { ...out, appzet_primitive: scopeRecord };
-    }
+    const base = drafts.overlay(envelope?.customizations);
+    if (uiMode !== 'app') return layoutOverlay(base);
+    let out: Record<string, unknown> = isRecord(base) ? { ...base } : {};
     // Runs after field_mappings in PlacementRenderer, so the live clock wins.
     if (uiMode === 'app') {
       const scopeRecord =
@@ -961,7 +918,47 @@ export function App() {
       out = { ...out, appzet: scopeRecord };
     }
     return layoutOverlay(out);
-  }, [envelope, livePreview, livePrimitivePreview, liveTokens, catalog?.template?.slug, templateSlug, uiMode, nowLabel, layoutOverlay]);
+  }, [envelope, drafts.overlay, uiMode, nowLabel, layoutOverlay]);
+
+  // The one Save (P3): pages, app bar / tabs / drawer, block settings, piece layouts and theme, all or nothing.
+  const unsavedCount = builder.dirtyCount + chrome.dirtyCount + drafts.count;
+  const saveAll = useCallback(async () => {
+    const layouts = [...builder.pending(), ...chrome.pending()];
+    const customizations = drafts.payload();
+    if (layouts.length + customizations.length === 0) return;
+    setSavingAll(true);
+    setSaveAllError(null);
+    try {
+      const r = await saveBuilder(layouts, customizations);
+      if (!r.ok) {
+        // The bar names what failed: a page or part as the plug-in names it, a setting by the block it belongs to.
+        const nameOf = (k: string) => {
+          const m = /^customizations\[(\d+)\]$/.exec(k);
+          const c = m ? customizations[Number(m[1])] : undefined;
+          if (!c) return k;
+          if (c.scope === 'template') return 'Theme';
+          return appzetBySlug.get(c.target_slug)?.name ?? c.target_slug;
+        };
+        const detail = r.errors ? Object.entries(r.errors).map(([k, v]) => (isAdvanced() ? `${nameOf(k)}: ${v}` : nameOf(k))).join('; ') : '';
+        setSaveAllError(`${r.message}${detail ? ` (${detail})` : ''}`);
+        return;
+      }
+      await Promise.all([builder.afterSave(), chrome.afterSave(), pull(templateSlug, true)]);
+      // After the pull: the saved values are in place, so the phone doesn't flash the old ones.
+      drafts.discard();
+    } catch (e) {
+      setSaveAllError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSavingAll(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [builder.pending, chrome.pending, builder.afterSave, chrome.afterSave, drafts, templateSlug]);
+  const discardAll = useCallback(() => {
+    setSaveAllError(null);
+    builder.discard();
+    chrome.discard();
+    drafts.discard();
+  }, [builder.discard, chrome.discard, drafts.discard]);
 
   useEffect(() => {
     if (uiMode !== 'drag' || !builder.selectedKey) return;
@@ -1555,11 +1552,13 @@ export function App() {
             <ThemePanel
               templateSlug={catalog?.template?.slug ?? templateSlug}
               templateTokens={catalog?.template?.tokens}
-              customizations={envelope.customizations}
-              customizationsEndpoint={endpoint}
-              restNonce={restNonce}
-              onLive={setLiveTokens}
-              onChanged={() => pull(templateSlug, true)}
+              customizations={effectiveCustomizations}
+              savedCustomizations={envelope.customizations}
+              draft={draftHandle(drafts, {
+                scope: 'template',
+                target_slug: catalog?.template?.slug ?? templateSlug,
+                target_column: 'tokens',
+              })}
             />
           )}
           {advanced && renderThemes(catalog?.template?.tokens, currentScreen?.screen_tokens)}
@@ -1584,7 +1583,7 @@ export function App() {
       />
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bottomTab, envelope, catalog, currentScreen, templateSlug, advanced]);
+  }, [bottomTab, envelope, catalog, currentScreen, templateSlug, advanced, drafts, effectiveCustomizations]);
 
   // Mounted in both modes (Edit-mode taps dispatch real actions too); inside the viewport they pin to the phone and are selectable.
   const sharedOverlays = (
@@ -1649,26 +1648,19 @@ export function App() {
         onViewAsChange={(v) => void pickViewAs(v)}
         device={device}
         onDeviceChange={setDevice}
-        dirtyCount={builder.dirtyCount + chrome.dirtyCount}
-        saving={builder.saving || chrome.saving}
-        onSaveLayout={() => void builder.save().then(chrome.save)}
-        onDiscardLayout={() => {
-          builder.discard();
-          chrome.discard();
-        }}
+        dirtyCount={unsavedCount}
+        saving={savingAll}
+        onSaveLayout={() => void saveAll()}
+        onDiscardLayout={discardAll}
         onUiModeChange={(m) => {
           setUiMode(m);
           if (m === 'drag') {
             setSelectedAppzetSlug(null);
             setSelectedPrimitive(null);
-            setLivePreview(null);
-            setLivePrimitivePreview(null);
             setScreenStack([]);
           } else if (m === 'app') {
             setSelectedAppzetSlug(null);
             setSelectedPrimitive(null);
-            setLivePreview(null);
-            setLivePrimitivePreview(null);
           } else {
             setScreenStack([]);
           }
@@ -1676,6 +1668,12 @@ export function App() {
       />
 
       {state.kind === 'error' && <div className="appza-status">{state.message}</div>}
+      {saveAllError && (
+        <div className="appza-status appza-save-error" role="alert">
+          {saveAllError}
+          <button type="button" className="appza-btn" onClick={() => setSaveAllError(null)}>Dismiss</button>
+        </div>
+      )}
 
       {uiMode === 'app' && authMessage && (
         <div
@@ -2344,9 +2342,7 @@ export function App() {
             const draft = builder.draft;
             const row = rowsOf(draft).find((r) => r.key === builder.selectedKey);
             const selected = row ? appzetBySlug.get(row.appzet_slug) : undefined;
-            const customizationsEndpoint = window.appzaCoreConfig?.endpoints?.customizations;
-            const nonce = window.appzaCoreConfig?.restNonce;
-            if (!row || !selected || !customizationsEndpoint || !nonce) return null;
+            if (!row || !selected) return null;
             const item = draft.items.find((i) => i.key === row.key);
             const core = draft.core.find((c) => c.key === row.key);
             // The layout's Superstructure decides which props exist.
@@ -2361,9 +2357,9 @@ export function App() {
                 appzet={selected}
                 superstructure={superstructure}
                 dataSourceSlug={ds && typeof ds.slug === 'string' ? ds.slug : null}
-                customizations={envelope?.customizations}
-                customizationsEndpoint={customizationsEndpoint}
-                restNonce={nonce}
+                customizations={effectiveCustomizations}
+                savedCustomizations={envelope?.customizations}
+                draft={draftHandle(drafts, blockTarget(selected.slug))}
                 scope={{ value: propsScope, onChange: setPropsScope }}
                 design={designOf(selected.slug)}
                 placement={
@@ -2375,46 +2371,23 @@ export function App() {
                       }
                     : undefined
                 }
-                onClose={() => {
-                  setLivePreview(null);
-                  builder.setSelectedKey(null);
-                }}
-                onChanged={() => {
-                  setLivePreview(null);
-                  pull(templateSlug, true);
-                }}
-                onLivePreview={(override) => {
-                  setLivePreview(override ? { slug: selected.slug, override } : null);
-                }}
+                onClose={() => builder.setSelectedKey(null)}
               />
             );
           })()}
 
         {uiMode !== 'drag' && advanced && selectedPrimitive && (() => {
           const compositeKey = `${selectedPrimitive.appzetSlug}#${selectedPrimitive.primitivePath}`;
-          const initialLayout = readInitialLayout(envelope?.customizations, compositeKey);
-          const customizationsEndpoint = window.appzaCoreConfig?.endpoints?.customizations;
-          const nonce = window.appzaCoreConfig?.restNonce;
-          if (!customizationsEndpoint || !nonce) return null;
+          const target = { scope: 'appzet_primitive', target_slug: selectedPrimitive.appzetSlug, target_slug_composite: compositeKey, target_column: 'layout' };
           return (
             <PrimitivePanel
+              key={compositeKey}
               selection={selectedPrimitive}
-              initialLayout={initialLayout}
-              customizationsEndpoint={customizationsEndpoint}
-              restNonce={nonce}
-              onClose={() => {
-                setLivePrimitivePreview(null);
-                setSelectedPrimitive(null);
-              }}
-              onLivePreview={(layout) => {
-                setLivePrimitivePreview(
-                  layout ? { compositeKey, layout } : null,
-                );
-              }}
-              onChanged={() => {
-                setLivePrimitivePreview(null);
-                pull(templateSlug);
-              }}
+              layout={readInitialLayout(effectiveCustomizations, compositeKey)}
+              savedLayout={readInitialLayout(envelope?.customizations, compositeKey)}
+              savedRow={hasSavedRow(envelope?.customizations, target)}
+              draft={draftHandle(drafts, target)}
+              onClose={() => setSelectedPrimitive(null)}
             />
           );
         })()}
@@ -2424,9 +2397,7 @@ export function App() {
           selectedAppzetSlug &&
           (() => {
             const selected = appzets.find((a) => a.slug === selectedAppzetSlug);
-            const customizationsEndpoint = window.appzaCoreConfig?.endpoints?.customizations;
-            const nonce = window.appzaCoreConfig?.restNonce;
-            if (!selected || !customizationsEndpoint || !nonce) return null;
+            if (!selected) return null;
             const superstructure =
               selected.superstructure_id != null
                 ? superstructures.find((s) => s.id === selected.superstructure_id) ?? null
@@ -2447,21 +2418,13 @@ export function App() {
                 design={designOf(selected.slug)}
                 designFocus={designFocus}
                 onShowPart={(part) => setHighlight(part ? partHighlight(part, selected.slug) : null)}
-                customizations={envelope?.customizations}
-                customizationsEndpoint={customizationsEndpoint}
-                restNonce={nonce}
+                customizations={effectiveCustomizations}
+                savedCustomizations={envelope?.customizations}
+                draft={draftHandle(drafts, blockTarget(selected.slug))}
                 onClose={() => {
-                  setLivePreview(null);
                   setHighlight(null);
                   setDesignFocus(null);
                   setSelectedAppzetSlug(null);
-                }}
-                onChanged={() => {
-                  setLivePreview(null);
-                  pull(templateSlug);
-                }}
-                onLivePreview={(override) => {
-                  setLivePreview(override ? { slug: selected.slug, override } : null);
                 }}
               />
             );
@@ -2602,6 +2565,9 @@ function applyFcRuntimeSettings(envelope: BootstrapEnvelope): void {
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
+
+/** A block's "Everywhere" settings row. */
+const blockTarget = (slug: string) => ({ scope: 'appzet', target_slug: slug, target_column: 'default_props_override' });
 
 function readInitialLayout(customizations: unknown, compositeKey: string): LayoutStyle {
   if (!isRecord(customizations)) return {};

@@ -20,6 +20,7 @@ import {
   saveDraft,
   withMainOrder,
   type LayoutItem,
+  type LayoutSave,
   type ScreenDraft,
 } from './layoutApi';
 import { LIB_PREFIX, isSingle } from './BuilderPanel';
@@ -41,7 +42,6 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [presentKeys, setPresentKeys] = useState<Set<string>>(new Set());
   const [dropIndex, setDropIndex] = useState<number | null>(null);
@@ -98,23 +98,20 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
 
   const dirty = Object.values(drafts).filter((d) => d.dirty);
 
-  const save = useCallback(async () => {
-    setSaving(true);
+  /** The unsaved pages, for the top bar's one Save. */
+  const pending = useCallback(
+    (): LayoutSave[] =>
+      Object.values(drafts)
+        .filter((d) => d.dirty)
+        .map((d) => ({ template: d.template, screen: d.screen, part: 'body', items: d.items, base_version: d.baseVersion })),
+    [drafts],
+  );
+
+  /** After a Save: each saved page reloads, for its new version and the server's own copy. */
+  const afterSave = useCallback(async () => {
     setSaveError(null);
-    const problems: string[] = [];
-    for (const d of Object.values(drafts).filter((x) => x.dirty)) {
-      const r = await saveDraft(d);
-      if (r.ok) {
-        await reload(d.template, d.screen);
-        continue;
-      }
-      const detail = r.errors ? Object.entries(r.errors).map(([k, v]) => `${k}: ${v}`).join('; ') : '';
-      problems.push(`${d.screen}: ${r.message}${detail ? ` (${detail})` : ''}`);
-    }
-    setSaving(false);
-    if (problems.length) setSaveError(problems.join('\n'));
-    onSaved();
-  }, [drafts, reload, onSaved]);
+    await Promise.all(Object.values(drafts).filter((d) => d.dirty).map((d) => reload(d.template, d.screen)));
+  }, [drafts, reload]);
 
   const discard = useCallback(() => {
     setSaveError(null);
@@ -258,7 +255,6 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
     loading,
     loadError,
     saveError,
-    saving,
     dirtyCount: dirty.length,
     selectedKey,
     setSelectedKey,
@@ -272,7 +268,8 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
     removed: removed && removed.id === id ? removed : null,
     undoRemove,
     dismissRemoved,
-    save,
+    pending,
+    afterSave,
     discard,
     keepMine,
     addNew,

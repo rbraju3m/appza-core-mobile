@@ -260,3 +260,33 @@ export function missingCore(d: ScreenDraft): LayoutItem[] {
   const have = new Set(d.items.map((i) => i.key));
   return d.core.filter((c) => !have.has(c.key)).map((c) => ({ key: c.key }));
 }
+
+/** One layout in the builder's one Save: its new items, or `remove` (back to Core's). */
+export type LayoutSave = {
+  template: string;
+  screen: string | null;
+  part: LayoutPart;
+  base_version: number | null;
+} & ({ items: unknown[]; remove?: undefined } | { remove: true; items?: undefined });
+
+export type BuilderSaveResult =
+  | { ok: true }
+  | { ok: false; status: number; message: string; errors?: Record<string, string> };
+
+/** Every unsaved layout and customization in one request; the plug-in writes all of it or none (P3). */
+export async function saveBuilder(layouts: LayoutSave[], customizations: unknown[]): Promise<BuilderSaveResult> {
+  const res = await fetch(`${base()}/builder/save`, {
+    method: 'POST',
+    headers: headers(true),
+    credentials: 'same-origin',
+    body: JSON.stringify({ layouts, customizations }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (res.ok) return { ok: true };
+  return {
+    ok: false,
+    status: res.status,
+    message: problemFor(res.status, JSON.stringify(body ?? {}), 'Saving'),
+    errors: isRecord(body) && isRecord(body.data) && isRecord(body.data.errors) ? (body.data.errors as Record<string, string>) : undefined,
+  };
+}
