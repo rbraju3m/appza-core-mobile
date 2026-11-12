@@ -1477,6 +1477,7 @@ body {
 .appza-device-viewport .appza-invite-user-backdrop,
 .appza-device-viewport .appza-member-sheet-backdrop,
 .appza-device-viewport .appza-member-confirm-backdrop,
+.appza-device-viewport .appza-account-backdrop,
 .appza-device-viewport .appza-chat-sheet-backdrop,
 .appza-device-viewport .appza-chat-card-backdrop {
   position: absolute;

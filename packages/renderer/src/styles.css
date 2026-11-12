@@ -15860,3 +15860,127 @@ button.appza-ct-reply-count {
   display: block;
   width: 100%;
 }
+
+/* v1 parity P2: the account sheets (forgot password, create account, delete account). Material dialog like
+   the sign-out confirm, with fields; the theme's primary colour drives the button and focus. */
+.appza-account-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  place-items: center;
+  z-index: 1450;
+  animation: appza-member-fade-in 120ms ease-out;
+}
+.appza-account-sheet {
+  width: min(320px, 88%);
+  max-height: 88%;
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 4px;
+  box-shadow: 0 11px 15px -7px rgba(0, 0, 0, 0.2), 0 24px 38px 3px rgba(0, 0, 0, 0.14);
+  margin: 0;
+}
+.appza-account-body {
+  padding: 22px 22px 6px;
+}
+.appza-account-title {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #111827;
+}
+.appza-account-message {
+  margin: 0 0 14px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: #444444;
+}
+.appza-account-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.appza-account-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+}
+.appza-account-field input {
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  outline: none;
+}
+.appza-account-field input:focus {
+  border-color: var(--ion-color-primary, #1a66e0);
+  box-shadow: 0 0 0 2px rgba(var(--ion-color-primary-rgb, 26, 102, 224), 0.18);
+}
+.appza-account-field input[aria-invalid='true'] {
+  border-color: #dc2626;
+}
+.appza-account-check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: #374151;
+}
+.appza-account-check input {
+  margin-top: 2px;
+  accent-color: var(--ion-color-primary, #1a66e0);
+}
+.appza-account-check span:first-of-type {
+  flex: 1 1 0;
+}
+.appza-account-field-error {
+  flex-basis: 100%;
+  font-size: 0.78rem;
+  color: #dc2626;
+}
+.appza-account-error {
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+  color: #dc2626;
+}
+.appza-account-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 6px 12px 14px;
+}
+.appza-account-btn {
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: #4b5563;
+}
+.appza-account-btn.is-primary {
+  color: var(--ion-color-primary, #1a66e0);
+}
+.appza-account-btn.is-destructive {
+  color: #dc2626;
+}
+.appza-account-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.appza-account-link {
+  color: var(--ion-color-primary, #1a66e0);
+  font-weight: 600;
+  text-decoration: underline;
+}

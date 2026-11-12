@@ -1,3 +1,4 @@
+import { signupStateEntries } from './siteAccount';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IonInfiniteScroll, IonInfiniteScrollContent } from '@ionic/react';
 import type { AppZet, LayoutStyle, PropertiesSchemaEntry, Superstructure } from '@appza/schemas';
@@ -2609,6 +2610,7 @@ function childStateBag(): Record<string, unknown> {
     ...postDraftStateEntries(getPostDraft()),
     ...bannerStateEntries(getBannerControls()),
     ...courseDetailStateEntries(getCourseDetailControls()),
+    ...signupStateEntries(),
   };
 }
 

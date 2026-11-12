@@ -26,6 +26,7 @@ import { useDocumentDraft } from './documentDraft';
 import { useFcRuntimeSettings } from './fcRuntimeSettings';
 import { useViewer, viewerStateEntries } from './viewer';
 import { useBannerControls, bannerStateEntries } from './bannerControls';
+import { signupStateEntries } from './siteAccount';
 import { useProfileControls, setProfileControls } from './profileControls';
 import { useMemberDirectoryControls, memberDirectoryStateEntries } from './memberDirectoryControls';
 import { useModerationControls, moderationStateEntries } from './moderationControls';
@@ -170,6 +171,7 @@ export function ScreenRenderer({
       // Branch on `viewer.is_guest`, not !is_logged_in, which is also true on a locked site.
       ...viewerStateEntries(viewer),
       ...bannerStateEntries(bannerControls),
+      ...signupStateEntries(),
     }),
     [
       spacesControls.tab,

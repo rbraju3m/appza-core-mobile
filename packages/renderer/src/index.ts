@@ -400,6 +400,16 @@ export {
 } from './profilePhotoActions';
 export { tryHandleLogoutConfirm, type LogoutConfirmDeps } from './logoutConfirm';
 export {
+  AccountSheet,
+  openAccountSheet,
+  closeAccountSheet,
+  type AccountField,
+  type AccountStep,
+  type AccountStepResult,
+} from './AccountSheet';
+export { tryHandleAccountAction, postAccount, type AccountDeps } from './accountActions';
+export { setSignupState, getSignupState, signupStateEntries, type SignupState } from './siteAccount';
+export {
   tryHandleProfileAccountAction,
   type ProfileAccountDeps,
 } from './profileAccountActions';

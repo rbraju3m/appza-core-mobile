@@ -33,6 +33,7 @@ import {
   INVITE_USER_CHILD_COUNT,
   setCatalogGlobal,
   setFcRuntimeSettings,
+  setSignupState,
   getFcRuntimeSettings,
   setFeedControls,
   getFeedControls,
@@ -134,6 +135,8 @@ import {
   ReportSheet,
   tryHandleProfilePhotoAction,
   tryHandleLogoutConfirm,
+  tryHandleAccountAction,
+  AccountSheet,
   tryHandleProfileAccountAction,
   openProfileAddToSpace,
   tryHandleProfileTabAction,
@@ -404,6 +407,7 @@ function applyReactionOptimistic(feedId: number, reactType: string, on: boolean)
 // Handed over as-is; the store validates and falls back per field.
 function applyFcRuntimeSettings(envelope: BootstrapEnvelope): void {
   const cfg = (envelope.runtime_config ?? null) as Record<string, unknown> | null;
+  setSignupState(cfg?.signup);
   const fc = cfg && isRecord(cfg.fluent_community) ? (cfg.fluent_community as Record<string, unknown>) : null;
   if (!fc) return;
   setFcRuntimeSettings(fc);
@@ -1562,6 +1566,7 @@ export function App() {
         <MemberOptionsSheet />
         <MemberRoleSheet />
         <MemberRemoveConfirm />
+        <AccountSheet />
         <CourseAddStudentSheet />
         <ReportSheet />
         <AddMemberModal />
@@ -2079,12 +2084,14 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
         onError('auth.login is missing its endpoint.');
         return;
       }
-      const owningAppzet = findAppzetForAction(catalog, currentScreenId, 'auth.login', currentCustomizations);
-      if (!owningAppzet) {
+      // A just-created account (P2b) hands its own login over; the sign-in page's fields are read otherwise.
+      const given = isRecord(argRec.credentials) ? (argRec.credentials as Record<string, unknown>) : null;
+      const owningAppzet = given ? null : findAppzetForAction(catalog, currentScreenId, 'auth.login', currentCustomizations);
+      if (!given && !owningAppzet) {
         onError('auth.login: no owning appzet found on current screen');
         return;
       }
-      const body = collectParams(owningAppzet, paramMap);
+      const body = given ?? collectParams(owningAppzet!, paramMap);
       void (async () => {
         try {
           const res = await fetch(absolutizeEndpoint(endpoint), {
@@ -3131,6 +3138,14 @@ function handleAction(inv: ActionInvocation, deps: ActionDeps) {
 
     case 'auth.logout_confirm': {
       tryHandleLogoutConfirm(inv);
+      return;
+    }
+
+    // v1 parity P2: the account sheets. The simulator's endpoints are already on its own site.
+    case 'auth.forgot_password':
+    case 'auth.register':
+    case 'auth.delete_account': {
+      tryHandleAccountAction(inv, { auth, authHeader: basicAuthHeader, onInfo: onInfo, dispatch: (next) => handleAction(next, deps), absolutize: absolutizeEndpoint });
       return;
     }
 

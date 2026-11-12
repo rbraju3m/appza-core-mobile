@@ -27,6 +27,7 @@ import {
   INVITE_USER_CHILD_COUNT,
   setCatalogGlobal,
   setFcRuntimeSettings,
+  setSignupState,
   setViewer,
   setProxyHeadersProvider,
   canBrowseAsGuest,
@@ -135,6 +136,8 @@ import {
   ReportSheet,
   tryHandleProfilePhotoAction,
   tryHandleLogoutConfirm,
+  tryHandleAccountAction,
+  AccountSheet,
   tryHandleProfileAccountAction,
   openProfileAddToSpace,
   tryHandleProfileTabAction,
@@ -1660,6 +1663,7 @@ export function App() {
       <MemberOptionsSheet />
       <MemberRoleSheet />
       <MemberRemoveConfirm />
+      <AccountSheet />
       <CourseAddStudentSheet />
       <ReportSheet />
       <AddMemberModal />
@@ -2647,6 +2651,7 @@ function renderThemes(templateTokens: unknown, screenTokens: unknown) {
 // Must mirror the mobile shell exactly.
 function applyFcRuntimeSettings(envelope: BootstrapEnvelope): void {
   const cfg = (envelope.runtime_config ?? null) as Record<string, unknown> | null;
+  setSignupState(cfg?.signup);
   const fc = cfg && isRecord(cfg.fluent_community) ? (cfg.fluent_community as Record<string, unknown>) : null;
   if (!fc) return;
   setFcRuntimeSettings(fc);
@@ -3337,12 +3342,14 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
         console.warn('[appza-admin/app-mode] auth.login missing endpoint');
         return;
       }
-      const owningAppzet = findAppzetForAction(catalog, currentScreenId, 'auth.login', currentCustomizations);
-      if (!owningAppzet) {
+      // A just-created account (P2b) hands its own login over; the sign-in page's fields are read otherwise.
+      const given = isRecord(argRec.credentials) ? (argRec.credentials as Record<string, unknown>) : null;
+      const owningAppzet = given ? null : findAppzetForAction(catalog, currentScreenId, 'auth.login', currentCustomizations);
+      if (!given && !owningAppzet) {
         console.warn('[appza-admin/app-mode] auth.login: no owning appzet found on current screen');
         return;
       }
-      const body = collectParams(owningAppzet, paramMap);
+      const body = given ?? collectParams(owningAppzet!, paramMap);
       void (async () => {
         try {
           const res = await fetch(endpoint, {
@@ -3715,6 +3722,14 @@ function handleAppModeAction(inv: ActionInvocation, deps: AppModeActionDeps) {
 
     case 'auth.logout_confirm': {
       tryHandleLogoutConfirm(inv);
+      return;
+    }
+
+    // v1 parity P2: the account sheets. The simulator's endpoints are already on its own site.
+    case 'auth.forgot_password':
+    case 'auth.register':
+    case 'auth.delete_account': {
+      tryHandleAccountAction(inv, { auth, authHeader: basicAuthHeader, onInfo: onMenuInfo, dispatch: (next) => handleAppModeAction(next, deps), absolutize: (endpoint) => endpoint });
       return;
     }
 
