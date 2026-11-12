@@ -22,7 +22,8 @@ export type DraftState = 'none' | 'value' | 'remove';
 const idOf = (t: CustomizationTarget) => [t.scope, t.target_slug, t.target_slug_composite ?? '', t.target_column].join('|');
 
 /** Where the bootstrap's customizations tree keeps a row (the plug-in's `target_key_for`). */
-const treeKey = (t: CustomizationTarget) => (t.scope === 'appzet_primitive' ? t.target_slug_composite ?? '' : t.target_slug);
+const treeKey = (t: CustomizationTarget) =>
+  t.scope === 'appzet_primitive' || t.scope === 'template_screen_placement' ? t.target_slug_composite ?? '' : t.target_slug;
 
 const targetOf = (t: CustomizationTarget): CustomizationTarget => ({
   scope: t.scope,
@@ -93,6 +94,15 @@ export function useCustomizationDrafts(onEdit?: (thing: string) => void) {
 
   const discard = useCallback(() => setDrafts((all) => (Object.keys(all).length ? {} : all)), []);
 
+  /** P1d "Reset app": every saved row goes back to the original design on Save; unsaved edits are dropped. */
+  const stageRemoveAll = useCallback(
+    (targets: CustomizationTarget[]) => {
+      onEdit?.('reset:custom');
+      setDrafts(Object.fromEntries(targets.map((t) => [idOf(t), { ...targetOf(t), remove: true } as CustomizationDraft])));
+    },
+    [onEdit],
+  );
+
   /** The saved customizations with every draft laid over them, as the renderer reads them. */
   const overlay = useCallback(
     (customizations: unknown): unknown => {
@@ -128,8 +138,8 @@ export function useCustomizationDrafts(onEdit?: (thing: string) => void) {
 
   const count = Object.keys(drafts).length;
   return useMemo(
-    () => ({ all: drafts as Record<string, unknown>, count, stateOf, set, remove, clear, discard, restore, overlay, payload }),
-    [drafts, count, stateOf, set, remove, clear, discard, restore, overlay, payload],
+    () => ({ all: drafts as Record<string, unknown>, count, stateOf, set, remove, clear, discard, stageRemoveAll, restore, overlay, payload }),
+    [drafts, count, stateOf, set, remove, clear, discard, stageRemoveAll, restore, overlay, payload],
   );
 }
 

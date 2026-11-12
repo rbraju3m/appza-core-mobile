@@ -8,6 +8,8 @@ import { Thumbnail } from './BuilderPanel';
 import { IconPicker } from './IconPicker';
 import { ConfirmButton, revertQuestion } from './ConfirmButton';
 import { selectedSlug, type ChromeBuilder, type ChromeDraft, type ChromeItem } from './useChromeBuilder';
+import { AppIdentityFields } from './AppIdentityFields';
+import type { AppIdentityStore } from './appIdentity';
 
 type GlobalPanelProps = {
   chrome: ChromeBuilder;
@@ -16,12 +18,14 @@ type GlobalPanelProps = {
   customizations: unknown;
   screen: string | null;
   screenName: string | null;
+  /** P1c: the app's name, icon and splash, an unsaved change like the rest. */
+  identity: AppIdentityStore;
 };
 
 type Shared = Pick<GlobalPanelProps, 'chrome' | 'catalogIndex' | 'customizations'> & { appzetBySlug: Map<string, AppZet> };
 
-export function GlobalPanel({ chrome, catalog, catalogIndex, customizations, screen, screenName }: GlobalPanelProps) {
-  const [open, setOpen] = useState<Record<string, boolean>>({ appbar: true });
+export function GlobalPanel({ chrome, catalog, catalogIndex, customizations, screen, screenName, identity }: GlobalPanelProps) {
+  const [open, setOpen] = useState<Record<string, boolean>>({ app: true, appbar: true });
   const appzetBySlug = useMemo(() => new Map((catalog.appzets ?? []).map((a) => [a.slug, a])), [catalog]);
   const shared: Shared = { chrome, catalogIndex, customizations, appzetBySlug };
 
@@ -49,6 +53,7 @@ export function GlobalPanel({ chrome, catalog, catalogIndex, customizations, scr
   return (
     <div className="appza-builder">
       {chrome.saveError && <div className="appza-builder-error" role="alert">{chrome.saveError}</div>}
+      {section('app', 'App', identity.dirty, <AppIdentityFields value={identity.value} onChange={identity.change} narrow />)}
       {section(
         'appbar',
         'Appbar',

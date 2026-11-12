@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Problem, httpProblem, problemFor } from './errors';
 import { isAdvanced } from './advanced';
+import { savedIdentity } from './appIdentity';
 
 type SourceIntegration = {
   slug: string;
@@ -81,6 +82,8 @@ export function BuildAppModal({ onClose, templateOptions, defaultTemplateSlug }:
   const buildEndpoint = window.appzaCoreConfig?.endpoints?.buildRequests;
   const nonce = window.appzaCoreConfig?.restNonce;
   const currentSiteUrl = window.appzaCoreConfig?.siteUrl ?? window.location.origin;
+  // P1c: the saved identity, shown so the owner knows it is kept; this build doesn't use it yet (P7).
+  const identity = useMemo(savedIdentity, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -277,6 +280,18 @@ export function BuildAppModal({ onClose, templateOptions, defaultTemplateSlug }:
         </div>
 
         <div className="appza-onboard-body">
+          <div className="appza-build-section appza-build-identity" data-build-identity>
+            <span className="appza-identity-icon">
+              {identity.icon_url ? <img src={identity.icon_url} alt="" /> : <span>{[...identity.name.trim()][0]?.toUpperCase() ?? 'A'}</span>}
+            </span>
+            <div>
+              <div className="appza-build-section-label">{identity.name.trim() || 'Your app has no name yet'}</div>
+              <div className="appza-build-section-hint">
+                Test builds are always called Appza QA. Your name, icon and splash go into your own app with Pro builds.
+                {!identity.name.trim() && ' Set them in the Global tab, under App.'}
+              </div>
+            </div>
+          </div>
           {state.kind === 'loading' && <div className="appza-onboard-status">Loading apps…</div>}
           {state.kind === 'error' && (
             <div className="appza-onboard-status appza-onboard-error">{state.message}</div>

@@ -244,6 +244,7 @@ import { patchItem, saveBuilder } from './layoutApi';
 import { useChromeBuilder } from './useChromeBuilder';
 import { draftHandle, hasSavedRow, useCustomizationDrafts } from './useCustomizationDrafts';
 import { useBuilderHistory, useUndoKeys } from './useBuilderHistory';
+import { useAppIdentity } from './appIdentity';
 import { mainKeys, rowsOf } from './layoutApi';
 import { OverridesPanel } from './OverridesPanel';
 import { designFor, partHighlight, partsForPick, pieceLabel, useDesignIndex, type DesignFocus } from './DesignTab';
@@ -256,6 +257,7 @@ import { OnboardingModal } from './OnboardingModal';
 import { Tour } from './Tour';
 import { configFlag, markTourSeen, saveSiteTemplate, syncTemplate } from './siteTemplate';
 import { BuildAppModal } from './BuildAppModal';
+import { ResetAppModal, type ResetPlan } from './ResetAppModal';
 import { Problem, caughtProblem, httpProblem, httpTag, problemFor, setupGap } from './errors';
 
 type FetchState =
@@ -487,6 +489,7 @@ export function App() {
   // Unsaved block settings, piece layouts and theme, drawn over the saved ones; the top bar saves them (P3).
   const history = useBuilderHistory();
   const drafts = useCustomizationDrafts(history.record);
+  const identity = useAppIdentity(history.record);
   const [savingAll, setSavingAll] = useState(false);
   const [saveAllError, setSaveAllError] = useState<string | null>(null);
 
@@ -892,11 +895,12 @@ export function App() {
   });
   // Undo / Redo over all three stores (P3b).
   history.bind({
-    snapshot: () => ({ layout: builder.edits, chrome: chrome.edits, custom: drafts.all }),
+    snapshot: () => ({ layout: builder.edits, chrome: chrome.edits, custom: drafts.all, identity: identity.edits }),
     restore: (s) => {
       builder.restoreEdits(s.layout ?? {});
       chrome.restoreEdits(s.chrome ?? {});
       drafts.restore(s.custom ?? {});
+      identity.restore(s.identity ?? {});
     },
   });
   useUndoKeys(history, true);
@@ -942,17 +946,24 @@ export function App() {
   }, [envelope, drafts.overlay, uiMode, nowLabel, layoutOverlay]);
 
   // The one Save (P3): pages, app bar / tabs / drawer, block settings, piece layouts and theme, all or nothing.
-  const unsavedCount = builder.dirtyCount + chrome.dirtyCount + drafts.count;
+  const unsavedCount = builder.dirtyCount + chrome.dirtyCount + drafts.count + identity.count;
   const saveAll = useCallback(async () => {
     const layouts = [...builder.pending(), ...chrome.pending()];
     const customizations = drafts.payload();
-    if (layouts.length + customizations.length === 0) return;
+    const identityBody = identity.payload();
+    if (layouts.length + customizations.length === 0 && !identityBody) return;
     setSavingAll(true);
     setSaveAllError(null);
     try {
-      const r = await saveBuilder(layouts, customizations);
+      const r = await saveBuilder(layouts, customizations, identityBody);
       if (!r.ok) {
         // The bar names what failed: a page or part as the plug-in names it, a setting by the block it belongs to.
+        // The app's details say what's wrong in plain words, so they always show.
+        const identityErrors = Object.entries(r.errors ?? {}).filter(([k]) => k.startsWith('identity.'));
+        if (identityErrors.length) {
+          setSaveAllError(`${r.message} App: ${identityErrors.map(([, v]) => v).join(' ')}`);
+          return;
+        }
         const nameOf = (k: string) => {
           const m = /^customizations\[(\d+)\]$/.exec(k);
           const c = m ? customizations[Number(m[1])] : undefined;
@@ -967,6 +978,7 @@ export function App() {
       await Promise.all([builder.afterSave(), chrome.afterSave(), pull(templateSlug, true)]);
       // After the pull: the saved values are in place, so the phone doesn't flash the old ones.
       drafts.discard();
+      identity.afterSave();
       // No Undo past a Save (owner, 2026-11-11).
       history.clear();
     } catch (e) {
@@ -975,7 +987,7 @@ export function App() {
       setSavingAll(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [builder.pending, chrome.pending, builder.afterSave, chrome.afterSave, drafts, templateSlug]);
+  }, [builder.pending, chrome.pending, builder.afterSave, chrome.afterSave, drafts, identity, templateSlug]);
   // Leaving with unsaved changes (closing the tab, a wp-admin link, reload) asks first (P3c).
   useEffect(() => {
     if (unsavedCount === 0) return;
@@ -987,13 +999,29 @@ export function App() {
     return () => window.removeEventListener('beforeunload', onLeave);
   }, [unsavedCount]);
 
+  // P1d: "Reset app to the look's design" — everything the site changed, staged as one Undo step.
+  const [resetOpen, setResetOpen] = useState(false);
+  const resetApp = useCallback(
+    (plan: ResetPlan) => {
+      setSaveAllError(null);
+      history.record('reset');
+      drafts.stageRemoveAll(plan.settings);
+      builder.stageRevertAll(plan.pages);
+      chrome.stageRevertAll(plan.chrome);
+      setResetOpen(false);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [history.record, drafts.stageRemoveAll, builder.stageRevertAll, chrome.stageRevertAll],
+  );
+
   const discardAll = useCallback(() => {
     setSaveAllError(null);
     builder.discard();
     chrome.discard();
     drafts.discard();
+    identity.discard();
     history.clear();
-  }, [builder.discard, chrome.discard, drafts.discard, history.clear]);
+  }, [builder.discard, chrome.discard, drafts.discard, identity.discard, history.clear]);
 
   useEffect(() => {
     if (uiMode !== 'drag' || !builder.selectedKey) return;
@@ -1666,6 +1694,7 @@ export function App() {
         templatesLoading={templatesLoading}
         onReload={() => pull(templateSlug)}
         onSync={() => syncFromCore(templateSlug)}
+        onResetApp={catalog ? () => setResetOpen(true) : undefined}
         onRefreshData={() => {
           window.dispatchEvent(new Event('appza:refresh-data'));
         }}
@@ -2012,6 +2041,7 @@ export function App() {
                 customizations={effectiveCustomizations}
                 screen={currentScreen?.app_map_screen_slug ?? null}
                 screenName={currentScreen?.app_map_screen_slug ?? null}
+                identity={identity}
               />
             ) : undefined
           }
@@ -2506,6 +2536,7 @@ export function App() {
             // The platforms may have changed even when no look was picked.
             loadTemplates();
           }}
+          onIdentitySaved={identity.setSaved}
           onFinished={(slug) => {
             const wasFirstRun = !platformCount && !templateSaved;
             setOnboardingOpen(false);
@@ -2552,6 +2583,16 @@ export function App() {
       )}
 
       {tourOpen && <Tour onDone={finishTour} />}
+
+      {resetOpen && (
+        <ResetAppModal
+          template={catalog?.template?.slug ?? templateSlug}
+          lookName={templateOptions.find((t) => t.slug === templateSlug)?.name ?? catalog?.template?.name ?? 'the look'}
+          unsavedCount={unsavedCount - identity.count}
+          onReset={resetApp}
+          onClose={() => setResetOpen(false)}
+        />
+      )}
 
       {buildAppOpen && (
         <BuildAppModal

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { isRecord, screenLayoutKey, type DrawerMenuItem } from '@appza/renderer';
-import { loadPart, newSiteKey, resetPart, savePart, type LayoutPart, type LayoutSave } from './layoutApi';
+import { loadPart, newSiteKey, resetPart, savePart, type LayoutPart, type LayoutSave, type PartPayload } from './layoutApi';
 
 /** One Global-tab resource: a chrome list (at most one entry) or the drawer menu. */
 export type ChromeDraft = {
@@ -58,6 +58,22 @@ export function selectedSlug(d: ChromeDraft): string | null {
   return core?.appzet_slug ?? item.appzet_slug ?? null;
 }
 
+/** A draft as loaded from the plug-in, nothing changed yet. */
+export function chromeDraftFrom(t: string, s: string | null, part: LayoutPart, body: PartPayload): ChromeDraft {
+  return {
+    template: t,
+    screen: s,
+    part,
+    core: body.core,
+    palette: body.palette,
+    baseVersion: body.version,
+    drift: body.drift,
+    saved: body.site,
+    items: initialItems(part, body.core, body.site),
+    dirty: false,
+  };
+}
+
 type Options = {
   active: boolean;
   template: string;
@@ -74,19 +90,7 @@ export function useChromeBuilder({ active, template, screen, onSaved, onEdit }: 
 
   const reload = useCallback(async (t: string, s: string | null, part: LayoutPart) => {
     try {
-      const body = await loadPart(t, s, part);
-      const d: ChromeDraft = {
-        template: t,
-        screen: s,
-        part,
-        core: body.core,
-        palette: body.palette,
-        baseVersion: body.version,
-        drift: body.drift,
-        saved: body.site,
-        items: initialItems(part, body.core, body.site),
-        dirty: false,
-      };
+      const d = chromeDraftFrom(t, s, part, await loadPart(t, s, part));
       setDrafts((all) => ({ ...all, [chromeId(t, s, part)]: d }));
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : String(e));
@@ -192,6 +196,25 @@ export function useChromeBuilder({ active, template, screen, onSaved, onEdit }: 
     );
   }, []);
 
+  /** P1d "Reset app": each part the site saved goes back to Core's (staged); other unsaved part edits are dropped. */
+  const stageRevertAll = useCallback(
+    (saved: ChromeDraft[]) => {
+      setSaveError(null);
+      onEdit?.('reset:chrome');
+      setDrafts((all) => {
+        const next: Record<string, ChromeDraft> = {};
+        for (const [k, d] of Object.entries(all)) {
+          next[k] = d.dirty ? { ...d, items: initialItems(d.part, d.core, d.saved), dirty: false, revert: false } : d;
+        }
+        for (const d of saved) {
+          next[chromeId(d.template, d.screen, d.part)] = { ...d, items: initialItems(d.part, d.core, null), dirty: true, revert: true };
+        }
+        return next;
+      });
+    },
+    [onEdit],
+  );
+
   const discard = useCallback(() => {
     setSaveError(null);
     setDrafts((all) =>
@@ -240,7 +263,7 @@ export function useChromeBuilder({ active, template, screen, onSaved, onEdit }: 
     [drafts],
   );
 
-  return { get, loadError, saveError, dirtyCount: dirty.length, setItems, select, revert, pending, afterSave, edits, restoreEdits, discard, reset, keepMine, overlay };
+  return { get, loadError, saveError, dirtyCount: dirty.length, setItems, select, revert, stageRevertAll, pending, afterSave, edits, restoreEdits, discard, reset, keepMine, overlay };
 }
 
 export type ChromeBuilder = ReturnType<typeof useChromeBuilder>;

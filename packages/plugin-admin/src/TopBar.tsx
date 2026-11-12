@@ -31,6 +31,8 @@ type TopBarProps = {
   uiMode: UiMode;
   onUiModeChange: (mode: UiMode) => void;
   onBuildApp: () => void;
+  /** P1d: "Reset app to the look's design…". */
+  onResetApp?: () => void;
   /** P5: who the phone shows the app to; 'signed-in' = someone signed in through the app's own form. */
   viewAs: ViewAs | 'signed-in';
   viewAsName: string | null;
@@ -154,6 +156,7 @@ export function TopBar({
   uiMode,
   onUiModeChange,
   onBuildApp,
+  onResetApp,
   viewAs,
   viewAsName,
   viewers,
@@ -427,6 +430,20 @@ export function TopBar({
               >
                 {syncing ? 'Updating…' : 'Get latest designs'}
               </button>
+              {onResetApp && (
+                <button
+                  className="appza-btn"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    onResetApp();
+                  }}
+                  disabled={syncing || loading || saving}
+                  title="Reset app to the look's design: undo everything you changed in this look"
+                  data-reset-app-btn
+                >
+                  Reset app…
+                </button>
+              )}
               {advanced && <button
                 className="appza-btn"
                 onClick={onReload}

@@ -13,10 +13,12 @@ import {
 } from './siteTemplate';
 import { setCoreExtras } from './coreExtras';
 import { HowToGetYourApp } from './HowToGetYourApp';
+import { AppIdentityFields } from './AppIdentityFields';
+import { identityProblems, saveAppIdentity, savedIdentity, type AppIdentity } from './appIdentity';
 
 // P1e: opens on "How to get your app" (every visit unless this user hid it), then the set-up steps.
 // Friendly v2 P2: the first run. Connect (only when APPZA can't be reached) → your platform → pick a look; the tour
-// follows in the builder. The "Apps" pill reopens it; there, choosing another look asks first (owner, C).
+// follows in the builder. P1c: "Your app" (name, icon, splash) after the look, saved at once, or "Do this later". The "Apps" pill reopens it; there, choosing another look asks first (owner, C).
 
 type SourceIntegration = {
   slug: string;
@@ -29,7 +31,7 @@ type SourceIntegration = {
   is_disable: boolean;
 };
 
-type Step = 'intro' | 'loading' | 'connect' | 'platform' | 'look' | 'finishing';
+type Step = 'intro' | 'loading' | 'connect' | 'platform' | 'look' | 'finishing' | 'identity';
 
 type Props = {
   /** True when the site has never chosen a platform or a look. */
@@ -41,9 +43,11 @@ type Props = {
   onClose: () => void;
   /** Platforms and look saved, designs fetched: open the builder on this template. */
   onFinished: (template: string) => void;
+  /** P1c: the "Your app" step saved the app's name, icon and splash. */
+  onIdentitySaved?: (identity: AppIdentity) => void;
 };
 
-export function OnboardingModal({ firstRun, startAt = 'intro', currentTemplate, onClose, onFinished }: Props) {
+export function OnboardingModal({ firstRun, startAt = 'intro', currentTemplate, onClose, onFinished, onIdentitySaved }: Props) {
   const [step, setStep] = useState<Step>(startAt === 'intro' ? 'intro' : 'loading');
   // Where Next on the intro page goes, once the platforms have loaded.
   const [afterIntro, setAfterIntro] = useState<'platform' | 'connect' | null>(null);
@@ -60,6 +64,9 @@ export function OnboardingModal({ firstRun, startAt = 'intro', currentTemplate, 
   const [problem, setProblem] = useState<string | null>(null);
   const [connection, setConnection] = useState<CoreConnection | null>(null);
   const [address, setAddress] = useState('');
+  const [identity, setIdentity] = useState<AppIdentity>(savedIdentity);
+  // The look is saved and synced once the "Your app" step shows: closing from there still opens it.
+  const [finishedLook, setFinishedLook] = useState<string | null>(null);
 
   const sourceEndpoint = window.appzaCoreConfig?.endpoints?.sourceIntegrations;
   const activeEndpoint = window.appzaCoreConfig?.endpoints?.activeSourceIntegrations;
@@ -180,7 +187,9 @@ export function OnboardingModal({ firstRun, startAt = 'intro', currentTemplate, 
     try {
       await saveSiteTemplate(picked);
       await syncTemplate(picked);
-      onFinished(picked);
+      setFinishedLook(picked);
+      setIdentity(savedIdentity());
+      setStep('identity');
     } catch (err) {
       setProblem(caughtProblem(err, "Getting your app's designs"));
       setStep('look');
@@ -198,26 +207,56 @@ export function OnboardingModal({ firstRun, startAt = 'intro', currentTemplate, 
     });
   }
 
+  async function saveIdentity() {
+    if (!finishedLook) return;
+    setBusy(true);
+    setProblem(null);
+    try {
+      const saved = await saveAppIdentity(identity);
+      onIdentitySaved?.(saved);
+      onFinished(finishedLook);
+    } catch (err) {
+      setProblem(caughtProblem(err, 'Saving your app\u2019s details'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const pickedName = cards.find((t) => t.slug === picked)?.name ?? picked ?? '';
   const onLook = step === 'look' || step === 'finishing';
+  const onIdentity = step === 'identity';
+  const identityOk = Object.keys(identityProblems(identity)).length === 0;
 
   return (
     <div className="appza-onboard-overlay" role="dialog" aria-modal="true" aria-label="Set up your app">
       <div className={`appza-onboard-card appza-onboard-card-wide${step === 'intro' ? ' appza-onboard-card-intro' : ''}`}>
         <div className="appza-onboard-header">
-          {(step === 'intro' || step === 'platform' || onLook) && (
+          {(step === 'intro' || step === 'platform' || onLook || onIdentity) && (
             <ol className="appza-onboard-steps" aria-label="Steps">
               <li data-state={step === 'intro' ? 'now' : 'done'}>How to get your app</li>
-              <li data-state={onLook ? 'done' : step === 'intro' ? 'next' : 'now'}>Your platform</li>
-              <li data-state={onLook ? 'now' : 'next'}>Pick a look</li>
+              <li data-state={onLook || onIdentity ? 'done' : step === 'intro' ? 'next' : 'now'}>Your platform</li>
+              <li data-state={onIdentity ? 'done' : onLook ? 'now' : 'next'}>Pick a look</li>
+              <li data-state={onIdentity ? 'now' : 'next'}>Your app</li>
               <li data-state="next">Quick tour</li>
             </ol>
           )}
           <h2 className="appza-onboard-title">
-            {step === 'intro' ? 'How to get your app' : step === 'connect' ? 'Connect to APPZA' : onLook ? 'Pick a look for your app' : firstRun ? "Let's build your app" : 'Your platform'}
+            {step === 'intro'
+              ? 'How to get your app'
+              : step === 'connect'
+              ? 'Connect to APPZA'
+              : onLook
+              ? 'Pick a look for your app'
+              : onIdentity
+              ? 'Name your app'
+              : firstRun
+              ? "Let's build your app"
+              : 'Your platform'}
           </h2>
           <p className="appza-onboard-subtitle">
-            {step === 'intro'
+            {onIdentity
+              ? 'Its name, icon and splash screen. Test builds are always called Appza QA; yours go into your own app with Pro builds.'
+              : step === 'intro'
               ? 'Try your app on your phone with the APPZA demo app, then set it up in a few steps.'
               : step === 'connect'
               ? "This site could not reach APPZA, where your app's designs come from. Check the address below."
@@ -317,6 +356,7 @@ export function OnboardingModal({ firstRun, startAt = 'intro', currentTemplate, 
             </ul>
           )}
           {step === 'finishing' && <div className="appza-onboard-status">Getting your app's designs…</div>}
+          {onIdentity && <AppIdentityFields value={identity} onChange={(patch) => setIdentity((i) => ({ ...i, ...patch }))} />}
           {confirming && step === 'look' && (
             <div className="appza-onboard-confirm" role="alert">
               Switch your app to <b>{pickedName}</b>? Your next app build will use it too.
@@ -341,6 +381,15 @@ export function OnboardingModal({ firstRun, startAt = 'intro', currentTemplate, 
           {step === 'look' ? (
             <button type="button" className="appza-onboard-btn appza-onboard-btn-ghost" onClick={() => setStep('platform')} disabled={busy}>
               Back
+            </button>
+          ) : onIdentity ? (
+            <button
+              type="button"
+              className="appza-onboard-btn appza-onboard-btn-ghost"
+              onClick={() => finishedLook && onFinished(finishedLook)}
+              disabled={busy}
+            >
+              Do this later
             </button>
           ) : (
             <button type="button" className="appza-onboard-btn appza-onboard-btn-ghost" onClick={onClose} disabled={busy}>
@@ -376,6 +425,11 @@ export function OnboardingModal({ firstRun, startAt = 'intro', currentTemplate, 
               disabled={busy || rows.length === 0 || selected.size === 0}
             >
               {busy ? 'Saving…' : 'Next'}
+            </button>
+          )}
+          {onIdentity && (
+            <button type="button" className="appza-onboard-btn appza-onboard-btn-primary" onClick={() => void saveIdentity()} disabled={busy || !identityOk}>
+              {busy ? 'Saving…' : 'Save and continue'}
             </button>
           )}
           {onLook && (

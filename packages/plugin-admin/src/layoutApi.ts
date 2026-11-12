@@ -276,12 +276,13 @@ export type BuilderSaveResult =
   | { ok: false; status: number; message: string; errors?: Record<string, string> };
 
 /** Every unsaved layout and customization in one request; the plug-in writes all of it or none (P3). */
-export async function saveBuilder(layouts: LayoutSave[], customizations: unknown[]): Promise<BuilderSaveResult> {
+export async function saveBuilder(layouts: LayoutSave[], customizations: unknown[], identity?: unknown): Promise<BuilderSaveResult> {
   const res = await fetch(`${base()}/builder/save`, {
     method: 'POST',
     headers: headers(true),
     credentials: 'same-origin',
-    body: JSON.stringify({ layouts, customizations }),
+    // P1c: the app's name, icon and splash ride along, written in the same transaction.
+    body: JSON.stringify(identity === undefined ? { layouts, customizations } : { layouts, customizations, identity }),
   });
   const body = await res.json().catch(() => ({}));
   if (res.ok) return { ok: true };

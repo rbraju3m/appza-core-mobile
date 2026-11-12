@@ -16,6 +16,8 @@ export type AppzaCoreConfig = {
     tourSeen?: string;
     introHidden?: string;
     coreConnection?: string;
+    /** v1 parity P1c: the app's name, icon and splash. */
+    appIdentity?: string;
     syncPage?: string;
     /** Friendly v2 P5: the "Viewing as" switch, and core's route that revokes Me's application password. */
     previewViewer?: string;
@@ -33,6 +35,16 @@ export type AppzaCoreConfig = {
   tutorialVideoUrl?: string | null;
   /** P1e: the demo app's store pages, "" when Core has none. */
   demoApp?: { playStoreUrl?: string | null; appStoreUrl?: string | null };
+  /** P1c: the app's name, icon and splash as saved (ids are media-library attachments; 0 = none). */
+  appIdentity?: {
+    name?: string;
+    icon_id?: number;
+    icon_url?: string;
+    splash_id?: number;
+    splash_url?: string;
+    splash_background?: string;
+    saved?: boolean | string;
+  };
   assetsBase?: string;
   previewMode?: PreviewMode;
   siteUrl?: string;

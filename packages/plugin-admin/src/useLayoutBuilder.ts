@@ -152,6 +152,29 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
     );
   }, []);
 
+  /**
+   * P1d "Reset app": each page the site saved goes back to Core's list (staged, like "Back to original"); any other
+   * unsaved page edit is dropped. `saved` are freshly loaded drafts of every page with a saved row.
+   */
+  const stageRevertAll = useCallback(
+    (saved: ScreenDraft[]) => {
+      setSaveError(null);
+      onEdit?.('reset:layout');
+      setDrafts((all) => {
+        const next: Record<string, ScreenDraft> = {};
+        for (const [k, d] of Object.entries(all)) {
+          next[k] = d.dirty ? { ...d, items: d.saved ?? d.core.map((c) => ({ key: c.key })), dirty: false, revert: false } : d;
+        }
+        for (const d of saved) {
+          next[`${d.template}:${d.screen}`] = { ...d, items: d.core.map((c) => ({ key: c.key })), dirty: true, revert: true };
+        }
+        return next;
+      });
+      setSelectedKey(null);
+    },
+    [onEdit],
+  );
+
   const discard = useCallback(() => {
     setSaveError(null);
     setDrafts((all) =>
@@ -312,6 +335,7 @@ export function useLayoutBuilder({ active, template, screen, appzetBySlug, onSav
     edits,
     restoreEdits,
     revert,
+    stageRevertAll,
     discard,
     keepMine,
     addNew,
